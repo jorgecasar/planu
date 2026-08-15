@@ -17,7 +17,9 @@ export class PlanuEventCard extends LitElement {
 			display: block;
 		}
 
-		h3 {
+		/* h2 y no h3: el único encabezado por encima es el h1 de la cabecera,
+		   y saltarse un nivel es una violación de accesibilidad. */
+		h2 {
 			margin: 0;
 			font-size: var(--wa-font-size-l);
 		}
@@ -32,10 +34,11 @@ export class PlanuEventCard extends LitElement {
 			margin: 0 0 var(--wa-space-s);
 		}
 
-		dl {
+		/* No es una lista de definiciones: son dos líneas de metadatos. Un <dl>
+		   con <div> que no contienen dt/dd es inválido y axe lo marca. */
+		.meta {
 			display: grid;
 			gap: var(--wa-space-2xs);
-			margin: 0;
 			color: var(--wa-color-text-quiet);
 			font-size: var(--wa-font-size-s);
 		}
@@ -59,14 +62,14 @@ export class PlanuEventCard extends LitElement {
 						: nothing
 				}
 
-				<h3 slot="header">${event.title}</h3>
+				<h2 slot="header">${event.title}</h2>
 
 				${event.description ? html`<p>${event.description}</p>` : nothing}
 
-				<dl>
-					${event.location ? html`<div>${event.location}</div>` : nothing}
-					<div>${formatEventDates(event.startDate, event.endDate)}</div>
-				</dl>
+				<div class="meta">
+					${event.location ? html`<span>${event.location}</span>` : nothing}
+					<span>${formatEventDates(event.startDate, event.endDate)}</span>
+				</div>
 
 				<wa-button slot="footer" appearance="plain" @click=${this.#onEdit}>
 					Edit
@@ -83,10 +86,10 @@ export class PlanuEventCard extends LitElement {
 
 			<wa-dialog
 				label="Delete event"
-				?open=${this.confirming}
+				.open=${this.confirming}
 				@wa-hide=${this.#cancelDelete}
 			>
-				This permanently deletes “${event.title}”. It cannot be undone.
+				<p>This permanently deletes “${event.title}”. It cannot be undone.</p>
 				<wa-button slot="footer" appearance="outlined" @click=${this.#cancelDelete}>
 					Cancel
 				</wa-button>

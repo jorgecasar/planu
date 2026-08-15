@@ -1,6 +1,7 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./event-card.js";
+import "./event-editor.js";
 import "./event-filters.js";
 
 import { consume } from "@lit/context";
@@ -81,11 +82,33 @@ export class PlanuEventsView extends LitElement {
 
 	@state() private searchTerm = "";
 	@state() private range: DateRange = {};
+	@state() private editorOpen = false;
+	@state() private editing: StoredEvent | undefined;
 
 	readonly #events = new CollectionController<DocumentData>(this);
 
+	constructor() {
+		super();
+		// La tarjeta no conoce al editor: emite y esta vista decide.
+		this.addEventListener("planu-edit-event", (domEvent) => {
+			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
+			this.editorOpen = true;
+		});
+	}
+
+	/** Entradas de las que depende la consulta; sólo se rehace si cambian. */
+	#queryKey: string | undefined;
+
 	override willUpdate(): void {
 		const { firestore, user } = this;
+		const key = firestore && user ? user.uid : "";
+
+		// Reconstruir la consulta en cada actualización dispara una
+		// resuscripción, que provoca un snapshot, que provoca otra
+		// actualización: un bucle que reescribe el DOM varias veces por segundo.
+		if (key === this.#queryKey) return;
+		this.#queryKey = key;
+
 		this.#events.setQuery(
 			firestore && user
 				? query(collection(firestore, "events"), where("userId", "==", user.uid))
@@ -117,7 +140,18 @@ export class PlanuEventsView extends LitElement {
 							</div>`
 						: this.#renderEmpty(all.length)
 			}
+
+			<planu-event-editor
+				.open=${this.editorOpen}
+				.event=${this.editing}
+				@planu-editor-close=${this.#onEditorClose}
+			></planu-event-editor>
 		`;
+	}
+
+	#onEditorClose(): void {
+		this.editorOpen = false;
+		this.editing = undefined;
 	}
 
 	#renderSkeletons() {
@@ -156,9 +190,8 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	#onNew(): void {
-		this.dispatchEvent(
-			new CustomEvent("planu-new-event", { bubbles: true, composed: true }),
-		);
+		this.editing = undefined;
+		this.editorOpen = true;
 	}
 }
 

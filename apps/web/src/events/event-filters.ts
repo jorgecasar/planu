@@ -8,6 +8,19 @@ export interface FiltersChange extends DateRange {
 	searchTerm: string;
 }
 
+/**
+ * Lee el valor del input nativo que originó el evento.
+ *
+ * No vale `event.target.value`: al escuchar en el host de `wa-input`, el
+ * objetivo llega retargeteado al propio `wa-input`, cuya propiedad `value`
+ * todavía no se ha sincronizado con la del input interno. El resultado es leer
+ * el valor anterior —vacío en la primera pulsación— y no filtrar nada.
+ */
+function valueOf(event: globalThis.Event): string {
+	const source = event.composedPath()[0] as HTMLInputElement | undefined;
+	return source?.value ?? "";
+}
+
 /** Búsqueda por texto y acotado por rango de fechas. */
 @customElement("planu-event-filters")
 export class PlanuEventFilters extends LitElement {
@@ -79,18 +92,18 @@ export class PlanuEventFilters extends LitElement {
 		event.preventDefault();
 	}
 
-	#onSearch(event: Event): void {
-		this.searchTerm = (event.target as HTMLInputElement).value;
+	#onSearch(event: globalThis.Event): void {
+		this.searchTerm = valueOf(event);
 		this.#emit();
 	}
 
-	#onFrom(event: Event): void {
-		this.from = (event.target as HTMLInputElement).value;
+	#onFrom(event: globalThis.Event): void {
+		this.from = valueOf(event);
 		this.#emit();
 	}
 
-	#onTo(event: Event): void {
-		this.to = (event.target as HTMLInputElement).value;
+	#onTo(event: globalThis.Event): void {
+		this.to = valueOf(event);
 		this.#emit();
 	}
 
