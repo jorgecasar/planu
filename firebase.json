@@ -26,6 +26,10 @@
 						"value": "geolocation=(), camera=(), microphone=()"
 					},
 					{
+						"key": "Cache-Control",
+						"value": "no-cache"
+					},
+					{
 						"key": "Content-Security-Policy",
 						"value": "default-src 'self'; img-src 'self' https://firebasestorage.googleapis.com https://lh3.googleusercontent.com data: blob:; connect-src 'self' data: https://*.googleapis.com https://planu-app.firebaseapp.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; frame-src https://planu-app.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 					}
@@ -37,15 +41,6 @@
 					{
 						"key": "Cache-Control",
 						"value": "public, max-age=31536000, immutable"
-					}
-				]
-			},
-			{
-				"source": "@(/|/index.html)",
-				"headers": [
-					{
-						"key": "Cache-Control",
-						"value": "no-cache"
 					}
 				]
 			}
