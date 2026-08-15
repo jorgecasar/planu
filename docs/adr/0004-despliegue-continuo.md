@@ -71,6 +71,7 @@ descubierto por el 403 que provocaba su ausencia:
 | `firebaserules.admin` | desplegar las reglas de Firestore y Storage |
 | `serviceusage.serviceUsageConsumer` | comprobar si una API está habilitada |
 | `datastore.indexAdmin` | desplegar los índices de Firestore |
+| `previewAuthDomains` (a medida) | autorizar el dominio de cada preview para OAuth |
 
 **Ninguno concede lectura de datos.** Merece la pena decir qué se descartó y
 por qué: `roles/firebase.viewer` resolvía de un plumazo dos de los cuatro
@@ -89,6 +90,37 @@ assertion.repository == 'jorgecasar/planu'
 Sin ella, cualquier repositorio de GitHub —de cualquier persona— podría pedir
 un token contra este proyecto, porque el emisor `token.actions.githubusercontent.com`
 es común a todo GitHub. Es la línea que **no** hay que relajar.
+
+**8 bis. El dominio de cada preview se autoriza solo para OAuth.** Firebase Auth
+sólo permite operaciones OAuth desde los dominios de su lista y **no admite
+comodines**; cada canal recibe un `planu-app--<canal>-<hash>.web.app` nuevo. Sin
+esto, el preview avisa por consola de que el dominio no está autorizado y
+«Continuar con Google» no abre el popup, mientras el acceso con correo sigue
+funcionando — que es lo que hace fácil no darse cuenta.
+
+El hash **no es estable**: borrar y recrear el mismo canal da otro distinto
+(comprobado). Por eso no basta con autorizar una vez por PR y **la poda es
+obligatoria**, o la lista crece sin fin. La lógica está en
+`scripts/sync-auth-domains.js`.
+
+Tres decisiones alrededor:
+
+- **Rol a medida `previewAuthDomains`, con dos permisos.** El camino evidente
+  era `roles/firebaseauth.admin`, pero trae 16, entre ellos
+  `firebaseauth.users.createSession` —emitir una sesión de cualquier cuenta— y
+  `configs.getSecret`. Para reescribir una lista de dominios basta con
+  `configs.get` y `configs.update`.
+- **Job aparte con grupo de concurrencia compartido.** La API no tiene endpoint
+  de «añadir», así que escribir es un read-modify-write de la lista entera y dos
+  PR simultáneos se pisarían. Se serializa sólo la mutación, no los despliegues
+  de preview, que siguen en paralelo.
+- **No es fatal.** Un preview con OAuth roto sigue sirviendo para revisar la
+  interfaz y las cabeceras; tumbar el job escondería un despliegue correcto tras
+  un check en rojo. Falla con `::warning::`.
+
+**Los previews no mandan errores a Sentry.** No se les pasa `VITE_SENTRY_DSN`:
+gastarían cuota de eventos y, como sus source maps no se suben, llegarían
+minificados y atribuidos a una release inexistente.
 
 **9. Preview por pull request**, con canal de 7 días. Cubre el hueco conocido de
 los e2e, que corren contra `npm run dev` y por tanto nunca ejercitan la CSP ni
