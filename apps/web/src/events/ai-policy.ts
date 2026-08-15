@@ -29,6 +29,11 @@ export interface AiPolicyInput {
  * `only_on_device` falla cuando no hay IA integrada, y eso es lo correcto para
  * una cuenta sin derecho a la nube: mejor decir que la función no está
  * disponible que generar una factura a su espalda.
+ *
+ * Hoy devuelve siempre `only_on_device` porque la nube está deshabilitada: el
+ * componente ya no configura `inCloudParams`, así que reactivarla exige un
+ * cambio de código deliberado y no basta con mover una variable de entorno.
+ * Esta función se conserva porque es donde volverá a vivir la decisión.
  */
 export function resolveInferenceMode(input: AiPolicyInput): InferenceModeName {
 	return input.cloudEnabled && input.premium

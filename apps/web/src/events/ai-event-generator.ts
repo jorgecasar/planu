@@ -20,6 +20,11 @@ import {
 import { uploadFile } from "../firebase/storage.js";
 import type { PlanuEvent } from "../lib/types.js";
 import {
+	checkAvailability,
+	type ModelAvailability,
+	needsDownload,
+} from "./ai-availability.js";
+import {
 	type InferenceModeName,
 	type InferenceSourceName,
 	resolveInferenceMode,
@@ -81,13 +86,47 @@ export class PlanuAiEventGenerator extends LitElement {
 	@state() private preview = "";
 	@state() private busy = false;
 	@state() private uploading = false;
+	@state() private downloading = false;
 	@state() private progress = 0;
 	@state() private error = "";
+
+	@state() private availability: ModelAvailability | undefined;
+
+	/** Se reutiliza entre aperturas: preparar el modelo dos veces no aporta. */
+	#warmup: Promise<void> | undefined;
 
 	override willUpdate(changed: Map<string, unknown>): void {
 		if (changed.has("open") && this.open) {
 			this.preview = "";
 			this.error = "";
+			this.downloading = false;
+			// Abrir el diálogo ya es intención clara: Chrome recomienda preparar
+			// el modelo aquí y no al pulsar generar, para que la descarga ocurra
+			// mientras el usuario elige la foto en vez de después.
+			void this.#warmUp();
+		}
+	}
+
+	/** Prepara el modelo en segundo plano. Los errores esperan al generar. */
+	async #warmUp(): Promise<void> {
+		this.availability = await checkAvailability();
+		if (!this.app) return;
+
+		this.#warmup ??= (async () => {
+			const model = await this.#model();
+			await model.initializeDeviceModel((progreso) => {
+				this.downloading = true;
+				this.progress = progreso * 100;
+			});
+			this.downloading = false;
+		})();
+
+		try {
+			await this.#warmup;
+		} catch {
+			// Silencio a propósito: el usuario todavía no ha pedido nada. Si
+			// falla de verdad, lo sabrá al intentar generar, con su mensaje.
+			this.#warmup = undefined;
 		}
 	}
 
@@ -110,6 +149,16 @@ export class PlanuAiEventGenerator extends LitElement {
 						: nothing
 				}
 
+				${
+					// Avisar antes, no después: la descarga puede tardar minutos y
+					// una espera sin explicación parece que se ha colgado.
+					needsDownload(this.availability)
+						? html`<wa-callout variant="neutral">
+								${msg("The first time, your browser downloads the AI model. It can take a few minutes and only happens once.")}
+							</wa-callout>`
+						: nothing
+				}
+
 				<div class="drop">
 					<label for="ai-image">${msg("Event image")}</label>
 					${this.preview ? html`<img src=${this.preview} alt="" />` : nothing}
@@ -125,7 +174,15 @@ export class PlanuAiEventGenerator extends LitElement {
 							? html`<div class="working">
 									<wa-spinner></wa-spinner>
 									<span>
-										${this.uploading ? msg("Saving the image…") : msg("Reading the image…")}
+										${
+											this.downloading
+												? msg(
+														"Downloading the AI model, this can take a few minutes…",
+													)
+												: this.uploading
+													? msg("Saving the image…")
+													: msg("Reading the image…")
+										}
 									</span>
 								</div>`
 							: nothing
@@ -144,6 +201,34 @@ export class PlanuAiEventGenerator extends LitElement {
 		`;
 	}
 
+	/**
+	 * Construye el modelo. Sólo en el dispositivo.
+	 *
+	 * `only_on_device` espera a que la descarga termine en vez de resolver por
+	 * otro camino, y ante un problema lanza la causa real en lugar de callar.
+	 * No hay `inCloudParams` a propósito: reactivar la nube exige volver a
+	 * añadirlos y configurar App Check, no cambiar una variable de entorno.
+	 */
+	async #model() {
+		// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría de
+		// las sesiones no lo usan nunca. No debe entrar en el arranque.
+		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
+			"firebase/ai"
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: sólo se llama con app
+		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
+		return getGenerativeModel(ai, {
+			mode: await this.#inferenceMode(),
+			onDeviceParams: {
+				createOptions: {
+					expectedInputs: [{ type: "text" }, { type: "image" }],
+				},
+				promptOptions: { responseConstraint: RESPONSE_JSON_SCHEMA },
+			},
+		});
+	}
+
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
 		const input = domEvent.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -154,53 +239,10 @@ export class PlanuAiEventGenerator extends LitElement {
 		this.busy = true;
 
 		try {
-			// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría
-			// de las sesiones no lo usan nunca. No debe entrar en el arranque.
-			const { getAI, getGenerativeModel, GoogleAIBackend, Schema } =
-				await import("firebase/ai");
-
-			const ai = getAI(this.app, { backend: new GoogleAIBackend() });
-			const model = getGenerativeModel(ai, {
-				mode: await this.#inferenceMode(),
-				// El modelo del dispositivo no ve la configuración de la nube: si no
-				// se le restringe aquí, contesta en prosa y el parseo falla.
-				onDeviceParams: {
-					createOptions: {
-						expectedInputs: [{ type: "text" }, { type: "image" }],
-					},
-					promptOptions: { responseConstraint: RESPONSE_JSON_SCHEMA },
-				},
-				inCloudParams: {
-					model: "gemini-2.5-flash",
-					generationConfig: {
-						responseMimeType: "application/json",
-						// Equivale al GenerateEventOutputSchema que el prototipo
-						// declaraba con Zod para Genkit.
-						responseSchema: Schema.object({
-							properties: {
-								title: Schema.string({
-									description: "A concise and appealing title for the event.",
-								}),
-								description: Schema.string({
-									description: "A detailed description of the event.",
-								}),
-								location: Schema.string({
-									description: "The physical or virtual location of the event.",
-								}),
-								startDate: Schema.string({
-									description:
-										"Start date in ISO 8601 format, or an empty string.",
-								}),
-								endDate: Schema.string({
-									description:
-										"End date in ISO 8601 format, or an empty string.",
-								}),
-							},
-							optionalProperties: ["startDate", "endDate"],
-						}),
-					},
-				},
-			});
+			// El modelo ya se estaba preparando desde que se abrió el diálogo;
+			// aquí sólo se espera a que termine si aún no lo ha hecho.
+			await this.#warmUp();
+			const model = await this.#model();
 
 			let source: InferenceSourceName | undefined;
 			const generated = await generateEventFromImage(async (parts) => {
@@ -232,6 +274,7 @@ export class PlanuAiEventGenerator extends LitElement {
 						);
 		} finally {
 			this.busy = false;
+			this.downloading = false;
 			input.value = "";
 		}
 	}

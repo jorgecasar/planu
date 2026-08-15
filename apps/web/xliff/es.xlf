@@ -310,6 +310,14 @@
   <source>Your events could not be loaded. Check your connection and reload.</source>
         <target>No se pudieron cargar tus eventos. Revisa la conexión y recarga la página.</target>
 </trans-unit>
+<trans-unit id="se3bb30d68543ce28">
+  <source>The first time, your browser downloads the AI model. It can take a few minutes and only happens once.</source>
+        <target>La primera vez, tu navegador descarga el modelo de IA. Puede tardar unos minutos y sólo ocurre una vez.</target>
+</trans-unit>
+<trans-unit id="sbddf6c5babdea11a">
+  <source>Downloading the AI model, this can take a few minutes…</source>
+        <target>Descargando el modelo de IA, esto puede tardar unos minutos…</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

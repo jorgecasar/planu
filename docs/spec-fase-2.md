@@ -95,7 +95,9 @@ que F2 y F6 hayan fijado el modelo de datos definitivo.
 | Modelo de compartición | Invitados con cuenta y rol | Reglas y modelo de datos nuevos; ADR obligatorio |
 | Recordatorios | Export a calendario, sin backend | Cero coste, cero infraestructura |
 | Recurrencia | Fuera de alcance | El modelo de datos no gana campos de repetición |
-| Landing | Página estática aparte, no una ruta de la SPA | Vite pasa a multipágina; la app se muda a `/app`; los rewrites de Hosting cambian |
+| Landing | Página estática aparte, no una ruta de la SPA | La app se muda a `/app`; los rewrites de Hosting cambian |
+| Construcción de la landing | Prerender en build con `@lit-labs/ssr`, sin hidratar | Se escribe con `lit-html` y `msg()`, se sirve como HTML plano. Dependencia de desarrollo nueva, ya aprobada |
+| JavaScript en la landing | **0 KB por defecto**, tope de 10 KB comprimido | Comprobado en el build, que falla si se pasa |
 | Monetización | Ninguna por ahora | Sin página de precios y sin infraestructura de cobro |
 | Alcance de producto | Marca, legales, onboarding y analítica | Cuatro frentes que hoy no existen en el repo |
 
@@ -141,7 +143,7 @@ Tres razones:
 Si prefieres la subcolección de todas formas, dilo antes de la fase de plan: es
 un cambio barato ahora y caro después.
 
-## Las nueve funcionalidades
+## Las dieciséis funcionalidades
 
 ### F1 · Directorio mínimo de usuarios
 
@@ -356,8 +358,9 @@ cualquier buscador que no ejecute JavaScript.
 guarda de sesión y el despliegue a la vez. Va primero y sola.
 
 **Aceptación:**
-- Vite pasa a multipágina: `index.html` es la landing y `app.html` es la SPA
-  actual, con `rollupOptions.input` declarando ambas.
+- El `index.html` actual —que es la SPA— pasa a llamarse `app.html` y sigue
+  siendo la única entrada de Vite. **Vite no necesita ser multipágina:** la
+  landing no la construye Vite, la genera el script de F11 después.
 - **La app se muda a `/app`.** `HOME_PATH` deja de ser `/` y todas las rutas
   cuelgan de ahí: `/app`, `/app/login`, `/app/profile`. `guardRedirect` redirige
   a `/app/login`, no a `/login`.
@@ -369,46 +372,88 @@ guarda de sesión y el despliegue a la vez. Va primero y sola.
 
   Todo lo demás se sirve como fichero estático. **El rewrite `**` actual haría
   que la landing nunca se viera**, porque cualquier URL devolvería la SPA.
-- La landing **no importa nada de `firebase/*`**, ni Lit, ni el router.
-  Verificable: su bundle de JavaScript es de cero bytes o casi.
+- Redirecciones permanentes de `/`, `/login` y `/profile` hacia sus equivalentes
+  bajo `/app`, para no romper enlaces existentes.
 - Los enlaces de la landing hacia la app son `<a href="/app">`, navegación
   normal del navegador, no enrutado en cliente.
 - Los e2e existentes siguen pasando con las rutas nuevas.
 
-**Verificar:** `npm run build` produce dos HTML; un e2e entra a `/`, ve la
-landing, pulsa «Entrar» y acaba autenticado en `/app`; inspección del grafo de
-importaciones para confirmar que la landing no arrastra el SDK.
+**Verificar:** un e2e entra a `/`, ve la landing, pulsa «Entrar» y acaba
+autenticado en `/app`; los rewrites y las redirecciones probados contra el
+emulador de Hosting, que es el único sitio donde se comportan como en
+producción.
 
 ### F11 · Landing pública
 
+**Cómo se construye.** La landing se escribe con `lit-html` y `msg()`, igual que
+el resto del proyecto, y un script la **renderiza a HTML estático en el build**
+con `@lit-labs/ssr`. Al cliente no le llega ni una línea de JavaScript: llega
+HTML ya pintado.
+
+Esto resuelve de paso el problema que tenía la landing con los idiomas.
+`@lit/localize` funciona perfectamente si el render ocurre en Node, así que los
+textos salen del **mismo `xliff/es.xlf` y el mismo flujo `localize:extract` →
+traducir → `localize:build`** que la aplicación. Ni un HTML duplicado a mano ni
+un segundo sistema de traducción.
+
+```
+scripts/build-landing.mjs
+  para cada locale de locale-codes.ts:
+    configureLocalization → setLocale(locale)
+    render(landingTemplate())            # @lit-labs/ssr, en Node
+    + CSS minificado en línea
+    → dist/localized/{locale}/index.html
+```
+
+Corre **después** de `vite build`, para poder leer del manifiesto las rutas con
+hash de las imágenes y las tipografías ya procesadas por Vite.
+
 **Aceptación:**
-- Una sola página, con: qué es planu en una frase, tres o cuatro bloques de
-  valor —privado por defecto, compartir con quien elijas, tu cartel se convierte
-  en evento, se integra con tu calendario—, una captura o demostración real, y
-  una llamada a la acción única y repetida.
+- **0 KB de JavaScript** en la landing. Si algún día aparece una isla que de
+  verdad lo necesite, se hidrata **sólo esa isla** con `@lit-labs/ssr-client`, y
+  el tope es **10 KB comprimidos**. El build comprueba el tamaño y **falla si se
+  pasa**: un presupuesto que no se comprueba se incumple sin que nadie se entere.
+- Los componentes de la landing renderizan en **light DOM**
+  (`createRenderRoot() { return this; }`). Sin shadow DOM no hay
+  `<template shadowrootmode>` y por tanto no se depende de Declarative Shadow
+  DOM, que acaba de cruzar a Baseline widely available y no merece el riesgo
+  para algo que no lo necesita.
+- **Se usan las utilidades CSS de Web Awesome** (`wa-stack`, `wa-cluster`,
+  `wa-grid`, `wa-prose`) y los tokens `--wa-*`, que son CSS puro y funcionan sin
+  JavaScript. **No se usan sus componentes** (`<wa-button>` y compañía): son
+  custom elements y traerían JS. Un `<a>` estilado cubre la llamada a la acción.
+- El CSS va **en línea en el `<head>`**, minificado. Una landing de una página
+  tiene poco CSS; incrustarlo elimina una petición de la ruta crítica y hace
+  trivial el «CSS crítico en línea» que pide el LCP.
+- Contenido: qué es planu en una frase, tres o cuatro bloques de valor —privado
+  por defecto, compartir con quien elijas, tu cartel se convierte en evento, se
+  integra con tu calendario—, una captura o demostración real, y una llamada a
+  la acción única y repetida.
 - **Nada de lo que promete puede ser falso.** Si el `.ics` no está entregado, la
   landing no dice que se integra con tu calendario.
 - SEO: `<title>` y `meta description` propios, Open Graph y Twitter Card con
-  `og:image`, datos estructurados JSON-LD de tipo `SoftwareApplication`,
-  `robots.txt` y `sitemap.xml`.
-- Rendimiento: **LCP < 1,5 s** en 4G simulada y CLS < 0,1. Sin fuentes
-  bloqueantes, imágenes con `width`/`height` y formatos modernos, CSS crítico
-  en línea.
-- **Traducida como el resto**, pero `msg()` de Lit no llega hasta aquí: la
-  landing es HTML sin JavaScript. Se resuelve con la i18n nativa de Firebase
-  Hosting, que sirve por `Accept-Language` desde un directorio por idioma:
+  `og:image`, `<link rel="alternate" hreflang>` entre idiomas, datos
+  estructurados JSON-LD de tipo `SoftwareApplication`, `robots.txt` y
+  `sitemap.xml`.
+- Selección de idioma con la **i18n nativa de Firebase Hosting**, que sirve por
+  `Accept-Language` desde el directorio de cada idioma:
 
   ```json
   "i18n": { "root": "/localized" }
   ```
 
-  Es la única vía que no obliga ni a JavaScript ni a duplicar el HTML a mano.
-  **Confirmar que convive con los rewrites de F10** antes de comprometerse.
+  El prerender ya deja los ficheros donde toca. **Confirmar que convive con los
+  rewrites de F10** antes de comprometerse; si no lo hiciera, la alternativa es
+  una redirección por `Accept-Language` hacia `/es/` o `/en/`.
+- Rendimiento: **LCP < 1,5 s** en 4G simulada y CLS < 0,1. Sin fuentes
+  bloqueantes, imágenes con `width`/`height` y en formatos modernos.
 - Accesible: un solo `<h1>`, jerarquía de encabezados correcta, contraste
   suficiente, navegable con teclado, y axe sin violaciones.
 - Pie con enlaces a privacidad y términos (F13).
 
-**Verificar:** e2e con axe sobre la landing; auditoría Lighthouse con umbral de
+**Verificar:** e2e con axe sobre la landing en los dos idiomas; test del build
+que comprueba que el HTML generado no contiene ninguna etiqueta `<script>`;
+comprobación del presupuesto de bytes; auditoría Lighthouse con umbral de
 rendimiento y SEO en 100 (usar `/webperf`).
 
 ### F12 · Identidad visual propia
@@ -456,7 +501,8 @@ UE, informar deja de ser cortesía.
   analítica elegida no pone cookies ni identificadores persistentes, no se pone
   banner: un banner innecesario es peor producto y peor rendimiento.
 - Ambos textos disponibles en los dos idiomas y enlazados desde el pie de la
-  landing y desde el perfil.
+  landing y desde el perfil. Se generan con **el mismo prerender de F11**: son
+  páginas estáticas sin JavaScript, no rutas de la aplicación.
 - Página de contacto o email de responsable.
 - **No son documentos generados y olvidados**: si el modelo de datos cambia, la
   política cambia con él.
@@ -569,14 +615,30 @@ npm run emulators                                   # auth 9099, firestore 8181,
 npm run localize:extract && npm run localize:build  # tras cada texto nuevo
 ```
 
+Comandos nuevos:
+
+```bash
+npm run build:landing   # prerender por idioma; corre tras vite build
+npm run build           # tsc --noEmit && vite build && build:landing
+```
+
 F10 y F11 necesitan además el **emulador de Hosting**, ya configurado en el
 puerto 5050: es el único sitio donde se pueden probar los rewrites, las
 redirecciones y la i18n sin desplegar. `npm run emulators` hoy no lo arranca;
 hay que añadirlo.
 
-Los tests de reglas de seguridad son nuevos en el proyecto y necesitan
-`@firebase/rules-unit-testing`. **Es una dependencia nueva: hay que aprobarla**
-(cae en «preguntar primero»). Sin ella, F1 y F2 sólo se pueden verificar a mano.
+`@lit-labs/ssr` es dependencia **de desarrollo** —sólo corre en el build, nunca
+se envía al navegador— y ya está aprobada. `@lit-labs/ssr-client` sólo entraría
+si aparece una isla que hidratar, y esa decisión se toma entonces.
+
+Los tests de reglas de seguridad **ya están montados**:
+`@firebase/rules-unit-testing` instalado, `npm run test:rules` con
+`vitest.rules.config.ts`, y `apps/web/rules/firestore.test.ts` cubriendo
+privacidad, propiedad y forma del documento. Esta fase amplía ese arnés; no lo
+construye.
+
+Todos ellos, y los e2e con datos sembrados, **necesitan Java en el PATH** para
+los emuladores de Firestore y Storage.
 
 ## Estructura
 
@@ -621,23 +683,38 @@ Territorio de producto, fuera de `src/` porque la landing no es la aplicación:
 
 ```
 apps/web/
-  index.html                 F10: landing (antes era la SPA)
-  app.html                   F10: la SPA (antes index.html)
-  landing/
-    landing.css              Estilos propios; sin Lit, sin componentes
-    hero.webp, og.png
+  app.html                   F10: la SPA, única entrada de Vite (antes index.html)
+  src/landing/
+    landing.ts               Plantillas lit-html con msg(); light DOM
+    hero.ts, features.ts, footer.ts
+    landing.css              Estilos propios, se incrustan en el HTML
+    legal.ts                 F13: plantilla común de las páginas legales
+    landing.test.ts          Render en Node: contenido, hreflang, sin <script>
+  src/styles/
+    theme.css                F12: tokens --wa-*, compartido por landing y app
   public/
     robots.txt, sitemap.xml
     fonts/                   F12: tipografías autoalojadas
-  legal/
-    privacy.es.html, privacy.en.html
-    terms.es.html, terms.en.html
-  styles/
-    theme.css                F12: tokens --wa-*, compartido por landing y app
+  assets/landing/
+    hero.webp, og.png
+scripts/
+  build-landing.mjs          Prerender por idioma + presupuesto de bytes
 ```
 
-`firebase.json` cambia rewrites, cabeceras e i18n. `vite.config.ts` gana
-`build.rollupOptions.input` con las dos entradas.
+Salida del build:
+
+```
+apps/web/dist/
+  app.html                   La SPA
+  assets/                    Bundle de la app, con hash
+  localized/es/index.html    Landing en español, 0 KB de JS
+  localized/es/privacy.html  Legales, mismo prerender
+  localized/es/terms.html
+  localized/en/…             Lo mismo en inglés
+```
+
+`firebase.json` cambia rewrites, redirecciones, cabeceras e i18n.
+`package.json` gana `build:landing`, encadenado tras `vite build`.
 
 ## Estilo de código
 
@@ -670,19 +747,25 @@ export const canEdit = (event: StoredEvent, uid: string) =>
 
 Los tres niveles de `SPEC.md` siguen igual, con **un cuarto nivel nuevo**:
 
-- **Tests de reglas de seguridad** (`tests/rules/*.test.ts`), con
-  `@firebase/rules-unit-testing` contra el emulador. Es el único nivel que
-  demuestra F1 y F2: un e2e con dos sesiones prueba que la UI se comporta, no
-  que la puerta esté cerrada. Toda regla nueva llega con su test del caso que
-  **deniega**, no sólo del que permite.
+- **Tests de reglas de seguridad** (`apps/web/rules/*.test.ts`), ya existentes y
+  que esta fase amplía. Es el único nivel que demuestra F1 y F2: un e2e con dos
+  sesiones prueba que la UI se comporta, no que la puerta esté cerrada. Toda
+  regla nueva llega con su test del caso que **deniega**, no sólo del que
+  permite, y ese test se escribe **antes** que la regla.
 - **Unitarios de lógica pura**: `buildIcs`, `monthGrid`, `normalizeTags`,
   `sortEvents`, `roleFor`, el hash del email. Aquí van los casos límite.
 - **Unitarios de componentes** en Chromium real.
 - **E2e con axe**, ahora también sobre calendario, agenda, landing, legales y
   diálogo de compartir. El calendario es lo más propenso a violaciones de
   accesibilidad de todo lo que hay en el proyecto.
-- **Presupuesto de rendimiento en la landing** (F11): Lighthouse con umbrales,
-  no una mirada a ojo. Es lo único de esta fase que se mide en milisegundos.
+- **Tests del prerender** (F11), que corren **en Node y no en el navegador**:
+  son la excepción a la regla de Chromium real, porque lo que prueban es
+  precisamente el render fuera del navegador. Comprueban que la plantilla emite
+  el contenido esperado en los dos idiomas, que el `hreflang` es correcto y que
+  el HTML **no contiene ninguna etiqueta `<script>`**.
+- **Presupuesto de rendimiento en la landing** (F11): Lighthouse con umbrales, y
+  el tope de bytes comprobado por el propio build. Es lo único de esta fase que
+  se mide en milisegundos y en kilobytes.
 
 La IA se sigue simulando. Nunca se prueba contra el modelo real.
 
@@ -704,7 +787,7 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
 - La política de privacidad se revisa cuando cambia el modelo de datos.
 
 **Preguntar primero:**
-- Añadir `@firebase/rules-unit-testing` (o cualquier otra dependencia).
+- Añadir cualquier dependencia.
 - Ejecutar el backfill de `memberIds` sobre datos que no sean del emulador.
 - Cualquier cosa que reintroduzca Cloud Functions o Blaze.
 - Registrar un dominio propio o tocar la configuración DNS.
@@ -720,6 +803,9 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
 - Mandar contenido del usuario a la analítica.
 - Prometer en la landing algo que la aplicación todavía no hace.
 - Cargar la landing con JavaScript de la aplicación o con el SDK de Firebase.
+- Usar **componentes** de Web Awesome en la landing; sus utilidades CSS y sus
+  tokens, todos los que hagan falta.
+- Subir el tope de 10 KB para que quepa algo, en vez de replantear ese algo.
 - Servir tipografías desde un CDN de terceros.
 
 ## Criterios de éxito
@@ -740,10 +826,12 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
    correctos, revisable antes de guardar, y su fallo no impide el alta manual.
 9. Cero violaciones de axe en las tres vistas y en el diálogo de compartir.
 10. Un visitante llega a `/`, entiende qué es planu sin preguntar a nadie, y
-    llega a `/app` de un clic. La landing carga **sin ejecutar JavaScript de la
-    aplicación** y su LCP baja de 1,5 s en 4G simulada.
-11. La landing se sirve en español o en inglés según el navegador, y comparte
-    identidad visual con la aplicación: los mismos tokens, no un parecido.
+    llega a `/app` de un clic. La landing **no envía una sola línea de
+    JavaScript** —verificable: el HTML no tiene `<script>`— y su LCP baja de
+    1,5 s en 4G simulada. Con JavaScript desactivado se ve y se navega igual.
+11. La landing se sirve en español o en inglés según el navegador, con sus
+    textos saliendo del mismo XLIFF que la aplicación, y comparte identidad
+    visual con ella: los mismos tokens, no un parecido.
 12. La política de privacidad describe el tratamiento real, incluida la
     diferencia entre generar en el dispositivo y generar en la nube.
 13. Un usuario borra su cuenta y no queda rastro suyo en Firestore, en Storage
@@ -766,7 +854,10 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
 | F8 abre una segunda vía de gasto de tokens | Misma política de `ai-policy.ts`, sin excepciones, más tope de longitud del texto |
 | Zonas horarias entre Firestore, `.ics` y la rejilla mensual | Toda conversión pasa por funciones puras con tests, incluido el cambio de horario de verano |
 | **F10 rompe el enrutado y el despliegue a la vez.** El rewrite `**` vigente devolvería la SPA para cualquier URL y la landing no se vería nunca | Va primero, sola y con su propio commit; e2e de las rutas nuevas antes de tocar nada más; probar contra el emulador de Hosting (puerto 5050) antes de desplegar |
-| La i18n de Hosting y los rewrites de F10 pueden no convivir bien | Comprobarlo en el emulador **antes** de escribir la landing. Alternativa: dos HTML y elección por `Accept-Language` en un rewrite |
+| La i18n de Hosting y los rewrites de F10 pueden no convivir bien | Comprobarlo en el emulador **antes** de escribir la landing. Alternativa: redirección por `Accept-Language` hacia `/es/` o `/en/` |
+| `@lit-labs/ssr` está en `labs`: API sin estabilizar y puede cambiar | Se usa **sólo en el build**, para nuestras propias plantillas y sin hidratar. Si un día rompe, el peor caso es congelar la versión o generar el HTML de otro modo: no afecta a lo que corre en el navegador |
+| El prerender de Lit obliga a Declarative Shadow DOM | Se esquiva: los componentes de la landing renderizan en light DOM. Es también la razón de no usar componentes de Web Awesome ahí |
+| El presupuesto de 0 KB se erosiona con «esto son sólo 2 KB» | El build comprueba el tamaño y falla. Está además en las fronteras como «nunca» |
 | Enlaces antiguos a `/`, `/login` o `/profile` dejan de funcionar | Redirecciones permanentes en Hosting hacia las rutas de `/app` |
 | F14 borra en cascada sin transacción: un fallo a medias deja datos huérfanos | Orden de borrado que deja la cuenta de Auth para el final, y reanudable en el siguiente acceso |
 | La política de privacidad envejece en cuanto cambia el modelo de datos | Está en las fronteras: cambiar el modelo obliga a revisarla |
@@ -774,8 +865,10 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
 
 ## Preguntas abiertas
 
-1. **`@firebase/rules-unit-testing`**: pendiente de aprobación. Sin ella, la
-   mitad de los criterios de éxito no son verificables de forma automática.
+1. **Java no está instalado.** Sin él no arrancan los emuladores de Firestore y
+   Storage, y sin ellos no corren ni `npm run test:rules` ni los e2e con datos
+   sembrados: la mitad de los criterios de éxito quedan sin verificar. Se
+   resuelve con `brew install openjdk` y añadirlo al PATH.
 2. **Invitar a quien todavía no tiene cuenta**: la propuesta lo resuelve con un
    «esa persona aún no está registrada». Un flujo de invitación pendiente de
    verdad necesita Cloud Functions, y eso es Blaze.

@@ -1,7 +1,7 @@
 # 0003 · Generación desde imagen con IA híbrida
 
 - **Fecha:** 2026-08-15
-- **Estado:** aceptado, pendiente de habilitar el backend en la nube
+- **Estado:** aceptado; la nube queda **deshabilitada** de momento (2026-08-15)
 
 ## Contexto
 
@@ -36,6 +36,38 @@ proyecto ya tiene, sin Cloud Functions ni clave en el cliente.
   Gemini Nano, la imagen no sale del dispositivo, no hay coste y funciona sin red.
 - Una sola ruta de código: el modo lo resuelve el SDK, no un `if` nuestro.
 - Sin infraestructura propia que mantener.
+
+## Estado actual: sólo en el dispositivo
+
+La nube está desactivada. El modo es `ONLY_ON_DEVICE` y el componente **no
+configura `inCloudParams`**, así que reactivarla exige un cambio de código
+deliberado, no mover una variable de entorno. Consecuencias buscadas:
+
+- Coste cero y ninguna imagen sale del dispositivo.
+- App Check deja de ser un bloqueante inmediato. Seguirá siéndolo el día que se
+  reabra la nube, y Firebase lo exige para AI Logic desde noviembre de 2026.
+- `ONLY_ON_DEVICE` **espera** a que el modelo termine de descargarse en vez de
+  resolver por otro camino, y ante un problema lanza la causa real. Con
+  `PREFER_ON_DEVICE` y sin nube, el primer uso habría fallado en silencio
+  mientras la descarga seguía en segundo plano.
+
+### Experiencia de uso
+
+Siguiendo las recomendaciones de Chrome para IA integrada:
+
+- El modelo se prepara **al abrir el diálogo**, no al pulsar generar: la
+  descarga ocurre mientras el usuario elige la foto.
+- Si hace falta descargar, se avisa **antes** y con barra de progreso. Puede
+  tardar minutos, y una espera sin explicación parece un cuelgue.
+- Si el navegador no puede dar la función, la opción **no se ofrece**.
+- La salida se pide con `responseConstraint` y sin topes de caracteres, que
+  empujan al modelo a comprimir con emojis o cambiando de idioma.
+- Lo generado nunca se guarda solo: prerrellena el editor y el usuario decide.
+
+### Límites del modelo local
+
+Sólo texto de un turno, imágenes JPEG o PNG en línea, y un tope de 9216 tokens.
+Cualquier cosa fuera de ahí lanza en vez de resolverse por otra vía.
 
 ## Control del gasto
 

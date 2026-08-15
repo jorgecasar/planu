@@ -1,88 +1,287 @@
-# Tareas — port de planu
+# Tareas — fase 2
 
 Derivadas de [`plan.md`](plan.md). Orden por dependencia, no por importancia.
+Las tareas de la fase 1, completadas, están en [`fase-1/todo.md`](fase-1/todo.md).
 
-## Fase 1 — Capa de Firebase y reglas
+Numeración continuada: la fase 1 llegó hasta T10.
 
-- [x] **T0 · Corregir las reglas de seguridad**
-  - Acepta: `events` sólo legible por su propietario; una única regla `allow` por
-    operación; Storage en `events/{userId}/{fileName}` con `uid == userId`, tope
-    de 5 MB y `contentType` de imagen.
-  - Verifica: `firebase deploy --only firestore:rules --project planu-app --dry-run`
-  - Ficheros: `firestore.rules`, `storage.rules`
+## Fase 5 — Precondiciones y decisiones
 
-- [x] **T1 · Configuración y contextos**
-  - Acepta: config desde `import.meta.env` con tipos; `DATABASE_ID = "planu"`;
-    contextos de auth, firestore, storage y usuario, con el usuario en tres
-    estados (comprobando, sin sesión, autenticado).
-  - Verifica: `npm run typecheck`
-  - Ficheros: `src/vite-env.d.ts`, `src/firebase/config.ts`, `src/firebase/context.ts`
+- [ ] **T11 · Java, emuladores y hosting local** · XS · sin dependencias
+  - Acepta: `java -version` responde; `npm run emulators` arranca auth,
+    firestore, storage **y hosting**; `npm run test:rules` pasa con los tests
+    que ya existen.
+  - Verifica: `npm run test:rules`
+  - Ficheros: `firebase.json`, `AGENTS.md`
+  - Nota: **bloquea la verificación de casi todo el plan.** Requiere
+    `brew install openjdk` y añadirlo al PATH, que es acción del usuario.
 
-- [x] **T2 · Provider e inicialización**
-  - Acepta: `<planu-firebase-provider>` inicializa la app, usa
-    `getFirestore(app, "planu")`, conecta emuladores en `DEV` y publica los
-    contextos; `onAuthStateChanged` actualiza el usuario.
-  - Verifica: unitario que monta el provider y comprueba que los contextos llegan
-  - Ficheros: `src/firebase/firebase-provider.ts`, `.env.example`, `.gitignore`
+- [ ] **T12 · ADR 0004 y 0005, y la decisión de «salir de un evento»** · S · sin dependencias
+  - Acepta: ADR 0004 registra la compartición por invitados con rol y que
+    supersede parcialmente al 0002; ADR 0005 registra por qué el directorio de
+    usuarios vive en el cliente y no en Cloud Functions; **ambos dejan escrito
+    si un usuario puede quitarse a sí mismo de `memberIds`**, porque T13 depende
+    de ello.
+  - Verifica: revisión humana; coherencia con `docs/spec-fase-2.md`
+  - Ficheros: `docs/adr/0004-*.md`, `docs/adr/0005-*.md`, `docs/adr/0002-*.md`
 
-- [x] **T3 · Controllers de Firestore y Storage**
-  - Acepta: `CollectionController` y `DocController` sobre `onSnapshot`, con
-    desuscripción en `hostDisconnected` y sin resuscribirse si la consulta no
-    cambia; `uploadFile` reporta progreso.
-  - Verifica: unitarios contra el emulador de Firestore, incluido el caso de
-    desmontaje sin fugas
-  - Ficheros: `src/firebase/collection-controller.ts`, `doc-controller.ts`, `storage.ts`
+## Fase 6 — Modelo de datos y reglas
 
-## Fase 2 — Autenticación
+- [ ] **T13 · Esquema y reglas de compartición** · M · depende de T11, T12
+  - Acepta: el esquema Zod gana `memberIds`, `roles`, `tags` y `createdAt`; las
+    reglas incorporan `isMember`, `isEditor` y `membershipUnchanged`, con **una
+    única regla `allow` por operación** y un tope de invitados por evento.
+  - Verifica: `npm run test:rules` con los casos que **deniegan** escritos
+    antes que la regla — editor que se asciende, editor que se queda la
+    propiedad, extraño que lee, usuario que se autoañade.
+  - Ficheros: `firestore.rules`, `apps/web/rules/firestore.test.ts`,
+    `apps/web/src/lib/types.ts`
 
-- [x] **T4 · Acceso y registro**
-  - Acepta: pestañas de entrar y registrarse con email y contraseña (mínimo 6
-    caracteres, confirmación que debe coincidir) y acceso con Google; errores de
-    Firebase mostrados al usuario, no sólo en consola.
-  - Verifica: unitarios de validación; e2e de registro contra el emulador
-  - Ficheros: `src/auth/login-view.ts`
+- [ ] **T14 · Membresía al crear y backfill** · M · depende de T13
+  - Acepta: el editor crea con `memberIds: [uid]` y `roles: {}`; el listado pasa
+    de `where('userId','==',uid)` a `array-contains`; índice compuesto declarado;
+    script de backfill para los eventos de la fase 1, que sin `memberIds`
+    desaparecerían del listado.
+  - Verifica: e2e de alta y listado sin regresiones; backfill probado contra el
+    emulador
+  - Ficheros: `src/events/event-editor.ts`, `src/events/events-view.ts`,
+    `firestore.indexes.json`, `scripts/backfill-members.mjs`
 
-- [x] **T5 · Guarda de ruta, perfil y cabecera**
-  - Acepta: sin sesión, toda ruta privada redirige a `/login` sin parpadeo
-    mientras se comprueba; cabecera con avatar, acceso a perfil y cierre de sesión.
-  - Verifica: e2e que entra a `/` sin sesión y acaba en `/login`
-  - Ficheros: `src/app-shell.ts`, `src/profile/profile-view.ts`
+> **Checkpoint A** — la aplicación hace exactamente lo mismo que antes, con el
+> modelo nuevo. Aburrido a propósito: es como se sabe que nada se rompió antes
+> de construir encima. Revisión humana de `firestore.rules`.
 
-## Fase 3 — Listado y filtros
+## Fase 7 — Compartir
 
-- [x] **T6 · Listado de eventos**
-  - Acepta: consulta filtrada por `userId`; tarjetas con imagen, título,
-    descripción, ubicación y fechas; esqueletos durante la carga; estado vacío
-    que distingue "sin eventos" de "sin resultados"; borrado con confirmación.
-  - Verifica: e2e con datos sembrados en el emulador
-  - Ficheros: `src/events/events-view.ts`, `src/events/event-card.ts`
+- [ ] **T15 · Directorio de usuarios (F1)** · M · depende de T13
+  - Acepta: `userDirectory/{sha256(email)}` con `uid`, `displayName` y
+    `photoURL`; se escribe al autenticarse; las reglas permiten `get` pero **no
+    `list`**, exigen `hasOnly` de esos tres campos y atan el documento al email
+    del token.
+  - Verifica: **lo primero, confirmar en el emulador que
+    `hashing.sha256().toHexString()` existe en reglas de Firestore**; si no,
+    aplicar el plan B del spec. Después, test de reglas del intento de escribir
+    en el hash de otra persona, y unitario del hash.
+  - Ficheros: `src/sharing/user-directory.ts` + test, `firestore.rules`,
+    `apps/web/rules/firestore.test.ts`, `src/firebase/firebase-provider.ts`
 
-- [x] **T7 · Búsqueda y filtro por fechas**
-  - Acepta: `filterEvents` como función pura; búsqueda por título o descripción
-    sin distinguir mayúsculas; rango de fechas con la semántica del prototipo
-    para eventos sin fechas, con sólo inicio o con sólo fin.
-  - Verifica: unitarios que cubren las seis combinaciones de fechas
-  - Ficheros: `src/events/filter-events.ts`, `src/events/event-filters.ts`
+- [ ] **T16 · Diálogo de compartir (F2)** · M · depende de T15
+  - Acepta: `roleFor`, `canEdit` y `canShare` como funciones puras; diálogo para
+    invitar por email, cambiar rol y expulsar; mensaje claro y enlace de registro
+    cuando el email no tiene cuenta.
+  - Verifica: unitarios de permisos; e2e con dos sesiones contra el emulador
+  - Ficheros: `src/sharing/permissions.ts` + test, `src/sharing/share-dialog.ts`,
+    `src/events/event-card.ts`
 
-## Fase 4 — Editor y generación con IA
+- [ ] **T17 · Bandeja «compartidos conmigo» (F3)** · M · depende de T16
+  - Acepta: conmutador entre todos, míos y compartidos; cada tarjeta compartida
+    dice de quién es y con qué rol; a un lector no se le ofrecen editar ni
+    borrar.
+  - Verifica: e2e con dos sesiones y axe
+  - Ficheros: `src/events/events-view.ts`, `src/events/event-card.ts`,
+    `src/events/event-filters.ts`
 
-- [x] **T8 · Editor de eventos**
-  - Acepta: diálogo de alta y edición con validación por `EventSchema`; subida de
-    imagen con barra de progreso y posibilidad de quitarla; `userId` fijado en el
-    cliente al `uid` de la sesión.
-  - Verifica: e2e de alta con imagen y de edición
-  - Ficheros: `src/events/event-editor.ts`
+> **Checkpoint B** — dos usuarios reales con permisos distintos, verificados por
+> las reglas y no por la interfaz.
 
-- [x] **T9 · Generación desde imagen**
-  - Acepta: `InferenceMode.PREFER_ON_DEVICE`, con `responseSchema` equivalente al
-    `GenerateEventOutputSchema` del prototipo; el resultado prerrellena el editor
-    y el usuario confirma antes de guardar; fallo de IA no rompe el alta manual.
-  - Verifica: unitarios con el modelo simulado (éxito, error, no disponible)
-  - Ficheros: `src/events/ai-event-generator.ts`
+## Fase 8 — Organización
 
-- [x] **T10 · Documentación**
-  - Acepta: ADR 0001 stack, 0002 visibilidad privada con la fuga que corrige,
-    0003 IA híbrida; `AGENTS.md` al día; nota en `docs/blueprint.md` de que el
-    listado público queda superado.
-  - Verifica: revisión de enlaces y coherencia con `SPEC.md`
-  - Ficheros: `docs/adr/*.md`, `AGENTS.md`, `docs/blueprint.md`
+- [ ] **T18 · Etiquetas (F6)** · M · depende de T13
+  - Acepta: de cero a diez etiquetas, normalizadas (recortadas, en minúsculas,
+    sin duplicados, máximo 24 caracteres); autocompletado con las ya usadas;
+    filtro que combina varias con **Y**; color estable derivado del nombre.
+  - Verifica: unitarios de normalización y de filtrado combinado
+  - Ficheros: `src/events/tags.ts` + test, `src/events/event-editor.ts`,
+    `src/events/filter-events.ts`, `src/events/event-filters.ts`
+
+- [ ] **T19 · Orden y agrupación (F7)** · S · depende de T13
+  - Acepta: orden por fecha de inicio, título o creación; separación entre
+    próximos y pasados con los pasados plegados; los eventos sin fecha en su
+    propio grupo, con la misma semántica que ya usa `filterEvents`; preferencia
+    recordada.
+  - Verifica: unitarios de ordenación con empates y eventos sin fecha
+  - Ficheros: `src/events/sort-events.ts` + test, `src/lib/view-preferences.ts`,
+    `src/events/events-view.ts`
+
+- [ ] **T20 · Rejilla mensual (F5, primera mitad)** · M · depende de T19
+  - Acepta: reparto de eventos en las celdas del mes como función pura; rejilla
+    con CSS grid e `Intl.DateTimeFormat`, **sin librería de calendario**; primer
+    día de la semana y nombres de mes según el locale; navegable con teclado,
+    con `role="grid"` y celdas etiquetadas con la fecha completa.
+  - Verifica: unitarios del reparto, incluidos el evento que cruza varios días y
+    el cambio de horario de verano; axe sobre la vista
+  - Ficheros: `src/calendar/month-grid.ts` + test, `src/calendar/calendar-view.ts`
+
+- [ ] **T21 · Agenda y conmutador de vista (F5, segunda mitad)** · M · depende de T20
+  - Acepta: lista cronológica agrupada por día; conmutador entre rejilla,
+    calendario y agenda; la vista elegida sobrevive a la recarga; los filtros se
+    aplican en las tres.
+  - Verifica: e2e con axe en cada una de las tres vistas
+  - Ficheros: `src/calendar/agenda-view.ts`, `src/events/events-view.ts`,
+    `src/lib/view-preferences.ts`
+
+- [ ] **T22 · Export a calendario (F4)** · M · depende de T13
+  - Acepta: `.ics` por evento y de la agenda completa según los filtros activos;
+    RFC 5545 en lo que importa (`UID` estable, `DTSTAMP`, escape de comas y
+    saltos de línea, plegado a 75 octetos, `VALUE=DATE` para días completos);
+    enlace a Google Calendar; un evento sin fechas avisa en vez de generar un
+    fichero roto. Todo en cliente, sin dependencias.
+  - Verifica: unitarios de `buildIcs` con título con comas, descripción
+    multilínea, día completo y línea que obliga a plegar; e2e de la descarga
+  - Ficheros: `src/calendar/build-ics.ts` + test,
+    `src/calendar/google-calendar-url.ts`, `src/events/event-card.ts`
+
+> **Checkpoint C** — sesenta eventos se navegan por mes, etiqueta y orden; un
+> `.ics` real se abre en Calendario de macOS y en Google Calendar.
+
+## Fase 9 — IA
+
+- [ ] **T23 · Crear evento desde texto pegado (F8)** · M · depende de T13
+  - Acepta: campo para pegar texto suelto junto al generador desde imagen;
+    **reutiliza `ai-policy.ts` y el mismo `responseSchema`**, sin duplicar la
+    decisión de nube; el resultado prerrellena el editor y el usuario confirma;
+    tope de longitud del texto; un fallo nunca bloquea el alta manual.
+  - Verifica: unitarios con el modelo simulado — éxito, error, IA no disponible,
+    texto sin ningún evento
+  - Ficheros: `src/events/generate-from-text.ts` + test,
+    `src/events/ai-event-generator.ts`
+
+- [ ] **T24 · Sugerencia de etiquetas (F9)** · S · depende de T18, T23
+  - Acepta: hasta tres etiquetas propuestas al guardar un evento sin ellas,
+    priorizando las que el usuario ya usa; aparecen desmarcadas y nunca se
+    aplican solas; si la IA no está disponible, silencio y ningún error.
+  - Verifica: unitarios con el modelo simulado, incluido que devuelva etiquetas
+    que incumplen la normalización de T18
+  - Ficheros: `src/events/suggest-tags.ts` + test, `src/events/event-editor.ts`
+
+> **Checkpoint D** — las dos rutas nuevas de IA funcionan con el modelo simulado
+> y su fallo no rompe nada.
+
+## Fase 10 — Producto: cimientos
+
+- [ ] **T25 · Mudanza de la aplicación a `/app` (F10)** · M · sin dependencias
+  - Acepta: `index.html` pasa a `app.html` y sigue siendo la única entrada de
+    Vite; todas las rutas cuelgan de `/app`; `guardRedirect` apunta a
+    `/app/login`; los rewrites dejan de mandar `**` a `/index.html` y pasan a
+    `/app/**` → `/app.html`; redirecciones permanentes desde las rutas antiguas.
+  - Verifica: **todos los e2e existentes pasan con las rutas nuevas**; rewrites
+    y redirecciones probados contra el emulador de Hosting; despliegue a un canal
+    de previsualización antes de tocar producción.
+  - Ficheros: `apps/web/app.html`, `src/app-shell.ts`, `src/auth/guard.ts`,
+    `firebase.json`, `apps/web/e2e/*.spec.ts`
+  - Nota: **va sola y con su propio commit.** Toca enrutado, guarda de sesión y
+    despliegue a la vez; mezclarla con otra cosa hace imposible saber qué rompió
+    qué. Un error aquí deja la aplicación inaccesible.
+
+> **Checkpoint E** — el más delicado de todo el plan. La aplicación vive en
+> `/app` y se despliega sin romper nada.
+
+## Fase 11 — Producto: la cara
+
+- [ ] **T26 · Decidir la identidad visual (F12, decisión)** · S · sin dependencias
+  - Acepta: ADR 0008 que resuelve si se adopta el indigo `#3F51B5` con Belleza y
+    Alegreya del blueprint, se ajusta o se descarta. **Cualquiera de las tres es
+    válida; seguir sin decidir no lo es.** Incluye la tabla de contraste AA
+    verificada, no supuesta.
+  - Verifica: revisión humana; contraste comprobado
+  - Ficheros: `docs/adr/0008-*.md`, `docs/blueprint.md`
+
+- [ ] **T27 · Tokens de tema y tipografías (F12, implementación)** · M · depende de T26
+  - Acepta: la decisión traducida a tokens `--wa-*` en una hoja única compartida
+    por landing y aplicación; sin colores sueltos en componentes; modo claro y
+    oscuro con `prefers-color-scheme`; **tipografías servidas desde el propio
+    dominio**, subconjunto latino y `font-display: swap`; logotipo, favicon y
+    `og:image`.
+  - Verifica: axe cubre el contraste en los e2e; la aplicación adopta el tema
+    sin regresiones visuales
+  - Ficheros: `src/styles/theme.css`, `public/fonts/`, `src/main.ts`,
+    `apps/web/app.html`
+
+- [ ] **T28 · Pipeline de prerender (F11, primera mitad)** · M · depende de T25
+  - Acepta: `scripts/build-landing.mjs` renderiza plantillas `lit-html` con
+    `@lit-labs/ssr` a `dist/localized/{locale}/index.html`, con los textos
+    saliendo del mismo XLIFF que la aplicación; corre tras `vite build`; el CSS
+    va minificado y en línea; **el build comprueba el presupuesto de bytes y
+    falla si se pasa**.
+  - Verifica: con una landing de «hola mundo» en los dos idiomas — barato de
+    rehacer si algo del pipeline no encaja. **Aquí se confirma que la i18n de
+    Hosting convive con los rewrites de T25.**
+  - Ficheros: `scripts/build-landing.mjs`, `src/landing/landing.ts`,
+    `apps/web/package.json`, `firebase.json`
+  - Nota: separar el pipeline del contenido es deliberado. Si el prerender falla,
+    falla con «hola mundo» y no con la landing entera escrita.
+
+- [ ] **T29 · Contenido de la landing (F11, segunda mitad)** · M · depende de T27, T28
+  - Acepta: qué es planu en una frase, tres o cuatro bloques de valor, una
+    captura real y una llamada a la acción; **utilidades CSS de Web Awesome sí,
+    componentes no**; componentes propios en **light DOM**, sin Declarative
+    Shadow DOM; SEO completo con Open Graph, `hreflang`, JSON-LD, `robots.txt` y
+    `sitemap.xml`; un solo `<h1>` y jerarquía correcta.
+  - Verifica: el HTML no contiene ninguna etiqueta `<script>`; se ve y se navega
+    con JavaScript desactivado; axe en los dos idiomas; Lighthouse con
+    rendimiento y SEO en 100 (`/webperf`)
+  - Ficheros: `src/landing/landing.ts`, `hero.ts`, `features.ts`, `footer.ts`,
+    `src/landing/landing.css`, `public/robots.txt`, `public/sitemap.xml`
+  - Nota: **nada de lo que promete puede ser falso.** Si T22 no está entregada,
+    la landing no dice que se integra con tu calendario.
+
+> **Checkpoint F** — landing en dos idiomas, cero JavaScript, LCP en objetivo.
+
+## Fase 12 — Producto: cierre
+
+- [ ] **T30 · Privacidad, términos y cookies (F13)** · M · depende de T29, T31
+  - Acepta: política que describe el tratamiento **real**, incluida la
+    diferencia entre generar en el dispositivo y generar en la nube; términos
+    proporcionados a un producto sin plan de pago; aviso de cookies **sólo si**
+    T31 acaba usando algo que las requiera; ambos en los dos idiomas, generados
+    con el prerender de T28 y enlazados desde el pie y el perfil.
+  - Verifica: revisión manual contra el modelo de datos real; enlaces
+    comprobados por e2e
+  - Ficheros: `src/landing/legal.ts`, `src/landing/privacy.ts`,
+    `src/landing/terms.ts`, `src/profile/profile-view.ts`
+  - Nota: son textos honestos, no asesoramiento legal, y así se dice.
+
+- [ ] **T31 · Analítica de activación (F16)** · M · depende de T25
+  - Acepta: ADR 0009 con el proveedor elegido y qué se mide; cinco eventos y no
+    más — visita, registro, **primer evento creado**, evento compartido, uso de
+    la IA; **nunca contenido del usuario**; carga diferida, errores tragados, y
+    la aplicación funciona igual con la analítica bloqueada.
+  - Verifica: unitarios del envoltorio, incluido que traga errores y que no
+    filtra campos del evento; e2e con la analítica bloqueada
+  - Ficheros: `docs/adr/0009-*.md`, `src/analytics/track.ts` + test,
+    `src/main.ts`
+  - Nota: **bloqueada por la decisión de proveedor**, que además determina si T30
+    lleva banner.
+
+- [ ] **T32 · Borrado de cuenta y de datos (F14)** · M · depende de T13, T15, T18
+  - Acepta: confirmación escribiendo el email, no un «¿seguro?»; borra en orden
+    los eventos propios, sus imágenes, la entrada del directorio, las membresías
+    en eventos ajenos y por último la cuenta de Auth; maneja
+    `auth/requires-recent-login` reautenticando y reanudando; si se interrumpe,
+    se puede reintentar; avisa de que los eventos compartidos desaparecen para
+    sus invitados.
+  - Verifica: e2e completo contra los emuladores con un usuario que tiene
+    eventos propios, imágenes y una membresía ajena; no queda nada suyo
+  - Ficheros: `src/account/delete-account.ts` + test,
+    `src/profile/profile-view.ts`, `firestore.rules`
+  - Nota: es la única tarea de producto que es **código delicado** y no
+    contenido. Depende de la decisión tomada en T12.
+
+- [ ] **T33 · Onboarding y primera sesión (F15)** · S · depende de T23
+  - Acepta: el estado vacío explica qué hacer, con acciones directas para crear
+    el primer evento a mano, desde imagen o desde texto; ofrece crear un evento
+    de ejemplo **sólo si se pide**; nada de tour modal; sigue distinguiendo «no
+    tienes eventos» de «tu búsqueda no encuentra nada», y sólo el primero enseña.
+  - Verifica: e2e de usuario recién registrado que crea su primer evento sin
+    salir del estado vacío; axe
+  - Ficheros: `src/events/events-view.ts`, `src/events/empty-state.ts`
+
+- [ ] **T34 · Documentación y cierre** · S · depende de todas
+  - Acepta: `AGENTS.md`, `SPEC.md` y `docs/backend.json` reflejan el modelo y las
+    rutas nuevas; ADRs 0004 a 0009 escritos y enlazados; `docs/spec-fase-2.md`
+    marcado como entregado.
+  - Verifica: revisión de enlaces y coherencia; `npm run lint`
+  - Ficheros: `AGENTS.md`, `SPEC.md`, `docs/backend.json`, `docs/adr/README.md`
+
+> **Checkpoint G** — los dieciséis criterios de éxito del spec, con `build`,
+> `test`, `test:e2e`, `test:rules` y `lint` limpios.

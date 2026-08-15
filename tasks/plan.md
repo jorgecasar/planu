@@ -1,70 +1,232 @@
-# Plan de implementación — port de planu a web components
+# Plan de implementación — fase 2
 
-Deriva de [`SPEC.md`](../SPEC.md). El detalle de por qué se toma cada decisión
-está allí; aquí está el orden y las dependencias.
+Deriva de [`docs/spec-fase-2.md`](../docs/spec-fase-2.md). El **porqué** de cada
+decisión está allí; aquí está el **orden**, las dependencias y dónde se verifica.
+
+El plan de la fase 1, ya completado, se archivó en
+[`tasks/fase-1/`](fase-1/plan.md).
+
+## Resumen
+
+Dieciséis funcionalidades en veinticuatro tareas, repartidas en dos corrientes
+que apenas se tocan:
+
+- **Funcionalidad** (F1–F9): compartir con invitados, export a calendario,
+  vistas de calendario y agenda, etiquetas, y dos usos nuevos de la IA.
+- **Producto** (F10–F16): landing prerenderizada, identidad visual, legales,
+  borrado de cuenta, onboarding y analítica.
+
+El único puente entre ambas es **T32** (borrado de cuenta), que necesita el
+modelo de datos ya cerrado.
+
+## Estado de partida
+
+Lo que ya existe y este plan da por bueno:
+
+- La fase 1 completa: auth, CRUD de eventos privados, búsqueda y filtros,
+  editor con subida de imagen, generación con IA e i18n.
+- **Banco de pruebas de reglas ya montado**: `@firebase/rules-unit-testing`
+  instalado, `npm run test:rules` con `vitest.rules.config.ts`, y
+  `apps/web/rules/firestore.test.ts` cubriendo privacidad, propiedad y forma del
+  documento. Esto elimina una pregunta abierta del spec y hace que T13 sea
+  ampliar un arnés existente en vez de construirlo.
+- CI en `.github/workflows/ci.yml` que corre todas las comprobaciones.
+
+Lo que **no** existe y hace falta desde el primer día: **Java**. Ver bloqueos.
+
+## Decisiones de arquitectura
+
+Tomadas y cerradas en el spec; se repiten aquí porque condicionan el orden:
+
+- **Membresía dentro del documento del evento** (`memberIds` + `roles`), no en
+  una subcolección. Evita un `get()` facturable por evaluación de regla y es
+  obligatorio de todas formas para la consulta `array-contains`.
+- **Landing prerenderizada en el build** con `@lit-labs/ssr`, 0 KB de JS. Lo que
+  hace que esto sea la opción buena y no solo la rápida: `msg()` funciona al
+  renderizar en Node, así que la landing usa el mismo XLIFF que la aplicación.
+- **Sin backend.** Ni Cloud Functions ni Blaze. Marca el límite de tres cosas:
+  no hay invitaciones pendientes, no hay recordatorios propios, y el borrado de
+  cuenta no puede ser transaccional.
 
 ## Grafo de dependencias
 
 ```
-T1 Config y contextos ──┬──→ T2 Provider y emuladores ──┬──→ T4 Auth y login ──→ T5 Perfil y cabecera
-                        │                               │
-                        └──→ T3 Controllers Firestore ──┴──→ T6 Listado ──→ T7 Filtros
-                                                                  │
-                             T0 Reglas de seguridad ──────────────┤
-                                                                  ▼
-                                                            T8 Editor y subida
-                                                                  │
-                                                                  ▼
-                                                            T9 Generación con IA
-                                                                  │
-                                                                  ▼
-                                                            T10 ADRs y docs
+T11 Java y emuladores ─────────┐
+                               │   (sin esto no se verifica casi nada)
+T12 ADRs 0004/0005 ────────────┤
+                               ▼
+                    T13 Esquema y reglas ──→ T14 Membresía al crear + backfill
+                               │                        │
+                               │                        ▼
+                               │              ┌──── CHECKPOINT A ────┐
+                               ▼              │                      │
+                    T15 Directorio ──→ T16 Compartir ──→ T17 Bandeja │
+                               │                                     │
+                               │                          CHECKPOINT B
+                               │
+      ┌────────────────────────┼─────────────────────────┐
+      ▼            ▼           ▼            ▼            ▼
+   T18 Tags   T19 Orden   T20 Mes   T21 Agenda      T22 .ics     (paralelizables)
+      │                                                  │
+      │                                       CHECKPOINT C
+      ▼
+   T24 Sugerir tags ←── T23 Desde texto      CHECKPOINT D
+
+
+CORRIENTE DE PRODUCTO (independiente de todo lo anterior)
+
+   T25 Mudanza a /app ──→ CHECKPOINT E (despliegue)
+            │
+            ├──→ T26 Decidir paleta ──→ T27 Tokens y tipografías
+            │                                    │
+            ▼                                    ▼
+   T28 Pipeline de prerender ────────→ T29 Landing ──→ CHECKPOINT F
+                                             │
+                                             ├──→ T30 Legales
+                                             └──→ T31 Analítica
+
+   T32 Borrado de cuenta  ←── depende de T13, T15, T18 y de la decisión de T12
+   T33 Onboarding
+   T34 Documentación y cierre ──→ CHECKPOINT G
 ```
 
-**Ruta crítica:** T1 → T2 → T4 → T6 → T8. Todo lo demás cuelga de ahí.
+**Ruta crítica:** T11 → T13 → T15 → T16 → T17. Es la más larga y la que más
+tarda en dar valor visible.
 
-**Paralelizable:** T0 (reglas) es independiente del código y puede ir primero;
-conviene, porque T3 y T6 se validan contra ellas.
+**Lo más arriesgado va pronto**, en dos sitios distintos: T13 (reglas, donde un
+error es una fuga) y T25 (mudanza a `/app`, donde un error deja la aplicación
+inaccesible).
 
-## Orden y puntos de verificación
+## Fases y checkpoints
 
 | Fase | Tareas | Checkpoint |
 | --- | --- | --- |
-| 1 | T0, T1, T2, T3 | Un componente de prueba lee una colección del emulador y se desuscribe al desmontarse |
-| 2 | T4, T5 | Registro, acceso y cierre de sesión reales contra el emulador de Auth |
-| 3 | T6, T7 | Listado con datos sembrados; filtros cubiertos por unitarios |
-| 4 | T8, T9, T10 | Alta de evento con imagen de punta a punta; IA simulada en tests |
+| 5 · Precondiciones | T11, T12 | Los emuladores arrancan y `npm run test:rules` pasa |
+| 6 · Modelo y reglas | T13, T14 | **A** — la app hace exactamente lo mismo que antes, con el modelo nuevo y sin regresiones |
+| 7 · Compartir | T15, T16, T17 | **B** — dos usuarios, permisos verificados por reglas y no por la UI |
+| 8 · Organización | T18, T19, T20, T21, T22 | **C** — sesenta eventos se navegan por mes, etiqueta y orden |
+| 9 · IA | T23, T24 | **D** — las dos rutas nuevas de IA con el modelo simulado |
+| 10 · Producto, cimientos | T25 | **E** — la app vive en `/app` y se despliega sin romper nada |
+| 11 · Producto, cara | T26, T27, T28, T29 | **F** — landing en dos idiomas, 0 KB de JS, LCP en objetivo |
+| 12 · Producto, cierre | T30, T31, T32, T33, T34 | **G** — todos los criterios del spec |
 
-No se avanza de fase con la anterior en rojo.
+**No se avanza de fase con la anterior en rojo.**
+
+### Checkpoint A — tras T14
+
+- [ ] `npm run test:rules` en verde, incluidos los casos que **deniegan**
+- [ ] `npm test` y `npm run test:e2e` sin regresiones
+- [ ] Un evento creado antes del cambio sigue apareciendo en el listado
+- [ ] Revisión humana de `firestore.rules` antes de seguir
+
+Este checkpoint es deliberadamente aburrido: **nadie ha ganado funcionalidad**.
+Es la forma de saber que el cambio de modelo no rompió nada antes de construir
+encima.
+
+### Checkpoint B — tras T17
+
+- [ ] Dos sesiones reales: el dueño invita, el invitado ve
+- [ ] Un lector no puede editar **según las reglas**, no solo según la UI
+- [ ] Un editor no puede ascenderse ni quedarse la propiedad
+- [ ] Cero violaciones de axe en el diálogo de compartir
+
+### Checkpoint C — tras T22
+
+- [ ] Las tres vistas con axe limpio
+- [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar
+- [ ] Los filtros funcionan igual en rejilla, calendario y agenda
+
+### Checkpoint D — tras T24
+
+- [ ] Pegar el texto de una convocatoria produce un borrador correcto
+- [ ] Con la IA no disponible, el alta manual funciona igual
+
+### Checkpoint E — tras T25 · el más delicado
+
+- [ ] `/app`, `/app/login` y `/app/profile` funcionan tras el emulador de Hosting
+- [ ] Los enlaces antiguos redirigen
+- [ ] **Todos los e2e existentes pasan con las rutas nuevas**
+- [ ] Desplegado a un canal de previsualización antes de tocar producción
+
+### Checkpoint F — tras T29
+
+- [ ] El HTML de la landing no contiene ni una etiqueta `<script>`
+- [ ] Se ve y se navega con JavaScript desactivado
+- [ ] LCP < 1,5 s en 4G simulada; presupuesto de bytes respetado
+- [ ] Los textos salen del mismo XLIFF que la app, en los dos idiomas
+
+### Checkpoint G — final
+
+- [ ] Los dieciséis criterios de éxito del spec
+- [ ] `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:rules` y
+      `npm run lint` limpios
+- [ ] ADRs 0004 a 0009 escritos
+- [ ] `AGENTS.md`, `SPEC.md` y `docs/backend.json` al día
+
+## Paralelización
+
+- **Seguras en paralelo:** T18, T19, T22 entre sí; T20 y T21 comparten ficheros,
+  así que van seguidas. Toda la corriente de producto (T25–T31) es independiente
+  de la de funcionalidad.
+- **Estrictamente secuenciales:** T13 → T14 (reglas antes que datos), T15 → T16
+  → T17 (cadena de compartición), T25 antes que T28 y T29.
+- **Necesitan coordinación:** T18 y T24 comparten la normalización de etiquetas;
+  se define en T18 y T24 la consume.
 
 ## Riesgos y mitigación
 
-- **Los controllers de Firestore son la pieza con más superficie de error.** Se
-  atacan pronto (T3) y con tests contra el emulador, no con mocks: las fugas de
-  suscripción sólo aparecen con un backend real.
-- **La subida a Storage nunca funcionó en el prototipo.** T0 arregla las reglas
-  antes de que T8 dependa de ellas, para no depurar dos cosas a la vez.
-- **La IA es la parte más incierta y la menos crítica.** Va la última a
-  propósito: si se complica, la aplicación ya está completa sin ella.
-- **App Check y Blaze tienen coste y requieren decisión.** T9 se implementa
-  primero contra la IA integrada del navegador, que no requiere ninguna de las
-  dos; el backend en la nube se enchufa después, cuando se apruebe.
+| Riesgo | Impacto | Mitigación |
+| --- | --- | --- |
+| Un fallo en las reglas de T13 es una fuga de datos, no un bug | **Alto** | Los tests de denegación se escriben **antes** que la regla; revisión humana en el checkpoint A; el arnés ya existe |
+| T25 puede dejar la aplicación inaccesible: el rewrite `**` vigente devolvería la SPA para cualquier URL | **Alto** | Va sola, con su propio commit, probada contra el emulador de Hosting y desplegada primero a un canal de previsualización |
+| `hashing.sha256().toHexString()` puede no existir en reglas de Firestore | Medio | **Se confirma en el emulador en T15 antes de escribir nada**; plan B documentado: email en claro comparado con `request.auth.token.email` |
+| La i18n de Hosting puede no convivir con los rewrites de T25 | Medio | Se comprueba en T28, cuando el pipeline ya genera ficheros pero la landing aún no tiene contenido: barato de rehacer |
+| `@lit-labs/ssr` está en `labs`, API sin estabilizar | Bajo | Solo en el build, solo plantillas propias, sin hidratar. El peor caso es congelar la versión |
+| T20 (rejilla mensual) es lo más propenso a violaciones de axe del proyecto | Medio | Teclado y roles ARIA desde el primer commit, no al final |
+| El borrado en cascada de T32 no puede ser transaccional | Medio | Orden que deja Auth para el final y reanudable en el siguiente acceso; se avisa al usuario |
+| «Forma de producto» se desborda | Medio | Acotado a siete tareas con criterios verificables. Dominio, precios y marketing quedan fuera |
 
 ## Bloqueos abiertos
 
-Ninguno detiene la implementación; sí limitan la verificación.
+Uno detiene la verificación desde el primer día; los otros tres detienen tareas
+concretas.
 
-- **Java no está instalado.** Los emuladores de Firestore y Storage lo exigen; el
-  de Auth no, porque es Node. Consecuencia: la fase 2 se verifica de verdad, pero
-  los e2e de las fases 3 y 4 con datos sembrados necesitan
-  `brew install openjdk` antes. Mientras tanto, los controllers se cubren con el
-  módulo de Firestore simulado, que es donde viven sus fallos reales.
-- **Firebase Storage no está dado de alta en `planu-app`.** El prototipo subía
-  imágenes a un bucket que nunca se aprovisionó. Requiere habilitarlo desde la
-  consola, y en proyectos nuevos Firebase exige plan Blaze para ello.
+1. **Java no está instalado.** `java -version` falla en esta máquina. Los
+   emuladores de Firestore y Storage lo exigen, así que **ni `npm run test:rules`
+   ni los e2e con datos sembrados pueden correr**. Es lo primero que hay que
+   resolver (T11) y es acción del usuario:
+
+   ```bash
+   brew install openjdk
+   export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"   # en ~/.zshrc
+   ```
+
+2. **Proveedor de analítica sin decidir** (T31). Firebase Analytics ya está en el
+   stack pero pone cookies y obliga a banner; una alternativa sin cookies lo
+   evita a cambio de una dependencia. **Determina si T30 lleva banner**, así que
+   conviene decidirlo antes de escribir los legales.
+
+3. **Paleta y tipografías sin decidir** (T26). Adoptar el indigo `#3F51B5` con
+   Belleza y Alegreya del blueprint, ajustarlo o descartarlo. Bloquea T27 y, por
+   tanto, T29.
+
+4. **«Salir de un evento ajeno»** (T12). Si un usuario puede quitarse a sí mismo
+   de `memberIds`, hay que abrir una excepción acotada en las reglas. **Se decide
+   en T12 y se implementa en T13**: cambiar reglas ya desplegadas es mucho más
+   caro que decidirlo ahora.
+
+Heredado de la fase 1 y aún por confirmar: **Firebase Storage no estaba dado de
+alta en `planu-app`**. Los e2e corren contra el emulador, así que no bloquea el
+desarrollo, pero sí un despliegue real con imágenes.
 
 ## Fuera de alcance
 
-- Reemplazar el repo remoto `planu`, pendiente de decidir sobre sus 5 commits.
-- `@lit/localize`: se aborda al terminar el port, antes de añadir pantallas.
-- Migrar los documentos heredados de la base `planu`.
+Está en el spec, y se repite aquí para que no se cuele por la puerta de atrás:
+
+- Eventos recurrentes.
+- Notificaciones push y recordatorios por email (exigen Blaze).
+- Precios, cobro y página de planes.
+- Invitaciones pendientes para quien aún no tiene cuenta.
+- Dominio propio.
+- Revisar `docs/blueprint.md`, salvo la parte de identidad visual que resuelve
+  T26.

@@ -5,6 +5,7 @@ import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./ai-event-generator.js";
 import "./event-card.js";
+import { canOffer, checkAvailability } from "./ai-availability.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import type { InferenceSourceName } from "./ai-policy.js";
 import "./event-editor.js";
@@ -21,7 +22,7 @@ import {
 	Timestamp,
 	where,
 } from "firebase/firestore";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
@@ -113,8 +114,15 @@ export class PlanuEventsView extends LitElement {
 	@state() private generatorOpen = false;
 	@state() private draft: Partial<PlanuEvent> | undefined;
 	@state() private draftSource: InferenceSourceName | undefined;
+	@state() private aiAvailable = false;
 
 	readonly #events = new CollectionController<DocumentData>(this);
+
+	override async connectedCallback(): Promise<void> {
+		super.connectedCallback();
+		// Un botón que siempre falla es peor que un botón que no está.
+		this.aiAvailable = canOffer(await checkAvailability());
+	}
 
 	constructor() {
 		super();
@@ -166,7 +174,13 @@ export class PlanuEventsView extends LitElement {
 						${msg("New event")}
 					</wa-button>
 					<wa-dropdown-item value="manual">${msg("Create manually")}</wa-dropdown-item>
-					<wa-dropdown-item value="ai">${msg("Generate from an image")}</wa-dropdown-item>
+					${
+						this.aiAvailable
+							? html`<wa-dropdown-item value="ai">
+										${msg("Generate from an image")}
+									</wa-dropdown-item>`
+							: nothing
+					}
 				</wa-dropdown>
 			</div>
 
