@@ -2,13 +2,18 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 /** Correo único por ejecución: el emulador conserva los usuarios entre tests. */
-const newEmail = () => `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+const newEmail = () =>
+	`user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
-test("registrarse deja al usuario dentro de la aplicación", async ({ page }) => {
+test("registrarse deja al usuario dentro de la aplicación", async ({
+	page,
+}) => {
 	await page.goto("/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
-	const panel = page.getByRole("tabpanel").filter({ hasText: "Confirm password" });
+	const panel = page
+		.getByRole("tabpanel")
+		.filter({ hasText: "Confirm password" });
 
 	await panel.getByLabel("Email").fill(newEmail());
 	await panel.getByLabel("Password", { exact: true }).fill("secret123");
@@ -24,7 +29,9 @@ test("las contraseñas que no coinciden no crean cuenta", async ({ page }) => {
 	await page.goto("/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
-	const panel = page.getByRole("tabpanel").filter({ hasText: "Confirm password" });
+	const panel = page
+		.getByRole("tabpanel")
+		.filter({ hasText: "Confirm password" });
 
 	await panel.getByLabel("Email").fill(newEmail());
 	await panel.getByLabel("Password", { exact: true }).fill("secret123");
@@ -53,7 +60,9 @@ test("la aplicación autenticada no tiene violaciones de accesibilidad", async (
 	await page.goto("/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
-	const panel = page.getByRole("tabpanel").filter({ hasText: "Confirm password" });
+	const panel = page
+		.getByRole("tabpanel")
+		.filter({ hasText: "Confirm password" });
 	await panel.getByLabel("Email").fill(newEmail());
 	await panel.getByLabel("Password", { exact: true }).fill("secret123");
 	await panel.getByLabel("Confirm password").fill("secret123");

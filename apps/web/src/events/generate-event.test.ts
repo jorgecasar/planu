@@ -5,6 +5,7 @@ import {
 	GenerationError,
 	generateEventFromImage,
 	parseGeneratedEvent,
+	RESPONSE_JSON_SCHEMA,
 } from "./generate-event.js";
 
 const image = () =>
@@ -101,4 +102,24 @@ test("propaga el fallo del modelo en vez de tragárselo", async () => {
 	await expect(generateEventFromImage(generate, image())).rejects.toThrow(
 		"network",
 	);
+});
+
+test("acepta JSON envuelto en un bloque de código", () => {
+	// Los modelos pequeños lo añaden incluso cuando se les restringe la salida.
+	const conValla = '```json\n{"title":"Feria del libro"}\n```';
+	expect(parseGeneratedEvent(conValla).title).toBe("Feria del libro");
+
+	const sinEtiqueta = '```\n{"title":"Concierto"}\n```';
+	expect(parseGeneratedEvent(sinEtiqueta).title).toBe("Concierto");
+});
+
+test("el esquema para la IA del navegador exige los campos con contenido", () => {
+	expect(RESPONSE_JSON_SCHEMA.required).toContain("title");
+	expect(Object.keys(RESPONSE_JSON_SCHEMA.properties)).toEqual([
+		"title",
+		"description",
+		"location",
+		"startDate",
+		"endDate",
+	]);
 });

@@ -12,6 +12,7 @@ import {
 	type GeneratedEvent,
 	GenerationError,
 	generateEventFromImage,
+	RESPONSE_JSON_SCHEMA,
 } from "./generate-event.js";
 
 /**
@@ -117,12 +118,25 @@ export class PlanuAiEventGenerator extends LitElement {
 		try {
 			// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría
 			// de las sesiones no lo usan nunca. No debe entrar en el arranque.
-			const { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, Schema } =
-				await import("firebase/ai");
+			const {
+				getAI,
+				getGenerativeModel,
+				GoogleAIBackend,
+				InferenceMode,
+				Schema,
+			} = await import("firebase/ai");
 
 			const ai = getAI(this.app, { backend: new GoogleAIBackend() });
 			const model = getGenerativeModel(ai, {
 				mode: InferenceMode.PREFER_ON_DEVICE,
+				// El modelo del dispositivo no ve la configuración de la nube: si no
+				// se le restringe aquí, contesta en prosa y el parseo falla.
+				onDeviceParams: {
+					createOptions: {
+						expectedInputs: [{ type: "text" }, { type: "image" }],
+					},
+					promptOptions: { responseConstraint: RESPONSE_JSON_SCHEMA },
+				},
 				inCloudParams: {
 					model: "gemini-2.5-flash",
 					generationConfig: {
@@ -141,10 +155,12 @@ export class PlanuAiEventGenerator extends LitElement {
 									description: "The physical or virtual location of the event.",
 								}),
 								startDate: Schema.string({
-									description: "Start date in ISO 8601 format, or an empty string.",
+									description:
+										"Start date in ISO 8601 format, or an empty string.",
 								}),
 								endDate: Schema.string({
-									description: "End date in ISO 8601 format, or an empty string.",
+									description:
+										"End date in ISO 8601 format, or an empty string.",
 								}),
 							},
 							optionalProperties: ["startDate", "endDate"],

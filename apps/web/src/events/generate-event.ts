@@ -40,6 +40,37 @@ Identify the event's title, a detailed description, its location, and start/end 
 - If a specific time is not mentioned, you can leave it out.
 - Be creative but accurate. The goal is to create a complete and helpful event entry.`;
 
+/**
+ * Esquema JSON plano para `responseConstraint` de la IA del navegador.
+ *
+ * El modelo en el dispositivo no ve la configuración de la nube: sin esta
+ * restricción, Gemini Nano contesta en prosa y el parseo falla.
+ */
+export const RESPONSE_JSON_SCHEMA = {
+	type: "object",
+	properties: {
+		title: { type: "string" },
+		description: { type: "string" },
+		location: { type: "string" },
+		startDate: { type: "string" },
+		endDate: { type: "string" },
+	},
+	required: ["title", "description", "location"],
+} as const;
+
+/**
+ * Quita el bloque de código con el que muchos modelos envuelven el JSON.
+ * Ocurre incluso pidiendo salida estructurada, sobre todo en modelos pequeños.
+ */
+function stripCodeFence(text: string): string {
+	const trimmed = text.trim();
+	if (!trimmed.startsWith("```")) return trimmed;
+	return trimmed
+		.replace(/^```(?:json)?\s*/i, "")
+		.replace(/```$/, "")
+		.trim();
+}
+
 /** Codifica el fichero en base64 sin volcarlo entero en la pila de llamadas. */
 export async function fileToBase64(file: File): Promise<string> {
 	const bytes = new Uint8Array(await file.arrayBuffer());
@@ -68,7 +99,7 @@ export class GenerationError extends Error {}
 export function parseGeneratedEvent(text: string): GeneratedEvent {
 	let raw: unknown;
 	try {
-		raw = JSON.parse(text);
+		raw = JSON.parse(stripCodeFence(text));
 	} catch {
 		throw new GenerationError("The model did not return valid JSON.");
 	}

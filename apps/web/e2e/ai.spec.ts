@@ -45,7 +45,11 @@ test("si la IA no está disponible lo dice y no bloquea el alta manual", async (
 
 	await page
 		.getByLabel("Event image")
-		.setInputFiles({ name: "cartel.png", mimeType: "image/png", buffer: PIXEL });
+		.setInputFiles({
+			name: "cartel.png",
+			mimeType: "image/png",
+			buffer: PIXEL,
+		});
 
 	// En este entorno no hay IA integrada ni backend en la nube configurado.
 	// Lo importante es que el fallo se explique y deje salida, no que reviente.

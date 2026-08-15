@@ -47,7 +47,9 @@ test("crear un evento lo muestra en el listado", async ({ page }) => {
 	await signUp(page);
 	await createEvent(page, "Concierto de verano");
 
-	await expect(page.getByRole("heading", { name: "Concierto de verano" })).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
 	await expect(page.getByText("Madrid")).toBeVisible();
 	// Sin fechas el evento sigue siendo válido y debe decirlo.
 	await expect(page.getByText("No specific date")).toBeVisible();
@@ -60,8 +62,12 @@ test("la búsqueda acota el listado", async ({ page }) => {
 
 	await page.getByLabel("Search").fill("concierto");
 
-	await expect(page.getByRole("heading", { name: "Concierto de verano" })).toBeVisible();
-	await expect(page.getByRole("heading", { name: "Cena de empresa" })).toBeHidden();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Cena de empresa" }),
+	).toBeHidden();
 });
 
 test("una búsqueda sin resultados se distingue de no tener eventos", async ({
@@ -86,8 +92,12 @@ test("editar un evento actualiza la tarjeta", async ({ page }) => {
 	await page.getByLabel("Title").fill("Concierto de invierno");
 	await page.getByRole("button", { name: "Save event" }).click();
 
-	await expect(page.getByRole("heading", { name: "Concierto de invierno" })).toBeVisible();
-	await expect(page.getByRole("heading", { name: "Concierto de verano" })).toBeHidden();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de invierno" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeHidden();
 });
 
 test("borrar pide confirmación y luego elimina", async ({ page }) => {
@@ -96,7 +106,10 @@ test("borrar pide confirmación y luego elimina", async ({ page }) => {
 
 	await page.getByRole("button", { name: "Delete" }).first().click();
 	await expect(page.getByText(/This permanently deletes/)).toBeVisible();
-	await page.getByRole("button", { name: "Delete", exact: true }).last().click();
+	await page
+		.getByRole("button", { name: "Delete", exact: true })
+		.last()
+		.click();
 
 	await expect(page.getByText("You have no events yet.")).toBeVisible();
 });
