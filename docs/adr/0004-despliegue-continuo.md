@@ -57,7 +57,22 @@ motivo.
 `cancel-in-progress`.** El grupo general cancela la ejecución anterior en cada
 push, que es correcto para verificar y pésimo a mitad de un `firebase deploy`.
 
-**8. Preview por pull request**, con canal de 7 días. Cubre el hueco conocido de
+**8. GitHub se autentica con Workload Identity Federation, sin clave.** El
+runner presenta su token OIDC y Google devuelve credenciales que caducan con el
+job. **No existe ninguna clave**, ni en los secretos de GitHub ni en disco: no
+hay nada que robar ni que rotar.
+
+Lo que sostiene esto es la condición del proveedor:
+
+```
+assertion.repository == 'jorgecasar/planu'
+```
+
+Sin ella, cualquier repositorio de GitHub —de cualquier persona— podría pedir
+un token contra este proyecto, porque el emisor `token.actions.githubusercontent.com`
+es común a todo GitHub. Es la línea que **no** hay que relajar.
+
+**9. Preview por pull request**, con canal de 7 días. Cubre el hueco conocido de
 los e2e, que corren contra `npm run dev` y por tanto nunca ejercitan la CSP ni
 las cabeceras de caché. La CSP ya rompió los iconos de Web Awesome una vez y
 sólo se detectó probando a mano contra el emulador de hosting.
@@ -72,15 +87,21 @@ mecanismo para las reglas, y con él dos formas distintas de autenticarse.
 clic, y lleva permisos de edición sobre todo el proyecto. Se usa en su lugar una
 cuenta de servicio dedicada con `firebasehosting.admin` y `firebaserules.admin`.
 
-**Workload Identity Federation**, que evitaría la clave de larga duración. Es lo
-correcto y queda pendiente: montarlo exige `gcloud`, que no está instalado en la
-máquina donde se configuró esto.
+**Clave JSON de cuenta de servicio.** Era el plan inicial y se descartó al
+instalar `gcloud`, que es lo único que faltaba para poder montar WIF. Habría
+dejado una credencial de larga duración en los secretos de GitHub que nadie
+rotaría.
 
 ## Consecuencias
 
 - Un push a `main` es un despliegue. Deja de haber «lo probé y luego lo subo».
-- Existe una clave de cuenta de servicio de larga duración en los secretos de
-  GitHub. Es el punto débil de esta decisión y lo que WIF vendría a cerrar.
+- No hay ninguna credencial de Google en los secretos del repositorio. El único
+  secreto que queda es `SENTRY_AUTH_TOKEN`, y su alcance es `org:ci`: subir
+  source maps y crear releases, nada más.
+- El permiso vive en la condición del proveedor OIDC, que está en GCP y no en
+  el repositorio. Quien clone el repo no se lleva nada aprovechable, y quien
+  cambie esa condición no deja rastro en la historia de git. Es el precio de no
+  tener claves.
 - Un despliegue manual desde una máquina **no** sube source maps. Es
   deliberado: sólo se suben los del bundle que CI publica.
 - El primer despliegue cambia `planu-app.web.app` de 404 a la aplicación.
