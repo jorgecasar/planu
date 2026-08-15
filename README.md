@@ -80,10 +80,21 @@ La base de Firestore **no** es la `(default)`: se llama `planu`.
 
 ## Despliegue
 
+**Automático.** Un push a `main` que pase la verificación despliega hosting,
+reglas e índices, y sube los source maps a Sentry. Cada pull request recibe
+además un canal de preview que caduca a los 7 días — es el único sitio donde se
+pueden comprobar la CSP y las cabeceras de caché reales, porque los e2e corren
+contra `npm run dev` y nunca ven la configuración de hosting.
+
+A mano, si hace falta:
+
 ```bash
-firebase deploy --only hosting          # compila antes, vía predeploy
-firebase deploy --only firestore:rules,storage
+firebase deploy --only hosting                  # compila antes, vía predeploy
+firebase deploy --only firestore,storage        # reglas e índices
 ```
+
+Un despliegue manual **no** sube source maps: el interruptor es `SENTRY_UPLOAD`
+y sólo lo pone CI. Ver [`docs/adr/0004`](docs/adr/0004-despliegue-continuo.md).
 
 ## Lo que todavía no está
 
@@ -91,8 +102,8 @@ Con honestidad, porque afecta a quien lo use:
 
 - **App Check sin configurar.** Es requisito antes de abrir la IA en la nube.
 - **Sin recuperación de contraseña.** Quien olvide la suya se queda fuera.
-- **Sin observabilidad.** Un error en producción hoy no se registra en ningún
-  sitio.
 - **El acceso con Google no se ha probado** de punta a punta.
+- **Sin cuota de escritura por usuario ni alerta de facturación.** Las reglas
+  impiden leer lo ajeno, no que una cuenta escriba sin límite.
 - Las imágenes se sirven con una URL que lleva un token: quien la tenga accede
   sin sesión. El texto del evento sí lo protegen las reglas.

@@ -179,6 +179,29 @@ tests; no la dupliques en los componentes.
 Para saber dónde se resolvió una generación, mira
 `response.inferenceSource`: el modo es una preferencia, no una garantía.
 
+## Despliegue
+
+**Un push a `main` que pase la verificación despliega.** Hosting, reglas e
+índices, en un solo `firebase deploy`. Cada PR recibe además un canal de
+preview de 7 días. Todo vive en `.github/workflows/ci.yml`; el porqué, en
+[`docs/adr/0004`](docs/adr/0004-despliegue-continuo.md).
+
+Tres cosas que no son obvias y que conviene no deshacer:
+
+1. **El build del despliegue sale del `predeploy` de `firebase.json`**, nunca de
+   un paso propio del workflow. Si el job construyera por su cuenta, el
+   predeploy volvería a construir encima y se publicaría un bundle distinto de
+   aquel cuyos debug IDs se subieron a Sentry: maps huérfanos, trazas
+   minificadas, y ni un solo error visible.
+2. **La subida de source maps la gobierna `SENTRY_UPLOAD=true`**, que sólo pone
+   el job de producción — no la presencia de `SENTRY_AUTH_TOKEN`. Con el gate
+   por token, exportarlo en el `.zshrc` convertiría cada build local en una
+   release. Si el interruptor está puesto y falta alguna variable, el build
+   **para**: ver `apps/web/vite.config.ts`.
+3. **El job `deploy` tiene grupo de concurrencia propio, sin
+   `cancel-in-progress`.** El grupo general cancela lo anterior en cada push, y
+   eso a mitad de un `firebase deploy` deja producción sin revisar.
+
 ## Estado de seguridad
 
 `firestore.rules` se reescribió al portarlo. El original de planu tenía dos
