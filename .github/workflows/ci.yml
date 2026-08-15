@@ -119,13 +119,36 @@ jobs:
       # por tanto imposible que se despliegue algo distinto de lo construido.
       - name: Desplegar canal de preview
         id: preview
+        env:
+          CANAL: pr-${{ github.event.number }}
         run: |
-          npx firebase hosting:channel:deploy "pr-${{ github.event.number }}" \
-            --project planu-app --expires 7d --json > channel.json
-          URL=$(node -p "Object.values(require('./channel.json').result)[0].url")
+          npx firebase hosting:channel:deploy "$CANAL" --project planu-app --expires 7d
+
+          # La URL se consulta aparte y no del --json de `channel:deploy`: ese
+          # comando dispara el predeploy, y la salida de `npm run build` sale
+          # por el mismo stdout, así que el JSON llega precedido de basura.
+          # `channel:list` no tiene predeploy y devuelve JSON limpio.
+          URL=$(npx firebase hosting:channel:list --project planu-app --json \
+            | node -e '
+              let s = "";
+              process.stdin.on("data", (d) => { s += d; });
+              process.stdin.on("end", () => {
+                const canal = JSON.parse(s).result.channels.find(
+                  (c) => c.name.endsWith("/" + process.env.CANAL),
+                );
+                process.stdout.write(canal?.url ?? "");
+              });')
+
+          if [ -z "$URL" ]; then
+            echo "::error::el canal $CANAL no aparece tras desplegarlo"; exit 1
+          fi
+
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "### Preview desplegado" >> "$GITHUB_STEP_SUMMARY"
-          echo "$URL" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Preview desplegado"
+            echo ""
+            echo "$URL"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar la URL en el PR
         env:
