@@ -1,4 +1,4 @@
-import type { Event } from "../lib/types.js";
+import type { PlanuEvent } from "../lib/types.js";
 
 export interface DateRange {
 	from?: Date | null | undefined;
@@ -6,7 +6,7 @@ export interface DateRange {
 }
 
 /** Coincide si el término aparece en el título o en la descripción. */
-function matchesSearch(event: Event, term: string): boolean {
+function matchesSearch(event: PlanuEvent, term: string): boolean {
 	if (term === "") return true;
 	if (event.title.toLowerCase().includes(term)) return true;
 	return event.description?.toLowerCase().includes(term) ?? false;
@@ -21,7 +21,7 @@ function matchesSearch(event: Event, term: string): boolean {
  * - Con un solo extremo del rango, ese extremo hace de los dos, así que filtrar
  *   por un único día busca los eventos activos ese día, no los que empiezan.
  */
-function matchesRange(event: Event, range: DateRange): boolean {
+function matchesRange(event: PlanuEvent, range: DateRange): boolean {
 	const { from, to } = range;
 	if (!from && !to) return true;
 
@@ -40,12 +40,17 @@ function matchesRange(event: Event, range: DateRange): boolean {
 	return false;
 }
 
-/** Filtra por texto y por rango de fechas. Ambos criterios se suman. */
-export function filterEvents(
-	events: readonly Event[],
+/**
+ * Filtra por texto y por rango de fechas. Ambos criterios se suman.
+ *
+ * Genérica para no perder por el camino lo que el llamante añada al evento,
+ * como el `id` que trae de Firestore.
+ */
+export function filterEvents<T extends PlanuEvent>(
+	events: readonly T[],
 	searchTerm = "",
 	range: DateRange = {},
-): Event[] {
+): T[] {
 	const term = searchTerm.trim().toLowerCase();
 	return events.filter(
 		(event) => matchesSearch(event, term) && matchesRange(event, range),

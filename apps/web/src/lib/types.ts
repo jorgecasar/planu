@@ -31,10 +31,21 @@ export const EventSchema = z
 		},
 	);
 
-export type Event = z.infer<typeof EventSchema>;
+/**
+ * En el prototipo este tipo se llamaba `Event` y tapaba al `Event` del DOM en
+ * todos los componentes, con errores de tipos difíciles de leer. Renombrado.
+ */
+export type PlanuEvent = z.infer<typeof EventSchema>;
 
-export type EventDocumentData = Omit<Event, "id" | "startDate" | "endDate"> & {
+/** Un evento tal y como vive en Firestore: las fechas son Timestamp. */
+export type PlanuEventDocument = Omit<
+	PlanuEvent,
+	"id" | "startDate" | "endDate"
+> & {
 	startDate: Timestamp | null;
 	endDate: Timestamp | null;
 	imageUrl?: string | null;
 };
+
+/** Un evento ya leído de Firestore, con su identificador. */
+export type StoredEvent = PlanuEvent & { id: string };

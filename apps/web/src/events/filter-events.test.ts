@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
-import type { Event } from "../lib/types.js";
+import type { PlanuEvent } from "../lib/types.js";
 import { filterEvents } from "./filter-events.js";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
 
-const event = (overrides: Partial<Event> = {}): Event => ({
+const event = (overrides: Partial<PlanuEvent> = {}): PlanuEvent => ({
 	title: "Concierto",
 	description: "Música en directo",
 	location: "Madrid",

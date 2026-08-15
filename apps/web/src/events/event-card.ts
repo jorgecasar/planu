@@ -6,7 +6,7 @@ import { deleteDoc, doc, type Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { firestoreContext } from "../firebase/context.js";
-import type { Event } from "../lib/types.js";
+import type { StoredEvent } from "../lib/types.js";
 import { formatEventDates } from "./format-dates.js";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
@@ -41,7 +41,7 @@ export class PlanuEventCard extends LitElement {
 		}
 	`;
 
-	@property({ attribute: false }) event!: Event & { id: string };
+	@property({ attribute: false }) event!: StoredEvent;
 
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
