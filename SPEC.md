@@ -60,7 +60,7 @@ npm run test:e2e    # Playwright + axe
 npm run lint        # Biome
 npm run lint:lit    # lit-analyzer sobre las plantillas
 npm run typecheck   # tsc --noEmit
-npm run emulators   # emuladores: auth 9099, firestore 8080, storage 9199
+npm run emulators   # emuladores: auth 9099, firestore 8181, storage 9199
 ```
 
 `npm test` y `npm run test:e2e` requieren `npx playwright install chromium`.
@@ -94,7 +94,7 @@ Elementos personalizados con prefijo `planu-`.
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { Event } from "../lib/types.js";
+import type { StoredEvent } from "../lib/types.js";
 
 /** Tarjeta de un evento en el listado. */
 @customElement("planu-event-card")
@@ -106,7 +106,7 @@ export class PlanuEventCard extends LitElement {
 	`;
 
 	// Sin `accessor`: eso es de decoradores estándar y aquí son legacy.
-	@property({ attribute: false }) event!: Event;
+	@property({ attribute: false }) event!: StoredEvent;
 
 	override render() {
 		return html`
