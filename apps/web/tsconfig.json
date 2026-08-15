@@ -1,0 +1,30 @@
+{
+	"extends": "@tsconfig/strictest/tsconfig.json",
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"noEmit": true,
+		"moduleResolution": "bundler",
+		"forceConsistentCasingInFileNames": true,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": false,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"types": ["vite/client"],
+		"plugins": [
+			{
+				"name": "ts-lit-plugin",
+				"strict": true,
+				"rules": {
+					"no-unknown-tag-name": "error",
+					"no-unclosed-tag": "error",
+					"no-unknown-attribute": "error",
+					"no-css-property-errors": "error",
+					"no-invalid-boolean-binding": "error"
+				}
+			}
+		]
+	},
+	"include": ["src/**/*.ts", "e2e/**/*.ts", "*.config.ts"]
+}

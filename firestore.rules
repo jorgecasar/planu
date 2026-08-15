@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /events/{eventId} {
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.userId;
+      }
+
+      function hasRequiredFields() {
+        return request.resource.data.keys().hasAll(['title', 'description', 'location', 'userId']);
+      }
+
+      // Los eventos son privados. La UI ya consulta con
+      // where('userId', '==', uid), pero la regla es lo único que de verdad lo
+      // impide: sin esto cualquiera puede consultar los eventos de cualquiera.
+      allow read: if isOwner();
+
+      // Una única regla por operación. Las reglas de Firestore se combinan con
+      // OR, así que separar la validación de campos en su propio `allow`
+      // anularía el control de propiedad en lugar de sumarse a él.
+      //
+      // El userId se fija al uid de quien crea: no se puede crear en nombre
+      // de otro usuario.
+      allow create: if isSignedIn()
+                    && hasRequiredFields()
+                    && request.resource.data.userId == request.auth.uid;
+
+      // La propiedad no se transfiere en un update.
+      allow update: if isOwner()
+                    && hasRequiredFields()
+                    && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner();
+    }
+  }
+}

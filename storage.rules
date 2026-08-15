@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Las imágenes de portada cuelgan del uid de su dueño. El prototipo subía a
+    // events/{uid}/ pero las reglas sólo permitían event-images/{imageId}, así
+    // que la subida nunca llegó a funcionar. Se adopta la ruta del código, que
+    // además es la única que permite comprobar propiedad.
+    match /events/{userId}/{fileName} {
+
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Legible por su dueño, en coherencia con la privacidad de los eventos.
+      allow read: if isOwner();
+
+      allow write: if isOwner()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isOwner();
+    }
+  }
+}
