@@ -109,6 +109,16 @@ Las variables de entorno viven en `.env.local` **en la raíz del monorepo**, no
 en `apps/web`. Por eso `vite.config.ts` fija `envDir`: sin ello Vite las busca
 junto a sí mismo y la aplicación arranca con `auth/invalid-api-key`.
 
+## Soporte de navegador
+
+Por defecto, **Baseline widely available** sin fallback. Todo lo que no lo sea
+va detrás de detección de disponibilidad y degrada a una ruta que sí funcione
+en cualquier navegador moderno.
+
+Hoy la única excepción es la IA integrada, y la resuelve el SDK: Firebase AI
+Logic en modo `PREFER_ON_DEVICE` usa Gemini Nano si existe y Gemini en la nube
+si no. Sin ninguno de los dos, el aviso remite al alta manual.
+
 ## Estado de seguridad
 
 `firestore.rules` se reescribió al portarlo. El original de planu tenía dos

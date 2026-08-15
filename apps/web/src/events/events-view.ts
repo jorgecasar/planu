@@ -1,5 +1,8 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
+import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
+import "./ai-event-generator.js";
 import "./event-card.js";
 import "./event-editor.js";
 import "./event-filters.js";
@@ -18,7 +21,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
 import { type DateRange, filterEvents } from "./filter-events.js";
 
@@ -84,6 +87,8 @@ export class PlanuEventsView extends LitElement {
 	@state() private range: DateRange = {};
 	@state() private editorOpen = false;
 	@state() private editing: StoredEvent | undefined;
+	@state() private generatorOpen = false;
+	@state() private draft: Partial<PlanuEvent> | undefined;
 
 	readonly #events = new CollectionController<DocumentData>(this);
 
@@ -125,7 +130,13 @@ export class PlanuEventsView extends LitElement {
 				<planu-event-filters
 					@planu-filters-change=${this.#onFilters}
 				></planu-event-filters>
-				<wa-button variant="brand" @click=${this.#onNew}>New event</wa-button>
+				<wa-dropdown @wa-select=${this.#onCreateOption}>
+					<wa-button slot="trigger" variant="brand" .withCaret=${true}>
+						New event
+					</wa-button>
+					<wa-dropdown-item value="manual">Create manually</wa-dropdown-item>
+					<wa-dropdown-item value="ai">Generate from an image</wa-dropdown-item>
+				</wa-dropdown>
 			</div>
 
 			${
@@ -144,9 +155,38 @@ export class PlanuEventsView extends LitElement {
 			<planu-event-editor
 				.open=${this.editorOpen}
 				.event=${this.editing}
+				.draft=${this.draft}
 				@planu-editor-close=${this.#onEditorClose}
 			></planu-event-editor>
+
+			<planu-ai-event-generator
+				.open=${this.generatorOpen}
+				@planu-event-generated=${this.#onGenerated}
+				@planu-generator-close=${this.#onGeneratorClose}
+			></planu-ai-event-generator>
 		`;
+	}
+
+	#onCreateOption(domEvent: Event): void {
+		const value = (domEvent as CustomEvent<{ item: { value: string } }>).detail
+			.item.value;
+		if (value === "ai") {
+			this.generatorOpen = true;
+			return;
+		}
+		this.#onNew();
+	}
+
+	/** Lo extraído por la IA no se guarda: prerrellena el editor para revisarlo. */
+	#onGenerated(domEvent: Event): void {
+		this.draft = (domEvent as CustomEvent<Partial<PlanuEvent>>).detail;
+		this.editing = undefined;
+		this.generatorOpen = false;
+		this.editorOpen = true;
+	}
+
+	#onGeneratorClose(): void {
+		this.generatorOpen = false;
 	}
 
 	#onEditorClose(): void {

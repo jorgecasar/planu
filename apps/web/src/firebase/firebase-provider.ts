@@ -21,6 +21,7 @@ import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
+	appContext,
 	authContext,
 	firestoreContext,
 	storageContext,
@@ -81,6 +82,10 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	constructor() {
 		super();
+		new ContextProvider(this, {
+			context: appContext,
+			initialValue: this.#services.app,
+		});
 		new ContextProvider(this, {
 			context: authContext,
 			initialValue: this.#services.auth,

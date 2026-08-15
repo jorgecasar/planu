@@ -50,14 +50,14 @@ Derivadas de [`plan.md`](plan.md). Orden por dependencia, no por importancia.
 
 ## Fase 3 — Listado y filtros
 
-- [ ] **T6 · Listado de eventos**
+- [x] **T6 · Listado de eventos**
   - Acepta: consulta filtrada por `userId`; tarjetas con imagen, título,
     descripción, ubicación y fechas; esqueletos durante la carga; estado vacío
     que distingue "sin eventos" de "sin resultados"; borrado con confirmación.
   - Verifica: e2e con datos sembrados en el emulador
   - Ficheros: `src/events/events-view.ts`, `src/events/event-card.ts`
 
-- [ ] **T7 · Búsqueda y filtro por fechas**
+- [x] **T7 · Búsqueda y filtro por fechas**
   - Acepta: `filterEvents` como función pura; búsqueda por título o descripción
     sin distinguir mayúsculas; rango de fechas con la semántica del prototipo
     para eventos sin fechas, con sólo inicio o con sólo fin.
@@ -66,21 +66,21 @@ Derivadas de [`plan.md`](plan.md). Orden por dependencia, no por importancia.
 
 ## Fase 4 — Editor y generación con IA
 
-- [ ] **T8 · Editor de eventos**
+- [x] **T8 · Editor de eventos**
   - Acepta: diálogo de alta y edición con validación por `EventSchema`; subida de
     imagen con barra de progreso y posibilidad de quitarla; `userId` fijado en el
     cliente al `uid` de la sesión.
   - Verifica: e2e de alta con imagen y de edición
   - Ficheros: `src/events/event-editor.ts`
 
-- [ ] **T9 · Generación desde imagen**
+- [x] **T9 · Generación desde imagen**
   - Acepta: `InferenceMode.PREFER_ON_DEVICE`, con `responseSchema` equivalente al
     `GenerateEventOutputSchema` del prototipo; el resultado prerrellena el editor
     y el usuario confirma antes de guardar; fallo de IA no rompe el alta manual.
   - Verifica: unitarios con el modelo simulado (éxito, error, no disponible)
   - Ficheros: `src/events/ai-event-generator.ts`
 
-- [ ] **T10 · Documentación**
+- [x] **T10 · Documentación**
   - Acepta: ADR 0001 stack, 0002 visibilidad privada con la fuga que corrige,
     0003 IA híbrida; `AGENTS.md` al día; nota en `docs/blueprint.md` de que el
     listado público queda superado.

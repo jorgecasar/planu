@@ -18,12 +18,15 @@ async function signUp(page: Page): Promise<void> {
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 
+/** Abre el editor manual: el botón principal es ahora un menú de dos opciones. */
+async function openEditor(page: Page): Promise<void> {
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByRole("menuitem", { name: "Create manually" }).click();
+	await expect(page.getByLabel("Title")).toBeVisible();
+}
+
 async function createEvent(page: Page, title: string): Promise<void> {
-	// En el estado vacío hay dos botones que abren el editor.
-	await page
-		.getByRole("button", { name: /New event|Create your first event/ })
-		.first()
-		.click();
+	await openEditor(page);
 	await page.getByLabel("Title").fill(title);
 	await page.getByLabel("Description").fill(`About ${title}`);
 	await page.getByLabel("Location").fill("Madrid");
@@ -100,11 +103,7 @@ test("borrar pide confirmación y luego elimina", async ({ page }) => {
 test("un título demasiado corto no guarda", async ({ page }) => {
 	await signUp(page);
 
-	// En el estado vacío hay dos botones que abren el editor.
-	await page
-		.getByRole("button", { name: /New event|Create your first event/ })
-		.first()
-		.click();
+	await openEditor(page);
 	await page.getByLabel("Title").fill("ab");
 	await page.getByRole("button", { name: "Save event" }).click();
 

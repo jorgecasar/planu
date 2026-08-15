@@ -1,5 +1,11 @@
 import { createContext } from "@lit/context";
+import type { FirebaseApp } from "firebase/app";
 import type { Auth, User } from "firebase/auth";
+
+/** La app en sí; la necesita Firebase AI Logic, que no cuelga de Firestore. */
+export const appContext = createContext<FirebaseApp | undefined>(
+	Symbol("planu-app-instance"),
+);
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 
