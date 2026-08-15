@@ -1,0 +1,11 @@
+# Sin este fichero, el rewrite catch-all de firebase.json servía el index.html
+# de la aplicación en /robots.txt: 200 con text/html y 17 errores de sintaxis.
+# Los estáticos de public/ ganan al rewrite, así que basta con existir.
+#
+# Conservador a propósito. Hoy no hay nada público que indexar; cuando llegue
+# la landing de la fase 2 (T28/T29) habrá que revisarlo.
+
+User-agent: *
+Disallow: /events
+Disallow: /profile
+Allow: /

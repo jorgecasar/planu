@@ -19,3 +19,6 @@ playwright-report/
 # Índice de qmd (regenerable con `qmd update && qmd embed`)
 .qmd/index.sqlite
 .qmd/*.sqlite-*
+
+# Adjuntos que Vitest deja al fallar un test de navegador.
+apps/web/.vitest-attachments/
