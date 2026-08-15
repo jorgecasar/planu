@@ -82,6 +82,19 @@ un salto repentino a miles de errores. Los motivos van aquí, no ahí.
   `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Lo valida commitlint.
 - Los identificadores de código van en inglés.
 
+### Módulos
+
+**ES modules en todo el repo. CommonJS no entra.** Cada `package.json` declara
+`"type": "module"` —también los que se añadan a `packages/`—, de modo que un
+`.js` ya *es* un módulo y **no se usan las extensiones `.mjs` ni `.cjs`**: no
+aportan nada y delatan que el paquete no está bien configurado.
+
+Al importar un paquete de terceros que aún distribuya ambos formatos, coge su
+entrada ESM (`exports["."].import`). La de CommonJS obliga a rodeos del tipo
+`mod.default ?? mod`, y en el caso de Sentry además impedía el tree-shaking:
+importar el espacio de nombres completo dejaba 162 KiB de Session Replay en el
+bundle.
+
 ### Dónde va cada cosa
 
 | Qué | Dónde |
