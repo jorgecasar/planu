@@ -62,6 +62,24 @@ runner presenta su token OIDC y Google devuelve credenciales que caducan con el
 job. **No existe ninguna clave**, ni en los secretos de GitHub ni en disco: no
 hay nada que robar ni que rotar.
 
+La cuenta `github-actions-deploy` acabó con estos cuatro roles, cada uno
+descubierto por el 403 que provocaba su ausencia:
+
+| Rol | Para qué |
+| --- | --- |
+| `firebasehosting.admin` | publicar el sitio |
+| `firebaserules.admin` | desplegar las reglas de Firestore y Storage |
+| `serviceusage.serviceUsageConsumer` | comprobar si una API está habilitada |
+| `datastore.indexAdmin` | desplegar los índices de Firestore |
+
+**Ninguno concede lectura de datos.** Merece la pena decir qué se descartó y
+por qué: `roles/firebase.viewer` resolvía de un plumazo dos de los cuatro
+403, pero incluye `datastore.entities.*` — la cuenta que despliega podría leer
+los eventos privados de cualquier usuario. Las reglas de Firestore no protegen
+frente a una cuenta de servicio con permiso a nivel de proyecto, así que
+concederlo habría vaciado de contenido el ADR 0002 y sus 33 tests.
+`datastore.indexAdmin` es lo contrario: 11 permisos, ninguno sobre entidades.
+
 Lo que sostiene esto es la condición del proveedor:
 
 ```
