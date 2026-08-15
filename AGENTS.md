@@ -306,3 +306,13 @@ aparece `.qmd/index.yml`.
   Al retomarlo hay que elegir entre Cloud Functions con Genkit o `@google/genai`
   directamente, y escribir el ADR correspondiente.
 - Convención de nombres para las imágenes en Storage (ver arriba).
+- **Arquitectura hexagonal.** Hoy el código se organiza por funcionalidad
+  (`auth/`, `events/`, `firebase/`…) y no por capas, y las dependencias de
+  terceros se importan allí donde se usan. La dirección acordada es aislarlas
+  tras puertos, con los adaptadores en una capa de infraestructura. Sentry
+  (`src/observability/`) es el caso más fácil, pero **el que de verdad importa
+  es Firebase**: hoy `Firestore`, `User` y `FirebaseStorage` entran por
+  `@consume` directamente en los componentes de eventos, así que el dominio
+  conoce al proveedor. Hacerlo sólo en observabilidad dejaría el proyecto a
+  medio camino, así que conviene decidir el alcance completo y escribir el ADR
+  antes de mover nada.

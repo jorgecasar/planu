@@ -202,10 +202,23 @@ export class PlanuLoginView extends LitElement {
 	}
 
 	#onGoogle(): void {
-		if (!this.auth) return;
+		const { auth } = this;
+		if (!auth) return;
 		this.error = "";
 		this.busy = true;
-		signInWithPopup(this.auth, new GoogleAuthProvider())
+
+		// El resolver llega aquí y no en `initializeAuth`, porque arrastra gapi
+		// y el iframe de autenticación: 137 KiB de tres orígenes ajenos. Antes
+		// se descargaban en cada visita; ahora sólo tras este clic. La
+		// contrapartida es que el primer acceso con Google tarda algo más.
+		import("firebase/auth")
+			.then(({ browserPopupRedirectResolver }) =>
+				signInWithPopup(
+					auth,
+					new GoogleAuthProvider(),
+					browserPopupRedirectResolver,
+				),
+			)
 			.catch((cause: unknown) => {
 				this.error = authErrorMessage(cause);
 			})

@@ -61,6 +61,18 @@ export default defineConfig(({ mode }) => {
 	return {
 		envDir,
 		plugins,
+		// Banderas de compilación del SDK de Sentry. Sin ellas, su bundle
+		// arrastraba Session Replay con grabación de canvas, el widget de
+		// Feedback y el tracing —que está apagado por configuración—: 455 KiB
+		// en crudo con un 83 % sin ejecutar nunca. `__SENTRY_TRACING__` seguía
+		// literal en el bundle publicado, señal de que la rama sobrevivía al
+		// tree-shaking por no estar sustituida aquí.
+		define: {
+			__SENTRY_TRACING__: "false",
+			__SENTRY_DEBUG__: "false",
+			__RRWEB_EXCLUDE_CANVAS__: "true",
+			__RRWEB_EXCLUDE_SHADOW_DOM__: "true",
+		},
 		server: {
 			port: 3000,
 			host: "0.0.0.0",

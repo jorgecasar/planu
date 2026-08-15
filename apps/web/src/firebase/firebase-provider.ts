@@ -2,8 +2,10 @@ import { ContextProvider } from "@lit/context";
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import {
 	type Auth,
+	browserLocalPersistence,
 	connectAuthEmulator,
-	getAuth,
+	indexedDBLocalPersistence,
+	initializeAuth,
 	onAuthStateChanged,
 	type User,
 } from "firebase/auth";
@@ -44,7 +46,17 @@ export function initializeFirebase(): CoreServices {
 	if (core) return core;
 
 	const app = getApps()[0] ?? initializeApp(firebaseConfig);
-	const auth = getAuth(app);
+
+	// `initializeAuth` y no `getAuth`: éste último instala por defecto el
+	// `browserPopupRedirectResolver`, que al arrancar Auth comprueba si hay una
+	// redirección pendiente. Esa comprobación descargaba gapi y el iframe de
+	// autenticación —137 KiB de tres orígenes ajenos— en **todas** las visitas,
+	// aunque nadie pulsara el botón de Google. Era la cadena de dependencias
+	// más larga de la página: 4,7 s. El resolver se pasa ahora en el propio
+	// `signInWithPopup`, así que sólo lo paga quien usa ese acceso.
+	const auth = initializeAuth(app, {
+		persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+	});
 
 	if (import.meta.env.DEV) {
 		connectAuthEmulator(auth, `http://localhost:${EMULATORS.auth}`, {
