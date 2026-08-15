@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 import { describeInferenceSource, resolveInferenceMode } from "./ai-policy.js";
 
-test("una cuenta premium puede recurrir a la nube", () => {
+test("el candado de código gana sobre cualquier configuración", () => {
+	// Mientras CLOUD_LOCKED esté puesto, ni la variable de entorno ni el claim
+	// premium abren la nube: hace falta un cambio de código, que es el punto.
 	expect(resolveInferenceMode({ cloudEnabled: true, premium: true })).toBe(
-		"prefer_on_device",
+		"only_on_device",
 	);
 });
 

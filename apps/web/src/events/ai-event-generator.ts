@@ -19,6 +19,18 @@ import {
 } from "../firebase/context.js";
 import { uploadFile } from "../firebase/storage.js";
 import type { PlanuEvent } from "../lib/types.js";
+
+/** Lo que devuelve `getGenerativeModel`, sin importar el SDK en el arranque. */
+type GenerativeModelInstance = Awaited<
+	ReturnType<
+		Awaited<typeof import("firebase/ai")>["getGenerativeModel"] extends (
+			...args: infer _A
+		) => infer R
+			? () => R
+			: never
+	>
+>;
+
 import {
 	checkAvailability,
 	type ModelAvailability,
@@ -95,9 +107,21 @@ export class PlanuAiEventGenerator extends LitElement {
 	/** Se reutiliza entre aperturas: preparar el modelo dos veces no aporta. */
 	#warmup: Promise<void> | undefined;
 
+	/** El modelo también: construirlo dos veces duplicaría la inicialización. */
+	#modelPromise: Promise<GenerativeModelInstance> | undefined;
+
+	/**
+	 * Cambia al cerrar el diálogo. Todo lo que estuviera en vuelo comprueba su
+	 * token antes de tener efecto: sin esto, cancelar no cancelaba nada y una
+	 * generación tardía subía la imagen y reabría el editor igualmente.
+	 */
+	#generation = 0;
+
 	override willUpdate(changed: Map<string, unknown>): void {
 		if (changed.has("open") && this.open) {
+			this.#revokePreview();
 			this.preview = "";
+			this.progress = 0;
 			this.error = "";
 			this.downloading = false;
 			// Abrir el diálogo ya es intención clara: Chrome recomienda preparar
@@ -170,7 +194,7 @@ export class PlanuAiEventGenerator extends LitElement {
 						@change=${this.#onFile}
 					/>
 					${
-						this.busy
+						this.busy || this.downloading
 							? html`<div class="working">
 									<wa-spinner></wa-spinner>
 									<span>
@@ -188,7 +212,7 @@ export class PlanuAiEventGenerator extends LitElement {
 							: nothing
 					}
 					${
-						this.uploading
+						this.uploading || this.downloading
 							? html`<wa-progress-bar value=${this.progress}></wa-progress-bar>`
 							: nothing
 					}
@@ -209,7 +233,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	 * No hay `inCloudParams` a propósito: reactivar la nube exige volver a
 	 * añadirlos y configurar App Check, no cambiar una variable de entorno.
 	 */
-	async #model() {
+	async #buildModel() {
 		// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría de
 		// las sesiones no lo usan nunca. No debe entrar en el arranque.
 		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
@@ -229,11 +253,23 @@ export class PlanuAiEventGenerator extends LitElement {
 		});
 	}
 
+	/** Una sola instancia por sesión: el calentamiento y la generación comparten. */
+	#model() {
+		this.#modelPromise ??= this.#buildModel();
+		return this.#modelPromise;
+	}
+
+	#revokePreview(): void {
+		if (this.preview.startsWith("blob:")) URL.revokeObjectURL(this.preview);
+	}
+
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
 		const input = domEvent.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file || !this.app) return;
 
+		const token = this.#generation;
+		this.#revokePreview();
 		this.preview = URL.createObjectURL(file);
 		this.error = "";
 		this.busy = true;
@@ -257,6 +293,10 @@ export class PlanuAiEventGenerator extends LitElement {
 				return result.response.text();
 			}, file);
 
+			// Si el usuario canceló mientras el modelo pensaba, aquí se para: ni
+			// se sube la imagen ni se reabre el editor a su espalda.
+			if (token !== this.#generation) return;
+
 			// El cartel del que se extrajo el evento es su portada natural. Se
 			// sube después de generar, no antes, para no dejar en Storage las
 			// imágenes de los intentos que no llegan a nada.
@@ -266,6 +306,7 @@ export class PlanuAiEventGenerator extends LitElement {
 			});
 			this.#close();
 		} catch (cause) {
+			if (token !== this.#generation) return;
 			this.error =
 				cause instanceof GenerationError
 					? msg("The image could not be read as an event. Try a clearer photo.")
@@ -341,6 +382,8 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	#close(): void {
+		this.#generation++;
+		this.#revokePreview();
 		this.open = false;
 		this.dispatchEvent(new CustomEvent("planu-generator-close"));
 	}

@@ -1,0 +1,129 @@
+import { readFileSync } from "node:fs";
+import {
+	assertFails,
+	assertSucceeds,
+	initializeTestEnvironment,
+	type RulesTestEnvironment,
+} from "@firebase/rules-unit-testing";
+import { getBytes, ref, uploadBytes } from "firebase/storage";
+import { afterAll, beforeAll, describe, test } from "vitest";
+
+const VICTIMA = "victima-uid";
+const ATACANTE = "atacante-uid";
+
+let env: RulesTestEnvironment;
+
+const imagen = (bytes = 16) => new Uint8Array(bytes).fill(1);
+const comoPng = { contentType: "image/png" };
+
+beforeAll(async () => {
+	env = await initializeTestEnvironment({
+		projectId: "planu-storage-test",
+		storage: {
+			host: "localhost",
+			port: 9199,
+			rules: readFileSync("../../storage.rules", "utf8"),
+		},
+	});
+});
+
+afterAll(async () => {
+	await env?.cleanup();
+});
+
+const comoAtacante = () => env.authenticatedContext(ATACANTE).storage();
+const comoVictima = () => env.authenticatedContext(VICTIMA).storage();
+const sinSesion = () => env.unauthenticatedContext().storage();
+
+describe("propiedad de las imágenes", () => {
+	test("el dueño sube a su propia carpeta", async () => {
+		await assertSucceeds(
+			uploadBytes(
+				ref(comoVictima(), `events/${VICTIMA}/cartel.png`),
+				imagen(),
+				comoPng,
+			),
+		);
+	});
+
+	test("no se puede escribir en la carpeta de otro", async () => {
+		// El prototipo permitía justo esto: la ruta no llevaba el uid.
+		await assertFails(
+			uploadBytes(
+				ref(comoAtacante(), `events/${VICTIMA}/suplantada.png`),
+				imagen(),
+				comoPng,
+			),
+		);
+	});
+
+	test("no se puede leer la imagen de otro", async () => {
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await uploadBytes(
+				ref(ctx.storage(), `events/${VICTIMA}/privada.png`),
+				imagen(),
+				comoPng,
+			);
+		});
+
+		await assertFails(
+			getBytes(ref(comoAtacante(), `events/${VICTIMA}/privada.png`)),
+		);
+	});
+
+	test("sin sesión no se escribe ni se lee", async () => {
+		await assertFails(
+			uploadBytes(
+				ref(sinSesion(), `events/${VICTIMA}/anonima.png`),
+				imagen(),
+				comoPng,
+			),
+		);
+		await assertFails(
+			getBytes(ref(sinSesion(), `events/${VICTIMA}/privada.png`)),
+		);
+	});
+
+	test("no se puede escribir fuera del prefijo events/", async () => {
+		await assertFails(
+			uploadBytes(ref(comoAtacante(), "suelto.png"), imagen(), comoPng),
+		);
+		await assertFails(
+			uploadBytes(
+				ref(comoAtacante(), `otracosa/${ATACANTE}/x.png`),
+				imagen(),
+				comoPng,
+			),
+		);
+	});
+});
+
+describe("forma del fichero", () => {
+	test("rechaza lo que no se declara como imagen", async () => {
+		await assertFails(
+			uploadBytes(ref(comoVictima(), `events/${VICTIMA}/script.js`), imagen(), {
+				contentType: "application/javascript",
+			}),
+		);
+	});
+
+	test("rechaza ficheros de 5 MB o más", async () => {
+		await assertFails(
+			uploadBytes(
+				ref(comoVictima(), `events/${VICTIMA}/enorme.png`),
+				imagen(5 * 1024 * 1024),
+				comoPng,
+			),
+		);
+	});
+
+	test("acepta justo por debajo del tope", async () => {
+		await assertSucceeds(
+			uploadBytes(
+				ref(comoVictima(), `events/${VICTIMA}/grande.png`),
+				imagen(5 * 1024 * 1024 - 1024),
+				comoPng,
+			),
+		);
+	});
+});

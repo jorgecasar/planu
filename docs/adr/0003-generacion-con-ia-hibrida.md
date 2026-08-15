@@ -39,9 +39,18 @@ proyecto ya tiene, sin Cloud Functions ni clave en el cliente.
 
 ## Estado actual: sólo en el dispositivo
 
-La nube está desactivada. El modo es `ONLY_ON_DEVICE` y el componente **no
-configura `inCloudParams`**, así que reactivarla exige un cambio de código
-deliberado, no mover una variable de entorno. Consecuencias buscadas:
+La nube está desactivada. El modo es `ONLY_ON_DEVICE` y hay un candado en
+`ai-policy.ts` (`CLOUD_LOCKED`) que lo fuerza por encima de cualquier
+configuración.
+
+**Corrección de una versión anterior de este ADR:** decía que bastaba con no
+configurar `inCloudParams`. Es falso, y lo demostró una auditoría leyendo el
+SDK: si no se pasan, `@firebase/ai` los rellena solo con
+`gemini-2.5-flash-lite`. Omitirlos no cierra nada. Lo que cierra es la
+constante, porque obliga a un diff revisable en lugar de a cambiar una variable
+de entorno en el pipeline.
+
+Consecuencias buscadas:
 
 - Coste cero y ninguna imagen sale del dispositivo.
 - App Check deja de ser un bloqueante inmediato. Seguirá siéndolo el día que se

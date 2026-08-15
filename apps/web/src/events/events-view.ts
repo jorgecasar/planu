@@ -241,6 +241,12 @@ export class PlanuEventsView extends LitElement {
 			</wa-callout>`;
 		}
 
+		// Hay sesión pero Firestore aún viaja por su import dinámico. Sin esta
+		// comprobación el controller no llega a suscribirse —su `loading` sigue
+		// en false— y la vista concluía "todavía no tienes eventos" en cada
+		// arranque en frío, indistinguible de una lista vacía de verdad.
+		if (this.user && !this.firestore) return this.#renderSkeletons();
+
 		if (this.#events.loading) return this.#renderSkeletons();
 		if (visible.length === 0) return this.#renderEmpty(total);
 

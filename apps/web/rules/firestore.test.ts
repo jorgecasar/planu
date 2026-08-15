@@ -15,6 +15,7 @@ import {
 	query,
 	setDoc,
 	Timestamp,
+	updateDoc,
 	where,
 } from "firebase/firestore";
 import {
@@ -230,5 +231,82 @@ describe("forma y tamaño del documento", () => {
 				userId: ATACANTE,
 			}),
 		);
+	});
+});
+
+describe("huecos que la auditoría señaló", () => {
+	test("el dueño no puede reasignar su evento a otro usuario", async () => {
+		// Aislado a propósito: los tests de robo usaban un atacante que ya
+		// fallaba por isOwner(), así que si se borrase la cláusula de
+		// inmutabilidad de userId seguirían pasando igual.
+		await assertFails(
+			updateDoc(doc(comoVictima(), "events/evento-victima"), {
+				userId: ATACANTE,
+			}),
+		);
+	});
+
+	test("el dueño sí puede consultar su propia lista filtrada", async () => {
+		// Es la consulta que hace de verdad la aplicación; sólo se probaba el
+		// caso del atacante, así que romper el listado propio pasaba inadvertido.
+		await assertSucceeds(
+			getDocs(
+				query(
+					collection(comoVictima(), "events"),
+					where("userId", "==", VICTIMA),
+				),
+			),
+		);
+	});
+
+	test("rechaza fechas que no son Timestamp", async () => {
+		await assertFails(
+			addDoc(
+				collection(comoAtacante(), "events"),
+				evento(ATACANTE, { startDate: Date.now() }),
+			),
+		);
+		await assertFails(
+			addDoc(
+				collection(comoAtacante(), "events"),
+				evento(ATACANTE, { endDate: "2026-06-01" }),
+			),
+		);
+	});
+
+	test("rechaza una imageUrl por encima del tope", async () => {
+		await assertFails(
+			addDoc(
+				collection(comoAtacante(), "events"),
+				evento(ATACANTE, { imageUrl: `https://x/${"a".repeat(2049)}` }),
+			),
+		);
+	});
+
+	test("acepta exactamente los límites, no sólo los rechaza por encima", async () => {
+		// Cambiar un <= por un < no rompería ningún otro test.
+		await assertSucceeds(
+			addDoc(
+				collection(comoAtacante(), "events"),
+				evento(ATACANTE, {
+					title: "x".repeat(200),
+					description: "x".repeat(5000),
+					location: "x".repeat(200),
+				}),
+			),
+		);
+		await assertSucceeds(
+			addDoc(
+				collection(comoAtacante(), "events"),
+				evento(ATACANTE, { title: "abc" }),
+			),
+		);
+	});
+
+	test("sin sesión tampoco se modifica ni se borra", async () => {
+		await assertFails(
+			updateDoc(doc(sinSesion(), "events/evento-victima"), { title: "hola" }),
+		);
+		await assertFails(deleteDoc(doc(sinSesion(), "events/evento-victima")));
 	});
 });

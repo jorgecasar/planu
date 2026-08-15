@@ -39,6 +39,16 @@ test("la generación desde imagen se ofrece junto al alta manual", async ({
 test("si la IA no está disponible lo dice y no bloquea el alta manual", async ({
 	page,
 }) => {
+	// Se fija el estado en vez de confiar en lo que traiga el Chromium
+	// instalado: el de Playwright sí expone LanguageModel y responde
+	// "downloadable", así que sin esto el test pasaría por la razón equivocada
+	// y se rompería solo con el próximo bump de Playwright.
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "available" },
+			configurable: true,
+		});
+	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
 	await page.getByRole("menuitem", { name: "Generate from an image" }).click();

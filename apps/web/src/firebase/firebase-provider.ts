@@ -64,6 +64,9 @@ export function initializeFirebase(): CoreServices {
  */
 export function loadDataServices(app: FirebaseApp): Promise<DataServices> {
 	data ??= (async () => {
+		// Un rechazo se memoiza igual que un éxito: sin limpiar la referencia,
+		// un fallo pasajero del import dinámico dejaría la aplicación sin datos
+		// hasta recargar la página entera.
 		const [{ getFirestore, connectFirestoreEmulator }, storageModule] =
 			await Promise.all([
 				import("firebase/firestore"),
@@ -84,7 +87,10 @@ export function loadDataServices(app: FirebaseApp): Promise<DataServices> {
 		}
 
 		return { firestore, storage };
-	})();
+	})().catch((cause: unknown) => {
+		data = undefined;
+		throw cause;
+	});
 
 	return data;
 }
@@ -136,10 +142,24 @@ export class PlanuFirebaseProvider extends LitElement {
 		);
 	}
 
+	/**
+	 * Sin este `catch` el fallo era invisible: promesa rechazada sin manejar,
+	 * los contextos nunca se rellenaban y la vista se quedaba esperando datos
+	 * que no iban a llegar, sin decir nada.
+	 */
 	async #provideDataServices(): Promise<void> {
-		const { firestore, storage } = await loadDataServices(this.#core.app);
-		this.#firestore.setValue(firestore);
-		this.#storage.setValue(storage);
+		try {
+			const { firestore, storage } = await loadDataServices(this.#core.app);
+			this.#firestore.setValue(firestore);
+			this.#storage.setValue(storage);
+		} catch {
+			this.dispatchEvent(
+				new CustomEvent("planu-data-services-failed", {
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}
 	}
 
 	override disconnectedCallback(): void {

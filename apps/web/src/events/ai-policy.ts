@@ -26,16 +26,24 @@ export interface AiPolicyInput {
 }
 
 /**
+ * Candado de código sobre la nube.
+ *
+ * Omitir `inCloudParams` **no** cierra nada: el SDK lo rellena solo con
+ * `gemini-2.5-flash-lite`. Así que la única forma de que reabrir la nube sea un
+ * diff revisable, y no una variable de entorno cambiada en el pipeline, es esta
+ * constante. Quitarla exige además configurar App Check: sin él, cualquiera con
+ * la configuración pública de Firebase puede llamar al modelo directamente.
+ */
+const CLOUD_LOCKED = true;
+
+/**
  * `only_on_device` falla cuando no hay IA integrada, y eso es lo correcto para
  * una cuenta sin derecho a la nube: mejor decir que la función no está
  * disponible que generar una factura a su espalda.
- *
- * Hoy devuelve siempre `only_on_device` porque la nube está deshabilitada: el
- * componente ya no configura `inCloudParams`, así que reactivarla exige un
- * cambio de código deliberado y no basta con mover una variable de entorno.
- * Esta función se conserva porque es donde volverá a vivir la decisión.
  */
 export function resolveInferenceMode(input: AiPolicyInput): InferenceModeName {
+	if (CLOUD_LOCKED) return "only_on_device";
+
 	return input.cloudEnabled && input.premium
 		? "prefer_on_device"
 		: "only_on_device";
