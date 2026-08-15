@@ -1,14 +1,22 @@
 {
 	"hosting": {
 		"public": "apps/web/dist",
-		"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+		"ignore": ["firebase.json", "**/.*", "**/node_modules/**", "**/*.map"],
 		"predeploy": ["npm run build"],
-		"rewrites": [{ "source": "**", "destination": "/index.html" }],
+		"rewrites": [
+			{
+				"source": "**",
+				"destination": "/index.html"
+			}
+		],
 		"headers": [
 			{
 				"source": "**",
 				"headers": [
-					{ "key": "X-Frame-Options", "value": "DENY" },
+					{
+						"key": "X-Frame-Options",
+						"value": "DENY"
+					},
 					{
 						"key": "Referrer-Policy",
 						"value": "strict-origin-when-cross-origin"
@@ -19,7 +27,7 @@
 					},
 					{
 						"key": "Content-Security-Policy",
-						"value": "default-src 'self'; img-src 'self' https://firebasestorage.googleapis.com https://lh3.googleusercontent.com data: blob:; connect-src 'self' data: https://*.googleapis.com https://planu-app.firebaseapp.com; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; frame-src https://planu-app.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+						"value": "default-src 'self'; img-src 'self' https://firebasestorage.googleapis.com https://lh3.googleusercontent.com data: blob:; connect-src 'self' data: https://*.googleapis.com https://planu-app.firebaseapp.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; frame-src https://planu-app.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 					}
 				]
 			},
@@ -34,7 +42,12 @@
 			},
 			{
 				"source": "/index.html",
-				"headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+				"headers": [
+					{
+						"key": "Cache-Control",
+						"value": "no-cache"
+					}
+				]
 			}
 		]
 	},
@@ -49,11 +62,22 @@
 		"rules": "storage.rules"
 	},
 	"emulators": {
-		"auth": { "port": 9099 },
-		"firestore": { "port": 8181 },
-		"storage": { "port": 9199 },
-		"hosting": { "port": 5050 },
-		"ui": { "enabled": true, "port": 4000 },
+		"auth": {
+			"port": 9099
+		},
+		"firestore": {
+			"port": 8181
+		},
+		"storage": {
+			"port": 9199
+		},
+		"hosting": {
+			"port": 5050
+		},
+		"ui": {
+			"enabled": true,
+			"port": 4000
+		},
 		"singleProjectMode": true
 	}
 }

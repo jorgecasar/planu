@@ -12,6 +12,10 @@ export default defineConfig({
 	},
 	build: {
 		target: "es2022",
+		// "hidden": se generan pero el bundle no los referencia y no se
+		// publican. Sin ellos una traza de producción es ilegible; publicándolos
+		// se regala el código fuente.
+		sourcemap: "hidden",
 	},
 	optimizeDeps: {
 		// Declaradas para que Vitest no reoptimice a mitad de una tanda de tests,

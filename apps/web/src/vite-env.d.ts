@@ -13,6 +13,10 @@ interface ImportMetaEnv {
 	 * cierra para todas. Ver src/events/ai-policy.ts.
 	 */
 	readonly VITE_AI_CLOUD_FALLBACK?: string;
+	/** DSN de Sentry. Sin él no se envía nada: la observabilidad es opcional. */
+	readonly VITE_SENTRY_DSN?: string;
+	/** Versión desplegada, para agrupar errores por release. */
+	readonly VITE_RELEASE?: string;
 }
 
 interface ImportMeta {

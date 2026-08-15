@@ -10,5 +10,10 @@ import { initLocale } from "./i18n/localization.js";
 const locale = await initLocale();
 document.documentElement.lang = locale;
 
-await import("./firebase/firebase-provider.js");
+const { initializeFirebase } = await import("./firebase/firebase-provider.js");
 await import("./app-shell.js");
+
+// Con la aplicación ya en pie: la observabilidad no debe competir por el
+// primer pintado. Dentro espera además a que el navegador esté ocioso.
+const { startObservability } = await import("./observability/index.js");
+startObservability(initializeFirebase().app);
