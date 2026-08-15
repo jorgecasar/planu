@@ -52,3 +52,27 @@ test("sin abrir no se renderiza el formulario", async () => {
 
 	el.remove();
 });
+
+test("dice al usuario dónde se generó el evento", async () => {
+	const el = await mount((editor) => {
+		editor.draft = { title: "Feria del libro" };
+		editor.draftSource = "on_device";
+		editor.open = true;
+	});
+
+	expect(el.shadowRoot?.querySelector("wa-callout")?.textContent).toContain(
+		"Generated on your device",
+	);
+
+	el.remove();
+});
+
+test("un alta manual no muestra el aviso de la IA", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
+
+	el.remove();
+});

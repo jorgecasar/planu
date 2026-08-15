@@ -43,13 +43,11 @@ test("si la IA no está disponible lo dice y no bloquea el alta manual", async (
 	await page.getByRole("button", { name: "New event" }).click();
 	await page.getByRole("menuitem", { name: "Generate from an image" }).click();
 
-	await page
-		.getByLabel("Event image")
-		.setInputFiles({
-			name: "cartel.png",
-			mimeType: "image/png",
-			buffer: PIXEL,
-		});
+	await page.getByLabel("Event image").setInputFiles({
+		name: "cartel.png",
+		mimeType: "image/png",
+		buffer: PIXEL,
+	});
 
 	// En este entorno no hay IA integrada ni backend en la nube configurado.
 	// Lo importante es que el fallo se explique y deje salida, no que reviente.

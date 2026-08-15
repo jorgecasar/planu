@@ -7,6 +7,12 @@ interface ImportMetaEnv {
 	readonly VITE_FIREBASE_STORAGE_BUCKET: string;
 	readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
 	readonly VITE_FIREBASE_APP_ID: string;
+	/**
+	 * Interruptor global de la inferencia en la nube, que factura por token.
+	 * "true" la habilita para las cuentas con derecho; cualquier otro valor la
+	 * cierra para todas. Ver src/events/ai-policy.ts.
+	 */
+	readonly VITE_AI_CLOUD_FALLBACK?: string;
 }
 
 interface ImportMeta {

@@ -4,6 +4,8 @@ import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./ai-event-generator.js";
 import "./event-card.js";
+import type { GeneratedDraft } from "./ai-event-generator.js";
+import type { InferenceSourceName } from "./ai-policy.js";
 import "./event-editor.js";
 import "./event-filters.js";
 
@@ -89,6 +91,7 @@ export class PlanuEventsView extends LitElement {
 	@state() private editing: StoredEvent | undefined;
 	@state() private generatorOpen = false;
 	@state() private draft: Partial<PlanuEvent> | undefined;
+	@state() private draftSource: InferenceSourceName | undefined;
 
 	readonly #events = new CollectionController<DocumentData>(this);
 
@@ -148,6 +151,7 @@ export class PlanuEventsView extends LitElement {
 				.open=${this.editorOpen}
 				.event=${this.editing}
 				.draft=${this.draft}
+				.draftSource=${this.draftSource}
 				@planu-editor-close=${this.#onEditorClose}
 			></planu-event-editor>
 
@@ -171,7 +175,9 @@ export class PlanuEventsView extends LitElement {
 
 	/** Lo extraído por la IA no se guarda: prerrellena el editor para revisarlo. */
 	#onGenerated(domEvent: Event): void {
-		this.draft = (domEvent as CustomEvent<Partial<PlanuEvent>>).detail;
+		const { event, source } = (domEvent as CustomEvent<GeneratedDraft>).detail;
+		this.draft = event;
+		this.draftSource = source;
 		this.editing = undefined;
 		this.generatorOpen = false;
 		this.editorOpen = true;

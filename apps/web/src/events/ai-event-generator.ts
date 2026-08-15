@@ -19,10 +19,22 @@ import {
 import { uploadFile } from "../firebase/storage.js";
 import type { PlanuEvent } from "../lib/types.js";
 import {
+	type InferenceModeName,
+	type InferenceSourceName,
+	resolveInferenceMode,
+} from "./ai-policy.js";
+import {
 	GenerationError,
 	generateEventFromImage,
 	RESPONSE_JSON_SCHEMA,
 } from "./generate-event.js";
+
+/** Lo que el generador entrega al editor. */
+export interface GeneratedDraft {
+	event: Partial<PlanuEvent>;
+	/** Dónde se resolvió: útil para el usuario y para vigilar el gasto. */
+	source: InferenceSourceName | undefined;
+}
 
 /**
  * Genera un evento a partir de la foto de un cartel.
@@ -142,17 +154,12 @@ export class PlanuAiEventGenerator extends LitElement {
 		try {
 			// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría
 			// de las sesiones no lo usan nunca. No debe entrar en el arranque.
-			const {
-				getAI,
-				getGenerativeModel,
-				GoogleAIBackend,
-				InferenceMode,
-				Schema,
-			} = await import("firebase/ai");
+			const { getAI, getGenerativeModel, GoogleAIBackend, Schema } =
+				await import("firebase/ai");
 
 			const ai = getAI(this.app, { backend: new GoogleAIBackend() });
 			const model = getGenerativeModel(ai, {
-				mode: InferenceMode.PREFER_ON_DEVICE,
+				mode: await this.#inferenceMode(),
 				// El modelo del dispositivo no ve la configuración de la nube: si no
 				// se le restringe aquí, contesta en prosa y el parseo falla.
 				onDeviceParams: {
@@ -193,17 +200,26 @@ export class PlanuAiEventGenerator extends LitElement {
 				},
 			});
 
+			let source: InferenceSourceName | undefined;
 			const generated = await generateEventFromImage(async (parts) => {
 				const result = await model.generateContent({
 					contents: [{ role: "user", parts }],
 				});
+				// El SDK dice dónde acabó ejecutándose; es la única forma fiable
+				// de saberlo, porque el modo sólo expresa una preferencia.
+				source = result.response.inferenceSource as
+					| InferenceSourceName
+					| undefined;
 				return result.response.text();
 			}, file);
 
 			// El cartel del que se extrajo el evento es su portada natural. Se
 			// sube después de generar, no antes, para no dejar en Storage las
 			// imágenes de los intentos que no llegan a nada.
-			this.#emit({ ...generated, imageUrl: await this.#uploadCover(file) });
+			this.#emit({
+				event: { ...generated, imageUrl: await this.#uploadCover(file) },
+				source,
+			});
 			this.#close();
 		} catch (cause) {
 			this.error =
@@ -230,9 +246,14 @@ export class PlanuAiEventGenerator extends LitElement {
 		this.uploading = true;
 		this.progress = 0;
 		try {
-			return await uploadFile(storage, file, `events/${user.uid}`, (percent) => {
-				this.progress = percent;
-			});
+			return await uploadFile(
+				storage,
+				file,
+				`events/${user.uid}`,
+				(percent) => {
+					this.progress = percent;
+				},
+			);
 		} catch {
 			return "";
 		} finally {
@@ -240,10 +261,32 @@ export class PlanuAiEventGenerator extends LitElement {
 		}
 	}
 
-	#emit(generated: Partial<PlanuEvent>): void {
+	/**
+	 * Decide si esta sesión puede recurrir a la nube.
+	 *
+	 * El derecho viaja en un claim del token, no en Firestore: así el permiso
+	 * lo concede el servidor y el cliente no puede dárselo a sí mismo.
+	 */
+	async #inferenceMode(): Promise<InferenceModeName> {
+		const cloudEnabled = import.meta.env.VITE_AI_CLOUD_FALLBACK === "true";
+
+		let premium = false;
+		if (cloudEnabled && this.user) {
+			try {
+				const token = await this.user.getIdTokenResult();
+				premium = token.claims["premium"] === true;
+			} catch {
+				premium = false;
+			}
+		}
+
+		return resolveInferenceMode({ cloudEnabled, premium });
+	}
+
+	#emit(draft: GeneratedDraft): void {
 		this.dispatchEvent(
-			new CustomEvent<Partial<PlanuEvent>>("planu-event-generated", {
-				detail: generated,
+			new CustomEvent<GeneratedDraft>("planu-event-generated", {
+				detail: draft,
 				bubbles: true,
 				composed: true,
 			}),

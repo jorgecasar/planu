@@ -29,6 +29,10 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
+import {
+	describeInferenceSource,
+	type InferenceSourceName,
+} from "./ai-policy.js";
 import { toInputDate } from "./format-dates.js";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
@@ -75,6 +79,9 @@ export class PlanuEventEditor extends LitElement {
 	/** Valores propuestos por la IA para prerrellenar un alta. */
 	@property({ attribute: false }) draft: Partial<PlanuEvent> | undefined;
 
+	/** Dónde se resolvió la generación, para decírselo al usuario. */
+	@property({ attribute: false }) draftSource: InferenceSourceName | undefined;
+
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
 
@@ -113,6 +120,15 @@ export class PlanuEventEditor extends LitElement {
 				${
 					this.error
 						? html`<wa-callout variant="danger" role="alert">${this.error}</wa-callout>`
+						: nothing
+				}
+
+				${
+					this.draft && this.open
+						? html`<wa-callout variant="neutral">
+								${describeInferenceSource(this.draftSource)}. Review the details
+								before saving.
+							</wa-callout>`
 						: nothing
 				}
 

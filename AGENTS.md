@@ -115,9 +115,19 @@ Por defecto, **Baseline widely available** sin fallback. Todo lo que no lo sea
 va detrás de detección de disponibilidad y degrada a una ruta que sí funcione
 en cualquier navegador moderno.
 
-Hoy la única excepción es la IA integrada, y la resuelve el SDK: Firebase AI
-Logic en modo `PREFER_ON_DEVICE` usa Gemini Nano si existe y Gemini en la nube
-si no. Sin ninguno de los dos, el aviso remite al alta manual.
+Hoy la única excepción es la IA integrada, y la resuelve el SDK de Firebase AI
+Logic. Sin ella y sin derecho a la nube, el aviso remite al alta manual.
+
+## Coste de la IA
+
+La inferencia en el dispositivo es gratis; la de la nube factura por token, así
+que **está cerrada por defecto**. Se abre sólo si se cumplen las dos:
+`VITE_AI_CLOUD_FALLBACK=true` en el despliegue **y** el claim `premium` en el
+token del usuario. La lógica está en `src/events/ai-policy.ts`, aislada y con
+tests; no la dupliques en los componentes.
+
+Para saber dónde se resolvió una generación, mira
+`response.inferenceSource`: el modo es una preferencia, no una garantía.
 
 ## Estado de seguridad
 

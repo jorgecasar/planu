@@ -37,6 +37,28 @@ proyecto ya tiene, sin Cloud Functions ni clave en el cliente.
 - Una sola ruta de código: el modo lo resuelve el SDK, no un `if` nuestro.
 - Sin infraestructura propia que mantener.
 
+## Control del gasto
+
+La ejecución en el dispositivo es gratis; la de la nube factura por token. Por
+eso el modo no está fijado en el código: lo resuelve `src/events/ai-policy.ts`
+a partir de dos condiciones que deben cumplirse **ambas**.
+
+1. `VITE_AI_CLOUD_FALLBACK=true`, un interruptor global de despliegue.
+2. El claim `premium` en el token del usuario.
+
+Sin las dos, el modo es `only_on_device`: la función existe si el navegador
+trae IA integrada y, si no, se informa de que no está disponible. Es
+deliberado — **es preferible decir que algo no se puede hacer a generar una
+factura a espaldas del usuario**.
+
+El derecho viaja en un claim del token y no en Firestore para que lo conceda el
+servidor: un cliente no puede otorgárselo a sí mismo.
+
+Dónde acabó ejecutándose no se deduce del modo, que sólo expresa una
+preferencia: lo informa el SDK en `response.inferenceSource`
+(`on_device` o `in_cloud`). Se muestra al usuario en el editor y es la señal a
+vigilar cuando se abra la nube.
+
 ## Consecuencias
 
 - **App Check es obligatorio** antes de abrir esto a terceros: sin él, cualquiera
