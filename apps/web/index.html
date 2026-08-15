@@ -4,6 +4,17 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>planu</title>
+		<!--
+			En inglés y sin `msg()`: este fichero es estático y el idioma se
+			decide en tiempo de ejecución, así que aquí no llega @lit/localize.
+			Un buscador tampoco esperaría a que lo actualizásemos con JS. Si la
+			landing de la fase 2 necesita descripción traducida, la resolverá el
+			prerender, no el cliente.
+		-->
+		<meta
+			name="description"
+			content="Plan your events: create, search and filter them with title, description, location, dates and image. Private by default — only you can see yours."
+		/>
 		<script type="module" src="/src/main.ts"></script>
 	</head>
 	<body>
