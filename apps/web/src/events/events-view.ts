@@ -116,7 +116,10 @@ export class PlanuEventsView extends LitElement {
 
 		this.#events.setQuery(
 			firestore && user
-				? query(collection(firestore, "events"), where("userId", "==", user.uid))
+				? query(
+						collection(firestore, "events"),
+						where("userId", "==", user.uid),
+					)
 				: null,
 		);
 	}

@@ -1,9 +1,9 @@
 import { expect, test } from "vitest";
 import {
-	type GenerateContent,
 	fileToBase64,
-	generateEventFromImage,
+	type GenerateContent,
 	GenerationError,
+	generateEventFromImage,
 	parseGeneratedEvent,
 } from "./generate-event.js";
 
@@ -48,14 +48,16 @@ test("los campos de texto ausentes quedan vacíos, no undefined", () => {
 });
 
 test("una respuesta que no es JSON se rechaza con un error propio", () => {
-	expect(() => parseGeneratedEvent("Claro, aquí tienes:")).toThrow(GenerationError);
+	expect(() => parseGeneratedEvent("Claro, aquí tienes:")).toThrow(
+		GenerationError,
+	);
 });
 
 test("una respuesta sin título se rechaza", () => {
 	// Sin título no hay evento que guardar: el esquema lo exige.
-	expect(() => parseGeneratedEvent(JSON.stringify({ description: "x" }))).toThrow(
-		GenerationError,
-	);
+	expect(() =>
+		parseGeneratedEvent(JSON.stringify({ description: "x" })),
+	).toThrow(GenerationError);
 	expect(() => parseGeneratedEvent(JSON.stringify({ title: "   " }))).toThrow(
 		GenerationError,
 	);
@@ -83,7 +85,9 @@ test("envía el prompt y la imagen en línea", async () => {
 
 	expect(result.title).toBe("Feria");
 	expect(enviado).toHaveLength(2);
-	expect(enviado[0]).toMatchObject({ text: expect.stringContaining("event planner") });
+	expect(enviado[0]).toMatchObject({
+		text: expect.stringContaining("event planner"),
+	});
 	expect(enviado[1]).toMatchObject({
 		inlineData: { mimeType: "image/png", data: "AQID" },
 	});

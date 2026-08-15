@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { formatEventDates } from "./format-dates.js";
+import { formatEventDates, toInputDate } from "./format-dates.js";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
 
@@ -23,5 +23,26 @@ test("con sólo fin dice cuándo termina", () => {
 
 test("sin fechas lo dice explícitamente en vez de quedar en blanco", () => {
 	expect(formatEventDates(null, null, "en-US")).toBe("No specific date");
-	expect(formatEventDates(undefined, undefined, "en-US")).toBe("No specific date");
+	expect(formatEventDates(undefined, undefined, "en-US")).toBe(
+		"No specific date",
+	);
+});
+
+// ── toInputDate ──────────────────────────────────────────────────────────────
+
+test("formatea para el input usando la fecha local, no UTC", () => {
+	// Con toISOString(), al este de Greenwich esto devolvía el día anterior:
+	// un evento del 4 de julio se reabría como el 3, y cada edición lo retrasaba
+	// otro día.
+	const local = new Date(2026, 6, 4, 0, 0, 0);
+	expect(toInputDate(local)).toBe("2026-07-04");
+});
+
+test("rellena mes y día con cero a la izquierda", () => {
+	expect(toInputDate(new Date(2026, 0, 5))).toBe("2026-01-05");
+});
+
+test("sin fecha devuelve cadena vacía, que es lo que espera el input", () => {
+	expect(toInputDate(null)).toBe("");
+	expect(toInputDate(undefined)).toBe("");
 });

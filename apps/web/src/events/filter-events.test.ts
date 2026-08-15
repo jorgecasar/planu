@@ -55,14 +55,22 @@ test("un evento sin fechas siempre pasa el filtro de rango", () => {
 });
 
 test("evento con inicio y fin: pasa si solapa el rango", () => {
-	const dentro = event({ startDate: day("2026-06-12"), endDate: day("2026-06-14") });
+	const dentro = event({
+		startDate: day("2026-06-12"),
+		endDate: day("2026-06-14"),
+	});
 	const solapaPorDelante = event({
 		startDate: day("2026-06-05"),
 		endDate: day("2026-06-11"),
 	});
-	const fuera = event({ startDate: day("2026-07-01"), endDate: day("2026-07-02") });
+	const fuera = event({
+		startDate: day("2026-07-01"),
+		endDate: day("2026-07-02"),
+	});
 
-	expect(filterEvents([dentro, solapaPorDelante, fuera], "", range)).toHaveLength(2);
+	expect(
+		filterEvents([dentro, solapaPorDelante, fuera], "", range),
+	).toHaveLength(2);
 });
 
 test("evento sólo con inicio: pasa si empieza antes del fin del rango", () => {
@@ -89,13 +97,18 @@ test("los límites del rango son inclusivos", () => {
 		endDate: day("2026-06-20"),
 	});
 
-	expect(filterEvents([justoAlInicio, justoAlFinal], "", range)).toHaveLength(2);
+	expect(filterEvents([justoAlInicio, justoAlFinal], "", range)).toHaveLength(
+		2,
+	);
 });
 
 test("con un solo extremo, busca lo activo ese día y no lo que empieza", () => {
 	const soloDesde = { from: day("2026-06-15") };
 	// Empezó antes pero sigue en curso ese día: debe aparecer.
-	const enCurso = event({ startDate: day("2026-06-01"), endDate: day("2026-06-30") });
+	const enCurso = event({
+		startDate: day("2026-06-01"),
+		endDate: day("2026-06-30"),
+	});
 	const yaTerminado = event({
 		startDate: day("2026-05-01"),
 		endDate: day("2026-05-02"),
@@ -106,9 +119,21 @@ test("con un solo extremo, busca lo activo ese día y no lo que empieza", () => 
 
 test("texto y fechas se aplican a la vez", () => {
 	const events = [
-		event({ title: "Concierto", startDate: day("2026-06-12"), endDate: day("2026-06-12") }),
-		event({ title: "Concierto", startDate: day("2026-07-12"), endDate: day("2026-07-12") }),
-		event({ title: "Cena", startDate: day("2026-06-12"), endDate: day("2026-06-12") }),
+		event({
+			title: "Concierto",
+			startDate: day("2026-06-12"),
+			endDate: day("2026-06-12"),
+		}),
+		event({
+			title: "Concierto",
+			startDate: day("2026-07-12"),
+			endDate: day("2026-07-12"),
+		}),
+		event({
+			title: "Cena",
+			startDate: day("2026-06-12"),
+			endDate: day("2026-06-12"),
+		}),
 	];
 
 	expect(filterEvents(events, "concierto", range)).toHaveLength(1);

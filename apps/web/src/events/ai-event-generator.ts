@@ -5,46 +5,14 @@ import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
 import { consume } from "@lit/context";
 import type { FirebaseApp } from "firebase/app";
-import {
-	getAI,
-	getGenerativeModel,
-	GoogleAIBackend,
-	InferenceMode,
-	Schema,
-} from "firebase/ai";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { appContext } from "../firebase/context.js";
 import {
 	type GeneratedEvent,
-	generateEventFromImage,
 	GenerationError,
+	generateEventFromImage,
 } from "./generate-event.js";
-
-/**
- * Estructura exigida al modelo. Equivale al GenerateEventOutputSchema que el
- * prototipo declaraba con Zod para Genkit.
- */
-const RESPONSE_SCHEMA = Schema.object({
-	properties: {
-		title: Schema.string({
-			description: "A concise and appealing title for the event.",
-		}),
-		description: Schema.string({
-			description: "A detailed description of the event.",
-		}),
-		location: Schema.string({
-			description: "The physical or virtual location of the event.",
-		}),
-		startDate: Schema.string({
-			description: "Start date in ISO 8601 format, or an empty string.",
-		}),
-		endDate: Schema.string({
-			description: "End date in ISO 8601 format, or an empty string.",
-		}),
-	},
-	optionalProperties: ["startDate", "endDate"],
-});
 
 /**
  * Genera un evento a partir de la foto de un cartel.
@@ -147,6 +115,11 @@ export class PlanuAiEventGenerator extends LitElement {
 		this.busy = true;
 
 		try {
+			// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría
+			// de las sesiones no lo usan nunca. No debe entrar en el arranque.
+			const { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, Schema } =
+				await import("firebase/ai");
+
 			const ai = getAI(this.app, { backend: new GoogleAIBackend() });
 			const model = getGenerativeModel(ai, {
 				mode: InferenceMode.PREFER_ON_DEVICE,
@@ -154,7 +127,28 @@ export class PlanuAiEventGenerator extends LitElement {
 					model: "gemini-2.5-flash",
 					generationConfig: {
 						responseMimeType: "application/json",
-						responseSchema: RESPONSE_SCHEMA,
+						// Equivale al GenerateEventOutputSchema que el prototipo
+						// declaraba con Zod para Genkit.
+						responseSchema: Schema.object({
+							properties: {
+								title: Schema.string({
+									description: "A concise and appealing title for the event.",
+								}),
+								description: Schema.string({
+									description: "A detailed description of the event.",
+								}),
+								location: Schema.string({
+									description: "The physical or virtual location of the event.",
+								}),
+								startDate: Schema.string({
+									description: "Start date in ISO 8601 format, or an empty string.",
+								}),
+								endDate: Schema.string({
+									description: "End date in ISO 8601 format, or an empty string.",
+								}),
+							},
+							optionalProperties: ["startDate", "endDate"],
+						}),
 					},
 				},
 			});

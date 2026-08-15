@@ -24,14 +24,15 @@ import {
 	userContext,
 } from "../firebase/context.js";
 import { uploadFile } from "../firebase/storage.js";
-import { EventSchema, type PlanuEvent, type StoredEvent } from "../lib/types.js";
+import {
+	EventSchema,
+	type PlanuEvent,
+	type StoredEvent,
+} from "../lib/types.js";
+import { toInputDate } from "./format-dates.js";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-/** Un input date espera y devuelve YYYY-MM-DD. */
-const toInputDate = (date: Date | null | undefined): string =>
-	date ? date.toISOString().slice(0, 10) : "";
 
 @customElement("planu-event-editor")
 export class PlanuEventEditor extends LitElement {
@@ -292,7 +293,11 @@ export class PlanuEventEditor extends LitElement {
 		}
 	}
 
-	#save(firestore: Firestore, user: User, values: PlanuEvent): Promise<unknown> {
+	#save(
+		firestore: Firestore,
+		user: User,
+		values: PlanuEvent,
+	): Promise<unknown> {
 		const document = {
 			title: values.title,
 			description: values.description ?? "",
@@ -305,7 +310,9 @@ export class PlanuEventEditor extends LitElement {
 		};
 
 		return this.event
-			? setDoc(doc(firestore, "events", this.event.id), document, { merge: true })
+			? setDoc(doc(firestore, "events", this.event.id), document, {
+					merge: true,
+				})
 			: addDoc(collection(firestore, "events"), document);
 	}
 

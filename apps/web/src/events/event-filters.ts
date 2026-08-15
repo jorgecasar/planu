@@ -46,7 +46,8 @@ export class PlanuEventFilters extends LitElement {
 	@state() private to = "";
 
 	override render() {
-		const filtered = this.searchTerm !== "" || this.from !== "" || this.to !== "";
+		const filtered =
+			this.searchTerm !== "" || this.from !== "" || this.to !== "";
 
 		return html`
 			<form role="search" @submit=${this.#onSubmit}>

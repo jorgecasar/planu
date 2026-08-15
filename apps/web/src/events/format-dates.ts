@@ -1,3 +1,16 @@
+/**
+ * Formatea para un `<input type="date">`, que espera YYYY-MM-DD.
+ *
+ * Con componentes locales y no con `toISOString()`: este último pasa por UTC,
+ * así que al este de Greenwich devolvía el día anterior. Un evento del 4 de
+ * julio se reabría como el 3, y cada edición lo retrasaba un día más.
+ */
+export function toInputDate(date: Date | null | undefined): string {
+	if (!date) return "";
+	const pad = (value: number) => String(value).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 const FORMAT: Intl.DateTimeFormatOptions = {
 	month: "short",
 	day: "numeric",
