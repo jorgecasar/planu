@@ -6,6 +6,7 @@ on:
   pull_request:
 
 # Una ejecución por rama: si llegan varios push seguidos, sólo importa el último.
+# El despliegue tiene su propio grupo más abajo, porque ahí cancelar sí duele.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -67,3 +68,124 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # Canal temporal por PR. Sirve para lo que los e2e no cubren: comprobar la CSP
+  # y las cabeceras de caché reales, que corren contra `npm run dev` y por tanto
+  # nunca ven la configuración de hosting.
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    env:
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: planu-app.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: planu-app
+      VITE_FIREBASE_STORAGE_BUCKET: planu-app.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: 1:854295039681:web:1181b841906dba24160e40
+      VITE_AI_CLOUD_FALLBACK: "false"
+      VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+      VITE_RELEASE: pr-${{ github.event.number }}-${{ github.sha }}
+      # Sin SENTRY_UPLOAD: un PR no debe crear releases ni gastar cuota de
+      # artefactos en Sentry.
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Credenciales de Firebase
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      # El build lo dispara el `predeploy` de firebase.json: un solo build, y
+      # por tanto imposible que se despliegue algo distinto de lo construido.
+      - name: Desplegar canal de preview
+        id: preview
+        run: |
+          npx firebase hosting:channel:deploy "pr-${{ github.event.number }}" \
+            --project planu-app --expires 7d --json > channel.json
+          URL=$(node -p "Object.values(require('./channel.json').result)[0].url")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "### Preview desplegado" >> "$GITHUB_STEP_SUMMARY"
+          echo "$URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar la URL en el PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.number }}" --edit-last --create-if-none \
+            --body "Preview de \`${{ github.sha }}\`: ${{ steps.preview.outputs.url }}
+
+          Caduca en 7 días. Es el único sitio donde se pueden comprobar la CSP y
+          las cabeceras de caché reales antes de fusionar."
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+
+    # Grupo propio y **sin** cancel-in-progress: abortar un `firebase deploy` a
+    # medias deja el despliegue en un estado que nadie ha revisado.
+    concurrency:
+      group: deploy-production
+
+    env:
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: planu-app.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: planu-app
+      VITE_FIREBASE_STORAGE_BUCKET: planu-app.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: 1:854295039681:web:1181b841906dba24160e40
+      VITE_AI_CLOUD_FALLBACK: "false"
+      VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+      VITE_RELEASE: ${{ github.sha }}
+      SENTRY_UPLOAD: "true"
+      SENTRY_ORG: jorge-del-casar
+      SENTRY_PROJECT: planu
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Credenciales de Firebase
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      # Un solo comando. El build sale del `predeploy` de firebase.json, con
+      # SENTRY_UPLOAD puesto, así que los debug IDs que se suben son los del
+      # bundle que se publica. Las reglas van aquí y no a mano porque los 33
+      # tests de `test:rules` acaban de pasar en el job anterior.
+      - name: Desplegar
+        run: |
+          npx firebase deploy \
+            --only hosting,firestore,storage \
+            --project planu-app \
+            --message "${{ github.sha }}"
+
+      - name: Comprobar que producción responde
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://planu-app.web.app)
+            [ "$code" = "200" ] && echo "planu-app.web.app responde 200" && exit 0
+            echo "intento $i: $code"; sleep 6
+          done
+          echo "::error::producción no responde 200 tras el despliegue"; exit 1
