@@ -2,7 +2,7 @@
 	"name": "planu",
 	"version": "0.0.0",
 	"private": true,
-	"description": "planu — planificador de eventos con web components (monorepo root).",
+	"description": "planu \u2014 planificador de eventos con web components (monorepo root).",
 	"type": "module",
 	"workspaces": [
 		"packages/*",
@@ -20,7 +20,9 @@
 		"lint:fix": "biome check --write .",
 		"lint:lit": "npm run lint:lit --workspace @planu/web",
 		"typecheck": "npm run typecheck --workspace @planu/web",
-		"emulators": "firebase emulators:start"
+		"emulators": "firebase emulators:start",
+		"localize:extract": "npm run localize:extract --workspace @planu/web",
+		"localize:build": "npm run localize:build --workspace @planu/web"
 	},
 	"engines": {
 		"node": ">=20"

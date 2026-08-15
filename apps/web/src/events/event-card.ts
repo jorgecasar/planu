@@ -8,6 +8,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { firestoreContext } from "../firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
 import { formatEventDates } from "./format-dates.js";
+import { msg, str } from "@lit/localize";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
 @customElement("planu-event-card")
@@ -72,7 +73,7 @@ export class PlanuEventCard extends LitElement {
 				</div>
 
 				<wa-button slot="footer" appearance="plain" @click=${this.#onEdit}>
-					Edit
+					${msg("Edit")}
 				</wa-button>
 				<wa-button
 					slot="footer"
@@ -80,18 +81,18 @@ export class PlanuEventCard extends LitElement {
 					variant="danger"
 					@click=${this.#askDelete}
 				>
-					Delete
+					${msg("Delete")}
 				</wa-button>
 			</wa-card>
 
 			<wa-dialog
-				label="Delete event"
+				label=${msg("Delete event")}
 				.open=${this.confirming}
 				@wa-hide=${this.#cancelDelete}
 			>
-				<p>This permanently deletes “${event.title}”. It cannot be undone.</p>
+				<p>${msg(str`This permanently deletes “${event.title}”. It cannot be undone.`)}</p>
 				<wa-button slot="footer" appearance="outlined" @click=${this.#cancelDelete}>
-					Cancel
+					${msg("Cancel")}
 				</wa-button>
 				<wa-button
 					slot="footer"
@@ -99,7 +100,7 @@ export class PlanuEventCard extends LitElement {
 					?disabled=${this.deleting}
 					@click=${this.#confirmDelete}
 				>
-					${this.deleting ? "Deleting…" : "Delete"}
+					${this.deleting ? msg("Deleting…") : msg("Delete")}
 				</wa-button>
 			</wa-dialog>
 		`;

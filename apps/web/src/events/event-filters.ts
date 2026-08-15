@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/input/input.js";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { DateRange } from "./filter-events.js";
+import { msg } from "@lit/localize";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;
@@ -54,8 +55,8 @@ export class PlanuEventFilters extends LitElement {
 				<wa-input
 					type="search"
 					name="search"
-					label="Search"
-					placeholder="Title or description"
+					label=${msg("Search")}
+					placeholder=${msg("Title or description")}
 					enterkeyhint="search"
 					.value=${this.searchTerm}
 					@input=${this.#onSearch}
@@ -64,7 +65,7 @@ export class PlanuEventFilters extends LitElement {
 				<wa-input
 					type="date"
 					name="from"
-					label="From"
+					label=${msg("From")}
 					.value=${this.from}
 					@change=${this.#onFrom}
 				></wa-input>
@@ -72,7 +73,7 @@ export class PlanuEventFilters extends LitElement {
 				<wa-input
 					type="date"
 					name="to"
-					label="To"
+					label=${msg("To")}
 					.value=${this.to}
 					@change=${this.#onTo}
 				></wa-input>
@@ -80,7 +81,7 @@ export class PlanuEventFilters extends LitElement {
 				${
 					filtered
 						? html`<wa-button appearance="plain" @click=${this.#clear}>
-								Clear filters
+								${msg("Clear filters")}
 							</wa-button>`
 						: null
 				}

@@ -118,6 +118,32 @@ en cualquier navegador moderno.
 Hoy la única excepción es la IA integrada, y la resuelve el SDK de Firebase AI
 Logic. Sin ella y sin derecho a la nube, el aviso remite al alta manual.
 
+## Idiomas
+
+**Todo texto visible va envuelto en `msg()` de `@lit/localize`.** Ninguna cadena
+de interfaz se escribe suelta en una plantilla.
+
+El idioma sale del navegador: se elige el primero de `navigator.languages` que
+sepamos servir, ignorando la región (`es-AR` se sirve como `es`), y si no encaja
+ninguno se usa inglés. La lógica está en `src/i18n/pick-locale.ts`, aislada y
+con tests.
+
+Se fija **antes del primer render** en `src/main.ts`. Pintar y cambiar después
+haría saltar la interfaz de inglés al idioma del usuario a la vista.
+
+Al añadir o cambiar un texto:
+
+```bash
+npm run localize:extract   # actualiza xliff/es.xlf
+# traducir los <target> nuevos
+npm run localize:build     # regenera src/generated/locales/
+```
+
+Los mensajes que viven fuera de un componente —esquemas de Zod, mapas de
+errores— se construyen en **fábricas**, no en constantes de módulo: `msg()` se
+evalúa al llamarlo, y un valor creado al importar congelaría el idioma de ese
+instante.
+
 ## Coste de la IA
 
 La inferencia en el dispositivo es gratis; la de la nube factura por token, así

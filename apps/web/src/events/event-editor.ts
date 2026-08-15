@@ -25,7 +25,7 @@ import {
 } from "../firebase/context.js";
 import { uploadFile } from "../firebase/storage.js";
 import {
-	EventSchema,
+	eventSchema,
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
@@ -34,6 +34,7 @@ import {
 	type InferenceSourceName,
 } from "./ai-policy.js";
 import { toInputDate } from "./format-dates.js";
+import { msg } from "@lit/localize";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -113,7 +114,7 @@ export class PlanuEventEditor extends LitElement {
 
 		return html`
 			<wa-dialog
-				label=${editing ? "Edit event" : "New event"}
+				label=${editing ? msg("Edit event") : msg("New event")}
 				.open=${this.open}
 				@wa-hide=${this.#close}
 			>
@@ -126,8 +127,8 @@ export class PlanuEventEditor extends LitElement {
 				${
 					this.draft && this.open
 						? html`<wa-callout variant="neutral">
-								${describeInferenceSource(this.draftSource)}. Review the details
-								before saving.
+								${describeInferenceSource(this.draftSource)}.
+								${msg("Review the details before saving.")}
 							</wa-callout>`
 						: nothing
 				}
@@ -135,7 +136,7 @@ export class PlanuEventEditor extends LitElement {
 				${this.open ? this.#renderForm(initial) : nothing}
 
 				<wa-button slot="footer" appearance="outlined" @click=${this.#close}>
-					Cancel
+					${msg("Cancel")}
 				</wa-button>
 				<wa-button
 					slot="footer"
@@ -144,7 +145,7 @@ export class PlanuEventEditor extends LitElement {
 					form="event-form"
 					?disabled=${this.saving || this.uploading}
 				>
-					${this.saving ? "Saving…" : "Save event"}
+					${this.saving ? msg("Saving…") : msg("Save event")}
 				</wa-button>
 			</wa-dialog>
 		`;
@@ -162,7 +163,7 @@ export class PlanuEventEditor extends LitElement {
 		return html`
 			<form id="event-form" @submit=${this.#onSubmit}>
 					<div class="cover">
-						<label for="cover">Cover image</label>
+						<label for="cover">${msg("Cover image")}</label>
 						${this.imageUrl ? html`<img src=${this.imageUrl} alt="" />` : nothing}
 						<input
 							id="cover"
@@ -183,7 +184,7 @@ export class PlanuEventEditor extends LitElement {
 										appearance="plain"
 										@click=${this.#removeImage}
 									>
-										Remove image
+										${msg("Remove image")}
 									</wa-button>`
 								: nothing
 						}
@@ -191,7 +192,7 @@ export class PlanuEventEditor extends LitElement {
 
 					<wa-input
 						name="title"
-						label="Title"
+						label=${msg("Title")}
 						required
 						minlength="3"
 						enterkeyhint="next"
@@ -200,13 +201,13 @@ export class PlanuEventEditor extends LitElement {
 
 					<wa-textarea
 						name="description"
-						label="Description"
+						label=${msg("Description")}
 						.value=${initial.description ?? ""}
 					></wa-textarea>
 
 					<wa-input
 						name="location"
-						label="Location"
+						label=${msg("Location")}
 						enterkeyhint="next"
 						.value=${initial.location ?? ""}
 					></wa-input>
@@ -215,13 +216,13 @@ export class PlanuEventEditor extends LitElement {
 						<wa-input
 							type="date"
 							name="startDate"
-							label="Start date"
+							label=${msg("Start date")}
 							.value=${toInputDate(initial.startDate)}
 						></wa-input>
 						<wa-input
 							type="date"
 							name="endDate"
-							label="End date"
+							label=${msg("End date")}
 							enterkeyhint="done"
 							.value=${toInputDate(initial.endDate)}
 						></wa-input>
@@ -241,7 +242,7 @@ export class PlanuEventEditor extends LitElement {
 		// Las reglas rechazarían el fichero igualmente, pero con un error de
 		// permisos que no explica nada al usuario.
 		if (file.size >= MAX_IMAGE_BYTES) {
-			this.error = "Images must be smaller than 5 MB.";
+			this.error = msg("Images must be smaller than 5 MB.");
 			input.value = "";
 			return;
 		}
@@ -259,7 +260,7 @@ export class PlanuEventEditor extends LitElement {
 				},
 			);
 		} catch {
-			this.error = "The image could not be uploaded. Please try again.";
+			this.error = msg("The image could not be uploaded. Please try again.");
 		} finally {
 			this.uploading = false;
 			input.value = "";
@@ -283,7 +284,7 @@ export class PlanuEventEditor extends LitElement {
 			return value === "" ? null : new Date(`${value}T00:00:00`);
 		};
 
-		const parsed = EventSchema.safeParse({
+		const parsed = eventSchema().safeParse({
 			title: text("title"),
 			description: text("description"),
 			location: text("location"),
@@ -294,7 +295,7 @@ export class PlanuEventEditor extends LitElement {
 		});
 
 		if (!parsed.success) {
-			this.error = parsed.error.issues[0]?.message ?? "Check the form.";
+			this.error = parsed.error.issues[0]?.message ?? msg("Check the form.");
 			return;
 		}
 
@@ -303,7 +304,7 @@ export class PlanuEventEditor extends LitElement {
 			await this.#save(firestore, user, parsed.data);
 			this.#close();
 		} catch {
-			this.error = "The event could not be saved. Please try again.";
+			this.error = msg("The event could not be saved. Please try again.");
 		} finally {
 			this.saving = false;
 		}

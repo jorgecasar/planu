@@ -26,6 +26,7 @@ import { firestoreContext, userContext } from "../firebase/context.js";
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
 import { type DateRange, filterEvents } from "./filter-events.js";
+import { msg } from "@lit/localize";
 
 /** Firestore guarda las fechas como Timestamp; la aplicación trabaja con Date. */
 function toEvent(document: DocumentData & { id: string }): StoredEvent {
@@ -138,10 +139,10 @@ export class PlanuEventsView extends LitElement {
 				></planu-event-filters>
 				<wa-dropdown @wa-select=${this.#onCreateOption}>
 					<wa-button slot="trigger" variant="brand" .withCaret=${true}>
-						New event
+						${msg("New event")}
 					</wa-button>
-					<wa-dropdown-item value="manual">Create manually</wa-dropdown-item>
-					<wa-dropdown-item value="ai">Generate from an image</wa-dropdown-item>
+					<wa-dropdown-item value="manual">${msg("Create manually")}</wa-dropdown-item>
+					<wa-dropdown-item value="ai">${msg("Generate from an image")}</wa-dropdown-item>
 				</wa-dropdown>
 			</div>
 
@@ -220,11 +221,11 @@ export class PlanuEventsView extends LitElement {
 		return html`<div class="empty">
 			${
 				total > 0
-					? html`<p>No events match your search or date filter.</p>`
+					? html`<p>${msg("No events match your search or date filter.")}</p>`
 					: html`
-							<p>You have no events yet.</p>
+							<p>${msg("You have no events yet.")}</p>
 							<wa-button variant="brand" @click=${this.#onNew}>
-								Create your first event
+								${msg("Create your first event")}
 							</wa-button>
 						`
 			}

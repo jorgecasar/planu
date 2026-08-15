@@ -14,6 +14,7 @@ import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { guardRedirect, HOME_PATH } from "./auth/guard.js";
 import { authContext, userContext } from "./firebase/context.js";
+import { msg } from "@lit/localize";
 
 /** Raíz de la aplicación: enrutado, cabecera y guarda de sesión. */
 @customElement("planu-app")
@@ -91,7 +92,7 @@ export class PlanuApp extends LitElement {
 		// mientras se comprueba provocaría un parpadeo en cada recarga.
 		if (this.user === undefined) {
 			return html`<div class="checking">
-				<wa-spinner aria-label="Checking your session"></wa-spinner>
+				<wa-spinner aria-label=${msg("Checking your session")}></wa-spinner>
 			</div>`;
 		}
 
@@ -102,7 +103,7 @@ export class PlanuApp extends LitElement {
 	}
 
 	#renderHeader(user: User) {
-		const label = user.displayName ?? user.email ?? "Account";
+		const label = user.displayName ?? user.email ?? msg("Account");
 		return html`
 			<header>
 				<h1>planu</h1>
@@ -114,8 +115,8 @@ export class PlanuApp extends LitElement {
 							image=${user.photoURL ?? ""}
 						></wa-avatar>
 					</wa-button>
-					<wa-dropdown-item value="profile">Profile</wa-dropdown-item>
-					<wa-dropdown-item value="signout">Sign out</wa-dropdown-item>
+					<wa-dropdown-item value="profile">${msg("Profile")}</wa-dropdown-item>
+					<wa-dropdown-item value="signout">${msg("Sign out")}</wa-dropdown-item>
 				</wa-dropdown>
 			</header>
 		`;

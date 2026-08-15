@@ -204,12 +204,8 @@ unitario, y todo recorrido de usuario tiene e2e.
 
 ## Preguntas abiertas
 
-1. **Idioma de la interfaz.** El prototipo estaba en inglés; la documentación de
-   este repo es española. Para un producto público lo coherente es interfaz en
-   inglés y `@lit/localize` para traducir. Asumido así salvo indicación contraria.
-2. **`@lit/localize` desde el principio o después.** Retrofitear i18n en Lit es
-   caro. Propuesta: portar primero, extraer textos justo después, antes de añadir
-   pantallas nuevas.
-3. **Datos heredados en la base `planu`.** Sin comprobar si hay documentos y si
+1. **Datos heredados en la base `planu`.** Sin comprobar si hay documentos y si
+   tienen `userId`.
+2. **Datos heredados en la base `planu`.** Sin comprobar si hay documentos y si
    tienen `userId`.
 4. **App Check.** Requiere elegir proveedor de atestación y habilitar Blaze.

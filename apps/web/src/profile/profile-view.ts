@@ -6,6 +6,7 @@ import { type Auth, signOut, type User } from "firebase/auth";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { authContext, userContext } from "../firebase/context.js";
+import { msg } from "@lit/localize";
 
 /** Datos de la cuenta y cierre de sesión. */
 @customElement("planu-profile-view")
@@ -53,13 +54,13 @@ export class PlanuProfileView extends LitElement {
 
 		return html`
 			<wa-card>
-				<h2 slot="header">Profile</h2>
+				<h2 slot="header">${msg("Profile")}</h2>
 
 				<dl>
-					<dt>Name</dt>
-					<dd>${user.displayName ?? "Not set"}</dd>
-					<dt>Email</dt>
-					<dd>${user.email ?? "Not set"}</dd>
+					<dt>${msg("Name")}</dt>
+					<dd>${user.displayName ?? msg("Not set")}</dd>
+					<dt>${msg("Email")}</dt>
+					<dd>${user.email ?? msg("Not set")}</dd>
 				</dl>
 
 				<wa-button
@@ -68,7 +69,7 @@ export class PlanuProfileView extends LitElement {
 					appearance="outlined"
 					@click=${this.#onSignOut}
 				>
-					Sign out
+					${msg("Sign out")}
 				</wa-button>
 			</wa-card>
 		`;

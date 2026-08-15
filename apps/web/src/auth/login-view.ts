@@ -19,6 +19,7 @@ import { customElement, state } from "lit/decorators.js";
 import { authContext } from "../firebase/context.js";
 import { authErrorMessage } from "./auth-errors.js";
 import { credentialsSchema, signUpSchema } from "./schemas.js";
+import { msg } from "@lit/localize";
 
 /**
  * Acceso y registro. La redirección al entrar no se hace aquí: el cambio de
@@ -74,28 +75,28 @@ export class PlanuLoginView extends LitElement {
 				}
 
 				<wa-tab-group>
-					<wa-tab panel="signin">Sign in</wa-tab>
-					<wa-tab panel="signup">Create account</wa-tab>
+					<wa-tab panel="signin">${msg("Sign in")}</wa-tab>
+					<wa-tab panel="signup">${msg("Create account")}</wa-tab>
 
 					<wa-tab-panel name="signin" active>
 						<form @submit=${this.#onSignIn}>
 							<wa-input
 								name="email"
 								type="email"
-								label="Email"
+								label=${msg("Email")}
 								autocomplete="email"
 								required
 							></wa-input>
 							<wa-input
 								name="password"
 								type="password"
-								label="Password"
+								label=${msg("Password")}
 								autocomplete="current-password"
 								required
 								minlength="6"
 							></wa-input>
 							<wa-button type="submit" variant="brand" ?disabled=${this.busy}>
-								${this.busy ? "Signing in…" : "Sign in"}
+								${this.busy ? msg("Signing in…") : msg("Sign in")}
 							</wa-button>
 						</form>
 					</wa-tab-panel>
@@ -105,15 +106,15 @@ export class PlanuLoginView extends LitElement {
 							<wa-input
 								name="email"
 								type="email"
-								label="Email"
+								label=${msg("Email")}
 								autocomplete="email"
 								required
 							></wa-input>
 							<wa-input
 								name="password"
 								type="password"
-								label="Password"
-								hint="At least 6 characters."
+								label=${msg("Password")}
+								hint=${msg("At least 6 characters.")}
 								autocomplete="new-password"
 								required
 								minlength="6"
@@ -121,13 +122,13 @@ export class PlanuLoginView extends LitElement {
 							<wa-input
 								name="confirmPassword"
 								type="password"
-								label="Confirm password"
+								label=${msg("Confirm password")}
 								autocomplete="new-password"
 								required
 								minlength="6"
 							></wa-input>
 							<wa-button type="submit" variant="brand" ?disabled=${this.busy}>
-								${this.busy ? "Creating account…" : "Create account"}
+								${this.busy ? msg("Creating account…") : msg("Create account")}
 							</wa-button>
 						</form>
 					</wa-tab-panel>
@@ -140,7 +141,7 @@ export class PlanuLoginView extends LitElement {
 						?disabled=${this.busy}
 						@click=${this.#onGoogle}
 					>
-						Continue with Google
+						${msg("Continue with Google")}
 					</wa-button>
 				</div>
 			</wa-card>
@@ -178,7 +179,7 @@ export class PlanuLoginView extends LitElement {
 
 	#onSignIn(event: SubmitEvent): void {
 		void this.#submit(event, async (values, auth) => {
-			const parsed = credentialsSchema.safeParse(values);
+			const parsed = credentialsSchema().safeParse(values);
 			if (!parsed.success) throw parsed.error;
 			return signInWithEmailAndPassword(
 				auth,
@@ -190,7 +191,7 @@ export class PlanuLoginView extends LitElement {
 
 	#onSignUp(event: SubmitEvent): void {
 		void this.#submit(event, async (values, auth) => {
-			const parsed = signUpSchema.safeParse(values);
+			const parsed = signUpSchema().safeParse(values);
 			if (!parsed.success) throw parsed.error;
 			return createUserWithEmailAndPassword(
 				auth,

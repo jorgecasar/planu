@@ -23,6 +23,7 @@ import {
 	type InferenceSourceName,
 	resolveInferenceMode,
 } from "./ai-policy.js";
+import { msg } from "@lit/localize";
 import {
 	GenerationError,
 	generateEventFromImage,
@@ -93,7 +94,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	override render() {
 		return html`
 			<wa-dialog
-				label="Generate event from an image"
+				label=${msg("Generate event from an image")}
 				.open=${this.open}
 				@wa-hide=${this.#close}
 			>
@@ -109,7 +110,7 @@ export class PlanuAiEventGenerator extends LitElement {
 				}
 
 				<div class="drop">
-					<label for="ai-image">Event image</label>
+					<label for="ai-image">${msg("Event image")}</label>
 					${this.preview ? html`<img src=${this.preview} alt="" />` : nothing}
 					<input
 						id="ai-image"
@@ -123,7 +124,7 @@ export class PlanuAiEventGenerator extends LitElement {
 							? html`<div class="working">
 									<wa-spinner></wa-spinner>
 									<span>
-										${this.uploading ? "Saving the image…" : "Reading the image…"}
+										${this.uploading ? msg("Saving the image…") : msg("Reading the image…")}
 									</span>
 								</div>`
 							: nothing
@@ -136,7 +137,7 @@ export class PlanuAiEventGenerator extends LitElement {
 				</div>
 
 				<wa-button slot="footer" appearance="outlined" @click=${this.#close}>
-					Cancel
+					${msg("Cancel")}
 				</wa-button>
 			</wa-dialog>
 		`;
@@ -224,8 +225,8 @@ export class PlanuAiEventGenerator extends LitElement {
 		} catch (cause) {
 			this.error =
 				cause instanceof GenerationError
-					? "The image could not be read as an event. Try a clearer photo."
-					: "Event generation is unavailable right now. You can still create the event by hand.";
+					? msg("The image could not be read as an event. Try a clearer photo.")
+					: msg("Event generation is unavailable right now. You can still create the event by hand.");
 		} finally {
 			this.busy = false;
 			input.value = "";

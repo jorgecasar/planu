@@ -1,3 +1,5 @@
+import { msg, str } from "@lit/localize";
+
 /**
  * Formatea para un `<input type="date">`, que espera YYYY-MM-DD.
  *
@@ -32,7 +34,7 @@ export function formatEventDates(
 		new Intl.DateTimeFormat(locale, FORMAT).format(date);
 
 	if (start && end) return `${format(start)} – ${format(end)}`;
-	if (start) return `Starts ${format(start)}`;
-	if (end) return `Ends ${format(end)}`;
-	return "No specific date";
+	if (start) return msg(str`Starts ${format(start)}`);
+	if (end) return msg(str`Ends ${format(end)}`);
+	return msg("No specific date");
 }

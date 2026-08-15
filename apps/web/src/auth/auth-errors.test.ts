@@ -40,7 +40,7 @@ test("nunca filtra el mensaje crudo de Firebase", () => {
 });
 
 test("usa el primer problema de validación de Zod", () => {
-	const result = credentialsSchema.safeParse({
+	const result = credentialsSchema().safeParse({
 		email: "no",
 		password: "12345",
 	});
@@ -51,7 +51,7 @@ test("usa el primer problema de validación de Zod", () => {
 });
 
 test("rechaza el registro si las contraseñas no coinciden", () => {
-	const result = signUpSchema.safeParse({
+	const result = signUpSchema().safeParse({
 		email: "a@b.com",
 		password: "secret1",
 		confirmPassword: "secret2",
@@ -64,7 +64,7 @@ test("rechaza el registro si las contraseñas no coinciden", () => {
 });
 
 test("acepta un registro válido", () => {
-	const result = signUpSchema.safeParse({
+	const result = signUpSchema().safeParse({
 		email: "a@b.com",
 		password: "secret1",
 		confirmPassword: "secret1",
