@@ -28,7 +28,11 @@ export default defineConfig({
 		},
 	},
 	test: {
-		exclude: ["**/e2e/**", "**/node_modules/**", "**/dist/**"],
+		// Explícito y no por exclusión: los tests de reglas viven en `rules/`,
+		// corren en Node y tienen su propia configuración. Sin este `include`
+		// acababan aquí y fallaban al importar `node:fs`.
+		include: ["src/**/*.test.ts"],
+		exclude: ["**/e2e/**", "**/rules/**", "**/node_modules/**", "**/dist/**"],
 		browser: {
 			enabled: true,
 			headless: true,

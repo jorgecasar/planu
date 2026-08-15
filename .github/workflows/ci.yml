@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Una ejecución por rama: si llegan varios push seguidos, sólo importa el último.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    env:
+      # Los tests hablan sólo con los emuladores, así que estos valores no
+      # necesitan ser reales; el projectId sí debe coincidir con firebase.json.
+      VITE_FIREBASE_API_KEY: demo-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: planu-app.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: planu-app
+      VITE_FIREBASE_STORAGE_BUCKET: planu-app.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      VITE_FIREBASE_APP_ID: 1:000000000000:web:0000000000000000000000
+      VITE_AI_CLOUD_FALLBACK: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Los emuladores de Firestore y Storage corren sobre la JVM.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # `npm ci` y no `npm run setup`: las skills del agente no hacen falta aquí
+      # y traerlas metería red y tiempo sin aportar nada a la verificación.
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Calidad estática
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run lint:lit
+
+      - run: npm run build
+
+      # `emulators:exec` levanta, ejecuta y apaga; si algo falla, falla el job.
+      - name: Tests con emuladores
+        run: |
+          npx firebase emulators:exec --project planu-app \
+            --only auth,firestore,storage \
+            "npm test && npm run test:rules && npm run test:e2e"
+
+      - name: Informe de Playwright si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
