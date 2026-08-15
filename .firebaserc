@@ -1,5 +1,12 @@
 {
-    "projects": {
-      "default": "planu-app"
-    }
-  }
+	"projects": {
+		"default": "planu-app"
+	},
+	"targets": {
+		"planu-app": {
+			"storage": {
+				"main": ["planu-app.firebasestorage.app"]
+			}
+		}
+	}
+}
