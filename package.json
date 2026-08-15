@@ -9,8 +9,8 @@
 		"apps/*"
 	],
 	"scripts": {
-		"setup": "npm install && node scripts/setup-skills.mjs",
-		"setup:skills": "node scripts/setup-skills.mjs",
+		"setup": "npm install && node scripts/setup-skills.js",
+		"setup:skills": "node scripts/setup-skills.js",
 		"dev": "npm run dev --workspace @planu/web",
 		"build": "npm run build --workspace @planu/web",
 		"preview": "npm run preview --workspace @planu/web",

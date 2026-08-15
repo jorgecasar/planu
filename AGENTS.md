@@ -215,8 +215,8 @@ configuración de Firebase.
 Dos comprobaciones que **no están en la suite de tests, y no pueden estarlo**:
 
 ```bash
-node scripts/check-startup-cost.mjs [url]   # orígenes y peso al arrancar
-node scripts/verify-sentry.mjs [url]        # que un error llega con debug IDs
+node scripts/check-startup-cost.js [url]   # orígenes y peso al arrancar
+node scripts/verify-sentry.js [url]        # que un error llega con debug IDs
 ```
 
 Ambas exigen un bundle construido hablando con Firebase de verdad, así que van
@@ -311,7 +311,7 @@ registrarlos (ver `CLAUDE.md`).
 
 **No está montada.** `docs/` sólo tiene los dos ficheros heredados de planu, que
 no son corpus suficiente. Merece la pena montarla cuando haya ADRs y
-especificaciones; `scripts/setup-skills.mjs` ya contempla el reindexado si
+especificaciones; `scripts/setup-skills.js` ya contempla el reindexado si
 aparece `.qmd/index.yml`.
 
 ## Cómo trabajar aquí
