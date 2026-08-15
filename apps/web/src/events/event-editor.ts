@@ -115,7 +115,35 @@ export class PlanuEventEditor extends LitElement {
 						: nothing
 				}
 
-				<form id="event-form" @submit=${this.#onSubmit}>
+				${this.open ? this.#renderForm(initial) : nothing}
+
+				<wa-button slot="footer" appearance="outlined" @click=${this.#close}>
+					Cancel
+				</wa-button>
+				<wa-button
+					slot="footer"
+					variant="brand"
+					type="submit"
+					form="event-form"
+					?disabled=${this.saving || this.uploading}
+				>
+					${this.saving ? "Saving…" : "Save event"}
+				</wa-button>
+			</wa-dialog>
+		`;
+	}
+
+	/**
+	 * El formulario se crea de nuevo en cada apertura.
+	 *
+	 * Lit sólo reescribe una propiedad cuando cambia respecto a lo que él
+	 * commiteó, y no se entera de lo que teclea el usuario. Manteniendo el
+	 * formulario en el DOM, reabrir el editor mostraría los valores del evento
+	 * anterior.
+	 */
+	#renderForm(initial: Partial<PlanuEvent>) {
+		return html`
+			<form id="event-form" @submit=${this.#onSubmit}>
 					<div class="cover">
 						<label for="cover">Cover image</label>
 						${this.imageUrl ? html`<img src=${this.imageUrl} alt="" />` : nothing}
@@ -182,20 +210,6 @@ export class PlanuEventEditor extends LitElement {
 						></wa-input>
 					</div>
 				</form>
-
-				<wa-button slot="footer" appearance="outlined" @click=${this.#close}>
-					Cancel
-				</wa-button>
-				<wa-button
-					slot="footer"
-					variant="brand"
-					type="submit"
-					form="event-form"
-					?disabled=${this.saving || this.uploading}
-				>
-					${this.saving ? "Saving…" : "Save event"}
-				</wa-button>
-			</wa-dialog>
 		`;
 	}
 

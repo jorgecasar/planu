@@ -32,9 +32,10 @@ async function createEvent(page: Page, title: string): Promise<void> {
 	await page.getByLabel("Location").fill("Madrid");
 	await page.getByRole("button", { name: "Save event" }).click();
 	await expect(page.getByRole("heading", { name: title })).toBeVisible();
-	// El diálogo es modal: hasta que termina de cerrarse el resto de la página
-	// sigue inerte y cualquier interacción se pierde.
-	await expect(page.getByLabel("Title")).toBeHidden();
+	// El diálogo es modal: hasta que la animación de cierre termina, el resto de
+	// la página sigue inerte y cualquier interacción se pierde. Se espera al
+	// <dialog> nativo y no al formulario, que se desmonta de inmediato.
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
 }
 
 test("una cuenta nueva empieza sin eventos", async ({ page }) => {
@@ -98,6 +99,31 @@ test("borrar pide confirmación y luego elimina", async ({ page }) => {
 	await page.getByRole("button", { name: "Delete", exact: true }).last().click();
 
 	await expect(page.getByText("You have no events yet.")).toBeVisible();
+});
+
+test("reabrir el editor no arrastra los datos del evento anterior", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEvent(page, "Concierto de verano");
+
+	await openEditor(page);
+
+	// Lit no re-escribe una propiedad cuyo valor no ha cambiado para él, y no
+	// se entera de lo que teclea el usuario: sin recrear el formulario, aquí
+	// seguiría puesto "Concierto de verano".
+	await expect(page.getByLabel("Title")).toHaveValue("");
+	await expect(page.getByLabel("Location")).toHaveValue("");
+});
+
+test("editar carga los datos del evento en el formulario", async ({ page }) => {
+	await signUp(page);
+	await createEvent(page, "Concierto de verano");
+
+	await page.getByRole("button", { name: "Edit" }).click();
+
+	await expect(page.getByLabel("Title")).toHaveValue("Concierto de verano");
+	await expect(page.getByLabel("Location")).toHaveValue("Madrid");
 });
 
 test("un título demasiado corto no guarda", async ({ page }) => {
