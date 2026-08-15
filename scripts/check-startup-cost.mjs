@@ -55,7 +55,9 @@ for (const [host, n] of [...origenes].sort((a, b) => b[1] - a[1])) {
 }
 
 const kib = Math.round(bytes / 1024);
-console.log(`\npeso declarado por content-length: ~${kib} KiB (tope ${MAX_KIB})`);
+console.log(
+	`\npeso declarado por content-length: ~${kib} KiB (tope ${MAX_KIB})`,
+);
 
 let ok = true;
 for (const [host, motivo] of PROHIBIDOS) {

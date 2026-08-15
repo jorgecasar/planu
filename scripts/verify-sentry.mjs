@@ -98,9 +98,13 @@ for (const [i, e] of envelopes.entries()) {
 	const nuestros = marcos.filter((f) =>
 		String(f.filename ?? "").includes("/assets/"),
 	);
-	console.log(`  marcos totales: ${marcos.length}, de nuestro bundle: ${nuestros.length}`);
+	console.log(
+		`  marcos totales: ${marcos.length}, de nuestro bundle: ${nuestros.length}`,
+	);
 	for (const f of nuestros.slice(-3)) {
-		console.log(`    ${f.filename?.split("/").pop()}:${f.lineno}:${f.colno} → ${f.function ?? "?"}`);
+		console.log(
+			`    ${f.filename?.split("/").pop()}:${f.lineno}:${f.colno} → ${f.function ?? "?"}`,
+		);
 	}
 
 	// Los debug IDs son lo que empareja bundle y source map en Sentry.
@@ -109,7 +113,9 @@ for (const [i, e] of envelopes.entries()) {
 
 	if (!evento.release) ok = false;
 	if (nuestros.length === 0) {
-		console.log("  ← el stack no referencia nuestro bundle: no habrá nada que simbolicar");
+		console.log(
+			"  ← el stack no referencia nuestro bundle: no habrá nada que simbolicar",
+		);
 		ok = false;
 	}
 	if (debugIds === 0) {
