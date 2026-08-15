@@ -3,13 +3,22 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 
+import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
+
 import { consume } from "@lit/context";
 import type { FirebaseApp } from "firebase/app";
+import type { User } from "firebase/auth";
+import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { appContext } from "../firebase/context.js";
 import {
-	type GeneratedEvent,
+	appContext,
+	storageContext,
+	userContext,
+} from "../firebase/context.js";
+import { uploadFile } from "../firebase/storage.js";
+import type { PlanuEvent } from "../lib/types.js";
+import {
 	GenerationError,
 	generateEventFromImage,
 	RESPONSE_JSON_SCHEMA,
@@ -50,8 +59,16 @@ export class PlanuAiEventGenerator extends LitElement {
 	@consume({ context: appContext, subscribe: true })
 	private app: FirebaseApp | undefined;
 
+	@consume({ context: storageContext, subscribe: true })
+	private storage: FirebaseStorage | undefined;
+
+	@consume({ context: userContext, subscribe: true })
+	private user: User | null | undefined;
+
 	@state() private preview = "";
 	@state() private busy = false;
+	@state() private uploading = false;
+	@state() private progress = 0;
 	@state() private error = "";
 
 	override willUpdate(changed: Map<string, unknown>): void {
@@ -93,8 +110,15 @@ export class PlanuAiEventGenerator extends LitElement {
 						this.busy
 							? html`<div class="working">
 									<wa-spinner></wa-spinner>
-									<span>Reading the image…</span>
+									<span>
+										${this.uploading ? "Saving the image…" : "Reading the image…"}
+									</span>
 								</div>`
+							: nothing
+					}
+					${
+						this.uploading
+							? html`<wa-progress-bar value=${this.progress}></wa-progress-bar>`
 							: nothing
 					}
 				</div>
@@ -175,7 +199,11 @@ export class PlanuAiEventGenerator extends LitElement {
 				});
 				return result.response.text();
 			}, file);
-			this.#emit(generated);
+
+			// El cartel del que se extrajo el evento es su portada natural. Se
+			// sube después de generar, no antes, para no dejar en Storage las
+			// imágenes de los intentos que no llegan a nada.
+			this.#emit({ ...generated, imageUrl: await this.#uploadCover(file) });
 			this.#close();
 		} catch (cause) {
 			this.error =
@@ -188,9 +216,33 @@ export class PlanuAiEventGenerator extends LitElement {
 		}
 	}
 
-	#emit(generated: GeneratedEvent): void {
+	/**
+	 * Sube el cartel como portada. Devuelve cadena vacía si no puede.
+	 *
+	 * Un fallo aquí no invalida lo que la IA acaba de extraer: es peor perder
+	 * los datos del evento que quedarse sin imagen, así que se abre el editor
+	 * igualmente y el usuario puede añadirla a mano.
+	 */
+	async #uploadCover(file: File): Promise<string> {
+		const { storage, user } = this;
+		if (!storage || !user) return "";
+
+		this.uploading = true;
+		this.progress = 0;
+		try {
+			return await uploadFile(storage, file, `events/${user.uid}`, (percent) => {
+				this.progress = percent;
+			});
+		} catch {
+			return "";
+		} finally {
+			this.uploading = false;
+		}
+	}
+
+	#emit(generated: Partial<PlanuEvent>): void {
 		this.dispatchEvent(
-			new CustomEvent<GeneratedEvent>("planu-event-generated", {
+			new CustomEvent<Partial<PlanuEvent>>("planu-event-generated", {
 				detail: generated,
 				bubbles: true,
 				composed: true,
