@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "Event": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "title": "Event",
+      "description": "Represents an event with details such as title, description, location, date, and image.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Event entity. The specific format and generation strategy depend on the target database implementation."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the event."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the event."
+        },
+        "location": {
+          "type": "string",
+          "description": "The location where the event will take place."
+        },
+        "startDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "The start date of the event. Can be null if the event doesn't have a specific start date."
+        },
+        "endDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "The end date of the event. Can be null if the event doesn't have a specific end date."
+        },
+        "imageUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "URL of the image illustrating the event. Can be null if no image is available."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "location"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "google"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "definition": {
+          "description": "Collection containing event documents.",
+          "entityName": "Event",
+          "schema": {
+            "$ref": "#/backend/entities/Event"
+          },
+          "params": [
+            {
+              "description": "The unique ID of the event.",
+              "name": "eventId"
+            }
+          ]
+        },
+        "path": "/events/{eventId}"
+      }
+    ],
+    "reasoning": "Based on the application proposal, we need a collection to store events. Each document in the `events` collection will represent a single event and will contain the fields defined in the `Event` entity (title, description, location, startDate, endDate, and imageUrl). Since the application supports anonymous authentication in addition to password-based authentication, security rules need to accommodate both authenticated and unauthenticated users."
+  }
+}
