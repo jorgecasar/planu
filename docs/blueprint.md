@@ -1,5 +1,19 @@
 # **App Name**: Eventide Planner
 
+> **Documento histórico.** Es la especificación del prototipo de julio de 2025,
+> conservada tal cual. No describe la implementación actual y hay partes
+> superadas:
+>
+> - El listado **no es público**: los eventos son privados por usuario. Ver
+>   [`adr/0002-eventos-privados-por-usuario.md`](adr/0002-eventos-privados-por-usuario.md).
+> - Las guías de estilo (indigo #3F51B5, tipografías Belleza y Alegreya) **no se
+>   han aplicado**: la interfaz usa el tema por defecto de Web Awesome. Están sin
+>   traducir a tokens y sin decidir si se conservan.
+> - El stack cambió por completo. Ver
+>   [`adr/0001-web-components-con-lit-y-web-awesome.md`](adr/0001-web-components-con-lit-y-web-awesome.md).
+>
+> La especificación vigente es [`../SPEC.md`](../SPEC.md).
+
 ## Core Features:
 
 - Event Listing: Display a list of saved events with key details: title, description, location, date, and image.
