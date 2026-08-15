@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env.local
+.env.*.local
+coverage/
+test-results/
+playwright-report/
+.firebase/
+*.local
+
+# Skills de terceros: el contenido no se versiona, manda skills-lock.json.
+# Se restaura con `npm run setup` (scripts/setup-skills.mjs).
+.agents/skills/
+.claude/skills/
+.claude/settings.local.json
+.claude/worktrees/
+
+# Índice de qmd (regenerable con `qmd update && qmd embed`)
+.qmd/index.sqlite
+.qmd/*.sqlite-*
