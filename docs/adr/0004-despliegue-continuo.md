@@ -1,8 +1,11 @@
 # 0004 · Despliegue continuo desde `main`, con source maps subidos en el build
 
-- **Estado:** aceptado
+- **Estado:** aceptado, parcialmente superseído
 - **Fecha:** 2026-08-15
 - **Supersede:** nada
+- **Superseído en parte por** [ADR 0005](0005-sin-entornos-de-preview.md): los
+  puntos **8 bis** y **9** —canales de preview por pull request y autorización
+  dinámica de sus dominios— ya no aplican. El resto sigue vigente.
 
 ## Contexto
 

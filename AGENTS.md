@@ -67,6 +67,13 @@ Monorepo con npm workspaces (`apps/*`, `packages/*`). Hoy sólo existe
    primer `await`— y hay 14 campos `@consume` en el proyecto, así que sembrar
    `biome-ignore` en cada uno sería peor.
 
+**Si `npm run lint` sale con 1 sin mostrar ningún hallazgo, reintenta.** Con
+`vcs.enabled` Biome consulta git para respetar `.gitignore`, y si el índice está
+ocupado —acabas de hacer `git mv`, o hay otra sesión trabajando en un worktree
+que comparte el mismo `.git`— falla en silencio con «Checked N files» y ni un
+diagnóstico. Es transitorio: a la segunda pasa. Un fallo real siempre imprime
+qué regla y en qué fichero.
+
 **Nada de comentarios en `biome.json`.** Aunque el fichero parezca JSONC, un
 comentario invalida la configuración **en silencio**: Biome no avisa, cae a sus
 valores por defecto y se pone a analizar `dist/` y `node_modules/`. La señal es
@@ -199,9 +206,17 @@ Para saber dónde se resolvió una generación, mira
 ## Despliegue
 
 **Un push a `main` que pase la verificación despliega.** Hosting, reglas e
-índices, en un solo `firebase deploy`. Cada PR recibe además un canal de
-preview de 7 días. Todo vive en `.github/workflows/ci.yml`; el porqué, en
+índices, en un solo `firebase deploy`. Todo vive en
+`.github/workflows/ci.yml`; el porqué, en
 [`docs/adr/0004`](docs/adr/0004-despliegue-continuo.md).
+
+**No hay entornos ni canales de preview**, y es deliberado: no hay usuarios
+reales, así que no existe el dato que un entorno de preproducción viene a
+proteger. Se llegó a montar y se deshizo; el motivo y lo que habrá que hacer al
+lanzar están en [`docs/adr/0005`](docs/adr/0005-sin-entornos-de-preview.md).
+La consecuencia a tener presente es que **la CSP y las cabeceras de caché no las
+prueba nadie automáticamente**: los e2e corren contra `npm run dev` y nunca ven
+la configuración de hosting. Se comprueban a mano tras desplegar.
 
 Tres cosas que no son obvias y que conviene no deshacer:
 

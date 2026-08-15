@@ -81,10 +81,11 @@ La base de Firestore **no** es la `(default)`: se llama `planu`.
 ## Despliegue
 
 **Automático.** Un push a `main` que pase la verificación despliega hosting,
-reglas e índices, y sube los source maps a Sentry. Cada pull request recibe
-además un canal de preview que caduca a los 7 días — es el único sitio donde se
-pueden comprobar la CSP y las cabeceras de caché reales, porque los e2e corren
-contra `npm run dev` y nunca ven la configuración de hosting.
+reglas e índices, y sube los source maps a Sentry.
+
+No hay entornos de preproducción ni canales de preview: la aplicación no está
+lanzada y no hay usuarios reales que proteger. El día que los haya habrá que
+montarlos — ver [`docs/adr/0005`](docs/adr/0005-sin-entornos-de-preview.md).
 
 A mano, si hace falta:
 
