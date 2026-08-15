@@ -34,11 +34,13 @@ jobs:
           node-version: 20
           cache: npm
 
-      # Los emuladores de Firestore y Storage corren sobre la JVM.
+      # Los emuladores de Firestore y Storage corren sobre la JVM. 21 como
+      # mínimo: firebase-tools 15 rechaza cualquier versión anterior y aborta
+      # con «no longer supports Java version before 21».
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       # `npm ci` y no `npm run setup`: las skills del agente no hacen falta aquí
       # y traerlas metería red y tiempo sin aportar nada a la verificación.

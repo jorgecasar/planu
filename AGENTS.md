@@ -117,8 +117,12 @@ npm run emulators   # emuladores de Firebase (auth, firestore, storage)
 `npm test` y `npm run test:e2e` necesitan el navegador de Playwright:
 `npx playwright install chromium`.
 
-`npm run emulators` necesita **Java en el PATH**. Homebrew instala `openjdk`
-como *keg-only*, así que no basta con `brew install openjdk`; hay que añadirlo:
+`npm run emulators` necesita **Java 21 o superior en el PATH**. `firebase-tools`
+15 rechaza cualquier versión anterior y aborta con «no longer supports Java
+version before 21», sin llegar a levantar nada.
+
+Homebrew instala `openjdk` como *keg-only*, así que no basta con
+`brew install openjdk`; hay que añadirlo:
 
 ```bash
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"   # en ~/.zshrc
