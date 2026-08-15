@@ -206,6 +206,33 @@ Tres cosas que no son obvias y que conviene no deshacer:
    `cancel-in-progress`.** El grupo general cancela lo anterior en cada push, y
    eso a mitad de un `firebase deploy` deja producción sin revisar.
 
+## Rendimiento
+
+Línea base medida en agosto de 2026 contra producción, móvil: la página de
+acceso pesa **156 KiB** y no contacta con ningún origen ajeno salvo los de
+configuración de Firebase.
+
+Dos comprobaciones que **no están en la suite de tests, y no pueden estarlo**:
+
+```bash
+node scripts/check-startup-cost.mjs [url]   # orígenes y peso al arrancar
+node scripts/verify-sentry.mjs [url]        # que un error llega con debug IDs
+```
+
+Ambas exigen un bundle construido hablando con Firebase de verdad, así que van
+contra producción o contra un canal de preview, nunca contra `npm run dev`.
+Se intentó la primera como e2e y **salió vacua**: en desarrollo
+`connectAuthEmulator` evita que Firebase cargue gapi, de modo que la condición
+se cumplía sola y no detectaba la regresión que venía a impedir. Un test que no
+puede fallar es peor que ninguno.
+
+**Al comparar medidas de Lighthouse, usa la mediana de al menos 5 pasadas.** Con
+n = 1 este proyecto da entre 93 y 98 de puntuación, con el Speed Index oscilando
+entre 1,7 y 4,2 s y el LCP entre 1,4 y 3,2 s: una sola pasada puede «demostrar»
+cualquier cosa. Lo que sí es determinista son los recuentos —peso total, JS sin
+usar, orígenes contactados—, y es sobre ellos donde conviene apoyar cualquier
+afirmación de mejora.
+
 ## Estado de seguridad
 
 `firestore.rules` se reescribió al portarlo. El original de planu tenía dos
