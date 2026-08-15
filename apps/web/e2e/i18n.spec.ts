@@ -20,7 +20,9 @@ test.describe("navegador en español", () => {
 		).toBeVisible();
 	});
 
-	test("el atributo lang del documento acompaña al idioma", async ({ page }) => {
+	test("el atributo lang del documento acompaña al idioma", async ({
+		page,
+	}) => {
 		await page.goto("/login");
 		// Importa para lectores de pantalla y para la traducción del navegador.
 		await expect(page.locator("html")).toHaveAttribute("lang", "es");

@@ -7,6 +7,7 @@ import "@awesome.me/webawesome/dist/components/tab-group/tab-group.js";
 import "@awesome.me/webawesome/dist/components/tab-panel/tab-panel.js";
 import "@awesome.me/webawesome/dist/components/tab/tab.js";
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import type { Auth } from "firebase/auth";
 import {
 	createUserWithEmailAndPassword,
@@ -19,7 +20,6 @@ import { customElement, state } from "lit/decorators.js";
 import { authContext } from "../firebase/context.js";
 import { authErrorMessage } from "./auth-errors.js";
 import { credentialsSchema, signUpSchema } from "./schemas.js";
-import { msg } from "@lit/localize";
 
 /**
  * Acceso y registro. La redirección al entrar no se hace aquí: el cambio de

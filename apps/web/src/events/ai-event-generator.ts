@@ -6,6 +6,7 @@ import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
 import type { User } from "firebase/auth";
 import type { FirebaseStorage } from "firebase/storage";
@@ -23,7 +24,6 @@ import {
 	type InferenceSourceName,
 	resolveInferenceMode,
 } from "./ai-policy.js";
-import { msg } from "@lit/localize";
 import {
 	GenerationError,
 	generateEventFromImage,
@@ -99,8 +99,9 @@ export class PlanuAiEventGenerator extends LitElement {
 				@wa-hide=${this.#close}
 			>
 				<p>
-					Upload a poster or flyer and the details will be filled in for you.
-					You can review everything before saving.
+					${msg(
+						"Upload a poster or flyer and the details will be filled in for you. You can review everything before saving.",
+					)}
 				</p>
 
 				${
@@ -226,7 +227,9 @@ export class PlanuAiEventGenerator extends LitElement {
 			this.error =
 				cause instanceof GenerationError
 					? msg("The image could not be read as an event. Try a clearer photo.")
-					: msg("Event generation is unavailable right now. You can still create the event by hand.");
+					: msg(
+							"Event generation is unavailable right now. You can still create the event by hand.",
+						);
 		} finally {
 			this.busy = false;
 			input.value = "";

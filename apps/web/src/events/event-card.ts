@@ -2,13 +2,13 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import { consume } from "@lit/context";
+import { msg, str } from "@lit/localize";
 import { deleteDoc, doc, type Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { firestoreContext } from "../firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
 import { formatEventDates } from "./format-dates.js";
-import { msg, str } from "@lit/localize";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
 @customElement("planu-event-card")

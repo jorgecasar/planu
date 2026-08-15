@@ -6,6 +6,7 @@ import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import type { User } from "firebase/auth";
 import {
 	addDoc,
@@ -34,7 +35,6 @@ import {
 	type InferenceSourceName,
 } from "./ai-policy.js";
 import { toInputDate } from "./format-dates.js";
-import { msg } from "@lit/localize";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

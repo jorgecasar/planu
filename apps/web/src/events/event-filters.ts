@@ -1,9 +1,9 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
+import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { DateRange } from "./filter-events.js";
-import { msg } from "@lit/localize";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;

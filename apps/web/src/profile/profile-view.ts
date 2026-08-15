@@ -2,11 +2,11 @@ import "@awesome.me/webawesome/dist/components/avatar/avatar.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import { type Auth, signOut, type User } from "firebase/auth";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { authContext, userContext } from "../firebase/context.js";
-import { msg } from "@lit/localize";
 
 /** Datos de la cuenta y cierre de sesión. */
 @customElement("planu-profile-view")

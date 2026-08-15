@@ -45,6 +45,9 @@ test("lee las preferencias del navegador, con language de respaldo", () => {
 
 	// Safari antiguo y algunos entornos sólo exponen `language`.
 	expect(
-		browserLocales({ languages: [], language: "fr-FR" } as unknown as Navigator),
+		browserLocales({
+			languages: [],
+			language: "fr-FR",
+		} as unknown as Navigator),
 	).toEqual(["fr-FR"]);
 });

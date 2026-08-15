@@ -10,6 +10,7 @@ import "./event-editor.js";
 import "./event-filters.js";
 
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import type { User } from "firebase/auth";
 import {
 	collection,
@@ -26,7 +27,6 @@ import { firestoreContext, userContext } from "../firebase/context.js";
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
 import { type DateRange, filterEvents } from "./filter-events.js";
-import { msg } from "@lit/localize";
 
 /** Firestore guarda las fechas como Timestamp; la aplicación trabaja con Date. */
 function toEvent(document: DocumentData & { id: string }): StoredEvent {
@@ -110,7 +110,9 @@ export class PlanuEventsView extends LitElement {
 
 	override willUpdate(): void {
 		const { firestore, user } = this;
-		const key = firestore && user ? user.uid : "";
+		// Firestore llega después que el usuario, porque se carga bajo demanda:
+		// si la clave sólo mirase el uid, la consulta no se crearía nunca.
+		const key = firestore && user ? `${user.uid}:ready` : "";
 
 		// Reconstruir la consulta en cada actualización dispara una
 		// resuscripción, que provoca un snapshot, que provoca otra

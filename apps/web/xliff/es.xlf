@@ -270,6 +270,38 @@
   <source>Sign out</source>
         <target>Cerrar sesión</target>
 </trans-unit>
+<trans-unit id="sb59d68ed12d46377">
+  <source>Loading</source>
+        <target>Cargando</target>
+</trans-unit>
+<trans-unit id="s1ee927d0f0f6b718">
+  <source>Generate event from an image</source>
+        <target>Generar un evento desde una imagen</target>
+</trans-unit>
+<trans-unit id="sb441392801bb49cc">
+  <source>Upload a poster or flyer and the details will be filled in for you. You can review everything before saving.</source>
+        <target>Sube un cartel o un folleto y rellenaremos los datos por ti. Podrás revisarlo todo antes de guardar.</target>
+</trans-unit>
+<trans-unit id="s707e0d1d235eb9f2">
+  <source>Event image</source>
+        <target>Imagen del evento</target>
+</trans-unit>
+<trans-unit id="s6abb04e95b59ed89">
+  <source>Saving the image…</source>
+        <target>Guardando la imagen…</target>
+</trans-unit>
+<trans-unit id="s40114e8cfce8a581">
+  <source>Reading the image…</source>
+        <target>Leyendo la imagen…</target>
+</trans-unit>
+<trans-unit id="s8ac3d8b6d9eec835">
+  <source>The image could not be read as an event. Try a clearer photo.</source>
+        <target>No se pudo interpretar la imagen como un evento. Prueba con una foto más nítida.</target>
+</trans-unit>
+<trans-unit id="se659b3e2fd393cb3">
+  <source>Event generation is unavailable right now. You can still create the event by hand.</source>
+        <target>La generación con IA no está disponible ahora mismo. Puedes crear el evento a mano.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

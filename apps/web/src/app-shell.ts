@@ -4,17 +4,15 @@ import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "./auth/login-view.js";
-import "./events/events-view.js";
-import "./profile/profile-view.js";
 
 import { consume } from "@lit/context";
+import { msg } from "@lit/localize";
 import { Router } from "@lit-labs/router";
 import { type Auth, signOut, type User } from "firebase/auth";
 import { css, html, LitElement } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import { guardRedirect, HOME_PATH } from "./auth/guard.js";
 import { authContext, userContext } from "./firebase/context.js";
-import { msg } from "@lit/localize";
 
 /** Raíz de la aplicación: enrutado, cabecera y guarda de sesión. */
 @customElement("planu-app")
@@ -54,12 +52,22 @@ export class PlanuApp extends LitElement {
 	@consume({ context: userContext, subscribe: true })
 	private user: User | null | undefined;
 
+	@state() private navigating = false;
+
 	@consume({ context: authContext, subscribe: true })
 	private auth: Auth | undefined;
 
+	/**
+	 * Las rutas privadas se cargan bajo demanda.
+	 *
+	 * El listado arrastra Firestore por el controlador de colecciones, así que
+	 * importarlo aquí de forma estática metía el SDK entero en el arranque de
+	 * quien sólo llega al login. `enter()` se resuelve antes de renderizar.
+	 */
 	readonly #router = new Router(this, [
 		{
 			path: HOME_PATH,
+			enter: () => this.#enterPrivate(() => import("./events/events-view.js")),
 			render: () => html`<planu-events-view></planu-events-view>`,
 		},
 		{
@@ -68,19 +76,60 @@ export class PlanuApp extends LitElement {
 		},
 		{
 			path: "/profile",
+			enter: () =>
+				this.#enterPrivate(() => import("./profile/profile-view.js")),
 			render: () => html`<planu-profile-view></planu-profile-view>`,
 		},
 	]);
 
-	override willUpdate(): void {
-		const target = guardRedirect(this.user, window.location.pathname);
-		if (target) this.#navigate(target);
+	/**
+	 * Carga una ruta privada, y sólo si hay sesión.
+	 *
+	 * Rechazarla mientras la sesión se comprueba evita dos cosas: descargar el
+	 * SDK de datos a quien sólo va a ver el login, y una carrera entre esta
+	 * importación y el redirect de la guarda que dejaba la página en blanco.
+	 */
+	async #enterPrivate(load: () => Promise<unknown>): Promise<boolean> {
+		if (!this.user) return false;
+		await load();
+		return true;
 	}
 
-	#navigate(path: string): void {
+	/** Última sesión vista, para detectar cuándo deja de ser desconocida. */
+	#seenUser: User | null | undefined;
+
+	override willUpdate(): void {
+		const target = guardRedirect(this.user, window.location.pathname);
+		if (target) {
+			void this.#navigate(target);
+			return;
+		}
+
+		// La ruta se pudo rechazar por no saber aún si había sesión. Al conocerla,
+		// hay que reevaluarla: nadie navega, así que el router no lo haría solo.
+		if (this.user !== this.#seenUser) {
+			this.#seenUser = this.user;
+			if (this.user) void this.#router.goto(window.location.pathname);
+		}
+	}
+
+	/**
+	 * Navega y oculta el contenido mientras la ruta se carga.
+	 *
+	 * Sin esto, entre el cambio de URL y la resolución de la importación se
+	 * seguía viendo la vista anterior: tras registrarse aparecía el formulario
+	 * de acceso bajo la cabecera hasta que llegaba el listado.
+	 */
+	async #navigate(path: string): Promise<void> {
 		if (window.location.pathname === path) return;
+
 		window.history.pushState({}, "", path);
-		void this.#router.goto(path);
+		this.navigating = true;
+		try {
+			await this.#router.goto(path);
+		} finally {
+			this.navigating = false;
+		}
 	}
 
 	#onSignOut(): void {
@@ -98,7 +147,15 @@ export class PlanuApp extends LitElement {
 
 		return html`
 			${this.user ? this.#renderHeader(this.user) : null}
-			<main>${this.#router.outlet()}</main>
+			<main>
+				${
+					this.navigating
+						? html`<div class="checking">
+								<wa-spinner aria-label=${msg("Loading")}></wa-spinner>
+							</div>`
+						: this.#router.outlet()
+				}
+			</main>
 		`;
 	}
 

@@ -22,7 +22,9 @@ test("registrarse deja al usuario dentro de la aplicación", async ({
 
 	// La guarda saca del login en cuanto hay sesión.
 	await expect(page).toHaveURL(/\/$/);
-	await expect(page.getByRole("heading", { name: "planu" })).toBeVisible();
+	await expect(
+		page.getByRole("banner").getByRole("heading", { name: "planu" }),
+	).toBeVisible();
 });
 
 test("las contraseñas que no coinciden no crean cuenta", async ({ page }) => {
@@ -68,7 +70,9 @@ test("la aplicación autenticada no tiene violaciones de accesibilidad", async (
 	await panel.getByLabel("Confirm password").fill("secret123");
 	await panel.getByRole("button", { name: "Create account" }).click();
 
-	await expect(page.getByRole("heading", { name: "planu" })).toBeVisible();
+	await expect(
+		page.getByRole("banner").getByRole("heading", { name: "planu" }),
+	).toBeVisible();
 
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
