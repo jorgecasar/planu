@@ -40,15 +40,6 @@ Identify the event's title, a detailed description, its location, and start/end 
 - If a specific time is not mentioned, you can leave it out.
 - Be creative but accurate. The goal is to create a complete and helpful event entry.`;
 
-/** Estructura que se le exige al modelo mediante responseSchema. */
-export const RESPONSE_FIELDS = {
-	title: "A concise and appealing title for the event.",
-	description: "A detailed description of the event.",
-	location: "The physical or virtual location of the event.",
-	startDate: "Start date and time in ISO 8601 format, or an empty string.",
-	endDate: "End date and time in ISO 8601 format, or an empty string.",
-} as const;
-
 /** Codifica el fichero en base64 sin volcarlo entero en la pila de llamadas. */
 export async function fileToBase64(file: File): Promise<string> {
 	const bytes = new Uint8Array(await file.arrayBuffer());

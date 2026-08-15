@@ -17,7 +17,7 @@ import {
 	Timestamp,
 	where,
 } from "firebase/firestore";
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
@@ -139,18 +139,7 @@ export class PlanuEventsView extends LitElement {
 				</wa-dropdown>
 			</div>
 
-			${
-				this.#events.loading
-					? this.#renderSkeletons()
-					: visible.length > 0
-						? html`<div class="grid">
-								${visible.map(
-									(event) =>
-										html`<planu-event-card .event=${event}></planu-event-card>`,
-								)}
-							</div>`
-						: this.#renderEmpty(all.length)
-			}
+			${this.#renderList(all.length, visible)}
 
 			<planu-event-editor
 				.open=${this.editorOpen}
@@ -194,6 +183,17 @@ export class PlanuEventsView extends LitElement {
 		this.editing = undefined;
 	}
 
+	#renderList(total: number, visible: StoredEvent[]) {
+		if (this.#events.loading) return this.#renderSkeletons();
+		if (visible.length === 0) return this.#renderEmpty(total);
+
+		return html`<div class="grid">
+			${visible.map(
+				(event) => html`<planu-event-card .event=${event}></planu-event-card>`,
+			)}
+		</div>`;
+	}
+
 	#renderSkeletons() {
 		return html`<div class="grid">
 			${Array.from(
@@ -219,7 +219,6 @@ export class PlanuEventsView extends LitElement {
 							</wa-button>
 						`
 			}
-			${nothing}
 		</div>`;
 	}
 
