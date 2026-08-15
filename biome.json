@@ -32,6 +32,9 @@
 			},
 			"complexity": {
 				"useLiteralKeys": "off"
+			},
+			"correctness": {
+				"noUnusedPrivateClassMembers": "off"
 			}
 		}
 	},

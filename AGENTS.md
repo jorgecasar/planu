@@ -36,7 +36,7 @@ Monorepo con npm workspaces (`apps/*`, `packages/*`). Hoy sólo existe
 | Backend | Firebase: Auth, Firestore, Storage |
 | Despliegue | Firebase Hosting clásico, proyecto `planu-app` |
 
-### Dos detalles de configuración que no son obvios
+### Detalles de configuración que no son obvios
 
 1. **Decoradores legacy, no estándar.** `tsconfig.json` usa
    `experimentalDecorators: true` y `useDefineForClassFields: false` porque
@@ -51,6 +51,26 @@ Monorepo con npm workspaces (`apps/*`, `packages/*`). Hoy sólo existe
 3. **`complexity/useLiteralKeys` está desactivada en Biome.** Choca de frente
    con `noPropertyAccessFromIndexSignature` de `@tsconfig/strictest`: una exige
    `process.env.CI` y la otra `process.env["CI"]`.
+4. **`correctness/noUnusedPrivateClassMembers` también está desactivada.** Da
+   falsos positivos con el patrón que usamos para leer los contextos de Lit:
+
+   ```ts
+   const { firestore, user } = this;
+   if (!firestore || !user) return;   // aquí TypeScript estrecha el tipo
+   ```
+
+   La regla no sigue la desestructuración de `this` y da el campo por muerto.
+   Su autofix está marcado como seguro y **borraría campos en uso**: aplicarlo
+   deja al editor sin guardar ni subir imágenes. El patrón es deliberado —con
+   `@tsconfig/strictest`, estrechar sobre variables locales es lo que evita el
+   `!` más abajo, porque `this.firestore` pierde el estrechamiento tras el
+   primer `await`— y hay 14 campos `@consume` en el proyecto, así que sembrar
+   `biome-ignore` en cada uno sería peor.
+
+**Nada de comentarios en `biome.json`.** Aunque el fichero parezca JSONC, un
+comentario invalida la configuración **en silencio**: Biome no avisa, cae a sus
+valores por defecto y se pone a analizar `dist/` y `node_modules/`. La señal es
+un salto repentino a miles de errores. Los motivos van aquí, no ahí.
 
 ## Convenciones
 

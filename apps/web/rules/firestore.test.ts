@@ -18,14 +18,7 @@ import {
 	updateDoc,
 	where,
 } from "firebase/firestore";
-import {
-	afterAll,
-	beforeAll,
-	beforeEach,
-	describe,
-	expect,
-	test,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
 
 const VICTIMA = "victima-uid";
 const ATACANTE = "atacante-uid";

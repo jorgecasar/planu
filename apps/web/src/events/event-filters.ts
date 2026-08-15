@@ -17,7 +17,7 @@ export interface FiltersChange extends DateRange {
  * todavía no se ha sincronizado con la del input interno. El resultado es leer
  * el valor anterior —vacío en la primera pulsación— y no filtrar nada.
  */
-function valueOf(event: globalThis.Event): string {
+function readValue(event: globalThis.Event): string {
 	const source = event.composedPath()[0] as HTMLInputElement | undefined;
 	return source?.value ?? "";
 }
@@ -95,17 +95,17 @@ export class PlanuEventFilters extends LitElement {
 	}
 
 	#onSearch(event: globalThis.Event): void {
-		this.searchTerm = valueOf(event);
+		this.searchTerm = readValue(event);
 		this.#emit();
 	}
 
 	#onFrom(event: globalThis.Event): void {
-		this.from = valueOf(event);
+		this.from = readValue(event);
 		this.#emit();
 	}
 
 	#onTo(event: globalThis.Event): void {
-		this.to = valueOf(event);
+		this.to = readValue(event);
 		this.#emit();
 	}
 
