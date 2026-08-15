@@ -107,9 +107,10 @@ export class PlanuApp extends LitElement {
 
 		// La ruta se pudo rechazar por no saber aún si había sesión. Al conocerla,
 		// hay que reevaluarla: nadie navega, así que el router no lo haría solo.
+		// Es el caso de recargar la página ya autenticado, el más común de todos.
 		if (this.user !== this.#seenUser) {
 			this.#seenUser = this.user;
-			if (this.user) void this.#router.goto(window.location.pathname);
+			if (this.user) void this.#resolveRoute(window.location.pathname);
 		}
 	}
 
@@ -124,6 +125,17 @@ export class PlanuApp extends LitElement {
 		if (window.location.pathname === path) return;
 
 		window.history.pushState({}, "", path);
+		await this.#resolveRoute(path);
+	}
+
+	/**
+	 * Única vía de entrada al router, y siempre con el indicador puesto.
+	 *
+	 * Toda resolución de ruta pasa por aquí. Cuando la reevaluación tras conocer
+	 * la sesión llamaba a `goto()` por su cuenta, el `outlet()` seguía pintando
+	 * lo anterior mientras la importación estaba en vuelo.
+	 */
+	async #resolveRoute(path: string): Promise<void> {
 		this.navigating = true;
 		try {
 			await this.#router.goto(path);

@@ -13,7 +13,8 @@
 		"typecheck": "tsc --noEmit",
 		"lint:lit": "lit-analyzer src",
 		"localize:extract": "lit-localize extract",
-		"localize:build": "lit-localize build"
+		"localize:build": "lit-localize build",
+		"test:rules": "vitest run --config vitest.rules.config.ts"
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "^3.11.0",
@@ -27,6 +28,7 @@
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.11.0",
+		"@firebase/rules-unit-testing": "^5.0.1",
 		"@lit/localize-tools": "^0.8.2",
 		"@playwright/test": "^1.57.0",
 		"@tsconfig/strictest": "^2.0.8",

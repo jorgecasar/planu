@@ -205,7 +205,27 @@ unitario, y todo recorrido de usuario tiene e2e.
 ## Preguntas abiertas
 
 1. **Datos heredados en la base `planu`.** Sin comprobar si hay documentos y si
-   tienen `userId`.
-2. **Datos heredados en la base `planu`.** Sin comprobar si hay documentos y si
-   tienen `userId`.
-4. **App Check.** Requiere elegir proveedor de atestación y habilitar Blaze.
+   tienen `userId`. Bajo las reglas vigentes quedarían ilegibles para todos.
+2. **App Check.** Requiere elegir proveedor de atestación y habilitar Blaze. Es
+   requisito de bloqueo antes de poner `VITE_AI_CLOUD_FALLBACK=true`.
+3. **Recuperación de contraseña.** No hay `sendPasswordResetEmail`: quien olvide
+   su clave se queda sin autoservicio.
+4. **Confidencialidad real de las imágenes.** La URL de descarga es un token
+   portador, así que la portada no está protegida por reglas. Cerrarlo exigiría
+   servirlas desde una Cloud Function.
+
+## Siguiente fase
+
+La segunda tanda se especifica aparte en
+[`docs/spec-fase-2.md`](docs/spec-fase-2.md). Amplía este documento; no lo
+sustituye. Cubre dos cosas:
+
+- **Funcionalidad**: compartir con invitados, export a calendario, vistas de
+  calendario y agenda, etiquetas, y dos usos nuevos de la IA.
+- **Forma de producto**: landing pública, identidad visual, legales, borrado de
+  cuenta, onboarding y analítica.
+
+Trae dos cambios que afectan a lo escrito aquí arriba: los eventos dejan de ser
+exclusivos de una persona —siguen siendo privados, pero admiten invitados con
+rol— y **la aplicación se muda de `/` a `/app`** para dejarle la raíz a la
+landing.

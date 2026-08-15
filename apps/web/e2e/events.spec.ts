@@ -161,3 +161,20 @@ test("el listado con eventos no tiene violaciones de accesibilidad", async ({
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
 });
+
+test("recargar la página estando autenticado mantiene la sesión y el listado", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEvent(page, "Concierto de verano");
+
+	await page.reload();
+
+	// Al recargar, el router resuelve la ruta antes de saber si hay sesión y la
+	// rechaza; la reevaluación posterior es la que tiene que traer el listado.
+	await expect(page).toHaveURL(/\/$/);
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
+});

@@ -1,8 +1,12 @@
 # planu
 
 Planificador de eventos: crear, listar, buscar y filtrar eventos con título,
-descripción, ubicación, fechas e imagen. Los eventos son públicos de lectura y
-sólo su creador puede modificarlos.
+descripción, ubicación, fechas e imagen. **Los eventos son privados: sólo su
+creador los lee y los modifica.**
+
+Si lees en algún sitio que son públicos de lectura, es documentación heredada
+del prototipo y está equivocada. La lectura pública fue una fuga real que se
+corrigió; ver [`docs/adr/0002-eventos-privados-por-usuario.md`](docs/adr/0002-eventos-privados-por-usuario.md).
 
 Esta es la **segunda implementación** del proyecto. La primera fue un prototipo
 generado con Firebase Studio en julio de 2025 (Next.js, React y shadcn/ui),
@@ -168,9 +172,26 @@ fallos que **no deben reintroducirse**:
   el modelo de datos no definía. `userId` es ahora obligatorio y se fija al uid
   de quien crea.
 
-Queda pendiente en `storage.rules`: cualquier usuario autenticado puede
-sobrescribir la imagen de otro, porque la ruta `event-images/{imageId}` no
-incluye el uid. Requiere decidir convención de nombres.
+Y uno más en `storage.rules`, **ya resuelto**: el prototipo subía a
+`events/{uid}/` pero sus reglas sólo permitían escribir en
+`event-images/{imageId}`, así que la subida nunca llegó a funcionar. La ruta
+vigente es `events/{userId}/{fileName}`, que además es la única que permite
+comprobar propiedad.
+
+### Verificado, no supuesto
+
+Un red-team contra los emuladores probó 10 ataques a Firestore y 6 a Storage:
+leer un documento ajeno, listar la colección entera, suplantar `userId`, robar
+la propiedad en un `update`, escribir en la carpeta de otro, subir 6 MB y
+salirse del prefijo `events/`. Todos bloqueados.
+
+Lo que **no** protegen las reglas, y conviene saber antes de prometer nada:
+
+- La URL que devuelve `getDownloadURL()` lleva un token portador. Quien la
+  tenga accede a la imagen sin sesión. El texto del evento sí está protegido;
+  la imagen sólo por lo impredecible del token.
+- `contentType` lo declara el cliente y no se contrasta con los bytes. Se puede
+  subir cualquier cosa etiquetada como `image/png`.
 
 ## Toolchain de agente
 

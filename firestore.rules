@@ -13,8 +13,30 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == resource.data.userId;
       }
 
-      function hasRequiredFields() {
-        return request.resource.data.keys().hasAll(['title', 'description', 'location', 'userId']);
+      // Forma, tipos y tamaños del documento.
+      //
+      // `hasOnly` es lo que impide engordar la factura: sin él, una cuenta
+      // cualquiera puede añadir campos de relleno hasta el límite de 1 MiB por
+      // documento y repetirlo en bucle. Los tipos importan por otra razón: el
+      // cliente lee estos campos sin validarlos, y un `description` numérico
+      // rompía el listado entero al llamar a `.toLowerCase()`.
+      function isValidEvent() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+                 ['title', 'description', 'location', 'userId',
+                  'startDate', 'endDate', 'imageUrl'])
+            && d.keys().hasAll(['title', 'description', 'location', 'userId'])
+            && d.userId is string
+            // El mínimo de 3 coincide con el esquema Zod del cliente.
+            && d.title is string && d.title.size() >= 3 && d.title.size() <= 200
+            && d.description is string && d.description.size() <= 5000
+            && d.location is string && d.location.size() <= 200
+            && (!('imageUrl' in d)
+                || (d.imageUrl is string && d.imageUrl.size() <= 2048))
+            && (!('startDate' in d)
+                || d.startDate == null || d.startDate is timestamp)
+            && (!('endDate' in d)
+                || d.endDate == null || d.endDate is timestamp);
       }
 
       // Los eventos son privados. La UI ya consulta con
@@ -23,18 +45,18 @@ service cloud.firestore {
       allow read: if isOwner();
 
       // Una única regla por operación. Las reglas de Firestore se combinan con
-      // OR, así que separar la validación de campos en su propio `allow`
-      // anularía el control de propiedad en lugar de sumarse a él.
+      // OR, así que separar la validación en su propio `allow` anularía el
+      // control de propiedad en lugar de sumarse a él.
       //
       // El userId se fija al uid de quien crea: no se puede crear en nombre
       // de otro usuario.
       allow create: if isSignedIn()
-                    && hasRequiredFields()
+                    && isValidEvent()
                     && request.resource.data.userId == request.auth.uid;
 
       // La propiedad no se transfiere en un update.
       allow update: if isOwner()
-                    && hasRequiredFields()
+                    && isValidEvent()
                     && request.resource.data.userId == resource.data.userId;
 
       allow delete: if isOwner();

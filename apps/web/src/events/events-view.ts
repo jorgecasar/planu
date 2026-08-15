@@ -1,4 +1,5 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
@@ -24,25 +25,44 @@ import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
-import type { PlanuEvent, StoredEvent } from "../lib/types.js";
+import {
+	eventSchema,
+	type PlanuEvent,
+	type StoredEvent,
+} from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
 import { type DateRange, filterEvents } from "./filter-events.js";
 
-/** Firestore guarda las fechas como Timestamp; la aplicación trabaja con Date. */
-function toEvent(document: DocumentData & { id: string }): StoredEvent {
+/**
+ * Convierte un documento de Firestore en un evento, validándolo.
+ *
+ * Las reglas ya exigen tipos, pero el cliente no debe confiar en que un
+ * documento cumpla: los heredados del prototipo no pasaron por ellas. Sin
+ * validar, un `description` numérico hacía estallar `.toLowerCase()` dentro de
+ * `render()`, y Lit no captura eso: rompía el listado entero, no una tarjeta.
+ *
+ * Devuelve `null` para lo que no encaje, que se descarta.
+ */
+function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 	const asDate = (value: unknown) =>
 		value instanceof Timestamp ? value.toDate() : null;
 
-	return {
-		id: document["id"],
-		title: String(document["title"] ?? ""),
-		description: document["description"] as string | undefined,
-		location: document["location"] as string | undefined,
-		imageUrl: document["imageUrl"] as string | undefined,
-		userId: document["userId"] as string | undefined,
+	const parsed = eventSchema().safeParse({
+		title: document["title"],
+		description: document["description"],
+		location: document["location"],
+		imageUrl: document["imageUrl"],
+		userId: document["userId"],
 		startDate: asDate(document["startDate"]),
 		endDate: asDate(document["endDate"]),
-	};
+	});
+
+	if (!parsed.success) {
+		console.warn("Evento descartado por no validar:", document["id"]);
+		return null;
+	}
+
+	return { ...parsed.data, id: document["id"] };
 }
 
 /** Listado de los eventos del usuario, con búsqueda y filtro por fechas. */
@@ -131,7 +151,9 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	override render() {
-		const all = this.#events.data.map(toEvent);
+		const all = this.#events.data
+			.map(toEvent)
+			.filter((event): event is StoredEvent => event !== null);
 		const visible = filterEvents(all, this.searchTerm, this.range);
 
 		return html`
@@ -196,6 +218,15 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	#renderList(total: number, visible: StoredEvent[]) {
+		// Antes de nada el error: sin esto, un fallo de permisos o de cuota
+		// dejaba `data` vacío y el usuario leía "todavía no tienes eventos",
+		// que es exactamente la conclusión equivocada.
+		if (this.#events.error) {
+			return html`<wa-callout variant="danger" role="alert">
+				${msg("Your events could not be loaded. Check your connection and reload.")}
+			</wa-callout>`;
+		}
+
 		if (this.#events.loading) return this.#renderSkeletons();
 		if (visible.length === 0) return this.#renderEmpty(total);
 

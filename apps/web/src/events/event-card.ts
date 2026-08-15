@@ -1,5 +1,6 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
+import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
@@ -52,6 +53,7 @@ export class PlanuEventCard extends LitElement {
 
 	@state() private confirming = false;
 	@state() private deleting = false;
+	@state() private error = "";
 
 	override render() {
 		const { event } = this;
@@ -91,6 +93,11 @@ export class PlanuEventCard extends LitElement {
 				@wa-hide=${this.#cancelDelete}
 			>
 				<p>${msg(str`This permanently deletes “${event.title}”. It cannot be undone.`)}</p>
+				${
+					this.error
+						? html`<wa-callout variant="danger" role="alert">${this.error}</wa-callout>`
+						: nothing
+				}
 				<wa-button slot="footer" appearance="outlined" @click=${this.#cancelDelete}>
 					${msg("Cancel")}
 				</wa-button>
@@ -126,10 +133,17 @@ export class PlanuEventCard extends LitElement {
 
 	async #confirmDelete(): Promise<void> {
 		if (!this.firestore) return;
+
 		this.deleting = true;
+		this.error = "";
 		try {
 			await deleteDoc(doc(this.firestore, "events", this.event.id));
 			this.confirming = false;
+		} catch {
+			// Sin este catch la promesa se rechazaba sin manejar: el diálogo se
+			// quedaba abierto, el spinner paraba y el usuario no sabía por qué
+			// no pasaba nada.
+			this.error = msg("The event could not be deleted. Please try again.");
 		} finally {
 			this.deleting = false;
 		}

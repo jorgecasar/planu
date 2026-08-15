@@ -302,6 +302,14 @@
   <source>Event generation is unavailable right now. You can still create the event by hand.</source>
         <target>La generación con IA no está disponible ahora mismo. Puedes crear el evento a mano.</target>
 </trans-unit>
+<trans-unit id="s99f86fd4c980089d">
+  <source>The event could not be deleted. Please try again.</source>
+        <target>No se pudo borrar el evento. Inténtalo de nuevo.</target>
+</trans-unit>
+<trans-unit id="s6ab0047939c0771c">
+  <source>Your events could not be loaded. Check your connection and reload.</source>
+        <target>No se pudieron cargar tus eventos. Revisa la conexión y recarga la página.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
