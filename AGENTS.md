@@ -344,13 +344,67 @@ aparece `.qmd/index.yml`.
 
 ## Cómo trabajar aquí
 
-1. **Antes de escribir código**, comprueba si aplica alguna skill. Para UI, las
-   de Web Awesome son la referencia de componentes y de diseño.
-2. **Trabaja en incrementos verificables.** El plan vive en `tasks/plan.md`.
-3. **Las decisiones se documentan** en `docs/adr/`.
-4. **No toques `.agents/skills/` ni `.claude/skills/` a mano**: son contenido de
-   terceros y se regeneran. Lo que manda es `skills-lock.json`.
-5. **La accesibilidad no es opcional**: el e2e falla si axe detecta violaciones.
+### El ciclo de vida es obligatorio
+
+Todo desarrollo sigue las seis fases de
+[skills.addy.ie/lifecycle](https://skills.addy.ie/lifecycle/), una por comando,
+**en orden**:
+
+| Fase | Comando | Principio |
+| --- | --- | --- |
+| Definir | `/spec` | Especificación antes que código |
+| Planificar | `/plan` | Tareas pequeñas, atómicas, ordenadas |
+| Construir | `/build` | Una rodaja fina cada vez: implementar, probar, verificar, commitear |
+| Verificar | `/test` | Los tests son la prueba, con evidencia de ejecución real |
+| Revisar | `/review` | Puerta de calidad, seguridad y rendimiento antes de fusionar |
+| Publicar | `/ship` | Despliegue con reversión y observación |
+
+Más `/webperf` —medir antes de optimizar— y `/code-simplify`.
+
+**Saltarse `/spec` y `/plan` es el error caro.** En agosto de 2026 se
+construyeron entornos de preview por PR sin ninguna de las dos: canales de
+hosting, autorización dinámica de dominios OAuth, un rol de IAM, una base de
+Firestore y un bucket. Se desmontó entero horas después porque la pregunta que
+`/spec` habría hecho —*¿qué dato protege esto hoy?*— tenía como respuesta
+«ninguno, no hay usuarios». Ver [`docs/adr/0005`](docs/adr/0005-sin-entornos-de-preview.md).
+
+### Trabajar en loops, con la autonomía justa
+
+Según [skills.addy.ie/loops](https://skills.addy.ie/loops/), la regla que manda
+es: **concede a un loop tanta autonomía como puedas verificar barata y
+fiablemente, y ni un dedo más.**
+
+- **Maker ≠ checker.** Quien escribe no juzga: un modelo se aprueba a sí mismo
+  con demasiada facilidad. Aquí eso significa subagentes distintos —`/review` y
+  `/ship` ya lanzan `code-reviewer`, `security-auditor` y `test-engineer`.
+- **Loops cortos**, de tres a diez pasos, para que un error no se esconda.
+- **Luces encendidas** —con persona delante— en seguridad, reglas de Firestore,
+  migraciones, facturación y cualquier cosa de radio de impacto grande.
+- **Luces apagadas** sólo cuando la comprobación es un oráculo binario y difícil
+  de falsear: la suite de tests, axe, un umbral de Core Web Vitals.
+
+### Verificar de verdad
+
+1. **Comprueba el código de salida, no la salida.** Leer «Tests passed» en un
+   texto no es verificar. En esta sesión se reportó el pipeline en verde tres
+   veces estando en rojo por leer la salida en lugar de `$?`, y se publicó un
+   commit con `lint` en 1 por imprimir el código sin usarlo como puerta.
+2. **Un test que no puede fallar es peor que ninguno.** Antes de dar uno por
+   bueno, rómpelo a propósito y comprueba que lo detecta. Dos e2e que defendían
+   un ahorro de 137 KiB pasaban igual con la regresión puesta: en desarrollo la
+   condición se cumplía sola.
+3. **Nunca `biome check --write` a ciegas.** Hay autofixes marcados como seguros
+   que borran código en uso; ver el punto 4 de la configuración.
+
+### Y además
+
+- **Antes de escribir código**, comprueba si aplica alguna skill. Para UI, las
+  de Web Awesome son la referencia de componentes y de diseño.
+- **Las decisiones se documentan** en `docs/adr/`. Un ADR aceptado no se
+  reescribe: si cambia, se añade otro que lo supersede.
+- **No toques `.agents/skills/` ni `.claude/skills/` a mano**: son contenido de
+  terceros y se regeneran. Lo que manda es `skills-lock.json`.
+- **La accesibilidad no es opcional**: el e2e falla si axe detecta violaciones.
 
 ## Decisiones pendientes
 
