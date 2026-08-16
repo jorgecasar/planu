@@ -70,7 +70,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 7 — Compartir
 
-- [ ] **T15 · Directorio de usuarios (F1)** · M · depende de T13
+- [x] **T15 · Directorio de usuarios (F1)** · M · depende de T13
   - Acepta: `userDirectory/{sha256(email)}` con `uid`, `displayName` y
     `photoURL`; se escribe al autenticarse; las reglas permiten `get` pero **no
     `list`**, exigen `hasOnly` de esos tres campos y atan el documento al email
@@ -82,7 +82,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/sharing/user-directory.ts` + test, `firestore.rules`,
     `apps/web/rules/firestore.test.ts`, `src/firebase/firebase-provider.ts`
 
-- [ ] **T16 · Diálogo de compartir (F2)** · M · depende de T15
+- [x] **T16 · Diálogo de compartir (F2)** · M · depende de T15
   - Acepta: `roleFor`, `canEdit` y `canShare` como funciones puras; diálogo para
     invitar por email, cambiar rol y expulsar; mensaje claro y enlace de registro
     cuando el email no tiene cuenta.
@@ -90,7 +90,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/sharing/permissions.ts` + test, `src/sharing/share-dialog.ts`,
     `src/events/event-card.ts`
 
-- [ ] **T17 · Bandeja «compartidos conmigo» (F3)** · M · depende de T16
+- [x] **T17 · Bandeja «compartidos conmigo» (F3)** · M · depende de T16
   - Acepta: conmutador entre todos, míos y compartidos; cada tarjeta compartida
     dice de quién es y con qué rol; a un lector no se le ofrecen editar ni
     borrar.
@@ -176,7 +176,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 10 — Producto: cimientos
 
-- [ ] **T25 · Mudanza de la aplicación a `/app` (F10)** · M · sin dependencias
+- [x] **T25 · Mudanza de la aplicación a `/app` (F10)** · M · sin dependencias
   - Acepta: `index.html` pasa a `app.html` y sigue siendo la única entrada de
     Vite; todas las rutas cuelgan de `/app`; `guardRedirect` apunta a
     `/app/login`; los rewrites dejan de mandar `**` a `/index.html` y pasan a
