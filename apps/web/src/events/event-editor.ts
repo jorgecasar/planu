@@ -21,6 +21,11 @@ import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+	describeInferenceSource,
+	type InferenceSourceName,
+} from "../domain/ai-policy.js";
+import { toInputDate } from "../domain/format-dates.js";
+import {
 	firestoreContext,
 	storageContext,
 	userContext,
@@ -31,11 +36,6 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
-import {
-	describeInferenceSource,
-	type InferenceSourceName,
-} from "./ai-policy.js";
-import { toInputDate } from "./format-dates.js";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

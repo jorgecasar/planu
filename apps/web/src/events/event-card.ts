@@ -19,7 +19,7 @@ import {
 	roleFor,
 } from "../sharing/permissions.js";
 import "../sharing/share-dialog.js";
-import { formatEventDates } from "./format-dates.js";
+import { formatEventDates } from "../domain/format-dates.js";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
 @customElement("planu-event-card")

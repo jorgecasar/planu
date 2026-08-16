@@ -23,7 +23,8 @@
 		"emulators": "firebase emulators:start",
 		"localize:extract": "npm run localize:extract --workspace @planu/web",
 		"localize:build": "npm run localize:build --workspace @planu/web",
-		"test:rules": "npm run test:rules --workspace @planu/web"
+		"test:rules": "npm run test:rules --workspace @planu/web",
+		"test:arch": "npm run test:arch --workspace @planu/web"
 	},
 	"engines": {
 		"node": ">=20"

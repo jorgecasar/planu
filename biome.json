@@ -40,5 +40,56 @@
 	},
 	"assist": {
 		"enabled": true
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["apps/web/src/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["firebase/**", "firebase"],
+										"message": "Sólo infrastructure/ conoce al proveedor. Usa un puerto de application/ports/."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": [
+				"apps/web/src/app-shell.ts",
+				"apps/web/src/auth/auth-errors.test.ts",
+				"apps/web/src/auth/auth-errors.ts",
+				"apps/web/src/auth/guard.test.ts",
+				"apps/web/src/auth/guard.ts",
+				"apps/web/src/auth/login-view.ts",
+				"apps/web/src/events/ai-event-generator.ts",
+				"apps/web/src/events/event-card.ts",
+				"apps/web/src/events/event-editor.ts",
+				"apps/web/src/events/events-view.ts",
+				"apps/web/src/firebase/**",
+				"apps/web/src/lib/types.ts",
+				"apps/web/src/observability/index.ts",
+				"apps/web/src/profile/profile-view.ts",
+				"apps/web/src/sharing/invitations-inbox.ts",
+				"apps/web/src/sharing/invitations.ts",
+				"apps/web/src/sharing/share-dialog.ts",
+				"apps/web/src/sharing/user-directory.ts"
+			],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": "off"
+					}
+				}
+			}
+		}
+	]
 }

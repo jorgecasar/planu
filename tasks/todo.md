@@ -337,3 +337,73 @@ Amplía F2: hoy una invitación es un aviso efímero que desaparece al decidirla
 **Pendiente de decidir** (en el spec): cuánto se conservan las decididas. Son
 datos personales que crecen sin límite, y sin backend no hay quien las borre
 solas. Entra en F13 (privacidad) y F14 (borrado de cuenta).
+
+## Arquitectura hexagonal
+
+De [`docs/spec-arquitectura-hexagonal.md`](../docs/spec-arquitectura-hexagonal.md)
+y del plan en [`plan.md`](plan.md). **Todas dependen de T14**: la rama de
+compartición toca `event-editor.ts` y `events-view.ts`, y migrarlos antes
+garantiza conflictos.
+
+- [ ] **T35 · Sembrar las capas y levantar la frontera** · S · depende de T14
+  - Acepta: **`domain/` existe** —las otras tres capas las crean T36, T37 y T38,
+    cada una con su puerto, para no dejar carpetas vacías— y los seis módulos
+    que no tocan Firebase —`filter-events`, `ai-availability`, `pick-locale`,
+    `startup-buffer`, `format-dates`, `ai-policy`— y sus tests viven en ella;
+    `biome.json` prohíbe `firebase/**` en **todo `apps/web/src/**`** mediante
+    `style/noRestrictedImports` con `patterns`, y exime por nombre a los
+    ficheros heredados en una lista que sólo puede encoger.
+    La regla es un trinquete y no una lista de directorios protegidos: vigilar
+    sólo `domain/` no impediría que naciera código nuevo acoplado.
+  - Verifica: `npm run lint` sale **0**; se añade a mano un
+    `import { doc } from "firebase/firestore"` a un fichero de `domain/`,
+    `npm run lint` sale **1** con el diagnóstico, y se revierte. **Sin esa
+    segunda mitad la regla no está probada.**
+  - Ficheros: `biome.json`, movimientos con `git mv` bajo `src/domain/`
+
+- [ ] **T36 · Puerto de sesión** · M · depende de T35
+  - Acepta: `SessionPort` con `signIn`, `signUp`, `signInWithGoogle` y
+    `signOut`; adaptador de Firebase en `infrastructure/`; `app-shell.ts`,
+    `login-view.ts` y `profile-view.ts` no importan de `firebase/auth`;
+    `auth-errors.ts` deja de importar `FirebaseError` y el adaptador traduce a
+    un error de dominio, conservando los mensajes que ya valida su test.
+  - Verifica: `npx vitest run application/` **sin emuladores levantados**; e2e
+    de acceso; **comprobación manual del acceso con Google**, que no tiene e2e
+    y cambia de camino en esta tarea
+  - Ficheros: `src/application/ports/session.ts`, `src/application/sign-in.ts`
+    y hermanos, `src/infrastructure/firebase/session-adapter.ts`, los tres
+    componentes, `src/domain/auth-errors.ts`
+
+- [ ] **T37 · Puerto de repositorio de eventos** · M · depende de T35, T14
+  - Acepta: `EventRepository` con `save`, `delete` y `listFor`; el mapeo
+    `Timestamp` ↔ `Date` y `PlanuEventDocument` se mudan a `infrastructure/`;
+    `lib/types.ts` no importa de `firebase/firestore`; `events-view.ts`,
+    `event-card.ts` y `event-editor.ts` tampoco.
+  - Verifica: `npx vitest run application/` sin emuladores, con un repositorio
+    en memoria; los 33 tests de reglas y los e2e de eventos siguen verdes. **Los
+    tests de reglas no se tocan.**
+  - Ficheros: `src/application/ports/event-repository.ts`, casos de uso,
+    `src/infrastructure/firebase/event-repository.ts`, los tres componentes,
+    `src/domain/event.ts`
+
+- [ ] **T38 · Puerto de almacén de imágenes** · S · depende de T37
+  - Acepta: `ImageStore.upload` con progreso; `firebase/storage.ts` pasa a ser
+    el adaptador; ni `event-editor.ts` ni `ai-event-generator.ts` importan de
+    `firebase/storage`; el progreso sigue llegando a `wa-progress-bar`.
+  - Verifica: e2e de alta con imagen contra el emulador; unitario del caso de
+    uso con un almacén en memoria
+  - Ficheros: `src/application/ports/image-store.ts`,
+    `src/infrastructure/firebase/image-store.ts`, los dos componentes
+
+- [ ] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
+  - Acepta: el `override` de Biome se extiende a `ui/**`; el andamiaje de
+    contexto sin uso desaparece; `firebase/*` sólo aparece bajo
+    `infrastructure/`.
+  - Verifica: `grep -rl 'from "firebase/' src/ui/` **vacío**, más los 132 tests,
+    `lint`, `typecheck`, `lint:lit` y `build` en código 0 comprobado con `$?`
+  - Ficheros: `biome.json`, `src/infrastructure/firebase/context.ts`
+
+> **Checkpoint H** — tras T35: la frontera es comprobable por comando y no ha
+> cambiado ni una línea de comportamiento. Es el momento barato de abandonar.
+> Tras T36, persona delante por el acceso con Google. Tras T39, suite completa
+> y `grep` vacío.
