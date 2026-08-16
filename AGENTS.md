@@ -167,6 +167,22 @@ de política sin dependencias, y sólo lo detectó una revisión.
 Los ADRs se numeran (`0001-titulo-en-kebab-case.md`) y no se reescriben una vez
 aceptados: si una decisión cambia, se añade un ADR nuevo que la supersede.
 
+### Ramas: `git branch --merged` miente aquí
+
+Las PR entran con **squash**, así que el commit que aterriza en `main` tiene un
+SHA distinto del de la rama. Git no puede deducir por ascendencia que está
+fusionada, y `--merged` la da por viva aunque su contenido esté dentro entero.
+
+Lo que sí funciona es comparar contenido:
+
+```bash
+git diff origin/main origin/<rama> --name-only    # vacío = ya está en main
+```
+
+Y aplasta **antes** de abrir la PR: es la convención de este repo, y así el
+mensaje del commit lo escribe quien conoce el cambio, no el formulario de
+GitHub.
+
 ## Comandos
 
 ```bash

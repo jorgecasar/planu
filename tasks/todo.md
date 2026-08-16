@@ -407,3 +407,19 @@ garantiza conflictos.
 > cambiado ni una línea de comportamiento. Es el momento barato de abandonar.
 > Tras T36, persona delante por el acceso con Google. Tras T39, suite completa
 > y `grep` vacío.
+
+---
+
+## Deuda transversal
+
+- [ ] **T42 · Traducir los comentarios de código al inglés** · M · sin dependencias
+  - Acepta: los comentarios de `apps/web/src/**` están en inglés; `AGENTS.md`
+    recoge la convención nueva y aclara si documentación y ADRs siguen en
+    español o cambian también —hoy están en la misma frase que el código y hay
+    que separarlos.
+  - Verifica: `grep -rlE '//.*[áéíóúñ¿¡]|\*.*[áéíóúñ¿¡]' apps/web/src --include=*.ts`
+    no devuelve nada; `npm run lint`, `typecheck` y la suite en 0
+  - Ficheros: **37** ficheros `.ts` medidos el 16/08/2026, más `AGENTS.md`
+  - Nota: va **sola y en su propio commit**, sin mezclar con cambios de
+    comportamiento. Es un diff grande y sin valor propio; mezclarlo haría
+    ilegible cualquier revisión.
