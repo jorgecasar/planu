@@ -230,3 +230,98 @@ Está en el spec, y se repite aquí para que no se cuele por la puerta de atrás
 - Dominio propio.
 - Revisar `docs/blueprint.md`, salvo la parte de identidad visual que resuelve
   T26.
+
+---
+
+# Arquitectura hexagonal · T35–T39
+
+Especificación en
+[`docs/spec-arquitectura-hexagonal.md`](../docs/spec-arquitectura-hexagonal.md).
+
+## Por qué
+
+El objetivo es **testabilidad, no portabilidad**. Firebase se queda. Hoy la
+lógica interesante vive dentro de componentes que hablan con el SDK, así que
+comprobar que guardar un evento sin título da error exige levantar Java,
+Firestore, Auth y Storage. Los puertos del emulador ya bloquearon el trabajo dos
+veces en un día por chocar con otra sesión.
+
+Eso descarta puertos que espejen el SDK: son **finos y por operación**, en el
+lenguaje del dominio.
+
+## Lo medido, que corrige suposiciones
+
+**El dominio ya está limpio.** `eventSchema()` usa `z.coerce.date()`, así que
+`PlanuEvent` trabaja con `Date`. El único `Timestamp` está en
+`PlanuEventDocument`, que es explícitamente la forma de persistencia: se muda,
+no se rediseña.
+
+**No hay once módulos puros, hay seis que se mueven solos.** Sin dependencias
+externas: `filter-events`, `ai-availability`, `pick-locale`, `startup-buffer`.
+Sólo con `@lit/localize`: `format-dates`, `ai-policy`. Los otros tres —`guard`
+(`User`), `auth-errors` (`FirebaseError`), `lib/types` (`Timestamp`)— importan
+de Firebase: son trabajo, no mudanza.
+
+**El acoplamiento real**, contando sólo importaciones de valor:
+
+| Componente | Usa de Firebase |
+| --- | --- |
+| `app-shell.ts` | `signOut` |
+| `auth/login-view.ts` | `signInWithEmailAndPassword`, `createUserWithEmailAndPassword`, `signInWithPopup`, `GoogleAuthProvider` |
+| `profile/profile-view.ts` | `signOut` |
+| `events/event-card.ts` | `deleteDoc`, `doc` |
+| `events/events-view.ts` | `collection`, `query`, `where`, `Timestamp` |
+| `events/event-editor.ts` | `addDoc`, `setDoc`, `collection`, `doc`, `Timestamp` |
+| `events/ai-event-generator.ts` | sólo tipos |
+
+Se agrupa en **tres puertos**: sesión, repositorio de eventos y almacén de
+imágenes. Nada más. De ahí salen las rodajas T36, T37 y T38 — verticales, cada
+una con su puerto, su adaptador, sus casos de uso y sus componentes.
+
+## Decisión que el spec no cerraba
+
+**`@lit/localize` sí puede vivir en `domain/`.** `eventSchema()` usa `msg()`
+para los mensajes de validación y la fábrica existe justo para que se resuelvan
+al idioma correcto. Sacarlos obligaría a que el dominio devolviera códigos y la
+interfaz los tradujera: más limpio en abstracto, pero no sirve al objetivo,
+porque `msg()` funciona en tests sin montar nada. **La regla prohíbe
+`firebase/*`, no `@lit/localize`.**
+
+## Grafo
+
+```
+T14 (membresía, en feat/event-sharing)
+ └── T35 (capas + frontera)
+      ├── T36 (sesión)
+      ├── T37 (repositorio de eventos)  ← también depende de T14
+      │    └── T38 (almacén de imágenes)
+      └── T39 (cerrar la frontera)  ← depende de T36, T37 y T38
+```
+
+## Regla permanente para la fase 2
+
+Cualquier tarea de T15 en adelante que toque un componente **lo deja tras su
+puerto antes de darse por hecha**. Va a `AGENTS.md` y no como tarea suelta: es
+lo que hace incremental la migración en vez de dejar dos estilos conviviendo
+para siempre.
+
+## Riesgos
+
+- **Mover ficheros ensucia el historial.** `git mv` en su propio commit, sin
+  cambios de contenido mezclados.
+- **Conflicto con `feat/event-sharing`.** Por eso todo cuelga de T14.
+- **T37 es la rodaja gorda**: tres componentes y el modelo. Si se alarga, se
+  parte en listar / guardar / borrar, que son independientes.
+
+## Verificación de extremo a extremo
+
+```bash
+npm run lint && npm run typecheck && npm run lint:lit && npm run build
+npx vitest run --root apps/web application/      # sin emuladores: esto es el objetivo
+firebase emulators:exec --only auth,firestore,storage \
+  "npm test && npm run test:rules && npm run test:e2e"
+grep -rl 'from "firebase/' apps/web/src/ui/      # debe salir vacío
+```
+
+Comprobando **códigos de salida**, no la salida. Y a mano: alta con imagen,
+edición, borrado y acceso con Google.

@@ -5,7 +5,7 @@ import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { DateRange, OwnershipFilter } from "./filter-events.js";
+import type { DateRange, OwnershipFilter } from "../domain/filter-events.js";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;

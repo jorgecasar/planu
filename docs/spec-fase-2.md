@@ -83,7 +83,7 @@ que F2 y F6 hayan fijado el modelo de datos definitivo.
   identificados: el requisito era colaborar, no publicar.
 - **Comentarios, confirmación de asistencia, adjuntos.** No pedidos.
 - **Precios y cobro.** El claim `premium` de
-  [`ai-policy.ts`](../apps/web/src/events/ai-policy.ts) seguirá asignándose a
+  [`ai-policy.ts`](../apps/web/src/domain/ai-policy.ts) seguirá asignándose a
   mano para contener el coste de la IA. La landing **no menciona planes ni
   precios**: prometer un plan de pago que no existe obliga a mantener esa
   promesa. Cobrar de verdad exige Stripe, webhooks y Blaze; es su propia tanda.
@@ -321,7 +321,7 @@ eventos sin fecha.
 - Junto al generador desde imagen, un campo donde pegar texto suelto —el email
   de una convocatoria, un mensaje, un párrafo copiado de una web— del que la IA
   extrae los campos del evento.
-- **Reutiliza la política existente** de [`ai-policy.ts`](../apps/web/src/events/ai-policy.ts)
+- **Reutiliza la política existente** de [`ai-policy.ts`](../apps/web/src/domain/ai-policy.ts)
   y el mismo `responseSchema` que la extracción desde imagen. No se duplica la
   decisión de nube ni se añade una segunda ruta de configuración.
 - El resultado prerrellena el editor y el usuario confirma antes de guardar,

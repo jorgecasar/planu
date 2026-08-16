@@ -1,9 +1,9 @@
 import { configureLocalization } from "@lit/localize";
+import { browserLocales, pickLocale } from "../domain/pick-locale.js";
 import {
 	sourceLocale,
 	targetLocales,
 } from "../generated/locales/locale-codes.js";
-import { browserLocales, pickLocale } from "./pick-locale.js";
 
 const { setLocale } = configureLocalization({
 	sourceLocale,

@@ -5,9 +5,9 @@ import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./ai-event-generator.js";
 import "./event-card.js";
-import { canOffer, checkAvailability } from "./ai-availability.js";
+import { canOffer, checkAvailability } from "../domain/ai-availability.js";
+import type { InferenceSourceName } from "../domain/ai-policy.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
-import type { InferenceSourceName } from "./ai-policy.js";
 import "./event-editor.js";
 import "./event-filters.js";
 import "../sharing/invitations-inbox.js";
@@ -25,6 +25,11 @@ import {
 } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import {
+	type DateRange,
+	filterEvents,
+	type OwnershipFilter,
+} from "../domain/filter-events.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import {
@@ -33,11 +38,6 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
-import {
-	type DateRange,
-	filterEvents,
-	type OwnershipFilter,
-} from "./filter-events.js";
 
 /**
  * Convierte un documento de Firestore en un evento, validándolo.

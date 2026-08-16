@@ -11,7 +11,7 @@
  */
 
 import type { FirebaseApp } from "firebase/app";
-import { flushStartupErrors } from "./startup-buffer.js";
+import { flushStartupErrors } from "../domain/startup-buffer.js";
 
 /** Espera a que el navegador esté ocioso, o a un plazo si no lo soporta. */
 function whenIdle(task: () => void): void {

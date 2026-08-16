@@ -1,8 +1,8 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "@awesome.me/webawesome/dist/styles/themes/default.css";
 
+import { captureStartupErrors } from "./domain/startup-buffer.js";
 import { initLocale } from "./i18n/localization.js";
-import { captureStartupErrors } from "./observability/startup-buffer.js";
 
 // Lo primero de todo, y síncrono: a partir de aquí cualquier error queda
 // guardado aunque el SDK de Sentry tarde segundos en cargar.

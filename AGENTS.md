@@ -102,6 +102,46 @@ entrada ESM (`exports["."].import`). La de CommonJS obliga a rodeos del tipo
 importar el espacio de nombres completo dejaba 162 KiB de Session Replay en el
 bundle.
 
+### Capas, y la regla que las mantiene separadas
+
+La migración a arquitectura hexagonal está en marcha —ver
+[`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md)—.
+El objetivo es **testabilidad**: poder probar la lógica sin levantar emuladores.
+No es portabilidad; Firebase se queda.
+
+| Capa | Qué vive ahí | Puede importar |
+| --- | --- | --- |
+| `src/domain/` | Modelo y reglas de negocio | nada externo salvo `@lit/localize` |
+| `src/application/` | Casos de uso y sus puertos | `domain/` |
+| `src/infrastructure/` | Adaptadores. **El único sitio con `firebase/*`** | `domain/`, puertos |
+| `src/ui/` | Componentes Lit | `application/` |
+
+Hoy sólo existe `domain/`; las demás las crean T36, T37 y T38, cada una con su
+puerto. El resto del código sigue organizado por funcionalidad y **está en
+migración**.
+
+**La regla, y no es opcional: toda tarea que toque un componente acoplado lo
+deja tras su puerto antes de darse por hecha.** Es lo que hace incremental la
+migración en vez de dejar dos estilos conviviendo para siempre. Saltársela tiene
+precedente y coste medido: `sharing/` nació con Firebase dentro mientras se
+redactaba la especificación, y los ficheros acoplados pasaron de 16 a 20 en unas
+horas.
+
+Lo vigilan dos cosas, no la buena voluntad:
+
+1. **`biome.json` prohíbe `firebase/**` en todo `apps/web/src/**`**, con una
+   lista de exenciones heredadas que **sólo puede encoger**. Añadir una entrada
+   es un cambio visible en la revisión; olvidarse de migrar, no. Su número es la
+   métrica de progreso de la migración.
+2. **`npm run test:arch`** comprueba que esa lista está apretada: que ninguna
+   entrada exime un fichero que no importa Firebase, que no hay rutas muertas y
+   que no se usan comodines más anchos que `directorio/**`. Corre en Node, sin
+   emuladores, junto a la calidad estática.
+
+El segundo existe porque el primero no se vigila solo: un comodín `sharing/**`
+llegó a eximir tres ficheros que no importaban Firebase, uno de ellos un módulo
+de política sin dependencias, y sólo lo detectó una revisión.
+
 ### Dónde va cada cosa
 
 | Qué | Dónde |
@@ -173,7 +213,7 @@ de interfaz se escribe suelta en una plantilla.
 
 El idioma sale del navegador: se elige el primero de `navigator.languages` que
 sepamos servir, ignorando la región (`es-AR` se sirve como `es`), y si no encaja
-ninguno se usa inglés. La lógica está en `src/i18n/pick-locale.ts`, aislada y
+ninguno se usa inglés. La lógica está en `src/domain/pick-locale.ts`, aislada y
 con tests.
 
 Se fija **antes del primer render** en `src/main.ts`. Pintar y cambiar después
@@ -197,7 +237,7 @@ instante.
 La inferencia en el dispositivo es gratis; la de la nube factura por token, así
 que **está cerrada por defecto**. Se abre sólo si se cumplen las dos:
 `VITE_AI_CLOUD_FALLBACK=true` en el despliegue **y** el claim `premium` en el
-token del usuario. La lógica está en `src/events/ai-policy.ts`, aislada y con
+token del usuario. La lógica está en `src/domain/ai-policy.ts`, aislada y con
 tests; no la dupliques en los componentes.
 
 Para saber dónde se resolvió una generación, mira

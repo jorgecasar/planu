@@ -14,7 +14,8 @@
 		"lint:lit": "lit-analyzer src",
 		"localize:extract": "lit-localize extract",
 		"localize:build": "lit-localize build",
-		"test:rules": "vitest run --config vitest.rules.config.ts"
+		"test:rules": "vitest run --config vitest.rules.config.ts",
+		"test:arch": "vitest run --config vitest.arch.config.ts"
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "^3.11.0",

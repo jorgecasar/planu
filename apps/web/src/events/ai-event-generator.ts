@@ -35,12 +35,12 @@ import {
 	checkAvailability,
 	type ModelAvailability,
 	needsDownload,
-} from "./ai-availability.js";
+} from "../domain/ai-availability.js";
 import {
 	type InferenceModeName,
 	type InferenceSourceName,
 	resolveInferenceMode,
-} from "./ai-policy.js";
+} from "../domain/ai-policy.js";
 import {
 	GenerationError,
 	generateEventFromImage,

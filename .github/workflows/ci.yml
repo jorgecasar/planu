@@ -53,6 +53,9 @@ jobs:
           npm run lint
           npm run typecheck
           npm run lint:lit
+          # Vigila la lista de exenciones del trinquete. No necesita emuladores,
+          # así que va aquí y no en la tanda lenta.
+          npm run test:arch
 
       - run: npm run build
 

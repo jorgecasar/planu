@@ -10,7 +10,7 @@ interface ImportMetaEnv {
 	/**
 	 * Interruptor global de la inferencia en la nube, que factura por token.
 	 * "true" la habilita para las cuentas con derecho; cualquier otro valor la
-	 * cierra para todas. Ver src/events/ai-policy.ts.
+	 * cierra para todas. Ver src/domain/ai-policy.ts.
 	 */
 	readonly VITE_AI_CLOUD_FALLBACK?: string;
 	/** DSN de Sentry. Sin él no se envía nada: la observabilidad es opcional. */
