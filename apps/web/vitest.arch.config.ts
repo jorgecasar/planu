@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
  *
  * Corren en Node porque leen ficheros, y **no necesitan emuladores**, así que
  * van con la calidad estática en CI y no con la tanda lenta. Configuración
- * propia por eso mismo: `vitest.config.ts` levanta Chromium y
+ * propia por eso mismo: el bloque `test` de `vite.config.ts` levanta Chromium y
  * `vitest.rules.config.ts` espera un emulador delante.
  */
 export default defineConfig({

@@ -345,7 +345,7 @@ y del plan en [`plan.md`](plan.md). **Todas dependen de T14**: la rama de
 compartición toca `event-editor.ts` y `events-view.ts`, y migrarlos antes
 garantiza conflictos.
 
-- [ ] **T35 · Sembrar las capas y levantar la frontera** · S · depende de T14
+- [x] **T35 · Sembrar las capas y levantar la frontera** · S · depende de T14
   - Acepta: **`domain/` existe** —las otras tres capas las crean T36, T37 y T38,
     cada una con su puerto, para no dejar carpetas vacías— y los seis módulos
     que no tocan Firebase —`filter-events`, `ai-availability`, `pick-locale`,

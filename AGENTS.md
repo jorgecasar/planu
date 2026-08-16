@@ -131,12 +131,20 @@ Lo vigilan dos cosas, no la buena voluntad:
 
 1. **`biome.json` prohíbe `firebase/**` en todo `apps/web/src/**`**, con una
    lista de exenciones heredadas que **sólo puede encoger**. Añadir una entrada
-   es un cambio visible en la revisión; olvidarse de migrar, no. Su número es la
-   métrica de progreso de la migración.
-2. **`npm run test:arch`** comprueba que esa lista está apretada: que ninguna
-   entrada exime un fichero que no importa Firebase, que no hay rutas muertas y
-   que no se usan comodines más anchos que `directorio/**`. Corre en Node, sin
-   emuladores, junto a la calidad estática.
+   es un cambio visible en la revisión; olvidarse de migrar, no.
+2. **`npm run test:arch`** vigila esa configuración con siete aserciones. Corre
+   en Node, sin emuladores, junto a la calidad estática.
+
+**La métrica de progreso son los ficheros acoplados, no las entradas de la
+lista.** Hoy son **23 ficheros** cubiertos por 18 entradas, porque
+`firebase/**` agrupa seis. El tope está fijado en `arch/boundary.test.ts` y
+cada migración lo baja; subirlo hace fallar la suite.
+
+Y el vigilante vigila **la puerta además de la lista**: comprueba que siga
+existiendo exactamente un `override` que impone la regla y otro que exime, y que
+el que impone cubra todo `src/**` y el paquete `firebase` entero. Sin eso,
+borrar el primero dejaba las aserciones en verde y el lint limpio — lo encontró
+una revisión, no el test.
 
 El segundo existe porque el primero no se vigila solo: un comodín `sharing/**`
 llegó a eximir tres ficheros que no importaban Firebase, uno de ellos un módulo

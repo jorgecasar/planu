@@ -26,5 +26,11 @@
 			}
 		]
 	},
-	"include": ["src/**/*.ts", "e2e/**/*.ts", "*.config.ts"]
+	"include": [
+		"src/**/*.ts",
+		"e2e/**/*.ts",
+		"arch/**/*.ts",
+		"rules/**/*.ts",
+		"*.config.ts"
+	]
 }
