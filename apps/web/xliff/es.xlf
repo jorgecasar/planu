@@ -598,6 +598,42 @@
   <source>Showing <x id="0" equiv-text="${title}"/></source>
   <target>Mostrando <x id="0" equiv-text="${title}"/></target>
 </trans-unit>
+<trans-unit id="s3606b9d856cdbafe">
+  <source>Sort by</source>
+        <target>Ordenar por</target>
+</trans-unit>
+<trans-unit id="sd6ea2733f48f925c">
+  <source>Date, soonest first</source>
+        <target>Fecha, lo más próximo primero</target>
+</trans-unit>
+<trans-unit id="s8e5a5108263808d0">
+  <source>Date, latest first</source>
+        <target>Fecha, lo más lejano primero</target>
+</trans-unit>
+<trans-unit id="sd1783e693a875d9f">
+  <source>Title, A to Z</source>
+        <target>Título, de la A a la Z</target>
+</trans-unit>
+<trans-unit id="s1c1075dc2b666f23">
+  <source>Recently added</source>
+        <target>Añadidos recientemente</target>
+</trans-unit>
+<trans-unit id="s4627a9667a335f23">
+  <source>Upcoming</source>
+        <target>Próximos</target>
+</trans-unit>
+<trans-unit id="s8a27f465637196ec">
+  <source>Without a date</source>
+        <target>Sin fecha</target>
+</trans-unit>
+<trans-unit id="s2e422c19ed3903bd">
+  <source>Past</source>
+        <target>Pasados</target>
+</trans-unit>
+<trans-unit id="sd09408ac94f07b7b">
+  <source>Show <x id="0" equiv-text="${past.length}"/> past events</source>
+        <target>Ver <x id="0" equiv-text="${past.length}"/> eventos pasados</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

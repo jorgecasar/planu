@@ -35,9 +35,13 @@ export class PlanuEventCard extends LitElement {
 			display: block;
 		}
 
-		/* h2 y no h3: el único encabezado por encima es el h1 de la cabecera,
-		   y saltarse un nivel es una violación de accesibilidad. */
-		h2 {
+		/* h3 y no h2: desde T19 la tarjeta va siempre dentro de un grupo, y ese
+		   grupo pone un h2 con su nombre. Con h2 aquí el evento quedaba
+		   *hermano* de su grupo (h1 → h2 Próximos → h2 Concierto) y navegar por
+		   encabezados no daba ninguna estructura. Los encabezados cruzan la
+		   frontera del shadow DOM, así que el nivel se cuenta entre componentes
+		   y no dentro de cada uno. */
+		h3 {
 			margin: 0;
 			font-size: var(--wa-font-size-l);
 		}
@@ -145,7 +149,7 @@ export class PlanuEventCard extends LitElement {
 						: nothing
 				}
 
-				<h2 slot="header">${event.title}</h2>
+				<h3 slot="header">${event.title}</h3>
 
 				${event.description ? html`<p>${event.description}</p>` : nothing}
 

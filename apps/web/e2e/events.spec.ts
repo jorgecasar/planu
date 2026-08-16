@@ -371,3 +371,107 @@ test("una etiqueta seleccionada no desaparece al dejar de usarse", async ({
 		page.getByRole("heading", { name: "Concierto de verano" }),
 	).toBeVisible();
 });
+
+/**
+ * Una fecha relativa a hoy, en el formato del `<input type="date">`.
+ *
+ * Relativa y no fija: desde T19 la vista separa próximos de pasados, así que
+ * una fecha escrita a mano cambia de grupo con el paso del tiempo y el test
+ * empieza a fallar solo un día cualquiera.
+ */
+function dayFromToday(offset: number): string {
+	const date = new Date();
+	date.setDate(date.getDate() + offset);
+	return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, "0")}-${`${date.getDate()}`.padStart(2, "0")}`;
+}
+
+async function createTaggedDatedEvent(
+	page: Page,
+	title: string,
+	offset: number,
+	tag: string,
+): Promise<void> {
+	await openEditor(page);
+	await page.getByLabel("Title").fill(title);
+	await page.getByLabel("Start date").fill(dayFromToday(offset));
+	await page.getByLabel("End date").fill(dayFromToday(offset));
+	const campo = page.getByRole("textbox", { name: "Tags" });
+	await campo.fill(tag);
+	await campo.press("Enter");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+}
+
+async function createDatedEvent(
+	page: Page,
+	title: string,
+	offset: number,
+): Promise<void> {
+	await openEditor(page);
+	await page.getByLabel("Title").fill(title);
+	await page.getByLabel("Start date").fill(dayFromToday(offset));
+	await page.getByLabel("End date").fill(dayFromToday(offset));
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+}
+
+test("buscar abre el pliegue aunque haya resultados futuros también", async ({
+	page,
+}) => {
+	// El escenario importa. Si la búsqueda sólo casara con pasados, el pliegue
+	// se abriría **por otra regla** —son el único grupo con contenido— y el test
+	// pasaría sin ejercitar la que aquí se prueba. Comprobado: con ese
+	// escenario, romper la regla de «el usuario ha pedido algo» dejaba los 46
+	// e2e en verde. Hacen falta las dos mitades con contenido.
+	await signUp(page);
+	await createDatedEvent(page, "Feria de abril", -30);
+	await createDatedEvent(page, "Feria de otoño", 30);
+	await createDatedEvent(page, "Congreso anual", 60);
+
+	// Sin buscar: el futuro se ve, el pasado está plegado.
+	await expect(
+		page.getByRole("heading", { name: "Feria de otoño" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Feria de abril" }),
+	).toBeHidden();
+
+	await page.getByLabel("Search").fill("feria");
+
+	// Las dos ferias casan, así que próximos **y** pasados tienen contenido: lo
+	// único que puede abrir el pliegue es que el usuario haya pedido algo.
+	await expect(
+		page.getByRole("heading", { name: "Feria de otoño" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Feria de abril" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Congreso anual" }),
+	).toBeHidden();
+});
+
+test("filtrar por etiqueta abre el pliegue igual que buscar", async ({
+	page,
+}) => {
+	// Las dos son la misma intención. La vista las trataba distinto porque la
+	// noción de «consulta explícita» estaba duplicada y una copia se olvidaba
+	// de las etiquetas.
+	await signUp(page);
+	await createTaggedDatedEvent(page, "Feria de abril", -30, "feria");
+	await createTaggedDatedEvent(page, "Feria de otoño", 30, "feria");
+	await createDatedEvent(page, "Congreso anual", 60);
+
+	await expect(
+		page.getByRole("heading", { name: "Feria de abril" }),
+	).toBeHidden();
+
+	await page.locator('wa-checkbox[value="feria"]').click();
+
+	await expect(
+		page.getByRole("heading", { name: "Feria de abril" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Feria de otoño" }),
+	).toBeVisible();
+});

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { PlanuEvent } from "../lib/types.js";
-import { filterEvents } from "./filter-events.js";
+import { filterEvents, isNarrowed } from "./filter-events.js";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
 
@@ -229,4 +229,31 @@ test("la etiqueta se suma al resto de criterios, no los sustituye", () => {
 	];
 	const visible = filterEvents(events, "concierto", {}, "all", "", ["cine"]);
 	expect(visible.map((e) => e.title)).toEqual(["Concierto"]);
+});
+
+// --- isNarrowed -----------------------------------------------------------
+
+test("sin nada puesto, el usuario sólo está mirando", () => {
+	expect(isNarrowed({})).toBe(false);
+	expect(isNarrowed({ searchTerm: "", tags: [] })).toBe(false);
+});
+
+test("buscar es pedir algo concreto", () => {
+	expect(isNarrowed({ searchTerm: "concierto" })).toBe(true);
+});
+
+test("filtrar por fechas también", () => {
+	expect(isNarrowed({ from: day("2026-06-01") })).toBe(true);
+	expect(isNarrowed({ to: day("2026-06-30") })).toBe(true);
+});
+
+test("y filtrar por etiqueta también, que es lo que se olvidaba", () => {
+	// Éste es el caso que tenía la vista duplicado y discrepante: pulsar la
+	// etiqueta «música» y escribir «música» son la misma intención.
+	expect(isNarrowed({ tags: ["música"] })).toBe(true);
+});
+
+test("la bandeja elegida no es una consulta", () => {
+	// Todos / míos / compartidos es un modo de navegar, no algo que se pida.
+	expect(isNarrowed({ ownership: "shared", uid: "u1" })).toBe(false);
 });
