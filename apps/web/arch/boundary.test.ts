@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 /**
@@ -9,24 +10,38 @@ import { describe, expect, test } from "vitest";
  * exenciones. Lo que **no** comprueba es que esa lista esté apretada: una
  * entrada de más deja una zona franca y el lint sigue en verde. Ya pasó — un
  * comodín `sharing/**` eximía tres ficheros que no importaban Firebase, uno de
- * ellos un módulo de política sin dependencias, y sólo lo vio una revisión
- * humana.
+ * ellos un módulo de política sin dependencias, y sólo lo vio una revisión.
+ *
+ * Y vigila la puerta, no sólo la lista: borrar el override que **impone** la
+ * regla dejaba las cuatro aserciones en verde y el lint limpio. También lo
+ * encontró una revisión, no este fichero.
  *
  * Corre en Node y sin emuladores: sólo lee ficheros.
  */
 
-const RAIZ = resolve(import.meta.dirname, "../../..");
+// `fileURLToPath` y no `import.meta.dirname`, que exige Node ≥20.11 mientras
+// `engines` declara `>=20`.
+const RAIZ = fileURLToPath(new URL("../../..", import.meta.url));
 const SRC = join(RAIZ, "apps/web/src");
 
-/** Los `includes` del segundo override de biome.json: las exenciones. */
-function exenciones(): string[] {
+type Override = {
+	includes: string[];
+	linter?: { rules?: { style?: { noRestrictedImports?: unknown } } };
+};
+
+function overrides(): Override[] {
 	const config = JSON.parse(readFileSync(join(RAIZ, "biome.json"), "utf8")) as {
-		overrides: { includes: string[] }[];
+		overrides?: Override[];
 	};
-	const lista = config.overrides.at(-1)?.includes;
-	if (!lista) throw new Error("no encuentro el override de exenciones");
-	return lista;
+	return config.overrides ?? [];
 }
+
+const regla = (o: Override) => o.linter?.rules?.style?.noRestrictedImports;
+
+/** El que prohíbe. Se busca por forma, no por posición. */
+const imponen = () => overrides().filter((o) => typeof regla(o) === "object");
+/** El que exime. Ídem. */
+const eximen = () => overrides().filter((o) => regla(o) === "off");
 
 /** Todos los .ts bajo un directorio, en rutas relativas a la raíz del repo. */
 function ficherosBajo(dir: string): string[] {
@@ -42,7 +57,8 @@ function ficherosBajo(dir: string): string[] {
 /**
  * Qué ficheros cubre un patrón. Sólo se admiten dos formas —ruta exacta y
  * `directorio/**`— a propósito: un comodín más expresivo es más difícil de
- * auditar de un vistazo, que es justo lo que esta lista necesita.
+ * auditar de un vistazo, y la aserción «sólo rutas exactas o directorio/**»
+ * es lo que impide que aquí se cuele una forma que Biome entienda y esto no.
  */
 function cubiertos(patron: string, todos: string[]): string[] {
 	if (patron.endsWith("/**")) {
@@ -52,15 +68,53 @@ function cubiertos(patron: string, todos: string[]): string[] {
 	return todos.filter((f) => f === patron);
 }
 
+/**
+ * Las cinco formas que Biome marca: estática, `import type`, `export … from`,
+ * dinámica —incluso partida en varias líneas— y de efecto lateral, más el
+ * paquete raíz `firebase` sin barra.
+ */
 const importaFirebase = (fichero: string): boolean =>
-	/from\s+"firebase\/|import\("firebase\//.test(
+	/(?:from|import)\s*\(?\s*["']firebase(?:\/|["'])/.test(
 		readFileSync(join(RAIZ, fichero), "utf8"),
 	);
 
-const TODOS = ficherosBajo(SRC);
-const LISTA = exenciones();
+/**
+ * Ficheros acoplados hoy. **Sólo puede bajar.** Subirlo es acoplar más código
+ * a Firebase, y eso se discute en una revisión en lugar de colarse en un diff.
+ * Son ficheros y no entradas de la lista: 18 entradas cubren 23 ficheros
+ * porque `firebase/**` agrupa seis.
+ */
+const TOPE_ACOPLADOS = 23;
 
-describe("la lista de exenciones de Firebase", () => {
+const TODOS = ficherosBajo(SRC);
+const LISTA = eximen().flatMap((o) => o.includes);
+
+describe("la frontera de Firebase", () => {
+	test("biome.json conserva un override que impone y otro que exime", () => {
+		// Sin esto, borrar el que impone deja el resto de aserciones en verde
+		// y el lint limpio: el vigilante guardaría la lista y no la puerta.
+		expect({ imponen: imponen().length, eximen: eximen().length }).toEqual({
+			imponen: 1,
+			eximen: 1,
+		});
+	});
+
+	test("el override que impone cubre todo src y todo el paquete firebase", () => {
+		const [impone] = imponen();
+		expect(impone?.includes).toEqual(["apps/web/src/**"]);
+
+		const opciones = regla(impone as Override) as {
+			options?: { patterns?: { group?: string[] }[] };
+		};
+		const grupo = opciones.options?.patterns?.[0]?.group ?? [];
+		// `firebase` a secas además de `firebase/**`: el paquete raíz también
+		// se puede importar.
+		expect(grupo).toContain("firebase/**");
+		expect(grupo).toContain("firebase");
+	});
+});
+
+describe("la lista de exenciones", () => {
 	test("no exime ningún fichero que no importe Firebase", () => {
 		const sobrantes = LISTA.flatMap((patron) =>
 			cubiertos(patron, TODOS).filter((f) => !importaFirebase(f)),
@@ -89,9 +143,17 @@ describe("la lista de exenciones de Firebase", () => {
 		expect(sinEximir).toEqual([]);
 	});
 
-	test("sólo usa rutas exactas o `directorio/**`", () => {
-		const raros = LISTA.filter((p) => p.includes("*") && !p.endsWith("/**"));
+	test("no crece", () => {
+		const eximidos = new Set(LISTA.flatMap((p) => cubiertos(p, TODOS)));
+		expect(eximidos.size).toBeLessThanOrEqual(TOPE_ACOPLADOS);
+	});
 
-		expect(raros).toEqual([]);
+	test("sólo usa rutas exactas o `directorio/**`", () => {
+		// La negación se lee como «acotar» y para Biome significa «excluir»,
+		// así que se rechaza aparte para que el mensaje no mienta.
+		expect(LISTA.filter((p) => p.startsWith("!"))).toEqual([]);
+		expect(LISTA.filter((p) => p.includes("*") && !p.endsWith("/**"))).toEqual(
+			[],
+		);
 	});
 });
