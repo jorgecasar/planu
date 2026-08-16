@@ -20,6 +20,7 @@ import {
 	roleFor,
 } from "../sharing/permissions.js";
 import "../sharing/share-dialog.js";
+import "./calendar-export.js";
 import { formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
 import { tagChipStyles } from "./tag-styles.js";
@@ -156,6 +157,11 @@ export class PlanuEventCard extends LitElement {
 				${this.#renderTags()}
 
 					${this.#renderRoleBadge()}
+
+				<planu-calendar-export
+					slot="footer"
+					.events=${[event]}
+				></planu-calendar-export>
 
 				${
 					canEdit(event, this.#uid)

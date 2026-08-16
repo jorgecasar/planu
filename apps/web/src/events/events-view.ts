@@ -4,6 +4,7 @@ import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./ai-event-generator.js";
+import "./calendar-export.js";
 import "./event-card.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import type { InferenceSourceName } from "../domain/ai-policy.js";
@@ -200,6 +201,12 @@ export class PlanuEventsView extends LitElement {
 					.availableTags=${knownTags}
 					@planu-filters-change=${this.#onFilters}
 				></planu-event-filters>
+				<!-- La agenda que se exporta es la que se está viendo: los mismos
+				     eventos que ya han pasado por los filtros. -->
+				<planu-calendar-export
+					mode="agenda"
+					.events=${visible}
+				></planu-calendar-export>
 				<wa-dropdown @wa-select=${this.#onCreateOption}>
 					<wa-button slot="trigger" variant="brand" .withCaret=${true}>
 						${msg("New event")}
