@@ -578,6 +578,26 @@
   <source>There are no events to export.</source>
         <target>No hay eventos que exportar.</target>
 </trans-unit>
+<trans-unit id="s62931b2a50168976">
+  <source>Previous month</source>
+  <target>Mes anterior</target>
+</trans-unit>
+<trans-unit id="s46d6587089bd0356">
+  <source>Next month</source>
+  <target>Mes siguiente</target>
+</trans-unit>
+<trans-unit id="s34022f765b0a05c7">
+  <source>1 event without a date is not shown on the calendar</source>
+  <target>1 evento sin fecha no aparece en el calendario</target>
+</trans-unit>
+<trans-unit id="s1c45652ec847e711">
+  <source><x id="0" equiv-text="${count}"/> events without a date are not shown on the calendar</source>
+  <target><x id="0" equiv-text="${count}"/> eventos sin fecha no aparecen en el calendario</target>
+</trans-unit>
+<trans-unit id="s6b110a1e196bec9e">
+  <source>Showing <x id="0" equiv-text="${title}"/></source>
+  <target>Mostrando <x id="0" equiv-text="${title}"/></target>
+</trans-unit>
 </body>
 </file>
 </xliff>
