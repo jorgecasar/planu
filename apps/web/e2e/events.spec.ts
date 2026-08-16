@@ -6,7 +6,7 @@ const newEmail = () =>
 
 /** Cada test parte de una cuenta nueva para no compartir eventos. */
 async function signUp(page: Page): Promise<void> {
-	await page.goto("/login");
+	await page.goto("/app/login");
 	await page.getByRole("tab", { name: "Create account" }).click();
 	const panel = page
 		.getByRole("tabpanel")
@@ -172,7 +172,7 @@ test("recargar la página estando autenticado mantiene la sesión y el listado",
 
 	// Al recargar, el router resuelve la ruta antes de saber si hay sesión y la
 	// rechaza; la reevaluación posterior es la que tiene que traer el listado.
-	await expect(page).toHaveURL(/\/$/);
+	await expect(page).toHaveURL(/\/app$/);
 	await expect(
 		page.getByRole("heading", { name: "Concierto de verano" }),
 	).toBeVisible();

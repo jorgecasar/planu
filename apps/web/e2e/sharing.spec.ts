@@ -74,7 +74,7 @@ async function signIn(
 	email: string,
 	password = "secret123",
 ): Promise<void> {
-	await page.goto("/login");
+	await page.goto("/app/login");
 	const panel = page
 		.getByRole("tabpanel")
 		.filter({ hasText: "Password" })

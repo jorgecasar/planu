@@ -1,7 +1,16 @@
 import type { User } from "firebase/auth";
 
-export const LOGIN_PATH = "/login";
-export const HOME_PATH = "/";
+/**
+ * The application lives under /app, leaving the root for the public landing.
+ *
+ * The landing is static HTML with no JavaScript of its own, so it cannot share
+ * an entry point with the application: anyone who has not signed up would
+ * otherwise download Lit, the router and the Firebase SDK to read a page that
+ * needs none of them.
+ */
+export const APP_BASE = "/app";
+export const LOGIN_PATH = `${APP_BASE}/login`;
+export const HOME_PATH = APP_BASE;
 
 /**
  * Decide a dónde reencaminar según la sesión y la ruta actual.

@@ -9,7 +9,7 @@ test.describe("navegador en español", () => {
 	test.use({ locale: "es-ES" });
 
 	test("la interfaz se muestra en español", async ({ page }) => {
-		await page.goto("/login");
+		await page.goto("/app/login");
 
 		await expect(page.getByRole("tab", { name: "Entrar" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Crear cuenta" })).toBeVisible();
@@ -23,13 +23,13 @@ test.describe("navegador en español", () => {
 	test("el atributo lang del documento acompaña al idioma", async ({
 		page,
 	}) => {
-		await page.goto("/login");
+		await page.goto("/app/login");
 		// Importa para lectores de pantalla y para la traducción del navegador.
 		await expect(page.locator("html")).toHaveAttribute("lang", "es");
 	});
 
 	test("los errores de validación también se traducen", async ({ page }) => {
-		await page.goto("/login");
+		await page.goto("/app/login");
 		await page.getByRole("tab", { name: "Crear cuenta" }).click();
 		const panel = page
 			.getByRole("tabpanel")
@@ -50,7 +50,7 @@ test.describe("navegador en un idioma sin traducir", () => {
 	test.use({ locale: "ja-JP" });
 
 	test("cae a inglés", async ({ page }) => {
-		await page.goto("/login");
+		await page.goto("/app/login");
 
 		await expect(page.getByRole("tab", { name: "Sign in" })).toBeVisible();
 		await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -61,7 +61,7 @@ test.describe("navegador en una variante regional del español", () => {
 	test.use({ locale: "es-AR" });
 
 	test("es-AR se sirve en español", async ({ page }) => {
-		await page.goto("/login");
+		await page.goto("/app/login");
 		await expect(page.getByRole("tab", { name: "Entrar" })).toBeVisible();
 	});
 });

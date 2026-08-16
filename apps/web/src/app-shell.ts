@@ -11,7 +11,12 @@ import { Router } from "@lit-labs/router";
 import { type Auth, signOut, type User } from "firebase/auth";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { guardRedirect, HOME_PATH } from "./auth/guard.js";
+import {
+	APP_BASE,
+	guardRedirect,
+	HOME_PATH,
+	LOGIN_PATH,
+} from "./auth/guard.js";
 import { authContext, userContext } from "./firebase/context.js";
 
 /** Raíz de la aplicación: enrutado, cabecera y guarda de sesión. */
@@ -71,11 +76,11 @@ export class PlanuApp extends LitElement {
 			render: () => html`<planu-events-view></planu-events-view>`,
 		},
 		{
-			path: "/login",
+			path: LOGIN_PATH,
 			render: () => html`<planu-login-view></planu-login-view>`,
 		},
 		{
-			path: "/profile",
+			path: `${APP_BASE}/profile`,
 			enter: () =>
 				this.#enterPrivate(() => import("./profile/profile-view.js")),
 			render: () => html`<planu-profile-view></planu-profile-view>`,
