@@ -323,6 +323,27 @@ Tres cosas que no son obvias y que conviene no deshacer:
    `cancel-in-progress`.** El grupo general cancela lo anterior en cada push, y
    eso a mitad de un `firebase deploy` deja producción sin revisar.
 
+### Si el paso de emuladores de CI se queda colgado
+
+No lo depures: reintenta. El optimizador de dependencias de Vite falla de vez
+en cuando al crear su directorio temporal y **entra en un bucle de reintentos
+sin salida**, de modo que el job no tiene en qué fallar. La señal es exacta:
+
+```
+Error: ENOENT: no such file or directory, mkdir
+  '.../apps/web/node_modules/.vite/vitest/<hash>/deps_temp_XXXXXXXX'
+[vite] (client) error while updating dependencies
+```
+
+y después nada más, durante horas. Suelen aparecer **dos** errores seguidos con
+temporales distintos: es una carrera entre dos optimizadores.
+
+No lo provoca el contenido de la rama. Se comprobó aislando los dos únicos
+cambios que compartían las dos ramas afectadas —tocar `apps/web/vite.config.ts`
+y añadir un prefijo `TZ=` al script `test`— y **cada uno por separado pasa**, y
+juntos también. El job lleva `timeout-minutes` para que esto falle en veinte
+minutos en vez de consumir el tope de seis horas.
+
 ## Rendimiento
 
 Línea base medida en agosto de 2026 contra producción, móvil: la página de

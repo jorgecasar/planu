@@ -14,6 +14,12 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # El paso de emuladores se ha colgado dos veces sin nada que lo detuviera:
+    # el optimizador de dependencias de Vite falla al crear su directorio
+    # temporal y **reintenta para siempre**, así que el job no tiene en qué
+    # fallar y el único tope era el de seis horas de GitHub. Con esto falla en
+    # veinte minutos y se puede reintentar. Ver AGENTS.md.
+    timeout-minutes: 20
 
     env:
       # Los tests hablan sólo con los emuladores, así que estos valores no
