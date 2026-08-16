@@ -7,27 +7,34 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 5 — Precondiciones y decisiones
 
-- [ ] **T11 · Java, emuladores y hosting local** · XS · sin dependencias
+- [x] **T11 · Java, emuladores y hosting local** · XS · sin dependencias
   - Acepta: `java -version` responde; `npm run emulators` arranca auth,
     firestore, storage **y hosting**; `npm run test:rules` pasa con los tests
     que ya existen.
-  - Verifica: `npm run test:rules`
-  - Ficheros: `firebase.json`, `AGENTS.md`
-  - Nota: **bloquea la verificación de casi todo el plan.** Requiere
-    `brew install openjdk` y añadirlo al PATH, que es acción del usuario.
+  - Verifica: `npm run test:rules` → **19/19 en verde**
+  - Resultado: no hizo falta instalar nada. `openjdk` ya estaba en Homebrew,
+    sólo es *keg-only* y le faltaba el PATH. `firebase.json` ya declara el
+    emulador de hosting en el 5050 y `npm run emulators` los arranca todos.
+    Pendiente **del usuario**, fuera del repo:
+    `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"` en `~/.zshrc`.
 
-- [ ] **T12 · ADR 0004 y 0005, y la decisión de «salir de un evento»** · S · sin dependencias
-  - Acepta: ADR 0004 registra la compartición por invitados con rol y que
-    supersede parcialmente al 0002; ADR 0005 registra por qué el directorio de
+- [x] **T12 · ADR 0006 y 0005, y la decisión de «salir de un evento»** · S · sin dependencias
+  - Acepta: ADR 0006 registra la compartición por invitados con rol y que
+    supersede parcialmente al 0002; ADR 0007 registra por qué el directorio de
     usuarios vive en el cliente y no en Cloud Functions; **ambos dejan escrito
     si un usuario puede quitarse a sí mismo de `memberIds`**, porque T13 depende
     de ello.
   - Verifica: revisión humana; coherencia con `docs/spec-fase-2.md`
   - Ficheros: `docs/adr/0004-*.md`, `docs/adr/0005-*.md`, `docs/adr/0002-*.md`
+  - Resultado: **decidido que sí** — un usuario puede quitarse a sí mismo y sólo
+    a sí mismo; el dueño no puede irse del suyo. Antes de decidirlo se sondeó el
+    emulador para confirmar que el lenguaje de reglas puede expresarlo:
+    `List.removeAll()`, `Map.diff().affectedKeys()` y `hashing.sha256()`
+    existen y funcionan. Eso cierra además dos preguntas abiertas del spec.
 
 ## Fase 6 — Modelo de datos y reglas
 
-- [ ] **T13 · Esquema y reglas de compartición** · M · depende de T11, T12
+- [x] **T13 · Esquema y reglas de compartición** · M · depende de T11, T12
   - Acepta: el esquema Zod gana `memberIds`, `roles`, `tags` y `createdAt`; las
     reglas incorporan `isMember`, `isEditor` y `membershipUnchanged`, con **una
     única regla `allow` por operación** y un tope de invitados por evento.
@@ -37,15 +44,25 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `firestore.rules`, `apps/web/rules/firestore.test.ts`,
     `apps/web/src/lib/types.ts`
 
-- [ ] **T14 · Membresía al crear y backfill** · M · depende de T13
+- [x] **T14 · Membresía al crear y consulta por membresía** · M · depende de T13
   - Acepta: el editor crea con `memberIds: [uid]` y `roles: {}`; el listado pasa
-    de `where('userId','==',uid)` a `array-contains`; índice compuesto declarado;
-    script de backfill para los eventos de la fase 1, que sin `memberIds`
-    desaparecerían del listado.
-  - Verifica: e2e de alta y listado sin regresiones; backfill probado contra el
-    emulador
-  - Ficheros: `src/events/event-editor.ts`, `src/events/events-view.ts`,
-    `firestore.indexes.json`, `scripts/backfill-members.mjs`
+    de `where('userId','==',uid)` a `array-contains`.
+  - Verifica: **25/25 e2e en verde**, sin regresiones.
+  - Ficheros: `src/events/event-editor.ts`, `src/events/events-view.ts`
+  - Resultado y dos desviaciones del plan:
+    1. **No hace falta índice compuesto.** La consulta no lleva `orderBy`, y
+       `array-contains` a secas se resuelve con el índice automático de un solo
+       campo. `firestore.indexes.json` se queda como está. Cuando T19 añada
+       ordenación, ahí sí hará falta.
+    2. **Al editar ya no se reenvía el `userId`.** Antes se fijaba siempre al
+       uid de la sesión; con invitados eso le costaría el permiso a un editor,
+       porque para las reglas equivale a transferirse la propiedad. Ahora sólo
+       viaja el contenido, y la propiedad y la membresía sólo se fijan al crear.
+  - **Backfill: no entregado, y es deliberado.** Requiere `firebase-admin`
+    (dependencia nueva, cae en «preguntar primero») y, antes de eso, saber si la
+    base `planu` tiene documentos heredados — la pregunta abierta nº 1 del
+    `SPEC.md`, que sigue sin comprobarse. Sin ese dato no se puede decidir entre
+    migrar o descartar. **Bloquea el despliegue, no el desarrollo.**
 
 > **Checkpoint A** — la aplicación hace exactamente lo mismo que antes, con el
 > modelo nuevo. Aburrido a propósito: es como se sabe que nada se rompió antes
@@ -285,72 +302,3 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 > **Checkpoint G** — los dieciséis criterios de éxito del spec, con `build`,
 > `test`, `test:e2e`, `test:rules` y `lint` limpios.
-
----
-
-## Arquitectura hexagonal
-
-De [`docs/spec-arquitectura-hexagonal.md`](../docs/spec-arquitectura-hexagonal.md)
-y del plan en [`plan.md`](plan.md). **Todas dependen de T14**: la rama de
-compartición toca `event-editor.ts` y `events-view.ts`, y migrarlos antes
-garantiza conflictos.
-
-- [ ] **T35 · Sembrar las capas y levantar la frontera** · S · depende de T14
-  - Acepta: `domain/`, `application/ports/`, `infrastructure/` y `ui/` existen;
-    los seis módulos que no tocan Firebase —`filter-events`, `ai-availability`,
-    `pick-locale`, `startup-buffer`, `format-dates`, `ai-policy`— y sus tests
-    viven en `domain/`; `biome.json` tiene el `override` con
-    `style/noRestrictedImports` prohibiendo `firebase/*` en `domain/**` y
-    `application/**`.
-  - Verifica: `npm run lint` sale **0**; se añade a mano un
-    `import { doc } from "firebase/firestore"` a un fichero de `domain/`,
-    `npm run lint` sale **1** con el diagnóstico, y se revierte. **Sin esa
-    segunda mitad la regla no está probada.**
-  - Ficheros: `biome.json`, movimientos con `git mv` bajo `src/domain/`
-
-- [ ] **T36 · Puerto de sesión** · M · depende de T35
-  - Acepta: `SessionPort` con `signIn`, `signUp`, `signInWithGoogle` y
-    `signOut`; adaptador de Firebase en `infrastructure/`; `app-shell.ts`,
-    `login-view.ts` y `profile-view.ts` no importan de `firebase/auth`;
-    `auth-errors.ts` deja de importar `FirebaseError` y el adaptador traduce a
-    un error de dominio, conservando los mensajes que ya valida su test.
-  - Verifica: `npx vitest run application/` **sin emuladores levantados**; e2e
-    de acceso; **comprobación manual del acceso con Google**, que no tiene e2e
-    y cambia de camino en esta tarea
-  - Ficheros: `src/application/ports/session.ts`, `src/application/sign-in.ts`
-    y hermanos, `src/infrastructure/firebase/session-adapter.ts`, los tres
-    componentes, `src/domain/auth-errors.ts`
-
-- [ ] **T37 · Puerto de repositorio de eventos** · M · depende de T35, T14
-  - Acepta: `EventRepository` con `save`, `delete` y `listFor`; el mapeo
-    `Timestamp` ↔ `Date` y `PlanuEventDocument` se mudan a `infrastructure/`;
-    `lib/types.ts` no importa de `firebase/firestore`; `events-view.ts`,
-    `event-card.ts` y `event-editor.ts` tampoco.
-  - Verifica: `npx vitest run application/` sin emuladores, con un repositorio
-    en memoria; los 33 tests de reglas y los e2e de eventos siguen verdes. **Los
-    tests de reglas no se tocan.**
-  - Ficheros: `src/application/ports/event-repository.ts`, casos de uso,
-    `src/infrastructure/firebase/event-repository.ts`, los tres componentes,
-    `src/domain/event.ts`
-
-- [ ] **T38 · Puerto de almacén de imágenes** · S · depende de T37
-  - Acepta: `ImageStore.upload` con progreso; `firebase/storage.ts` pasa a ser
-    el adaptador; ni `event-editor.ts` ni `ai-event-generator.ts` importan de
-    `firebase/storage`; el progreso sigue llegando a `wa-progress-bar`.
-  - Verifica: e2e de alta con imagen contra el emulador; unitario del caso de
-    uso con un almacén en memoria
-  - Ficheros: `src/application/ports/image-store.ts`,
-    `src/infrastructure/firebase/image-store.ts`, los dos componentes
-
-- [ ] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
-  - Acepta: el `override` de Biome se extiende a `ui/**`; el andamiaje de
-    contexto sin uso desaparece; `firebase/*` sólo aparece bajo
-    `infrastructure/`.
-  - Verifica: `grep -rl 'from "firebase/' src/ui/` **vacío**, más los 132 tests,
-    `lint`, `typecheck`, `lint:lit` y `build` en código 0 comprobado con `$?`
-  - Ficheros: `biome.json`, `src/infrastructure/firebase/context.ts`
-
-> **Checkpoint H** — tras T35: la frontera es comprobable por comando y no ha
-> cambiado ni una línea de comportamiento. Es el momento barato de abandonar.
-> Tras T36, persona delante por el acceso con Google. Tras T39, suite completa
-> y `grep` vacío.

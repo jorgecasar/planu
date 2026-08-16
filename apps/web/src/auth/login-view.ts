@@ -12,6 +12,7 @@ import type { Auth } from "firebase/auth";
 import {
 	createUserWithEmailAndPassword,
 	GoogleAuthProvider,
+	sendEmailVerification,
 	signInWithEmailAndPassword,
 	signInWithPopup,
 } from "firebase/auth";
@@ -193,11 +194,23 @@ export class PlanuLoginView extends LitElement {
 		void this.#submit(event, async (values, auth) => {
 			const parsed = signUpSchema().safeParse(values);
 			if (!parsed.success) throw parsed.error;
-			return createUserWithEmailAndPassword(
+			const credential = await createUserWithEmailAndPassword(
 				auth,
 				parsed.data.email,
 				parsed.data.password,
 			);
+
+			// Until they verify, this account cannot be published to the
+			// directory and nobody will be able to invite them to an event:
+			// registering with someone else's address is trivial, so the
+			// directory demands a checked email. Google accounts arrive verified
+			// and never come through here.
+			//
+			// A failure here does not invalidate the sign-up, which already
+			// happened; the profile offers to resend.
+			await sendEmailVerification(credential.user).catch(() => {});
+
+			return credential;
 		});
 	}
 

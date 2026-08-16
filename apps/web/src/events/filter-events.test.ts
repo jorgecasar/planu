@@ -12,6 +12,8 @@ const event = (overrides: Partial<PlanuEvent> = {}): PlanuEvent => ({
 	endDate: null,
 	imageUrl: "",
 	userId: "u1",
+	memberIds: ["u1"],
+	roles: {},
 	...overrides,
 });
 
@@ -137,4 +139,53 @@ test("texto y fechas se aplican a la vez", () => {
 	];
 
 	expect(filterEvents(events, "concierto", range)).toHaveLength(1);
+});
+
+// ── Ownership ────────────────────────────────────────────────────────────
+
+const ME = "u1";
+const OTHER = "u2";
+
+const mine_ = () => event({ title: "Mine", userId: ME, memberIds: [ME] });
+const theirs = () =>
+	event({
+		title: "Theirs",
+		userId: OTHER,
+		memberIds: [OTHER, ME],
+		roles: { [ME]: "viewer" },
+	});
+
+test("«all» does not care whose event it is", () => {
+	expect(filterEvents([mine_(), theirs()], "", {}, "all", ME)).toHaveLength(2);
+});
+
+test("«mine» leaves out what someone else shared", () => {
+	const visible = filterEvents([mine_(), theirs()], "", {}, "mine", ME);
+	expect(visible.map((e) => e.title)).toEqual(["Mine"]);
+});
+
+test("«shared with me» leaves out your own", () => {
+	const visible = filterEvents([mine_(), theirs()], "", {}, "shared", ME);
+	expect(visible.map((e) => e.title)).toEqual(["Theirs"]);
+});
+
+test("with no session resolved, nothing counts as yours", () => {
+	// While the uid is still unknown, treating someone else's event as yours
+	// would be worse than the reverse: it would offer actions bound to fail.
+	expect(filterEvents([mine_(), theirs()], "", {}, "mine", "")).toHaveLength(0);
+	expect(filterEvents([mine_(), theirs()], "", {}, "shared", "")).toHaveLength(
+		2,
+	);
+});
+
+test("ownership adds to text and dates, it does not replace them", () => {
+	const events = [
+		event({ title: "Concert", userId: ME, memberIds: [ME] }),
+		event({ title: "Concert", userId: OTHER, memberIds: [OTHER, ME] }),
+		event({ title: "Dinner", userId: ME, memberIds: [ME] }),
+	];
+
+	const visible = filterEvents(events, "concert", {}, "mine", ME);
+	expect(visible).toHaveLength(1);
+	expect(visible[0]?.userId).toBe(ME);
 });

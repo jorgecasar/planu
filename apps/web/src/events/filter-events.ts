@@ -41,18 +41,56 @@ function matchesRange(event: PlanuEvent, range: DateRange): boolean {
 }
 
 /**
- * Filtra por texto y por rango de fechas. Ambos criterios se suman.
+ * Whose events to show.
  *
- * Genérica para no perder por el camino lo que el llamante añada al evento,
- * como el `id` que trae de Firestore.
+ * Now that an event can have guests, the listing mixes your own with what
+ * other people shared, and the two need separating.
+ */
+export type OwnershipFilter = "all" | "mine" | "shared";
+
+/**
+ * Ownership is decided by `userId` alone. Roles need not be consulted: in
+ * someone else's event you are a guest by definition, and with an empty uid —
+ * a session not yet resolved — nothing counts as yours, which is the safe way
+ * round.
+ */
+function matchesOwnership(
+	event: PlanuEvent,
+	uid: string,
+	ownership: OwnershipFilter,
+): boolean {
+	if (ownership === "all") return true;
+
+	const isOwner = uid !== "" && event.userId === uid;
+	return ownership === "mine" ? isOwner : !isOwner;
+}
+
+export interface EventFilters extends DateRange {
+	searchTerm?: string;
+	ownership?: OwnershipFilter;
+	/** Who is looking. Without it, "mine" means nothing. */
+	uid?: string;
+}
+
+/**
+ * Filters by text, by date range and by ownership. The criteria add up: all
+ * three must hold.
+ *
+ * Generic so nothing the caller attached to the event is lost on the way, such
+ * as the `id` it carries from Firestore.
  */
 export function filterEvents<T extends PlanuEvent>(
 	events: readonly T[],
 	searchTerm = "",
 	range: DateRange = {},
+	ownership: OwnershipFilter = "all",
+	uid = "",
 ): T[] {
 	const term = searchTerm.trim().toLowerCase();
 	return events.filter(
-		(event) => matchesSearch(event, term) && matchesRange(event, range),
+		(event) =>
+			matchesSearch(event, term) &&
+			matchesRange(event, range) &&
+			matchesOwnership(event, uid, ownership),
 	);
 }

@@ -872,13 +872,18 @@ Las de `SPEC.md` siguen vigentes. Añade esta fase:
 2. **Invitar a quien todavía no tiene cuenta**: la propuesta lo resuelve con un
    «esa persona aún no está registrada». Un flujo de invitación pendiente de
    verdad necesita Cloud Functions, y eso es Blaze.
-3. **`hashing.sha256().toHexString()` en reglas de Firestore**: hay que
-   confirmarlo en el emulador antes de comprometerse con el diseño de F1.
+3. ~~**`hashing.sha256().toHexString()` en reglas de Firestore.**~~
+   **Resuelto** (T12): existe y coincide exactamente con
+   `createHash("sha256").digest("hex")` de Node. Verificado contra el emulador.
+   También se confirmaron `List.removeAll()` y `Map.diff().affectedKeys()`, que
+   son lo que hace expresable «salir de un evento». Ver
+   [ADR 0007](adr/0007-client-side-user-directory.md).
 4. **Notificación al invitado**: ahora mismo se entera al abrir la app. Avisarle
    por email exige backend.
-5. **Salir de un evento ajeno** (F14): abrir la excepción en las reglas para que
-   un usuario pueda quitarse a sí mismo, o aceptar membresías huérfanas. **Hay
-   que decidirlo antes de escribir las reglas de F2**, no después.
+5. ~~**Salir de un evento ajeno** (F14).~~ **Resuelto** (T12): sí, un usuario
+   puede quitarse a sí mismo y sólo a sí mismo, y el dueño no puede irse del
+   suyo. Las reglas pueden expresarlo con precisión. Ver
+   [ADR 0006](adr/0006-sharing-with-invited-members.md).
 6. **Proveedor de analítica** (F16): Firebase Analytics ya está en el stack pero
    obliga a banner de cookies; una alternativa sin cookies lo evita a cambio de
    una dependencia. La elección determina si F13 lleva banner.

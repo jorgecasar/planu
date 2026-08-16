@@ -9,57 +9,351 @@ service cloud.firestore {
         return request.auth != null;
       }
 
-      function isOwner() {
-        return isSignedIn() && request.auth.uid == resource.data.userId;
+      function uid() {
+        return request.auth.uid;
       }
 
-      // Forma, tipos y tamaños del documento.
+      function isOwner() {
+        return isSignedIn() && uid() == resource.data.userId;
+      }
+
+      // An event has one owner plus up to 20 guests, each a viewer or an
+      // editor. See docs/adr/0006-sharing-with-invited-members.md.
       //
-      // `hasOnly` es lo que impide engordar la factura: sin él, una cuenta
-      // cualquiera puede añadir campos de relleno hasta el límite de 1 MiB por
-      // documento y repetirlo en bucle. Los tipos importan por otra razón: el
-      // cliente lee estos campos sin validarlos, y un `description` numérico
-      // rompía el listado entero al llamar a `.toLowerCase()`.
+      // A phase 1 event has neither field, and reading one straight off the
+      // document raises an evaluation error rather than returning false.
+      //
+      // `isMember()` still reads memberIds directly, and deliberately so: to
+      // authorise a `list`, Firestore matches the rule against the query
+      // statically, and it only recognises the bare `uid in resource.data.field`
+      // shape. Wrapped in a helper it stops recognising it and denies every
+      // query — including the one the application makes. Tried, measured,
+      // reverted.
+      //
+      // `rolesOf` is safe because isEditor() is only ever reached on a write,
+      // never during a query. It covers the half-migrated case: a document with
+      // memberIds but no roles, where a guest could otherwise neither edit nor
+      // leave, with the error swallowing both branches of the `||`.
+      function rolesOf(d) {
+        return 'roles' in d && d.roles is map ? d.roles : {};
+      }
+
+      function isMember() {
+        return isSignedIn() && uid() in resource.data.memberIds;
+      }
+
+      function isEditor() {
+        return isMember() && rolesOf(resource.data).get(uid(), '') == 'editor';
+      }
+
+      // Membership invariants, which everything else rests on: the owner is
+      // always a member and never carries a role entry, no role names a
+      // non-member, and no member is left without a role.
+      //
+      // The cap exists because `roles` lives inside the document: without it,
+      // it grows to the 1 MiB limit and becomes the same cost vector the audit
+      // closed.
+      function isValidMembership(d) {
+        return d.memberIds is list
+            && d.memberIds.size() >= 1
+            && d.memberIds.size() <= 21
+            && d.userId in d.memberIds
+            && d.roles is map
+            && !(d.userId in d.roles)
+            && d.roles.size() == d.memberIds.size() - 1
+            && d.roles.keys().hasOnly(d.memberIds)
+            && d.roles.values().hasOnly(['viewer', 'editor']);
+      }
+
+      // An editor touches the content and nothing else: not membership, not
+      // ownership. This is what stops self-promotion, and the reason roles can
+      // live in the document without a subcollection.
+      // `createdAt` counts as membership, not content: T19 will order by it,
+      // and an editor able to rewrite it could pin any event to the top of
+      // everyone's listing — or drop it out of the ordering entirely.
+      function changesContentOnly() {
+        return request.resource.data.userId == resource.data.userId
+            && request.resource.data.memberIds == resource.data.memberIds
+            && request.resource.data.roles == resource.data.roles
+            && request.resource.data.get('createdAt', null)
+               == resource.data.get('createdAt', null);
+      }
+
+      // Joining an event you were invited to.
+      //
+      // This is what makes membership consensual: the owner writes an
+      // invitation, and only the invitee turns it into membership. Without it,
+      // anyone knowing your email could push events into your listing unasked.
+      //
+      // The client writes with arrayUnion and a dotted `roles.<uid>` path, so it
+      // never has to read the event first — which it could not do anyway, since
+      // reading requires being a member already. That is the circle ADR 0007
+      // wrongly assumed could only be broken with a backend.
+      function invitePath() {
+        return /databases/$(database)/documents/eventInvites/$(eventId + '_' + uid());
+      }
+
+      function acceptsInvite() {
+        return isSignedIn()
+            && !(uid() in resource.data.memberIds)
+            && exists(invitePath())
+            && request.resource.data.roles[uid()] == get(invitePath()).data.role
+            && request.resource.data.memberIds == resource.data.memberIds.concat([uid()])
+            && request.resource.data.roles.diff(resource.data.roles)
+                 .affectedKeys().hasOnly([uid()].toSet())
+            && request.resource.data.diff(resource.data)
+                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
+      }
+
+      // The one exception to "only the owner touches membership": anyone may
+      // remove themselves, and only themselves. Without it, deleting an
+      // account would strand memberships in other people's events.
+      //
+      // The last condition is what stops "I'm leaving" from doubling as a way
+      // to edit: it bounds which fields the same write may change.
+      function leavesTheEvent() {
+        return isMember()
+            && uid() != resource.data.userId
+            && request.resource.data.memberIds == resource.data.memberIds.removeAll([uid()])
+            && request.resource.data.roles.diff(resource.data.roles)
+                 .affectedKeys().hasOnly([uid()].toSet())
+            && request.resource.data.diff(resource.data)
+                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
+      }
+
+      // Document shape, types and sizes.
+      //
+      // `hasOnly` is what keeps the bill down: without it, any account can pad
+      // a document with filler up to the 1 MiB limit and repeat in a loop.
+      // Types matter for a different reason: the client reads these fields
+      // without validating them, and a numeric `description` used to break the
+      // whole listing on `.toLowerCase()`.
       function isValidEvent() {
         let d = request.resource.data;
         return d.keys().hasOnly(
                  ['title', 'description', 'location', 'userId',
-                  'startDate', 'endDate', 'imageUrl'])
-            && d.keys().hasAll(['title', 'description', 'location', 'userId'])
+                  'startDate', 'endDate', 'imageUrl',
+                  'memberIds', 'roles', 'createdAt'])
+            && d.keys().hasAll(['title', 'description', 'location', 'userId',
+                                'memberIds', 'roles'])
+            && isValidMembership(d)
+            && (!('createdAt' in d)
+                || d.createdAt == null || d.createdAt is timestamp)
             && d.userId is string
-            // El mínimo de 3 coincide con el esquema Zod del cliente.
+            // The minimum of 3 matches the client's Zod schema.
             && d.title is string && d.title.size() >= 3 && d.title.size() <= 200
             && d.description is string && d.description.size() <= 5000
             && d.location is string && d.location.size() <= 200
+            // Pinned to Storage's own host. The cover is rendered as an <img>
+            // by every member, so a free-form URL lets an editor point it at a
+            // server of their choosing and collect the IP, User-Agent and
+            // Referer of everyone in the event — the owner included.
             && (!('imageUrl' in d)
-                || (d.imageUrl is string && d.imageUrl.size() <= 2048))
+                || d.imageUrl == ''
+                || (d.imageUrl is string
+                    && d.imageUrl.size() <= 2048
+                    && d.imageUrl.matches('^https://firebasestorage\\.googleapis\\.com/.*')))
             && (!('startDate' in d)
                 || d.startDate == null || d.startDate is timestamp)
             && (!('endDate' in d)
                 || d.endDate == null || d.endDate is timestamp);
       }
 
-      // Los eventos son privados. La UI ya consulta con
-      // where('userId', '==', uid), pero la regla es lo único que de verdad lo
-      // impide: sin esto cualquiera puede consultar los eventos de cualquiera.
-      allow read: if isOwner();
-
-      // Una única regla por operación. Las reglas de Firestore se combinan con
-      // OR, así que separar la validación en su propio `allow` anularía el
-      // control de propiedad en lugar de sumarse a él.
+      // Events are still not public: you must be the owner or a guest. The UI
+      // queries with where('memberIds', 'array-contains', uid), but the rule is
+      // the only thing that actually enforces it.
       //
-      // El userId se fija al uid de quien crea: no se puede crear en nombre
-      // de otro usuario.
+      // Rescuing phase 1 events with an `|| uid() == resource.data.userId` was
+      // tried and reverted: to authorise a `list`, Firestore requires the query
+      // to line up with the rule, and that disjunction is not analysable that
+      // way — it denied every query, including the one the app makes. A legacy
+      // event stays unreadable until the backfill; what the accessors above buy
+      // is that it denies cleanly instead of taking the query down with it.
+      allow read: if isMember();
+
+      // One rule per operation. Firestore rules combine with OR, so splitting
+      // validation into its own `allow` would cancel the ownership check
+      // instead of adding to it. The three update paths are OR-ed INSIDE this
+      // single `allow`, never across several.
+      //
+      // userId is pinned to the creator's uid: you cannot create on someone
+      // else's behalf. And an event is born with no guests, so sharing is
+      // always an owner's update and there is no second door.
       allow create: if isSignedIn()
                     && isValidEvent()
-                    && request.resource.data.userId == request.auth.uid;
+                    && request.resource.data.userId == uid()
+                    && request.resource.data.memberIds == [uid()]
+                    && request.resource.data.roles.keys().size() == 0;
 
-      // La propiedad no se transfiere en un update.
-      allow update: if isOwner()
-                    && isValidEvent()
-                    && request.resource.data.userId == resource.data.userId;
+      allow update: if isValidEvent()
+                    && (
+                         // The owner may do anything but transfer ownership.
+                         (isOwner()
+                          && request.resource.data.userId == resource.data.userId)
+                         // An editor changes content and nothing else.
+                         || (isEditor() && changesContentOnly())
+                         // Any guest may leave.
+                         || leavesTheEvent()
+                         // An invited person may join.
+                         || acceptsInvite()
+                       );
 
       allow delete: if isOwner();
+    }
+
+    // Pending invitations. An owner offers, the invitee decides.
+    //
+    // The id is `{eventId}_{inviteeUid}` so the accept rule can look one up
+    // without a query, and so an event cannot hold two pending invitations for
+    // the same person.
+    match /eventInvites/{inviteId} {
+
+      function uid() {
+        return request.auth.uid;
+      }
+
+      function eventOf(d) {
+        return get(/databases/$(database)/documents/events/$(d.eventId)).data;
+      }
+
+      function isValidInvite(d) {
+        return d.keys().hasOnly(['eventId', 'eventTitle', 'inviteeUid',
+                                 'inviteeEmail', 'invitedBy', 'invitedByName',
+                                 'role'])
+            && d.keys().hasAll(['eventId', 'eventTitle', 'inviteeUid',
+                                'invitedBy', 'role'])
+            && d.eventId is string && d.eventId.size() <= 128
+            && d.eventTitle is string && d.eventTitle.size() <= 200
+            && d.inviteeUid is string && d.inviteeUid.size() <= 128
+            // Shown back to the owner so they can tell who they invited: a
+            // display name is often empty and a raw uid tells nobody anything.
+            // Safe here because only the owner and the recipient read an
+            // invitation.
+            && (!('inviteeEmail' in d)
+                || (d.inviteeEmail is string && d.inviteeEmail.size() <= 320))
+            && d.invitedBy is string
+            && (!('invitedByName' in d)
+                || (d.invitedByName is string && d.invitedByName.size() <= 200))
+            && d.role in ['viewer', 'editor']
+            // Pins the id to its contents: the accept rule finds the invitation
+            // by this exact name, so a mismatched one would never be usable.
+            && inviteId == d.eventId + '_' + d.inviteeUid
+            && d.inviteeUid != d.invitedBy;
+      }
+
+      // Only the owner of the event may offer it, and only in their own name.
+      allow create: if request.auth != null
+                    && isValidInvite(request.resource.data)
+                    && request.resource.data.invitedBy == uid()
+                    && eventOf(request.resource.data).userId == uid();
+
+      // The owner may still change the role while the offer is pending, and
+      // nothing else. Nobody has decided anything yet, and the invitee reads the
+      // role live when they do — so there is no bait and switch to prevent. The
+      // clause that matters is what stays fixed: the event, the recipient and
+      // who is inviting.
+      allow update: if request.auth != null
+                    && resource.data.invitedBy == uid()
+                    && isValidInvite(request.resource.data)
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['role']);
+
+      // Read by the two people it concerns, and one rule for both get and list:
+      // under this condition a query has to name you, because an unfiltered one
+      // would return documents that fail it.
+      allow read: if request.auth != null
+                  && (resource.data.inviteeUid == uid()
+                      || resource.data.invitedBy == uid());
+
+      // The invitee declines, the owner revokes. Accepting deletes it too, in
+      // the same batch as the membership write.
+      allow delete: if request.auth != null
+                    && (resource.data.inviteeUid == uid()
+                        || resource.data.invitedBy == uid());
+    }
+
+    // A minimal user directory, so people can be invited by email.
+    //
+    // Firebase Auth exposes no directory to clients, so each user publishes
+    // their own entry keyed by the hash of their email. See
+    // docs/adr/0007-client-side-user-directory.md.
+    match /userDirectory/{emailHash} {
+
+      // The document is tied to the token's email, and only if it is
+      // verified: registering with someone else's address is trivial, and
+      // without this condition that would be enough to collect their
+      // invitations.
+      function isOwnEmail() {
+        return request.auth != null
+            && request.auth.token.email_verified == true
+            && request.auth.token.email is string
+            && emailHash == hashing.sha256(request.auth.token.email.lower())
+                              .toHexString().lower();
+      }
+
+      function isValidEntry() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['uid', 'displayName', 'photoURL'])
+            && d.keys().hasAll(['uid'])
+            && d.uid is string
+            && d.uid == request.auth.uid
+            && (!('displayName' in d)
+                || (d.displayName is string && d.displayName.size() <= 200))
+            && (!('photoURL' in d)
+                || (d.photoURL is string && d.photoURL.size() <= 2048));
+      }
+
+      // Read one at a time, by exact id. `list` stays closed: that is what
+      // separates checking an address you already know from downloading the
+      // entire user census.
+      //
+      // Reading demands the same bar as writing. A directory hit tells you an
+      // address has an account here, so without this an anonymous session —
+      // should anonymous sign-in ever be enabled — would enumerate users from a
+      // list of emails at no cost.
+      allow get: if request.auth != null
+                 && request.auth.token.email_verified == true;
+      allow list: if false;
+
+      allow create: if isOwnEmail() && isValidEntry();
+      allow update: if isOwnEmail() && isValidEntry();
+      allow delete: if isOwnEmail();
+    }
+
+    // The directory's second index, by uid: an email hash does not invert,
+    // and events store uids. This is what lets the guest list show "Ana"
+    // instead of "xK3n…". No email in it, so sharing an event does not end up
+    // handing out addresses.
+    match /userProfiles/{profileUid} {
+
+      function isSelf() {
+        return request.auth != null && request.auth.uid == profileUid;
+      }
+
+      allow get: if request.auth != null;
+      allow list: if false;
+
+      // `hasAll` before touching the fields: without it, a create carrying only
+      // one of them denies by raising an evaluation error rather than by the
+      // rule, which is the same fragility the legacy documents showed.
+      //
+      // photoURL is pinned to hosts we render from, for the same reason the
+      // event cover is: the share dialog paints it, so a free-form URL is a
+      // beacon aimed at everyone who opens the guest list.
+      allow create, update: if isSelf()
+                            && request.resource.data.keys()
+                                 .hasOnly(['displayName', 'photoURL'])
+                            && request.resource.data.keys()
+                                 .hasAll(['displayName', 'photoURL'])
+                            && request.resource.data.displayName is string
+                            && request.resource.data.displayName.size() <= 200
+                            && request.resource.data.photoURL is string
+                            && request.resource.data.photoURL.size() <= 2048
+                            && (request.resource.data.photoURL == ''
+                                || request.resource.data.photoURL
+                                     .matches('^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*'));
+
+      allow delete: if isSelf();
     }
   }
 }

@@ -10,6 +10,7 @@ import type { GeneratedDraft } from "./ai-event-generator.js";
 import type { InferenceSourceName } from "./ai-policy.js";
 import "./event-editor.js";
 import "./event-filters.js";
+import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
@@ -32,7 +33,11 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { FiltersChange } from "./event-filters.js";
-import { type DateRange, filterEvents } from "./filter-events.js";
+import {
+	type DateRange,
+	filterEvents,
+	type OwnershipFilter,
+} from "./filter-events.js";
 
 /**
  * Convierte un documento de Firestore en un evento, validándolo.
@@ -54,8 +59,11 @@ function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 		location: document["location"],
 		imageUrl: document["imageUrl"],
 		userId: document["userId"],
+		memberIds: document["memberIds"],
+		roles: document["roles"],
 		startDate: asDate(document["startDate"]),
 		endDate: asDate(document["endDate"]),
+		createdAt: asDate(document["createdAt"]),
 	});
 
 	if (!parsed.success) {
@@ -109,6 +117,7 @@ export class PlanuEventsView extends LitElement {
 
 	@state() private searchTerm = "";
 	@state() private range: DateRange = {};
+	@state() private ownership: OwnershipFilter = "all";
 	@state() private editorOpen = false;
 	@state() private editing: StoredEvent | undefined;
 	@state() private generatorOpen = false;
@@ -152,7 +161,10 @@ export class PlanuEventsView extends LitElement {
 			firestore && user
 				? query(
 						collection(firestore, "events"),
-						where("userId", "==", user.uid),
+						// By membership rather than ownership, so events other people
+						// shared arrive too. The rules deny every other way of
+						// querying this collection, filtering by `userId` included.
+						where("memberIds", "array-contains", user.uid),
 					)
 				: null,
 		);
@@ -162,9 +174,17 @@ export class PlanuEventsView extends LitElement {
 		const all = this.#events.data
 			.map(toEvent)
 			.filter((event): event is StoredEvent => event !== null);
-		const visible = filterEvents(all, this.searchTerm, this.range);
+		const visible = filterEvents(
+			all,
+			this.searchTerm,
+			this.range,
+			this.ownership,
+			this.user?.uid ?? "",
+		);
 
 		return html`
+			<planu-invitations-inbox></planu-invitations-inbox>
+
 			<div class="toolbar">
 				<planu-event-filters
 					@planu-filters-change=${this.#onFilters}
@@ -274,7 +294,7 @@ export class PlanuEventsView extends LitElement {
 		return html`<div class="empty">
 			${
 				total > 0
-					? html`<p>${msg("No events match your search or date filter.")}</p>`
+					? html`<p>${this.#emptyFilteredMessage()}</p>`
 					: html`
 							<p>${msg("You have no events yet.")}</p>
 							<wa-button variant="brand" @click=${this.#onNew}>
@@ -285,10 +305,31 @@ export class PlanuEventsView extends LitElement {
 		</div>`;
 	}
 
+	/**
+	 * With the inbox narrowed, "no results" is explained by the filter that
+	 * actually caused it. Telling someone who simply has nothing shared to
+	 * check their search sends them looking in the wrong place.
+	 */
+	#emptyFilteredMessage(): string {
+		// Only when the inbox filter is the sole cause. With a search on top,
+		// "you have not created any events" would be plainly false.
+		const soloBandeja =
+			this.searchTerm === "" && !this.range.from && !this.range.to;
+
+		if (soloBandeja && this.ownership === "shared") {
+			return msg("Nobody has shared an event with you yet.");
+		}
+		if (soloBandeja && this.ownership === "mine") {
+			return msg("You have not created any events yet.");
+		}
+		return msg("No events match your search or date filter.");
+	}
+
 	#onFilters(event: Event): void {
 		const detail = (event as CustomEvent<FiltersChange>).detail;
 		this.searchTerm = detail.searchTerm;
 		this.range = { from: detail.from, to: detail.to };
+		this.ownership = detail.ownership;
 	}
 
 	#onNew(): void {

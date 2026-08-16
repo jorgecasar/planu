@@ -13,6 +13,7 @@ import {
 	collection,
 	doc,
 	type Firestore,
+	serverTimestamp,
 	setDoc,
 	Timestamp,
 } from "firebase/firestore";
@@ -315,22 +316,34 @@ export class PlanuEventEditor extends LitElement {
 		user: User,
 		values: PlanuEvent,
 	): Promise<unknown> {
-		const document = {
+		const content = {
 			title: values.title,
 			description: values.description ?? "",
 			location: values.location ?? "",
 			imageUrl: values.imageUrl ?? "",
-			// Siempre el uid de la sesión: las reglas rechazan cualquier otro.
-			userId: user.uid,
 			startDate: values.startDate ? Timestamp.fromDate(values.startDate) : null,
 			endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
 		};
 
-		return this.event
-			? setDoc(doc(firestore, "events", this.event.id), document, {
-					merge: true,
-				})
-			: addDoc(collection(firestore, "events"), document);
+		// Editing sends content only. Resending the editor's uid would cost an
+		// invited editor their permission, because to the rules that is
+		// transferring ownership; and membership is not touched from here, which
+		// is what the share dialog is for.
+		if (this.event) {
+			return setDoc(doc(firestore, "events", this.event.id), content, {
+				merge: true,
+			});
+		}
+
+		// An event is born with its creator as sole member and no guests: the
+		// rules reject any other way of starting.
+		return addDoc(collection(firestore, "events"), {
+			...content,
+			userId: user.uid,
+			memberIds: [user.uid],
+			roles: {},
+			createdAt: serverTimestamp(),
+		});
 	}
 
 	#close(): void {
