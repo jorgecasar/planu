@@ -145,12 +145,14 @@ export default defineConfig(({ mode }) => {
 			browser: {
 				enabled: true,
 				headless: true,
-				// La zona horaria **no** se fija aquí. Se intentó con
-				// `playwright({ contextOptions: { timezoneId } })` y es inerte: con
-				// `TZ=UTC` en el entorno el navegador reportaba offset 0 pese a pedir
-				// `America/Santiago`. Manda la variable del proceso, así que vive en
-				// el script `test` de `package.json`, que es lo único que comprobado
-				// llega hasta aquí. `build-ics.test.ts` lo verifica antes de fiarse.
+				// La zona horaria **no** se fija aquí, aunque lo parezca natural.
+				// `playwright({ contextOptions: { timezoneId } })` es inerte: con
+				// `TZ=UTC` en el entorno el navegador reporta offset 0 pese a pedir
+				// otra zona. Manda la variable del proceso, así que vive en el script
+				// `test` de `package.json`, que es lo único que —comprobado— llega
+				// hasta aquí. `build-ics.test.ts` lo verifica antes de fiarse, y los
+				// tests del calendario no dependen de una zona concreta: buscan la
+				// transición de horario que tenga la zona activa, sea cual sea.
 				provider: playwright(),
 				instances: [{ browser: "chromium" }],
 			},

@@ -1,4 +1,11 @@
-node_modules/
+# Sin barra final **a propósito**: con `node_modules/` git sólo ignora
+# directorios, y un enlace simbólico llamado `node_modules` es un fichero para
+# él. Los worktrees de trabajo en paralelo enlazan `apps/web/node_modules` al
+# del repo principal para no reinstalar, y ese enlace acabó commiteado en tres
+# ramas. En CI apunta a un disco que no existe, así que `mkdir` recursivo a
+# través de él da ENOENT y el optimizador de Vite se queda reintentando para
+# siempre. Costó tres pipelines colgados encontrarlo.
+node_modules
 dist/
 .env.local
 .env.*.local

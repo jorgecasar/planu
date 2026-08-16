@@ -5,11 +5,20 @@ import {
 	targetLocales,
 } from "../generated/locales/locale-codes.js";
 
-const { setLocale } = configureLocalization({
+const { getLocale, setLocale } = configureLocalization({
 	sourceLocale,
 	targetLocales,
 	loadLocale: (locale) => import(`../generated/locales/${locale}.js`),
 });
+
+/**
+ * El idioma que la interfaz está sirviendo ahora mismo.
+ *
+ * No basta con el del navegador: si éste pide alemán, la interfaz sirve inglés,
+ * y un calendario formateado en alemán dentro de una interfaz en inglés sería
+ * una mezcla. Lo que manda es lo que el usuario está leyendo.
+ */
+export { getLocale };
 
 /** Todos los idiomas que la interfaz sabe servir. */
 export const availableLocales = [sourceLocale, ...targetLocales] as const;

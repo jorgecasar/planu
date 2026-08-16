@@ -247,7 +247,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/events/sort-events.ts` + test, `src/lib/view-preferences.ts`,
     `src/events/events-view.ts`
 
-- [ ] **T20 · Rejilla mensual (F5, primera mitad)** · M · depende de T19
+- [x] **T20 · Rejilla mensual (F5, primera mitad)** · M · depende de T19
   - Acepta: reparto de eventos en las celdas del mes como función pura; rejilla
     con CSS grid e `Intl.DateTimeFormat`, **sin librería de calendario**; primer
     día de la semana y nombres de mes según el locale; navegable con teclado,
@@ -255,7 +255,50 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Verifica: unitarios del reparto, incluidos el evento que cruza varios días y
     el cambio de horario de verano; axe sobre la vista
   - Ficheros: `src/calendar/month-grid.ts` + test, `src/calendar/calendar-view.ts`
+  - Resultado: `buildMonthGrid()` reparte por **clave de día local** (`20260629`)
+    y avanza con `setDate()`, nunca sumando 86 400 000 ms; la fecha pública de
+    cada celda va **al mediodía**, porque `setDate()` conserva la hora del cursor
+    y un desfase heredado de un cambio de hora no se corregía solo. Un evento sin
+    fechas **no ocupa celda** —una celda es una fecha— pero sale en `undated` y
+    la vista dice cuántos son. Teclado según el patrón `grid` de las APG, con
+    foco itinerante; las teclas con modificador no se tocan. `axe` corre en el
+    unitario sobre el componente montado, con el tema de Web Awesome cargado y
+    comprobando también `incomplete`: sin el tema, el contraste no se medía.
+    `vite.config.ts` fija la zona horaria del navegador de test a Europe/Madrid
+    —protege a toda la suite, no sólo a T20—: con la UTC de los runners, el
+    mutante de los milisegundos sobrevivía. El primer día de la semana usa
+    `getWeekInfo()` y, donde no exista, tablas por región **generadas desde ICU**
+    y revalidadas por un test que recorre las 676; van atadas a la versión de
+    ICU del navegador con el que probamos, y hoy Node y Chromium ya discrepan en
+    Islandia. 45 tests, cada uno con al menos un mutante que lo mata.
+    **Fuera:** el conmutador de vistas y el montaje en `events-view.ts` (T21);
+    seleccionar un día no emite nada todavía; `Mayús`+`Re/Av Pág` para cambiar de
+    año no está; el «+N más» cuando un día tiene muchos eventos, tampoco; y no se
+    probó en una segunda zona horaria, porque el proveedor de Playwright se
+    configura una vez para todo `browser` y haría falta un segundo proyecto de
+    Vitest.
 
+  - **Corregido tras revisión, y lo más importante que salió de ella:** el pin de
+    zona horaria de `vite.config.ts` **es inerte**. `playwright({ contextOptions:
+    { timezoneId } })` no llega al navegador: con `TZ=UTC` en el entorno reporta
+    offset 0 pese a pedir otra zona. Manda la variable del proceso, así que vive
+    en el script `test` de `package.json`. Y el test de horario de verano ya no
+    codifica un mes ni una zona: **busca la transición que tenga la zona activa**,
+    con una guarda que falla ruidosamente si no hay ninguna —que es lo que
+    pasaría en los runners de GitHub, que son UTC—. Comprobado: el mutante que
+    avanza el cursor sumando 86 400 000 ms muere en Madrid, Santiago y Auckland,
+    y en UTC salta la guarda.
+  - También: pinchar una celda de relleno separaba el foco real del itinerante
+    —el anillo quedaba en un día y las flechas saltaban desde otro—; el test de
+    axe medía sobre tokens sin resolver, así que decía «cero violaciones» cuando
+    quería decir «no he podido mirar»; el respaldo del primer día de la semana
+    confundía la extensión `-u-ca-` con la región y daba domingo en alemán; y no
+    podía representar el sábado, que es lo que usan `ar` y `fa`.
+  - **Seis de diez mutantes elegidos por el revisor sobrevivían** a la primera
+    entrega, pese a los 41 de 41 que reportaba el autor. El peor: poner
+    `display: none` al texto que da nombre accesible a cada celda dejaba la suite
+    verde, porque el test miraba `textContent`, que es ciego al árbol de
+    accesibilidad. Los siete están muertos ahora.
 - [ ] **T21 · Agenda y conmutador de vista (F5, segunda mitad)** · M · depende de T20
   - Acepta: lista cronológica agrupada por día; conmutador entre rejilla,
     calendario y agenda; la vista elegida sobrevive a la recarga; los filtros se
