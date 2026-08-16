@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { playwright } from "@vitest/browser-playwright";
+import type { Plugin, PluginOption } from "vite";
 // `loadEnv` sale de vite; `vitest/config` sólo reexporta `defineConfig`.
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
@@ -8,6 +9,30 @@ import { defineConfig } from "vitest/config";
 // Los .env viven en la raíz del monorepo, no en apps/web. Sin esto Vite los
 // busca junto a este fichero y la app arranca sin configuración de Firebase.
 const envDir = fileURLToPath(new URL("../..", import.meta.url));
+
+/**
+ * Serves /app/** from app.html while developing.
+ *
+ * Vite's SPA fallback looks for index.html, which no longer exists: the root is
+ * reserved for the landing the build will prerender. Without this, every route
+ * under /app is a 404 in dev while working fine in production — the worst way
+ * round for a routing change.
+ */
+function appRoutes(): Plugin {
+	return {
+		name: "planu-app-routes",
+		configureServer(server) {
+			server.middlewares.use((request, _response, next) => {
+				const [path] = (request.url ?? "").split("?");
+				// Extension-less paths only, so assets under /app still resolve.
+				if (path?.startsWith("/app") && !path.includes(".")) {
+					request.url = "/app.html";
+				}
+				next();
+			});
+		},
+	};
+}
 
 export default defineConfig(({ mode }) => {
 	// Prefijo vacío para leer también las claves sin `VITE_`. El token de Sentry
@@ -20,7 +45,7 @@ export default defineConfig(({ mode }) => {
 	const org = env["SENTRY_ORG"];
 	const project = env["SENTRY_PROJECT"];
 
-	const plugins = [];
+	const plugins: PluginOption[] = [appRoutes()];
 
 	if (upload) {
 		// Fallar aquí y no más tarde. Subir source maps sin release es el fallo
@@ -73,12 +98,24 @@ export default defineConfig(({ mode }) => {
 			__RRWEB_EXCLUDE_CANVAS__: "true",
 			__RRWEB_EXCLUDE_SHADOW_DOM__: "true",
 		},
+		// No SPA fallback: with the landing coming, the root stops being the
+		// application and Vite must not serve app.html for every path.
+		appType: "mpa" as const,
 		server: {
-			port: 3000,
+			// Overridable so two worktrees can run at once. Playwright reuses
+			// whatever already answers on the port, so a second checkout silently
+			// tests the first one's code — which looks exactly like a bug in the
+			// routing being changed here.
+			// `??` alone would not do: loadEnv yields "" for an unset variable,
+			// and Number("") is 0 — which Vite reads as "any free port".
+			port: env["PORT"] ? Number(env["PORT"]) : 3000,
 			host: "0.0.0.0",
 		},
 		build: {
 			target: "es2022",
+			rollupOptions: {
+				input: fileURLToPath(new URL("./app.html", import.meta.url)),
+			},
 			// "hidden": se generan pero el bundle no los referencia y no se
 			// publican. Sin ellos una traza de producción es ilegible; publicándolos
 			// se regala el código fuente. El plugin de Sentry los encuentra igual,

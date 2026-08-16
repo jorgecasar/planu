@@ -8,7 +8,7 @@ const newEmail = () =>
 test("registrarse deja al usuario dentro de la aplicación", async ({
 	page,
 }) => {
-	await page.goto("/login");
+	await page.goto("/app/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
 	const panel = page
@@ -21,14 +21,14 @@ test("registrarse deja al usuario dentro de la aplicación", async ({
 	await panel.getByRole("button", { name: "Create account" }).click();
 
 	// La guarda saca del login en cuanto hay sesión.
-	await expect(page).toHaveURL(/\/$/);
+	await expect(page).toHaveURL(/\/app$/);
 	await expect(
 		page.getByRole("banner").getByRole("heading", { name: "planu" }),
 	).toBeVisible();
 });
 
 test("las contraseñas que no coinciden no crean cuenta", async ({ page }) => {
-	await page.goto("/login");
+	await page.goto("/app/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
 	const panel = page
@@ -41,13 +41,13 @@ test("las contraseñas que no coinciden no crean cuenta", async ({ page }) => {
 	await panel.getByRole("button", { name: "Create account" }).click();
 
 	await expect(page.getByRole("alert")).toHaveText("Passwords don't match.");
-	await expect(page).toHaveURL(/\/login$/);
+	await expect(page).toHaveURL(/\/app\/login$/);
 });
 
 test("credenciales incorrectas no revelan si el correo existe", async ({
 	page,
 }) => {
-	await page.goto("/login");
+	await page.goto("/app/login");
 
 	await page.getByLabel("Email").first().fill("nadie@example.com");
 	await page.getByLabel("Password", { exact: true }).first().fill("secret123");
@@ -59,7 +59,7 @@ test("credenciales incorrectas no revelan si el correo existe", async ({
 test("la aplicación autenticada no tiene violaciones de accesibilidad", async ({
 	page,
 }) => {
-	await page.goto("/login");
+	await page.goto("/app/login");
 
 	await page.getByRole("tab", { name: "Create account" }).click();
 	const panel = page

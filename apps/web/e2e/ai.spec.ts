@@ -10,7 +10,7 @@ const PIXEL = Buffer.from(
 );
 
 async function signUp(page: Page): Promise<void> {
-	await page.goto("/login");
+	await page.goto("/app/login");
 	await page.getByRole("tab", { name: "Create account" }).click();
 	const panel = page
 		.getByRole("tabpanel")
