@@ -407,21 +407,37 @@ describe("only the owner touches membership", () => {
 		);
 	});
 
-	test("the owner invites, changes a role and removes", async () => {
+	test("the owner changes a guest's role", async () => {
 		await assertSucceeds(
 			updateDoc(doc(asVictim(), "events/shared-event"), {
-				memberIds: [VICTIM, VIEWER, EDITOR, ATTACKER],
-				roles: {
-					[VIEWER]: "editor",
-					[EDITOR]: "editor",
-					[ATTACKER]: "viewer",
-				},
+				memberIds: [VICTIM, VIEWER, EDITOR],
+				roles: { [VIEWER]: "editor", [EDITOR]: "editor" },
 			}),
 		);
+	});
+
+	test("the owner removes guests", async () => {
 		await assertSucceeds(
 			updateDoc(doc(asVictim(), "events/shared-event"), {
 				memberIds: [VICTIM],
 				roles: {},
+			}),
+		);
+	});
+
+	test("not even the owner can add a member directly", async () => {
+		// The consent gate is only real if it lives here. This test used to
+		// assert the opposite — it accepted the owner writing a uid straight
+		// into memberIds, which is exactly the abuse invitations exist to stop,
+		// and so the suite pinned the bypass instead of the rule.
+		await assertFails(
+			updateDoc(doc(asVictim(), "events/shared-event"), {
+				memberIds: [VICTIM, VIEWER, EDITOR, ATTACKER],
+				roles: {
+					[VIEWER]: "viewer",
+					[EDITOR]: "editor",
+					[ATTACKER]: "viewer",
+				},
 			}),
 		);
 	});
@@ -618,6 +634,10 @@ describe("each membership clause is pinned by a test", () => {
 	test("the cap is exactly 21 members: 21 passes, 22 fails", async () => {
 		// Pins the boundary itself. The oversized test used 41, so the cap could
 		// be weakened to 39 without any test noticing.
+		//
+		// Checked by trimming the list rather than growing it: since the owner
+		// can no longer add members, the only way in is accepting an invitation,
+		// and that is covered in event-invites.test.ts.
 		const guests = (count: number) =>
 			Array.from({ length: count }, (_, i) => `guest-${i}`);
 		const withGuests = (count: number) => ({
@@ -625,11 +645,25 @@ describe("each membership clause is pinned by a test", () => {
 			roles: Object.fromEntries(guests(count).map((uid) => [uid, "viewer"])),
 		});
 
+		const seed = async (count: number) => {
+			await env.withSecurityRulesDisabled(async (ctx) => {
+				await setDoc(doc(ctx.firestore(), "events/shared-event"), {
+					...anEvent(VICTIM),
+					...withGuests(count),
+				});
+			});
+		};
+
+		// 21 members stand; the same document with 22 cannot be written at all.
+		await seed(20);
 		await assertSucceeds(
-			updateDoc(doc(asVictim(), "events/shared-event"), withGuests(20)),
+			updateDoc(doc(asVictim(), "events/shared-event"), {
+				title: "Still fine",
+			}),
 		);
+		await seed(21);
 		await assertFails(
-			updateDoc(doc(asVictim(), "events/shared-event"), withGuests(21)),
+			updateDoc(doc(asVictim(), "events/shared-event"), { title: "Too many" }),
 		);
 	});
 

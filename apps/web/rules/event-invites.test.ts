@@ -170,12 +170,20 @@ describe("seeing your invitations", () => {
 });
 
 describe("accepting an invitation", () => {
-	/** What the client writes: no read of the event needed. */
-	const accept = (uid: string, role = "viewer") =>
-		updateDoc(doc(as(uid), EVENT), {
+	/**
+	 * What the client writes: no read of the event needed, and the invitation
+	 * consumed in the same batch so it cannot be reused.
+	 */
+	const accept = (uid: string, role = "viewer") => {
+		const db = as(uid);
+		const batch = writeBatch(db);
+		batch.update(doc(db, EVENT), {
 			memberIds: arrayUnion(uid),
 			[`roles.${uid}`]: role,
 		});
+		batch.delete(doc(db, `eventInvites/an-event_${uid}`));
+		return batch.commit();
+	};
 
 	test("with an invitation, the guest joins the event", async () => {
 		await seedInvite();
@@ -287,5 +295,106 @@ describe("declining and revoking", () => {
 	test("a stranger cannot touch it either", async () => {
 		await seedInvite();
 		await assertFails(updateDoc(doc(as(STRANGER), INVITE), { role: "editor" }));
+	});
+});
+
+describe("an invitation is a single-use key", () => {
+	test("accepting without consuming it is denied", async () => {
+		// Left alive, the invitation is a spare key: its holder walks back in
+		// after being removed, as often as they like.
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(GUEST), EVENT), {
+				memberIds: arrayUnion(GUEST),
+				[`roles.${GUEST}`]: "viewer",
+			}),
+		);
+	});
+
+	test("removing someone is final once the invitation is spent", async () => {
+		await seedInvite();
+
+		const db = as(GUEST);
+		const batch = writeBatch(db);
+		batch.update(doc(db, EVENT), {
+			memberIds: arrayUnion(GUEST),
+			[`roles.${GUEST}`]: "viewer",
+		});
+		batch.delete(doc(db, INVITE));
+		await assertSucceeds(batch.commit());
+
+		// The owner removes them.
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await setDoc(doc(ctx.firestore(), EVENT), anEvent());
+		});
+
+		// And they cannot let themselves back in: there is no offer any more.
+		await assertFails(
+			updateDoc(doc(as(GUEST), EVENT), {
+				memberIds: arrayUnion(GUEST),
+				[`roles.${GUEST}`]: "viewer",
+			}),
+		);
+	});
+
+	test("an invitation naming someone else does not work", async () => {
+		// The document id is built by concatenation; what counts is what the
+		// document says, not what its name suggests.
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await setDoc(
+				doc(ctx.firestore(), INVITE),
+				anInvite({ inviteeUid: STRANGER }),
+			);
+		});
+		await assertFails(
+			updateDoc(doc(as(GUEST), EVENT), {
+				memberIds: arrayUnion(GUEST),
+				[`roles.${GUEST}`]: "viewer",
+			}),
+		);
+	});
+
+	test("an invitation naming another event does not work", async () => {
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await setDoc(
+				doc(ctx.firestore(), INVITE),
+				anInvite({ eventId: "another-event" }),
+			);
+		});
+		await assertFails(
+			updateDoc(doc(as(GUEST), EVENT), {
+				memberIds: arrayUnion(GUEST),
+				[`roles.${GUEST}`]: "viewer",
+			}),
+		);
+	});
+});
+
+describe("re-inviting after something changed", () => {
+	test("the title can change between invitations", async () => {
+		// setDoc rewrites the whole document, so pinning every field but `role`
+		// made a perfectly ordinary re-invitation fail — after renaming the
+		// event, or once the owner had set a display name.
+		await seedInvite();
+		await assertSucceeds(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ eventTitle: "Renamed" })),
+		);
+	});
+
+	test("the inviter's display name can change too", async () => {
+		await seedInvite();
+		await assertSucceeds(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ invitedByName: "Ana Nueva" })),
+		);
+	});
+
+	test("but never the event, the recipient or who invites", async () => {
+		await seedInvite();
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ eventId: "another-event" })),
+		);
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ inviteeUid: STRANGER })),
+		);
 	});
 });

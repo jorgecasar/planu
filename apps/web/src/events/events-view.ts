@@ -313,13 +313,13 @@ export class PlanuEventsView extends LitElement {
 	#emptyFilteredMessage(): string {
 		// Only when the inbox filter is the sole cause. With a search on top,
 		// "you have not created any events" would be plainly false.
-		const soloBandeja =
+		const inboxOnly =
 			this.searchTerm === "" && !this.range.from && !this.range.to;
 
-		if (soloBandeja && this.ownership === "shared") {
+		if (inboxOnly && this.ownership === "shared") {
 			return msg("Nobody has shared an event with you yet.");
 		}
-		if (soloBandeja && this.ownership === "mine") {
+		if (inboxOnly && this.ownership === "mine") {
 			return msg("You have not created any events yet.");
 		}
 		return msg("No events match your search or date filter.");

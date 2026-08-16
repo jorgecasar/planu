@@ -169,6 +169,9 @@ export class PlanuShareDialog extends LitElement {
 	private user: User | null | undefined;
 
 	@state() private people: Person[] = [];
+	@state() private loading = false;
+	/** Set when the pending query failed: the list is short and says so. */
+	@state() private incomplete = false;
 	@state() private busy = false;
 	@state() private error = "";
 	@state() private notice = "";
@@ -183,6 +186,8 @@ export class PlanuShareDialog extends LitElement {
 			// Cleared first, or reopening for another event flashes the previous
 			// event's people while the new ones resolve.
 			this.people = [];
+			this.loading = true;
+			this.incomplete = false;
 			void this.#load();
 		}
 	}
@@ -200,7 +205,12 @@ export class PlanuShareDialog extends LitElement {
 	 */
 	async #load(): Promise<void> {
 		const { firestore, event, user } = this;
-		if (!firestore || !event || !user) return;
+		if (!firestore || !event || !user) {
+			// Or the dialog sits on "Loading…" forever when it opens before the
+			// contexts have arrived.
+			this.loading = false;
+			return;
+		}
 
 		const memberUids = (event.memberIds ?? []).filter(
 			(uid) => uid !== event.userId,
@@ -210,21 +220,25 @@ export class PlanuShareDialog extends LitElement {
 			query(
 				collection(firestore, INVITES_COLLECTION),
 				where("invitedBy", "==", user.uid),
+				where("eventId", "==", event.id),
 			),
 		).catch(() => null);
 
-		const invited = (pending?.docs ?? [])
-			.map((row) => {
-				const data = row.data() as DocumentData;
-				return {
-					id: row.id,
-					eventId: String(data["eventId"] ?? ""),
-					inviteeUid: String(data["inviteeUid"] ?? ""),
-					inviteeEmail: String(data["inviteeEmail"] ?? ""),
-					role: (data["role"] === "editor" ? "editor" : "viewer") as EventRole,
-				};
-			})
-			.filter((row) => row.eventId === event.id);
+		// Swallowing this left the owner looking at a list with no pending
+		// invitations in it and no hint that any were missing — and that list is
+		// what they decide who to remove from.
+		this.incomplete = pending === null;
+
+		const invited = (pending?.docs ?? []).map((row) => {
+			const data = row.data() as DocumentData;
+			return {
+				id: row.id,
+				eventId: String(data["eventId"] ?? ""),
+				inviteeUid: String(data["inviteeUid"] ?? ""),
+				inviteeEmail: String(data["inviteeEmail"] ?? ""),
+				role: (data["role"] === "editor" ? "editor" : "viewer") as EventRole,
+			};
+		});
 
 		const profiles = await findProfiles(firestore, [
 			...memberUids,
@@ -234,6 +248,7 @@ export class PlanuShareDialog extends LitElement {
 		const named = (uid: string) =>
 			profiles.get(uid)?.displayName || msg("Guest");
 
+		this.loading = false;
 		this.people = [
 			...memberUids.map((uid) => ({
 				key: uid,
@@ -305,8 +320,20 @@ export class PlanuShareDialog extends LitElement {
 					${this.people.map((person) => this.#renderPerson(person))}
 				</ul>
 				${
-					this.people.length === 0
-						? html`<p class="empty">${msg("Only you, for now.")}</p>`
+					// Three different things, told apart. Saying "only you" while the
+					// list is still resolving told the owner of a twenty-guest event
+					// that it was shared with nobody.
+					this.loading
+						? html`<p class="empty">${msg("Loading…")}</p>`
+						: this.people.length === 0
+							? html`<p class="empty">${msg("Only you, for now.")}</p>`
+							: nothing
+				}
+				${
+					this.incomplete
+						? html`<wa-callout variant="warning" role="status">
+								${msg("Pending invitations could not be loaded, so this list may be incomplete.")}
+							</wa-callout>`
 						: nothing
 				}
 			</wa-dialog>
@@ -466,7 +493,13 @@ export class PlanuShareDialog extends LitElement {
 				return;
 			}
 
-			if ((event.memberIds?.length ?? 1) > MAX_GUESTS) {
+			// Counting members alone oversubscribes: with 19 guests and 5 live
+			// invitations, the first to accept gets in and the rest are told to
+			// try again for something retrying will never fix.
+			const committed =
+				(event.memberIds?.length ?? 1) +
+				this.people.filter((person) => person.pending).length;
+			if (committed > MAX_GUESTS) {
 				this.error = msg("This event has reached its limit of guests.");
 				return;
 			}
