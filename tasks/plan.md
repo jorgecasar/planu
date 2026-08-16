@@ -112,12 +112,38 @@ inaccesible).
 
 **No se avanza de fase con la anterior en rojo.**
 
+### Cómo se marcan estas casillas
+
+Una casilla se marca **sólo con la evidencia al lado**: el comando y su código
+de salida, o el fichero y la línea. Lo que dependa de una persona o de una
+comprobación manual se queda sin marcar y dice quién falta, en vez de marcarse
+por optimismo.
+
+**La tarea que cierra una fase evalúa su checkpoint en el mismo commit.** Las
+demás tareas de la fase dejan su evidencia en su propia entrada de
+[`todo.md`](todo.md) y no tocan este fichero: varias ramas escribiendo en las
+mismas líneas garantizan conflicto, y ninguna puede cerrar sola un checkpoint
+que depende de sus hermanas.
+
+*Evaluados el 16 de agosto de 2026, con retraso: las tareas de A, B y E llevaban
+cerradas desde hacía tiempo y estas casillas seguían vacías. La regla de arriba
+existe por eso.*
+
 ### Checkpoint A — tras T14
 
-- [ ] `npm run test:rules` en verde, incluidos los casos que **deniegan**
-- [ ] `npm test` y `npm run test:e2e` sin regresiones
-- [ ] Un evento creado antes del cambio sigue apareciendo en el listado
-- [ ] Revisión humana de `firestore.rules` antes de seguir
+- [x] `npm run test:rules` en verde, incluidos los casos que **deniegan** —
+      `npm run test:rules` → **0**, 135 tests
+- [x] `npm test` y `npm run test:e2e` sin regresiones — **0** y **0**
+- [ ] ~~Un evento creado antes del cambio sigue apareciendo en el listado~~ —
+      **es falso hoy, y a sabiendas.** Un evento heredado sin `memberIds` no lo
+      lee ni su dueño: rescatarlo con una cláusula extra en `allow read` hace
+      que Firestore deniegue **toda** consulta de listado, así que se dejó
+      denegando limpiamente hasta el backfill. Lo fija el test *«not even its
+      owner can read it: only the backfill fixes that»* en
+      `apps/web/rules/firestore.test.ts`, y el backfill sigue sin entregarse
+      (ver T14). **Bloquea el despliegue, no el desarrollo.**
+- [ ] Revisión humana de `firestore.rules` antes de seguir — **pendiente de
+      persona.** No lo puede marcar un agente.
 
 Este checkpoint es deliberadamente aburrido: **nadie ha ganado funcionalidad**.
 Es la forma de saber que el cambio de modelo no rompió nada antes de construir
@@ -125,16 +151,29 @@ encima.
 
 ### Checkpoint B — tras T17
 
-- [ ] Dos sesiones reales: el dueño invita, el invitado ve
-- [ ] Un lector no puede editar **según las reglas**, no solo según la UI
-- [ ] Un editor no puede ascenderse ni quedarse la propiedad
-- [ ] Cero violaciones de axe en el diálogo de compartir
+- [x] Dos sesiones reales: el dueño invita, el invitado ve —
+      `e2e/sharing.spec.ts`, seis tests con dos sesiones, en verde
+- [x] Un lector no puede editar **según las reglas**, no solo según la UI —
+      tests de denegación en `apps/web/rules/firestore.test.ts`
+- [x] Un editor no puede ascenderse ni quedarse la propiedad — ídem, y
+      confirmado por el red-team contra los emuladores (`AGENTS.md`)
+- [x] Cero violaciones de axe en el diálogo de compartir —
+      *«the share dialog has no accessibility violations»*, en verde
 
 ### Checkpoint C — tras T22
 
-- [ ] Las tres vistas con axe limpio
-- [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar
-- [ ] Los filtros funcionan igual en rejilla, calendario y agenda
+**No se puede evaluar todavía: falta T21**, que es la que crea el conmutador y
+la vista de agenda. Sin ella no hay tres vistas que medir. Dos de los tres
+ítems dependen de ella y el tercero es manual.
+
+- [ ] Las tres vistas con axe limpio — **bloqueado por T21.** Hoy hay axe sobre
+      el listado y sobre la rejilla mensual (T20 lo mete incluso en el
+      unitario), pero la agenda no existe.
+- [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar —
+      **pendiente de persona.** No hay forma de automatizarlo: hace falta abrir
+      el fichero en dos aplicaciones reales.
+- [ ] Los filtros funcionan igual en rejilla, calendario y agenda —
+      **bloqueado por T21.**
 
 ### Checkpoint D — tras T24
 
@@ -143,10 +182,21 @@ encima.
 
 ### Checkpoint E — tras T25 · el más delicado
 
-- [ ] `/app`, `/app/login` y `/app/profile` funcionan tras el emulador de Hosting
-- [ ] Los enlaces antiguos redirigen
-- [ ] **Todos los e2e existentes pasan con las rutas nuevas**
-- [ ] Desplegado a un canal de previsualización antes de tocar producción
+- [x] `/app`, `/app/login` y `/app/profile` funcionan — los e2e navegan a las
+      tres y pasan. **Matiz que conviene no perder:** corren contra
+      `npm run dev`, no contra el emulador de Hosting, así que lo verificado es
+      el enrutado del cliente, no la configuración de `firebase.json`.
+- [ ] Los enlaces antiguos redirigen — **sin verificar automáticamente, y no se
+      puede.** Las redirecciones 301 viven en `firebase.json` y los e2e nunca
+      ven esa configuración; es la misma limitación que `AGENTS.md` documenta
+      para la CSP y las cabeceras de caché. Se comprueba a mano tras desplegar.
+- [x] **Todos los e2e existentes pasan con las rutas nuevas** —
+      `npm run test:e2e` → **0**
+- [ ] ~~Desplegado a un canal de previsualización antes de tocar producción~~ —
+      **obsoleto.** El [ADR 0005](../docs/adr/0005-sin-entornos-de-preview.md)
+      eliminó los canales de preview, así que esta casilla no se puede marcar
+      nunca. Se deja tachada en vez de borrada: el ítem documenta una decisión
+      que cambió, y borrarlo escondería que este plan es anterior al ADR.
 
 ### Checkpoint F — tras T29
 
@@ -154,6 +204,17 @@ encima.
 - [ ] Se ve y se navega con JavaScript desactivado
 - [ ] LCP < 1,5 s en 4G simulada; presupuesto de bytes respetado
 - [ ] Los textos salen del mismo XLIFF que la app, en los dos idiomas
+
+### Checkpoint H — tras T39 · arquitectura hexagonal
+
+Vive en [`todo.md`](todo.md) y no estaba aquí: este plan es anterior a
+[`docs/spec-arquitectura-hexagonal.md`](../docs/spec-arquitectura-hexagonal.md).
+Se enumera para que la lista de checkpoints esté completa.
+
+- [x] Tras T35: la frontera es comprobable por comando y no ha cambiado ni una
+      línea de comportamiento — `npm run test:arch` → **0**, 7 aserciones
+- [ ] Tras T36: persona delante, por el acceso con Google, que no tiene e2e
+- [ ] Tras T39: suite completa y `grep -rl \'from "firebase/\' src/ui/` vacío
 
 ### Checkpoint G — final
 

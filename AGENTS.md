@@ -167,6 +167,31 @@ de política sin dependencias, y sólo lo detectó una revisión.
 Los ADRs se numeran (`0001-titulo-en-kebab-case.md`) y no se reescriben una vez
 aceptados: si una decisión cambia, se añade un ADR nuevo que la supersede.
 
+### El plan también se actualiza, no sólo la lista de tareas
+
+`tasks/todo.md` lleva las casillas de cada tarea; `tasks/plan.md` lleva las de
+cada **checkpoint**, que es lo que decide si una fase se cierra. Durante meses
+sólo se marcó lo primero, y el resultado fue que **las veintiséis casillas de
+checkpoint seguían vacías con las fases 6, 7 y 10 terminadas** — incluida una
+que hoy es **falsa a sabiendas** y nadie había registrado.
+
+Por eso:
+
+- **La tarea que cierra una fase evalúa su checkpoint en el mismo commit.** Las
+  demás tareas de la fase dejan su evidencia en su entrada de `todo.md` y no
+  tocan `plan.md`: varias ramas escribiendo en las mismas líneas garantizan
+  conflicto, y ninguna puede cerrar sola un checkpoint que depende de sus
+  hermanas.
+- **Una casilla se marca sólo con la evidencia al lado**: el comando y su
+  código de salida, o el fichero y la línea.
+- **Lo que no se puede demostrar no se marca.** Se deja sin marcar diciendo qué
+  falta y de quién depende. Hay tres clases que nunca las cierra un agente: la
+  revisión humana de las reglas, abrir un `.ics` en una aplicación real, y todo
+  lo que viva en `firebase.json` —redirecciones, CSP, cabeceras— porque los e2e
+  corren contra `npm run dev` y no ven esa configuración.
+- **Un ítem que quedó obsoleto se tacha, no se borra.** Si se borra, se pierde
+  que el plan es anterior a la decisión que lo invalidó.
+
 ### Ramas: `git branch --merged` miente aquí
 
 Las PR entran con **squash**, así que el commit que aterriza en `main` tiene un
