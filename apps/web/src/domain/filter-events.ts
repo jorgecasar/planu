@@ -114,3 +114,23 @@ export function filterEvents<T extends PlanuEvent>(
 			matchesTags(event, tags),
 	);
 }
+
+/**
+ * Si el usuario ha pedido algo concreto, frente a estar simplemente mirando.
+ *
+ * Vivía duplicada en la vista, y las dos copias **discrepaban**: una contaba las
+ * etiquetas y la otra no, así que filtrar por la etiqueta «música» y buscar
+ * «música» —misma intención, mismos resultados— se comportaban distinto. Vive
+ * aquí porque es una regla, no marcado, y aquí se puede probar.
+ *
+ * La bandeja elegida (todos / míos / compartidos) queda fuera a propósito: es
+ * un modo de navegar, no una consulta.
+ */
+export function isNarrowed(filters: EventFilters): boolean {
+	return (
+		(filters.searchTerm ?? "") !== "" ||
+		Boolean(filters.from) ||
+		Boolean(filters.to) ||
+		(filters.tags?.length ?? 0) > 0
+	);
+}

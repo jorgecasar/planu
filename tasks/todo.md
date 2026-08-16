@@ -238,7 +238,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
     y 3 sobre el e2e**: las 26 mueren, y en el test que dicen fijar. El tope de
     23 ficheros acoplados no se movió.
 
-- [ ] **T19 · Orden y agrupación (F7)** · S · depende de T13
+- [x] **T19 · Orden y agrupación (F7)** · S · depende de T13
   - Acepta: orden por fecha de inicio, título o creación; separación entre
     próximos y pasados con los pasados plegados; los eventos sin fecha en su
     propio grupo, con la misma semántica que ya usa `filterEvents`; preferencia
@@ -246,7 +246,68 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Verifica: unitarios de ordenación con empates y eventos sin fecha
   - Ficheros: `src/events/sort-events.ts` + test, `src/lib/view-preferences.ts`,
     `src/events/events-view.ts`
+  - Resultado: el módulo puro vive en **`src/domain/sort-events.ts`**, no en
+    `src/events/`: es la misma clase de módulo que `filter-events.ts` y T35 ya
+    fijó `domain/` como su sitio. Desempate por título y **siempre ascendente**,
+    también en descendente. Lo que no tiene clave —sin `createdAt`, sin
+    fechas— va al final en las dos direcciones. Grupos en orden fijo (próximos,
+    sin fecha, pasados) y sólo lo pasado se pliega; la apertura del pliegue
+    **no** se recuerda, sólo el criterio de orden.
+  - Resultado (tras revisión): el pliegue de pasados **sí se abre** cuando es el
+    único grupo con contenido o cuando el usuario ha buscado o filtrado por
+    fechas; plegarlo siempre dejaba una búsqueda que sólo casa con pasados
+    enseñando cero tarjetas y ningún mensaje. La decisión es la función pura
+    `shouldRevealPast`. El pintado de los grupos se separó a
+    **`src/events/event-groups.ts`**, sin Firebase, que es lo que le da oráculo
+    automático a lo que antes no lo tenía: `events-view` no se puede montar en
+    un test sin emuladores. Los `value` del selector salen de `sortOptions()` en
+    el dominio y ya no hay literales `"startDate:asc"` en la plantilla; la
+    preferencia guardada se valida contra lo que el selector sabe pintar.
+    Encabezados: `h2` por grupo y `h3` por tarjeta (antes `h2`, que dejaba al
+    evento hermano de su grupo), y el `h2` de pasados va fuera del `wa-details`
+    porque su `<summary>` lleva `role="button"` y ARIA vuelve presentacionales a
+    los hijos de un botón. `DEFAULT_SORT` es `as const satisfies` en vez de
+    `Object.freeze`: el fallo se quiere en compilación.
 
+  - **Corregido en revisión** (un revisor distinto del autor eligió sus propios
+    mutantes y **sobrevivieron 7 de 13**, pese a los «16 de 16» que reportaba la
+    primera entrega):
+    1. **La noción de «consulta explícita» estaba duplicada y las dos copias
+       discrepaban** justo en las etiquetas, que T18 acababa de aterrizar. Pulsar
+       la etiqueta «música» y escribir «música» —misma intención, mismos
+       resultados— abrían o no el pliegue de pasados según cuál usaras. Ahora es
+       `isNarrowed()` en `domain/`, una sola definición y con tests.
+    2. **Los tests del componente eran ciegos al pintado y al árbol de
+       accesibilidad.** `querySelectorAll` encuentra un nodo aunque su contenedor
+       esté en `display: none` y aunque lleve `aria-hidden`: dos mutantes que
+       ocultaban la rejilla y sacaban los encabezados del árbol dejaban la suite
+       verde. Ahora se comprueba `checkVisibility()` y se ignoran los
+       `aria-hidden`.
+    3. **`narrowed` se probaba por propiedad y producción lo pasa por
+       atributo.** Sin `type: Boolean` el atributo vacío vale `""` —falsy— y el
+       pliegue no se abría nunca; ningún test lo habría visto.
+    4. **`as const` no sobrevive a los tipos de retorno.** `DEFAULT_SORT` estaba
+       protegida como referencia directa, pero mutarla a través de
+       `sortOptions()[0].preference` compilaba y cambiaba la preferencia por
+       defecto de toda la aplicación. Va `Readonly` en todo lo que sale.
+    5. «Show 1 past events» en el caso más común, y no es decoración: es el
+       nombre accesible del `<summary role="button">`.
+    6. Nadie llamaba a `readSortPreference()` **sin argumento**, que es como la
+       llama la vista: borrar el respaldo a `localStorage` no rompía nada.
+  - **Dos e2e nuevos, y el escenario importa.** El primero que escribí **no
+    probaba lo que decía**: al buscar algo que sólo casaba con pasados, el
+    pliegue se abría por *otra* regla —eran el único grupo con contenido— y el
+    mutante sobrevivía a los 46 e2e. Con próximos **y** pasados con contenido, el
+    mismo mutante mata dos tests. Las fechas son relativas a hoy: desde T19 la
+    suite es sensible al reloj y una fecha fija cambia de grupo con el tiempo.
+  - Verificado: **315 unitarios, 143 de reglas y 46 e2e**, con `lint`,
+    `typecheck`, `lint:lit`, `test:arch` y `build` en 0 comprobado con `$?`.
+    `test:arch` sigue en 7 aserciones y el tope de 23 ficheros acoplados no se
+    movió — de hecho la rama **resta** superficie acoplada, al sacar el pintado
+    de `events-view` a `event-groups`.
+  - **Al fusionar con el exportador de T22**: `.events=${visible}` tiene que
+    seguir atado al array **anterior** a agrupar. Alimentarlo con `groups` deja
+    el `.ics` de la agenda con un solo grupo y **no lo detecta nada**.
 - [x] **T20 · Rejilla mensual (F5, primera mitad)** · M · depende de T19
   - Acepta: reparto de eventos en las celdas del mes como función pura; rejilla
     con CSS grid e `Intl.DateTimeFormat`, **sin librería de calendario**; primer

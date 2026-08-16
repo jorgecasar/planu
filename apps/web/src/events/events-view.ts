@@ -2,6 +2,8 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
+import "@awesome.me/webawesome/dist/components/option/option.js";
+import "@awesome.me/webawesome/dist/components/select/select.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "./ai-event-generator.js";
 import "./calendar-export.js";
@@ -11,6 +13,7 @@ import type { InferenceSourceName } from "../domain/ai-policy.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import "./event-editor.js";
 import "./event-filters.js";
+import "./event-groups.js";
 import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
@@ -29,8 +32,16 @@ import { customElement, state } from "lit/decorators.js";
 import {
 	type DateRange,
 	filterEvents,
+	isNarrowed,
 	type OwnershipFilter,
 } from "../domain/filter-events.js";
+import {
+	groupEvents,
+	parseSortPreference,
+	type SortPreference,
+	serializeSortPreference,
+	sortOptions,
+} from "../domain/sort-events.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import {
@@ -38,6 +49,10 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
+import {
+	readSortPreference,
+	writeSortPreference,
+} from "../lib/view-preferences.js";
 import type { FiltersChange } from "./event-filters.js";
 
 /**
@@ -104,6 +119,10 @@ export class PlanuEventsView extends LitElement {
 			flex: 1 1 24rem;
 		}
 
+		wa-select {
+			flex: 0 1 14rem;
+		}
+
 		.empty {
 			margin-block-start: var(--wa-space-2xl);
 			text-align: center;
@@ -127,6 +146,13 @@ export class PlanuEventsView extends LitElement {
 	@state() private draft: Partial<PlanuEvent> | undefined;
 	@state() private draftSource: InferenceSourceName | undefined;
 	@state() private aiAvailable = false;
+
+	/**
+	 * El orden elegido, recuperado de la sesión anterior. Se lee al construir y
+	 * no en `connectedCallback`, para que el primer render ya salga ordenado
+	 * como el usuario lo dejó y no salte a la vista.
+	 */
+	@state() private sort: SortPreference = readSortPreference();
 
 	readonly #events = new CollectionController<DocumentData>(this);
 
@@ -201,8 +227,24 @@ export class PlanuEventsView extends LitElement {
 					.availableTags=${knownTags}
 					@planu-filters-change=${this.#onFilters}
 				></planu-event-filters>
+
+				<wa-select
+					label=${msg("Sort by")}
+					.value=${serializeSortPreference(this.sort)}
+					@change=${this.#onSort}
+				>
+					${sortOptions().map(
+						(option) =>
+							html`<wa-option value=${option.value}>${option.label}</wa-option>`,
+					)}
+				</wa-select>
+
 				<!-- La agenda que se exporta es la que se está viendo: los mismos
-				     eventos que ya han pasado por los filtros. -->
+				     eventos que ya han pasado por los filtros, **antes** de agrupar.
+				     Si alguien le pasa aquí \`groups\` en vez de \`visible\`, el .ics se
+				     queda con un solo grupo y no lo detecta nada: los unitarios usan
+				     sus propios datos y el e2e sólo comprueba que un filtro reduce a
+				     un VEVENT. -->
 				<planu-calendar-export
 					mode="agenda"
 					.events=${visible}
@@ -289,11 +331,40 @@ export class PlanuEventsView extends LitElement {
 		if (this.#events.loading) return this.#renderSkeletons();
 		if (visible.length === 0) return this.#renderEmpty(total);
 
-		return html`<div class="grid">
-			${visible.map(
-				(event) => html`<planu-event-card .event=${event}></planu-event-card>`,
-			)}
-		</div>`;
+		// `new Date()` aquí y no dentro del dominio: el reloj es una entrada, y
+		// esta vista es el borde donde se lee. `groupEvents` recibe el instante
+		// y así se puede probar sin depender de cuándo se ejecuten los tests.
+		//
+		// Se lee en cada repintado y no hay temporizador, así que un evento que
+		// termina con la página abierta no salta de «próximos» a «pasados» hasta
+		// el siguiente render —un filtro, un cambio de orden, un snapshot—.
+		// Deliberado: un `setInterval` para reordenar la pantalla bajo el cursor
+		// molesta más de lo que corrige.
+		const groups = groupEvents(visible, { now: new Date(), sort: this.sort });
+
+		return html`<planu-event-groups
+			.groups=${groups}
+			?narrowed=${this.#narrowed}
+		></planu-event-groups>`;
+	}
+
+	/**
+	 * El usuario ha pedido algo concreto. Decide si el grupo de pasados sale
+	 * abierto (ver `shouldRevealPast`) y también qué mensaje de «sin resultados»
+	 * se enseña.
+	 *
+	 * Una sola fuente para las dos preguntas, y en `domain/`: estaban duplicadas
+	 * y discrepaban justo en las etiquetas, así que pulsar la etiqueta «música»
+	 * y escribir «música» —misma intención, mismos resultados— abrían o no el
+	 * pliegue según cuál usaras.
+	 */
+	get #narrowed(): boolean {
+		return isNarrowed({
+			searchTerm: this.searchTerm,
+			from: this.range.from,
+			to: this.range.to,
+			tags: this.tags,
+		});
 	}
 
 	#renderSkeletons() {
@@ -332,11 +403,7 @@ export class PlanuEventsView extends LitElement {
 	#emptyFilteredMessage(): string {
 		// Only when the inbox filter is the sole cause. With a search on top,
 		// "you have not created any events" would be plainly false.
-		const inboxOnly =
-			this.searchTerm === "" &&
-			!this.range.from &&
-			!this.range.to &&
-			this.tags.length === 0;
+		const inboxOnly = !this.#narrowed;
 
 		if (inboxOnly && this.ownership === "shared") {
 			return msg("Nobody has shared an event with you yet.");
@@ -353,6 +420,25 @@ export class PlanuEventsView extends LitElement {
 		this.range = { from: detail.from, to: detail.to };
 		this.ownership = detail.ownership;
 		this.tags = detail.tags;
+	}
+
+	/**
+	 * Reasignar `.value` en cada render hace que el `wa-select` responda con
+	 * `change`; sin la guarda, esto reasignaría el estado, provocaría otro
+	 * render y volvería a empezar. Es el mismo bucle que ya documenta el grupo
+	 * de radios de `event-filters.ts`.
+	 */
+	#onSort(domEvent: Event): void {
+		const select = domEvent.target as HTMLElement & { value?: string };
+		const chosen = parseSortPreference(select.value);
+		if (
+			serializeSortPreference(chosen) === serializeSortPreference(this.sort)
+		) {
+			return;
+		}
+
+		this.sort = chosen;
+		writeSortPreference(chosen);
 	}
 
 	#onNew(): void {
