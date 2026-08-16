@@ -65,16 +65,34 @@ function matchesOwnership(
 	return ownership === "mine" ? isOwner : !isOwner;
 }
 
+/**
+ * Todas las etiquetas seleccionadas deben estar en el evento: se combinan con
+ * **Y**, no con **O** (F6).
+ *
+ * Con **O**, añadir una etiqueta al filtro amplía el resultado, y eso hace
+ * inútil el filtro en cuanto el usuario tiene unas cuantas. Con **Y** cada
+ * etiqueta que se añade acota, que es lo que se espera de un filtro.
+ *
+ * Las seleccionadas se dan por normalizadas: salen de las que ya usa el
+ * usuario, no de texto tecleado.
+ */
+function matchesTags(event: PlanuEvent, selected: readonly string[]): boolean {
+	if (selected.length === 0) return true;
+	return selected.every((tag) => event.tags.includes(tag));
+}
+
 export interface EventFilters extends DateRange {
 	searchTerm?: string;
 	ownership?: OwnershipFilter;
 	/** Who is looking. Without it, "mine" means nothing. */
 	uid?: string;
+	/** Combined with AND: an event must carry all of them. */
+	tags?: readonly string[];
 }
 
 /**
- * Filters by text, by date range and by ownership. The criteria add up: all
- * three must hold.
+ * Filters by text, by date range, by ownership and by tag. The criteria add
+ * up: all four must hold.
  *
  * Generic so nothing the caller attached to the event is lost on the way, such
  * as the `id` it carries from Firestore.
@@ -85,12 +103,14 @@ export function filterEvents<T extends PlanuEvent>(
 	range: DateRange = {},
 	ownership: OwnershipFilter = "all",
 	uid = "",
+	tags: readonly string[] = [],
 ): T[] {
 	const term = searchTerm.trim().toLowerCase();
 	return events.filter(
 		(event) =>
 			matchesSearch(event, term) &&
 			matchesRange(event, range) &&
-			matchesOwnership(event, uid, ownership),
+			matchesOwnership(event, uid, ownership) &&
+			matchesTags(event, tags),
 	);
 }

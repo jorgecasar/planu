@@ -143,7 +143,7 @@ service cloud.firestore {
         return d.keys().hasOnly(
                  ['title', 'description', 'location', 'userId',
                   'startDate', 'endDate', 'imageUrl',
-                  'memberIds', 'roles', 'createdAt'])
+                  'memberIds', 'roles', 'createdAt', 'tags'])
             && d.keys().hasAll(['title', 'description', 'location', 'userId',
                                 'memberIds', 'roles'])
             && isValidMembership(d)
@@ -166,7 +166,56 @@ service cloud.firestore {
             && (!('startDate' in d)
                 || d.startDate == null || d.startDate is timestamp)
             && (!('endDate' in d)
-                || d.endDate == null || d.endDate is timestamp);
+                || d.endDate == null || d.endDate is timestamp)
+            && isValidTags(d);
+      }
+
+      // Tags are optional and NOT in hasAll: every event written before F6
+      // lacks the field, and requiring it would make those events uneditable.
+      //
+      // The rules language has no loop, so the length of each individual tag
+      // cannot be checked here — only the aggregate, which is what actually
+      // bounds the cost. 280 leaves room for the client's own limit of ten
+      // tags of twenty-four characters (249 with separators) without pinning
+      // the rule to it: the client normalises, the rule keeps the bill down.
+      //
+      // Every element must be a string, and there is no `is string` for list
+      // elements either. The round trip is what stands in for it: joining and
+      // re-splitting a list of strings gives the same list back, while
+      // ['ok', 42] comes back as ['ok', '42'] and no longer compares equal.
+      //
+      // `join` alone will NOT do — it coerces a number instead of erroring.
+      // That was assumed here and the test disproved it.
+      //
+      // A newline as the separator: `normalizeTag` collapses every run of
+      // whitespace to a single space, so a normalised tag can never hold
+      // one, while a comma very well can and would break the trip on an
+      // honest tag. A tag carrying a newline is denied, which is the right
+      // side to fail on. Written as an escape and not as the raw byte: a
+      // control character in a rules file is invisible in review.
+      // `is list` is belt and braces and no test can prove it: every non-list
+      // is already denied downstream, because `join` errors on a string or a
+      // map and an error denies. Mutating it away leaves the suite green.
+      // It stays because it makes the denial intentional instead of an
+      // accident of how `join` fails — but nobody should read it as tested.
+      function isValidTags(d) {
+        return !('tags' in d)
+            || (d.tags is list
+                && d.tags.size() <= 10
+                // The empty string survives the trip anywhere but at the end,
+                // because `split` drops a trailing empty field: [''] and
+                // ['', 'x'] are accepted, ['x', ''] is denied. The whole
+                // family is pinned by "a lone empty string is accepted,
+                // unlike a trailing one" — the earlier comment named two of
+                // the three cases and left the lone one to be rediscovered.
+                // The client never writes an empty tag and `normalizeTags`
+                // drops it on read, so the asymmetry costs nothing.
+                && (d.tags.size() == 0
+                    || (d.tags.join('\n').size() <= 280
+                        && d.tags == d.tags.join('\n').split('\n')))
+                // The client deduplicates, but the client is not in charge.
+                // Without this, ten copies of one tag pass as ten tags.
+                && d.tags.toSet().size() == d.tags.size());
       }
 
       // Events are still not public: you must be the owner or a guest. The UI

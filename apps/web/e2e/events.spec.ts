@@ -38,6 +38,28 @@ async function createEvent(page: Page, title: string): Promise<void> {
 	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
 }
 
+/** Como `createEvent`, pero pasando por el campo de etiquetas. */
+async function createTaggedEvent(
+	page: Page,
+	title: string,
+	tags: string[],
+): Promise<void> {
+	await openEditor(page);
+	await page.getByLabel("Title").fill(title);
+	for (const tag of tags) {
+		// Por rol y no `getByLabel("Tags")`: eso casa además con la lista
+		// «Chosen tags», y Playwright aborta por ambigüedad en cuanto hay una
+		// etiqueta puesta.
+		const campo = page.getByRole("textbox", { name: "Tags" });
+		await campo.fill(tag);
+		// Intro y no coma: la coma es un carácter válido dentro de una etiqueta.
+		await campo.press("Enter");
+	}
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.getByRole("heading", { name: title })).toBeVisible();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+}
+
 test("una cuenta nueva empieza sin eventos", async ({ page }) => {
 	await signUp(page);
 	await expect(page.getByText("You have no events yet.")).toBeVisible();
@@ -79,7 +101,7 @@ test("una búsqueda sin resultados se distingue de no tener eventos", async ({
 	await page.getByLabel("Search").fill("zzzz");
 
 	await expect(
-		page.getByText("No events match your search or date filter."),
+		page.getByText("No events match your search, tags or date filter."),
 	).toBeVisible();
 	await expect(page.getByText("You have no events yet.")).toBeHidden();
 });
@@ -177,4 +199,175 @@ test("recargar la página estando autenticado mantiene la sesión y el listado",
 		page.getByRole("heading", { name: "Concierto de verano" }),
 	).toBeVisible();
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
+});
+
+test("una etiqueta se guarda, se normaliza y se ve en la tarjeta", async ({
+	page,
+}) => {
+	await signUp(page);
+	// Con mayúsculas y espacios de sobra: debe llegar normalizada al listado.
+	await createTaggedEvent(page, "Concierto de verano", ["  Música  "]);
+
+	await expect(page.getByRole("listitem").getByText("música")).toBeVisible();
+});
+
+test("el filtro por etiquetas combina con Y y se puede limpiar", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createTaggedEvent(page, "Concierto de verano", ["música", "verano"]);
+	await createTaggedEvent(page, "Cena de empresa", ["música"]);
+
+	// Se pulsa el componente y no su `input` interno: `wa-checkbox` interpone un
+	// `<span part="control">` encima, así que `check()` sobre el input se queda
+	// esperando para siempre. Pulsar el host es además lo que hace una persona.
+	const casilla = (tag: string) => page.locator(`wa-checkbox[value="${tag}"]`);
+
+	// Una etiqueta: los dos eventos la llevan.
+	await casilla("música").click();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Cena de empresa" }),
+	).toBeVisible();
+
+	// Dos etiquetas: sólo el que lleva las dos. Con O saldrían los dos.
+	await casilla("verano").click();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Cena de empresa" }),
+	).toBeHidden();
+
+	// Y al limpiar, la casilla tiene que quedar desmarcada además de que
+	// reaparezcan los eventos: es justo lo que `?checked` no hacía.
+	await page.getByRole("button", { name: "Clear filters" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Cena de empresa" }),
+	).toBeVisible();
+	// Se afirma sobre el `input` interno y no sobre el host, que no es un
+	// checkbox nativo. Y es la aserción que importa de todo el test: es
+	// exactamente lo que `?checked` no conseguía, porque su atributo mapea a
+	// `defaultChecked` y el componente lo ignora tras el primer clic.
+	await expect(
+		page.getByRole("checkbox", { name: "música" }),
+	).not.toBeChecked();
+	await expect(
+		page.getByRole("checkbox", { name: "verano" }),
+	).not.toBeChecked();
+});
+
+test("una etiqueta puesta se puede quitar con el teclado", async ({ page }) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Concierto de verano");
+	await page.getByRole("textbox", { name: "Tags" }).fill("música");
+	await page.getByRole("textbox", { name: "Tags" }).press("Enter");
+
+	// El botón de borrado que trae wa-tag sale con tabindex -1 y no se puede
+	// alcanzar; por eso hay uno propio. Se activa por su nombre accesible.
+	await page.getByRole("button", { name: "Remove tag música" }).press("Enter");
+
+	await expect(
+		page.getByRole("button", { name: "Remove tag música" }),
+	).toBeHidden();
+});
+
+test("el listado con etiquetas y su filtro no tienen violaciones de accesibilidad", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createTaggedEvent(page, "Concierto de verano", ["música"]);
+
+	// Aquí sí la página entera: el listado con las `wa-tag` de la tarjeta y las
+	// casillas del filtro, que es toda la superficie que T18 añade fuera del
+	// diálogo.
+	const resultados = await new AxeBuilder({ page }).analyze();
+	expect(resultados.violations).toEqual([]);
+});
+
+test("el campo de etiquetas del editor no tiene violaciones de accesibilidad", async ({
+	page,
+}) => {
+	await signUp(page);
+	// Este test encontró una violación de verdad: las etiquetas del editor se
+	// pintaban con el neutro por defecto de Web Awesome —4,42:1, por debajo de
+	// AA— porque los colores por tono vivían sólo en la tarjeta. De ahí que el
+	// estilo esté ahora compartido en `tag-styles.ts`.
+	//
+	// Se abre el editor **una sola vez** y se escanea sin guardar. Reabrirlo
+	// destapa un defecto distinto que ya existe en `main`: en la segunda
+	// apertura el diálogo se queda translúcido y axe mide contrastes de entre
+	// 1,3:1 y 4,4:1 sobre su propio título y sobre la etiqueta de la portada.
+	// Reproducido en `main` sin una línea de T18, y anotado como T43.
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Concierto de verano");
+	const campo = page.getByRole("textbox", { name: "Tags" });
+	await campo.fill("música");
+	await campo.press("Enter");
+	await expect(
+		page.getByRole("button", { name: "Remove tag música" }),
+	).toBeVisible();
+
+	// Acotado al campo de etiquetas, atravesando el shadow DOM. Escanear el
+	// diálogo entero mide además su cromo —título y etiqueta de la portada—,
+	// que arrastra un defecto de opacidad ya presente en `main` (ver T43) y
+	// convertiría este test en un detector de aquél en vez de una prueba de
+	// las etiquetas.
+	//
+	// Dos cosas que hay que acertar a la vez, y fallar cualquiera de ellas deja
+	// un test verde que no mira nada:
+	//
+	// La cadena es de cuatro saltos y no de dos. Cada elemento entra en el
+	// shadow root del anterior, y el editor vive dentro del de la vista, que
+	// vive dentro del de la aplicación. Empezando en `planu-event-editor`, axe
+	// aborta con «No elements found» — que es lo que pasó, y lo que dejó este
+	// comentario describiendo un acotado que no estaba puesto.
+	//
+	// Y va **anidada**, `[[...]]`. Con el array plano axe no protesta: acota a
+	// nada y devuelve cero violaciones sobre cero elementos. Medido — plano, 0
+	// reglas aprobadas y 88 inaplicables; anidado, 21 aprobadas—. De ahí la
+	// segunda aserción, que es lo único que separa «no hay violaciones» de «no
+	// se ha mirado».
+	const resultados = await new AxeBuilder({ page })
+		.include([
+			["planu-app", "planu-events-view", "planu-event-editor", ".tags"],
+		])
+		.analyze();
+	expect(resultados.violations).toEqual([]);
+	expect(resultados.passes.length).toBeGreaterThan(0);
+});
+
+test("una etiqueta seleccionada no desaparece al dejar de usarse", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createTaggedEvent(page, "Concierto de verano", ["música"]);
+
+	await page.locator('wa-checkbox[value="música"]').click();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+
+	// Se edita el evento y se le quita la etiqueta, así que el vocabulario del
+	// usuario se queda vacío y `availableTags` con él.
+	await page.getByRole("button", { name: "Edit" }).click();
+	await page.getByRole("button", { name: "Remove tag música" }).click();
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// Pintando sólo `availableTags`, la casilla desaparecía del DOM con el
+	// filtro todavía puesto: el listado se quedaba vacío para siempre y no había
+	// nada marcado que lo explicase.
+	await expect(page.getByRole("checkbox", { name: "música" })).toBeChecked();
+	await expect(
+		page.getByText("No events match your search, tags or date filter."),
+	).toBeVisible();
+
+	await page.getByRole("button", { name: "Clear filters" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
 });

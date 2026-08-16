@@ -7,6 +7,7 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
 	addDoc,
+	arrayUnion,
 	collection,
 	deleteDoc,
 	doc,
@@ -17,8 +18,16 @@ import {
 	Timestamp,
 	updateDoc,
 	where,
+	writeBatch,
 } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from "vitest";
 
 const VICTIM = "victima-uid";
 const ATTACKER = "atacante-uid";
@@ -757,6 +766,303 @@ describe("the cover image cannot point anywhere", () => {
 			updateDoc(doc(asEditor(), "events/shared-event"), {
 				imageUrl:
 					"https://firebasestorage.googleapis.com/v0/b/planu-app/o/events%2Fx.png?alt=media&token=abc",
+			}),
+		);
+	});
+});
+
+describe("tags cannot be used to pad a document", () => {
+	const tags = (value: unknown) => anEvent(VICTIM, { tags: value });
+
+	test("an event without tags is still valid", async () => {
+		// Everything written before F6 lacks the field. Requiring it would make
+		// every existing event uneditable, which is why `tags` is in hasOnly but
+		// not in hasAll.
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), anEvent(VICTIM)),
+		);
+	});
+
+	test("up to ten tags are accepted", async () => {
+		const ten = Array.from({ length: 10 }, (_, i) => `tag-${i}`);
+		await assertSucceeds(addDoc(collection(asVictim(), "events"), tags(ten)));
+	});
+
+	test("an empty list is accepted", async () => {
+		await assertSucceeds(addDoc(collection(asVictim(), "events"), tags([])));
+	});
+
+	test("eleven tags are denied", async () => {
+		const eleven = Array.from({ length: 11 }, (_, i) => `tag-${i}`);
+		await assertFails(addDoc(collection(asVictim(), "events"), tags(eleven)));
+	});
+
+	test("ten tags of filler are denied by the aggregate bound", async () => {
+		// The count alone does not bound cost: ten tags of 100 KB each would
+		// pass. This is what the joined-length check exists for.
+		const filler = Array.from({ length: 10 }, (_, i) =>
+			`${i}`.padEnd(500, "x"),
+		);
+		await assertFails(addDoc(collection(asVictim(), "events"), tags(filler)));
+	});
+
+	test("a single oversized tag is denied", async () => {
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags(["x".repeat(300)])),
+		);
+	});
+
+	test("duplicates are denied: ten copies are not ten tags", async () => {
+		const same = Array.from({ length: 10 }, () => "concierto");
+		await assertFails(addDoc(collection(asVictim(), "events"), tags(same)));
+	});
+
+	test("tags must be a list, not a string", async () => {
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags("concierto")),
+		);
+	});
+
+	test("tags must be a list, not a map", async () => {
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags({ a: true })),
+		);
+	});
+
+	test("a list holding a non-string is denied", async () => {
+		// The round trip is what denies the number: `join` coerces 42 to "42",
+		// and ['ok', 42] no longer equals ['ok', '42']. The nested map is a
+		// different denial — `join` really does error on it — so it is asserted
+		// here as a second door, not as evidence for the first.
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags(["ok", 42])),
+		);
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags([{ nested: "map" }])),
+		);
+	});
+
+	test("a tag with a comma is accepted", async () => {
+		// The round-trip type check needs a separator, and a comma would have
+		// terminated an honest tag right here.
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), tags(["cine, teatro"])),
+		);
+	});
+
+	test("a tag carrying a newline is denied", async () => {
+		// It cannot survive the round trip, and `normalizeTag` would never
+		// produce one: collapsing whitespace is what guarantees that.
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags(["cine\nteatro"])),
+		);
+	});
+
+	test("an editor may retag: tags are content", async () => {
+		await assertSucceeds(
+			updateDoc(doc(asEditor(), "events/shared-event"), {
+				tags: ["concierto"],
+			}),
+		);
+	});
+
+	test("an editor cannot pad through tags either", async () => {
+		await assertFails(
+			updateDoc(doc(asEditor(), "events/shared-event"), {
+				tags: Array.from({ length: 11 }, (_, i) => `t${i}`),
+			}),
+		);
+	});
+
+	test("a viewer cannot tag at all", async () => {
+		await assertFails(
+			updateDoc(doc(asViewer(), "events/shared-event"), {
+				tags: ["concierto"],
+			}),
+		);
+	});
+
+	test("a stranger cannot tag someone else's event", async () => {
+		await assertFails(
+			updateDoc(doc(asAttacker(), "events/victim-event"), { tags: ["x"] }),
+		);
+	});
+
+	test("the aggregate bound is exactly 280: 280 passes, 281 denies", async () => {
+		// Until now the bound was only probed from far away — ten tags of 500 and
+		// a single one of 300 — so it could have been weakened to any number
+		// between 250 and 299 without a test noticing. A single tag carries no
+		// separator, so its length is the joined length.
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), tags(["x".repeat(280)])),
+		);
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags(["x".repeat(281)])),
+		);
+	});
+
+	test("a lone empty string is accepted, unlike a trailing one", async () => {
+		// The asymmetry the rule comments out loud: `split` drops a trailing
+		// empty field, so ['x', ''] cannot survive the round trip while [''] and
+		// ['', 'x'] can. Asserted rather than asserted-in-a-comment, because a
+		// comment claiming untested behaviour is how this branch got a reputation.
+		await assertSucceeds(addDoc(collection(asVictim(), "events"), tags([""])));
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), tags(["", "x"])),
+		);
+		await assertFails(
+			addDoc(collection(asVictim(), "events"), tags(["x", ""])),
+		);
+	});
+});
+
+// ─── What an editor may write, pinned as a set ──────────────────────────────
+//
+// `changesContentOnly()` is a blacklist: it names the four fields an editor may
+// not touch, so anything added to `hasOnly` becomes editor-writable by default
+// and in silence. `tags` landing there needed no change to the function, which
+// is exactly how the next field — an activity log, a pinned flag, the owner's
+// private notes — would arrive.
+describe("the set an editor may write is pinned", () => {
+	/** Content: an editor may rewrite each of these on their own. */
+	const CONTENT: [string, unknown][] = [
+		["title", "Retitulado por el editor"],
+		["description", "Otra descripción"],
+		["location", "Sevilla"],
+		["startDate", Timestamp.fromDate(new Date("2026-09-01"))],
+		["endDate", Timestamp.fromDate(new Date("2026-09-02"))],
+		[
+			"imageUrl",
+			"https://firebasestorage.googleapis.com/v0/b/planu-app/o/events%2Fy.png?alt=media&token=abc",
+		],
+		["tags", ["concierto"]],
+	];
+
+	/**
+	 * Not content: ownership, membership and the creation stamp.
+	 *
+	 * `memberIds` goes in as a **reordering**, and that is deliberate. Every
+	 * other way of touching it — adding, removing, duplicating — is already
+	 * stopped by `isValidMembership()` or by the `roles` clause, so deleting
+	 * `memberIds == memberIds` from `changesContentOnly()` left all 88 tests
+	 * green. Measured, not assumed. A reordering is the one change that keeps
+	 * every invariant and every role intact, so it is the only write that
+	 * reaches that clause and nothing else.
+	 */
+	const NOT_CONTENT: Record<string, Record<string, unknown>> = {
+		userId: { userId: EDITOR },
+		memberIds: { memberIds: [VICTIM, EDITOR, VIEWER] },
+		roles: { roles: { [VIEWER]: "editor", [EDITOR]: "editor" } },
+		createdAt: { createdAt: Timestamp.fromDate(new Date("2099-01-01")) },
+	};
+
+	test("every field the document may hold is classified as content or not", () => {
+		// Read from the rules themselves: widening `hasOnly` without deciding
+		// which side the new field falls on fails here, which is the whole point.
+		// Classifying it is then a visible diff in this file.
+		const rules = readFileSync("../../firestore.rules", "utf8");
+		const body = rules.slice(rules.indexOf("function isValidEvent("));
+		const declared = body
+			.slice(body.indexOf("hasOnly("), body.indexOf("hasAll("))
+			.match(/'([^']+)'/g)
+			?.map((quoted) => quoted.slice(1, -1));
+
+		expect(declared?.slice().sort()).toEqual(
+			[...CONTENT.map(([field]) => field), ...Object.keys(NOT_CONTENT)].sort(),
+		);
+	});
+
+	test("an editor may rewrite every content field", async () => {
+		for (const [field, value] of CONTENT) {
+			await assertSucceeds(
+				updateDoc(doc(asEditor(), "events/shared-event"), { [field]: value }),
+			);
+		}
+	});
+
+	test("an editor may rewrite none of the others", async () => {
+		for (const patch of Object.values(NOT_CONTENT)) {
+			await assertFails(
+				updateDoc(doc(asEditor(), "events/shared-event"), patch),
+			);
+		}
+	});
+});
+
+// ─── Tags cannot ride along a membership write ──────────────────────────────
+//
+// All three deny today, and none of them denies because of anything in
+// `isValidTags`: it is the field-set clauses of the consent paths that stop
+// them. A refactor of `changesContentOnly()` or of those `hasOnly` sets could
+// reopen any of the three without a single test going red, so each denial is
+// paired with the same write minus the tags, which has to pass.
+describe("tags cannot travel on a membership write", () => {
+	const seedInvite = async () => {
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await setDoc(
+				doc(ctx.firestore(), `eventInvites/victim-event_${ATTACKER}`),
+				{
+					eventId: "victim-event",
+					eventTitle: "Concierto de verano",
+					inviteeUid: ATTACKER,
+					invitedBy: VICTIM,
+					role: "viewer",
+				},
+			);
+		});
+	};
+
+	/** What the client writes to accept, optionally smuggling a content change. */
+	const accept = (extra: Record<string, unknown> = {}) => {
+		const db = asAttacker();
+		const batch = writeBatch(db);
+		batch.update(doc(db, "events/victim-event"), {
+			memberIds: arrayUnion(ATTACKER),
+			[`roles.${ATTACKER}`]: "viewer",
+			...extra,
+		});
+		batch.delete(doc(db, `eventInvites/victim-event_${ATTACKER}`));
+		return batch.commit();
+	};
+
+	test("accepting an invitation cannot carry tags", async () => {
+		await seedInvite();
+		// The tags are perfectly valid: what denies is the field set, not
+		// isValidTags.
+		await assertFails(accept({ tags: ["colada"] }));
+		// The control. Without it, the denial above could be about anything.
+		await assertSucceeds(accept());
+	});
+
+	test("leaving an event cannot carry tags", async () => {
+		await assertFails(
+			updateDoc(doc(asViewer(), "events/shared-event"), {
+				memberIds: [VICTIM, EDITOR],
+				roles: { [EDITOR]: "editor" },
+				tags: ["colada"],
+			}),
+		);
+		await assertSucceeds(
+			updateDoc(doc(asViewer(), "events/shared-event"), {
+				memberIds: [VICTIM, EDITOR],
+				roles: { [EDITOR]: "editor" },
+			}),
+		);
+	});
+
+	test("an editor cannot ride tags along a membership change", async () => {
+		await assertFails(
+			updateDoc(doc(asEditor(), "events/shared-event"), {
+				memberIds: [VICTIM, EDITOR],
+				roles: { [EDITOR]: "editor" },
+				tags: ["colada"],
+			}),
+		);
+		// Retagging on its own is content and does pass, so the denial above is
+		// about the membership half of the write.
+		await assertSucceeds(
+			updateDoc(doc(asEditor(), "events/shared-event"), {
+				tags: ["colada"],
 			}),
 		);
 	});

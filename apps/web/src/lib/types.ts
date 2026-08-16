@@ -1,6 +1,7 @@
 import { msg } from "@lit/localize";
 import type { Timestamp } from "firebase/firestore";
 import { z } from "zod";
+import { normalizeTags } from "../domain/tags.js";
 
 /**
  * Fábrica y no constante: los mensajes de validación son interfaz y deben
@@ -36,6 +37,32 @@ export const eventSchema = () =>
 			 */
 			roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
 			createdAt: z.coerce.date().nullable().optional(),
+			/**
+			 * Etiquetas libres, normalizadas por `domain/tags.ts`.
+			 *
+			 * Se sanea en vez de rechazar, y de ahí el `unknown`: este esquema
+			 * también valida lo que se lee de Firestore, y ahí un `tags` con
+			 * basura dentro tiraría el evento entero del listado. Una etiqueta
+			 * imposible se descarta; el evento se sigue viendo.
+			 *
+			 * El `.optional()` no es decorativo: en Zod 4 un `z.unknown()` pelado
+			 * acepta la clave puesta a `undefined` pero **no** que falte, y es
+			 * justo lo que traen los eventos anteriores a F6 —los mismos que las
+			 * reglas se molestan en dejar editables sin `tags` en `hasAll`—. Sin
+			 * él, la resiliencia que promete este comentario dependía de que
+			 * `toEvent` enumerase la clave a mano: parsear un documento heredado
+			 * con un *spread* los tiraba a todos del listado.
+			 */
+			tags: z
+				.unknown()
+				.optional()
+				.transform((value) =>
+					normalizeTags(
+						Array.isArray(value)
+							? value.filter((item): item is string => typeof item === "string")
+							: [],
+					),
+				),
 		})
 		.refine(
 			(data) => {

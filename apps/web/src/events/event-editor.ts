@@ -3,10 +3,12 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
+import "@awesome.me/webawesome/dist/components/icon/icon.js";
+import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 
 import { consume } from "@lit/context";
-import { msg } from "@lit/localize";
+import { msg, str } from "@lit/localize";
 import type { User } from "firebase/auth";
 import {
 	addDoc,
@@ -18,13 +20,21 @@ import {
 	Timestamp,
 } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
 	describeInferenceSource,
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
 import { toInputDate } from "../domain/format-dates.js";
+import {
+	MAX_TAG_LENGTH,
+	MAX_TAGS,
+	normalizeTag,
+	normalizeTags,
+	suggestTags,
+	tagHue,
+} from "../domain/tags.js";
 import {
 	firestoreContext,
 	storageContext,
@@ -36,13 +46,16 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
+import { tagChipStyles } from "./tag-styles.js";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 @customElement("planu-event-editor")
 export class PlanuEventEditor extends LitElement {
-	static override styles = css`
+	static override styles = [
+		tagChipStyles,
+		css`
 		form {
 			display: flex;
 			flex-direction: column;
@@ -65,13 +78,38 @@ export class PlanuEventEditor extends LitElement {
 			gap: var(--wa-space-xs);
 		}
 
+		.tags {
+			display: flex;
+			flex-direction: column;
+			gap: var(--wa-space-xs);
+		}
+
+		.tags ul {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--wa-space-2xs);
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		/* El botón de borrado que trae wa-tag sale con tabindex -1, así que
+		   quien navega con teclado no puede retirar una etiqueta puesta por
+		   error. Va un control propio al lado, alcanzable con Tab. */
+		.tags .chosen li {
+			display: flex;
+			align-items: center;
+			gap: var(--wa-space-3xs);
+		}
+
 		img {
 			inline-size: 100%;
 			block-size: 10rem;
 			object-fit: cover;
 			border-radius: var(--wa-border-radius-m);
 		}
-	`;
+		`,
+	];
 
 	@property({ type: Boolean }) open = false;
 
@@ -99,11 +137,31 @@ export class PlanuEventEditor extends LitElement {
 	@state() private saving = false;
 	@state() private error = "";
 
+	/** Etiquetas ya puestas en este evento, siempre normalizadas. */
+	@state() private tags: string[] = [];
+
+	/** Lo que se está tecleando en el campo de etiqueta. */
+	@state() private tagDraft = "";
+
+	/** Las que el usuario ya usa en otros eventos, para el autocompletado. */
+	@property({ attribute: false }) knownTags: readonly string[] = [];
+
 	override willUpdate(changed: Map<string, unknown>): void {
 		// Al abrirse, el formulario parte de lo que se está editando o de lo que
 		// propuso la IA. Sin esto el diálogo conservaría lo de la vez anterior.
-		if (changed.has("open") && this.open) {
+		//
+		// También si cambia el evento o el borrador con el diálogo ya abierto.
+		// Hoy no hay ruta que lo provoque —`editing` y `draft` sólo se tocan al
+		// abrir y al cerrar— así que no arregla ningún fallo vivo; cierra la
+		// trampa de que la primera que aparezca reabra el editor con las
+		// etiquetas del evento anterior y sin aviso.
+		if (
+			(changed.has("open") || changed.has("event") || changed.has("draft")) &&
+			this.open
+		) {
 			this.imageUrl = this.draft?.imageUrl ?? this.event?.imageUrl ?? "";
+			this.tags = normalizeTags(this.draft?.tags ?? this.event?.tags ?? []);
+			this.tagDraft = "";
 			this.error = "";
 			this.progress = 0;
 		}
@@ -213,6 +271,8 @@ export class PlanuEventEditor extends LitElement {
 						.value=${initial.location ?? ""}
 					></wa-input>
 
+					${this.#renderTags()}
+
 					<div class="dates">
 						<wa-input
 							type="date"
@@ -230,6 +290,154 @@ export class PlanuEventEditor extends LitElement {
 					</div>
 				</form>
 		`;
+	}
+
+	/**
+	 * Campo de etiquetas: las puestas, lo que se teclea y las sugerencias.
+	 *
+	 * Las sugerencias son botones y no un `datalist`: `wa-input` renderiza su
+	 * `input` dentro del shadow DOM, así que un `<datalist>` de fuera no lo
+	 * alcanza. Botones funcionan con teclado y con lector de pantalla sin
+	 * inventarse un combobox a mano.
+	 */
+	#renderTags() {
+		const suggestions = suggestTags(this.knownTags, this.tagDraft, this.tags);
+		const full = this.tags.length >= MAX_TAGS;
+
+		return html`
+			<div class="tags">
+				<wa-input
+					id="tag"
+					label=${msg("Tags")}
+					hint=${msg(str`Press Enter to add. Up to ${MAX_TAGS}.`)}
+					maxlength=${MAX_TAG_LENGTH}
+					enterkeyhint="enter"
+					?disabled=${full}
+					.value=${this.tagDraft}
+					@input=${this.#onTagInput}
+					@keydown=${this.#onTagKey}
+				></wa-input>
+
+				${this.#renderTagList(
+					"chosen",
+					msg("Chosen tags"),
+					this.tags,
+					(tag) =>
+						html`
+						<wa-tag size="small" style=${`--hue: ${tagHue(tag)}`}>${tag}</wa-tag>
+						<wa-button
+							type="button"
+							size="small"
+							appearance="plain"
+							@click=${() => this.#removeTag(tag)}
+						>
+							<wa-icon name="xmark" label=${msg(str`Remove tag ${tag}`)}></wa-icon>
+						</wa-button>
+					`,
+				)}
+
+				${
+					full
+						? nothing
+						: this.#renderTagList(
+								"suggestions",
+								msg("Suggested tags"),
+								suggestions,
+								(tag) => html`
+									<wa-button
+										type="button"
+										size="small"
+										appearance="outlined"
+										@click=${() => this.#addTag(tag)}
+									>${tag}</wa-button>
+								`,
+							)
+				}
+			</div>
+		`;
+	}
+
+	/**
+	 * Una lista de etiquetas con nombre accesible, o nada si está vacía.
+	 *
+	 * Las puestas y las sugeridas son la misma estructura con distinto
+	 * contenido; tenerlas por duplicado era la forma segura de que una ganase
+	 * un `aria-label` y la otra no.
+	 *
+	 * El contenido se tipa con el `TemplateResult` que exporta lit y no con
+	 * `unknown`: `unknown` admite una función que devuelva `void` o una promesa,
+	 * y las dos compilan y pintan `undefined` o `[object Promise]` sin que nadie
+	 * se entere.
+	 */
+	#renderTagList(
+		className: string,
+		label: string,
+		tags: readonly string[],
+		content: (tag: string) => TemplateResult,
+	) {
+		if (tags.length === 0) return nothing;
+
+		return html`<ul class=${className} aria-label=${label}>
+			${tags.map((tag) => html`<li>${content(tag)}</li>`)}
+		</ul>`;
+	}
+
+	#onTagInput(domEvent: globalThis.Event): void {
+		const source = domEvent.composedPath()[0] as HTMLInputElement | undefined;
+		this.tagDraft = source?.value ?? "";
+	}
+
+	/**
+	 * Enter añade la etiqueta en vez de enviar el formulario.
+	 *
+	 * Sin el `preventDefault` el editor se guardaría a medio escribir cada vez
+	 * que alguien confirma una etiqueta, que es justo el gesto natural.
+	 *
+	 * La coma **no** separa, aunque sea la costumbre. Una etiqueta puede
+	 * llevarla —`normalizeTag` la conserva y las reglas la aceptan, que es
+	 * justo por lo que el separador de allí es el salto de línea— así que
+	 * tratarla como separador prohibiría en silencio un valor que las otras dos
+	 * capas dan por bueno. Y el campo sólo anuncia Intro.
+	 */
+	#onTagKey(domEvent: KeyboardEvent): void {
+		if (domEvent.key !== "Enter") return;
+		domEvent.preventDefault();
+		this.#addTag(this.tagDraft);
+	}
+
+	/**
+	 * El aviso de longitud, en un único sitio.
+	 *
+	 * Se pone y se retira comparándolo, porque `error` es el canal de todo el
+	 * diálogo: retirarlo a ciegas al añadir una etiqueta borraba también «The
+	 * image could not be uploaded», y el usuario perdía un aviso sobre algo que
+	 * no había hecho nada por resolver.
+	 */
+	#tagLengthError(): string {
+		return msg(str`A tag must be ${MAX_TAG_LENGTH} characters or fewer.`);
+	}
+
+	#addTag(raw: string): void {
+		const tag = normalizeTag(raw);
+		if (tag === null) {
+			// Sólo se avisa si había algo que añadir: un Enter sobre el campo
+			// vacío es un gesto, no un error.
+			if (raw.trim() !== "") {
+				this.error = this.#tagLengthError();
+			}
+			return;
+		}
+		if (this.tags.includes(tag) || this.tags.length >= MAX_TAGS) {
+			this.tagDraft = "";
+			return;
+		}
+		this.tags = [...this.tags, tag];
+		this.tagDraft = "";
+		if (this.error === this.#tagLengthError()) this.error = "";
+	}
+
+	#removeTag(tag: string): void {
+		this.tags = this.tags.filter((each) => each !== tag);
 	}
 
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
@@ -293,6 +501,7 @@ export class PlanuEventEditor extends LitElement {
 			endDate: date("endDate"),
 			imageUrl: this.imageUrl,
 			userId: user.uid,
+			tags: this.tags,
 		});
 
 		if (!parsed.success) {
@@ -323,6 +532,7 @@ export class PlanuEventEditor extends LitElement {
 			imageUrl: values.imageUrl ?? "",
 			startDate: values.startDate ? Timestamp.fromDate(values.startDate) : null,
 			endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
+			tags: values.tags,
 		};
 
 		// Editing sends content only. Resending the editor's uid would cost an

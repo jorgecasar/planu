@@ -1,15 +1,21 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
+import "@awesome.me/webawesome/dist/components/checkbox-group/checkbox-group.js";
+import "@awesome.me/webawesome/dist/components/checkbox/checkbox.js";
 import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import { msg } from "@lit/localize";
-import { css, html, LitElement } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { css, html, LitElement, nothing } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { live } from "lit/directives/live.js";
+import { repeat } from "lit/directives/repeat.js";
 import type { DateRange, OwnershipFilter } from "../domain/filter-events.js";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;
 	ownership: OwnershipFilter;
+	/** Combined with AND downstream: an event must carry all of them. */
+	tags: string[];
 }
 
 /**
@@ -49,13 +55,18 @@ export class PlanuEventFilters extends LitElement {
 	@state() private from = "";
 	@state() private to = "";
 	@state() private ownership: OwnershipFilter = "all";
+	@state() private tags: string[] = [];
+
+	/** The tags the user already uses. Empty means no tag filter is offered. */
+	@property({ attribute: false }) availableTags: readonly string[] = [];
 
 	override render() {
 		const filtered =
 			this.searchTerm !== "" ||
 			this.from !== "" ||
 			this.to !== "" ||
-			this.ownership !== "all";
+			this.ownership !== "all" ||
+			this.tags.length > 0;
 
 		return html`
 			<form role="search" @submit=${this.#onSubmit}>
@@ -98,6 +109,8 @@ export class PlanuEventFilters extends LitElement {
 					@change=${this.#onTo}
 				></wa-input>
 
+				${this.#renderTags()}
+
 				${
 					filtered
 						? html`<wa-button appearance="plain" @click=${this.#clear}>
@@ -107,6 +120,70 @@ export class PlanuEventFilters extends LitElement {
 				}
 			</form>
 		`;
+	}
+
+	/**
+	 * Las etiquetas se ofrecen como casillas y no como botones que conmutan.
+	 *
+	 * Un botón que a veces está «pulsado» exige `aria-pressed` y explicarle al
+	 * usuario que se acumulan; una casilla ya significa eso, y el grupo le pone
+	 * nombre accesible sin inventarse nada. Se combinan con **Y**, y el texto
+	 * del grupo lo dice, porque no es lo que la gente espera por defecto.
+	 *
+	 * Dos detalles que no son estilo, son corrección:
+	 *
+	 * `.checked` con `live()` y no `?checked`. En `wa-checkbox` el **atributo**
+	 * `checked` mapea a `defaultChecked`, así que `?checked` escribe el valor
+	 * inicial y no el vigente — y en cuanto el usuario pulsa una vez, el
+	 * componente ignora el inicial para siempre. Con eso, «Borrar filtros»
+	 * desfiltraba el listado y dejaba las casillas pintadas como marcadas. Y
+	 * `live()` además de `.checked` porque Lit compara contra lo último que
+	 * *él* pintó, no contra lo que el usuario dejó en el DOM.
+	 *
+	 * `repeat()` con clave por etiqueta. `availableTags` sale de los eventos y
+	 * se reordena sola al crear uno. Con clave, Lit **mueve** el nodo de cada
+	 * etiqueta en vez de reescribir el de esa posición, y quien esté navegando
+	 * con el teclado sigue sobre la casilla que tenía enfocada en lugar de
+	 * encontrarse sobre otra etiqueta. Lo demás —el marcado y el rótulo— lo
+	 * reaplican `live()` y los *bindings* aunque no haya clave: un comentario
+	 * anterior atribuía a la clave un fallo de rotulación que nadie ha
+	 * conseguido reproducir. Lo que sí se rompe sin ella está en el test
+	 * «reordenar no le mueve el foco a quien navega con el teclado».
+	 *
+	 * Se pintan las disponibles **más las seleccionadas**. Editar un evento
+	 * puede dejar sin uso la última etiqueta por la que se estaba filtrando:
+	 * `availableTags` la pierde, su casilla desaparece del DOM y el filtro sigue
+	 * activo e invisible, con el listado vacío y nada marcado que lo explique.
+	 * Se pinta en vez de podar `this.tags` porque podar cambia el filtro sin que
+	 * el usuario lo pida —y ensancha el resultado en silencio—; mostrarla marcada
+	 * deja la decisión donde estaba, a un clic de deshacerse.
+	 */
+	#renderTags() {
+		const shown = [...new Set([...this.availableTags, ...this.tags])];
+		if (shown.length === 0) return nothing;
+
+		return html`<wa-checkbox-group
+			label=${msg("Tags")}
+			hint=${msg("An event must have all the tags you pick.")}
+			orientation="horizontal"
+		>
+			${repeat(
+				shown,
+				(tag) => tag,
+				(tag) => html`<wa-checkbox
+					value=${tag}
+					.checked=${live(this.tags.includes(tag))}
+					@change=${() => this.#toggleTag(tag)}
+				>${tag}</wa-checkbox>`,
+			)}
+		</wa-checkbox-group>`;
+	}
+
+	#toggleTag(tag: string): void {
+		this.tags = this.tags.includes(tag)
+			? this.tags.filter((each) => each !== tag)
+			: [...this.tags, tag];
+		this.#emit();
 	}
 
 	/** The form never navigates: filtering is live. */
@@ -148,6 +225,7 @@ export class PlanuEventFilters extends LitElement {
 		this.from = "";
 		this.to = "";
 		this.ownership = "all";
+		this.tags = [];
 		this.#emit();
 	}
 
@@ -160,6 +238,7 @@ export class PlanuEventFilters extends LitElement {
 					// An empty date input is "", which as a Date would be invalid.
 					from: this.from ? new Date(`${this.from}T00:00:00`) : null,
 					to: this.to ? new Date(`${this.to}T23:59:59`) : null,
+					tags: [...this.tags],
 				},
 				bubbles: true,
 				composed: true,
