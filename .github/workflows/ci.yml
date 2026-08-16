@@ -133,11 +133,19 @@ jobs:
             --project planu-app \
             --message "${{ github.sha }}"
 
+      # Con `-L`, porque desde T25 la raíz redirige a /app y un 302 es la
+      # respuesta correcta, no un fallo. Lo que se comprueba es lo que ve un
+      # navegador: que la cadena termina en 200 y sirve la aplicación.
       - name: Comprobar que producción responde
         run: |
           for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' https://planu-app.web.app)
-            [ "$code" = "200" ] && echo "planu-app.web.app responde 200" && exit 0
-            echo "intento $i: $code"; sleep 6
+            leido=$(curl -sL -o /tmp/prod.html -w '%{http_code} %{url_effective}' \
+              https://planu-app.web.app)
+            code=${leido%% *}
+            url=${leido#* }
+            if [ "$code" = "200" ] && grep -q 'planu-app\|/assets/' /tmp/prod.html; then
+              echo "producción sirve la aplicación en $url"; exit 0
+            fi
+            echo "intento $i: $code en $url"; sleep 6
           done
-          echo "::error::producción no responde 200 tras el despliegue"; exit 1
+          echo "::error::producción no sirve la aplicación tras el despliegue"; exit 1

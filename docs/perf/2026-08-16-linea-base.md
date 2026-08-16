@@ -70,9 +70,16 @@ node scripts/verify-sentry.js        # que un error llega con debug IDs
 
 ## Lo que esta medida no cubre
 
-**Lighthouse mide `/login`**, no la aplicación. Los eventos son privados, así
-que sin sesión no hay listado. El LCP de un usuario autenticado —que espera a
-Auth, a `events-view` y al chunk de Firestore de 561 KiB— **no está medido**.
+**Lighthouse mide la pantalla de acceso**, no la aplicación. Los eventos son
+privados, así que sin sesión no hay listado. El LCP de un usuario autenticado
+—que espera a Auth, a `events-view` y al chunk de Firestore de 561 KiB— **no
+está medido**.
+
+Ojo al comparar con medidas posteriores: estas se tomaron cuando la aplicación
+vivía en la raíz y Lighthouse acababa en `/login`. Desde T25 la raíz responde
+**302 hacia `/app`**, así que el destino real es `/app/login`. Lighthouse sigue
+la redirección, pero el salto añade una ida y vuelta que la línea base no
+tenía.
 
 **El INP tampoco**: no hay interacción en una pasada de Lighthouse. Lo dirá
 Firebase Performance con datos de campo, que se recogen desde el primer
