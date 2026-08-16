@@ -542,6 +542,42 @@
   <source>A tag must be <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> characters or fewer.</source>
         <target>Una etiqueta no puede pasar de <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> caracteres.</target>
 </trans-unit>
+<trans-unit id="s922ec025021bb8a0">
+  <source>No events match your search or date filter.</source>
+        <target>Ningún evento coincide con la búsqueda o el filtro de fechas.</target>
+</trans-unit>
+<trans-unit id="s1b620e51708bd4dd">
+  <source>Add to calendar</source>
+        <target>Añadir al calendario</target>
+</trans-unit>
+<trans-unit id="s089bbdb56909ac93">
+  <source>Export calendar</source>
+        <target>Exportar el calendario</target>
+</trans-unit>
+<trans-unit id="s545552cdd6fdf206">
+  <source>Download .ics file</source>
+        <target>Descargar el fichero .ics</target>
+</trans-unit>
+<trans-unit id="s95fa56d295739056">
+  <source>Add to Google Calendar</source>
+        <target>Añadir a Google Calendar</target>
+</trans-unit>
+<trans-unit id="sc8e611c9dbf80758">
+  <source>This event has no dates yet, so there is nothing to add to a calendar.</source>
+        <target>Este evento aún no tiene fechas, así que no hay nada que añadir a un calendario.</target>
+</trans-unit>
+<trans-unit id="s73bbcecafd90ea4d">
+  <source>None of these events have dates, so there is nothing to export.</source>
+        <target>Ninguno de estos eventos tiene fechas, así que no hay nada que exportar.</target>
+</trans-unit>
+<trans-unit id="s71ed91595dc89270">
+  <source>The events without dates were left out of the file.</source>
+        <target>Los eventos sin fechas se han quedado fuera del fichero.</target>
+</trans-unit>
+<trans-unit id="s4b7ea123d81b2680">
+  <source>There are no events to export.</source>
+        <target>No hay eventos que exportar.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

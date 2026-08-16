@@ -274,6 +274,18 @@ Numeración continuada: la fase 1 llegó hasta T10.
     multilínea, día completo y línea que obliga a plegar; e2e de la descarga
   - Ficheros: `src/calendar/build-ics.ts` + test,
     `src/calendar/google-calendar-url.ts`, `src/events/event-card.ts`
+  - Resultado: los dos módulos puros van en `src/domain/` —no en `src/calendar/`,
+    que se escribió antes de T35—, con la parte impura aislada en
+    `src/lib/download-file.ts` y la interfaz en `src/events/calendar-export.ts`.
+    El `UID` sale del id del documento. La suite unitaria corre con
+    `timezoneId: America/Santiago` (`vite.config.ts`): en UTC —la zona de los
+    runners— los tests de conversión a UTC no pueden fallar, y allí además hay
+    días en los que la medianoche no existe, que era el caso que rompía el
+    detector de día completo.
+  - **Sin cerrar:** `e2e/calendar-export.spec.ts` está escrito pero **no
+    ejecutado** (puertos de los emuladores ocupados). Hasta que corra no hay
+    prueba de que la descarga se dispare de verdad, así que la casilla sigue sin
+    marcar.
 
 > **Checkpoint C** — sesenta eventos se navegan por mes, etiqueta y orden; un
 > `.ics` real se abre en Calendario de macOS y en Google Calendar.
