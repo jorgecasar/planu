@@ -97,9 +97,19 @@ service cloud.firestore {
         return isSignedIn()
             && !(uid() in resource.data.memberIds)
             && exists(invitePath())
+            // Consumed in the same write, or being removed would mean nothing:
+            // the invitation would stay a spare key and its holder could walk
+            // back in as often as they liked. The client already deletes it in
+            // the same batch; this is what makes that mandatory.
+            && !existsAfter(invitePath())
+            // The id is built by concatenation, so read back what the document
+            // actually names instead of trusting that no uid or event id
+            // contains an underscore.
+            && get(invitePath()).data.inviteeUid == uid()
+            && get(invitePath()).data.eventId == eventId
             && request.resource.data.roles[uid()] == get(invitePath()).data.role
             && request.resource.data.memberIds == resource.data.memberIds.concat([uid()])
-            && request.resource.data.roles.diff(resource.data.roles)
+            && request.resource.data.roles.diff(rolesOf(resource.data))
                  .affectedKeys().hasOnly([uid()].toSet())
             && request.resource.data.diff(resource.data)
                  .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
@@ -187,9 +197,17 @@ service cloud.firestore {
 
       allow update: if isValidEvent()
                     && (
-                         // The owner may do anything but transfer ownership.
+                         // The owner may do anything but transfer ownership and
+                         // — the part that makes consent real — may not add
+                         // members. Joining goes through acceptsInvite() and
+                         // nowhere else. Without this the whole invitation
+                         // model was a client-side convention: the owner could
+                         // still write any uid straight into memberIds, which
+                         // is precisely the abuse it exists to stop.
                          (isOwner()
-                          && request.resource.data.userId == resource.data.userId)
+                          && request.resource.data.userId == resource.data.userId
+                          && request.resource.data.memberIds
+                               .hasOnly(resource.data.memberIds))
                          // An editor changes content and nothing else.
                          || (isEditor() && changesContentOnly())
                          // Any guest may leave.
@@ -255,8 +273,9 @@ service cloud.firestore {
       allow update: if request.auth != null
                     && resource.data.invitedBy == uid()
                     && isValidInvite(request.resource.data)
-                    && request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['role']);
+                    && request.resource.data.eventId == resource.data.eventId
+                    && request.resource.data.inviteeUid == resource.data.inviteeUid
+                    && request.resource.data.invitedBy == resource.data.invitedBy;
 
       // Read by the two people it concerns, and one rule for both get and list:
       // under this condition a query has to name you, because an unfiltered one
@@ -300,7 +319,12 @@ service cloud.firestore {
             && (!('displayName' in d)
                 || (d.displayName is string && d.displayName.size() <= 200))
             && (!('photoURL' in d)
-                || (d.photoURL is string && d.photoURL.size() <= 2048));
+                || (d.photoURL is string
+                    && d.photoURL.size() <= 2048
+                    // Same origin pin as userProfiles. Nothing renders this one
+                    // today, but it is a public field waiting for someone to.
+                    && (d.photoURL == ''
+                        || d.photoURL.matches('^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*'))));
       }
 
       // Read one at a time, by exact id. `list` stays closed: that is what

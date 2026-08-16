@@ -25,7 +25,7 @@ const hash = (email: string) =>
 const entry = (uid: string) => ({
 	uid,
 	displayName: "Ana",
-	photoURL: "https://example.com/ana.png",
+	photoURL: "https://lh3.googleusercontent.com/a/ana",
 });
 
 let env: RulesTestEnvironment;

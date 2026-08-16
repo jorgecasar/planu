@@ -506,6 +506,14 @@
   <source>Pending</source>
         <target>Pendiente</target>
 </trans-unit>
+<trans-unit id="s6ebc9bd6feae62a3">
+  <source>Loading…</source>
+        <target>Cargando…</target>
+</trans-unit>
+<trans-unit id="s796a1b61f0efb814">
+  <source>Pending invitations could not be loaded, so this list may be incomplete.</source>
+        <target>No se han podido cargar las invitaciones pendientes, así que esta lista puede estar incompleta.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
