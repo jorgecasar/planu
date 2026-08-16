@@ -218,10 +218,6 @@
   <source>Generate from an image</source>
         <target>Generar desde una imagen</target>
 </trans-unit>
-<trans-unit id="s922ec025021bb8a0">
-  <source>No events match your search or date filter.</source>
-        <target>Ningún evento coincide con la búsqueda o el filtro de fechas.</target>
-</trans-unit>
 <trans-unit id="s95c7d4bfce3a645e">
   <source>You have no events yet.</source>
         <target>Todavía no tienes eventos.</target>
@@ -513,6 +509,38 @@
 <trans-unit id="s796a1b61f0efb814">
   <source>Pending invitations could not be loaded, so this list may be incomplete.</source>
         <target>No se han podido cargar las invitaciones pendientes, así que esta lista puede estar incompleta.</target>
+</trans-unit>
+<trans-unit id="s03aa3cfb08dff960">
+  <source>Tags</source>
+        <target>Etiquetas</target>
+</trans-unit>
+<trans-unit id="s2c49904474150064">
+  <source>Chosen tags</source>
+        <target>Etiquetas puestas</target>
+</trans-unit>
+<trans-unit id="s25bda34028289ced">
+  <source>Suggested tags</source>
+        <target>Etiquetas sugeridas</target>
+</trans-unit>
+<trans-unit id="sdccdc281f1bc438a">
+  <source>An event must have all the tags you pick.</source>
+        <target>El evento debe tener todas las etiquetas que marques.</target>
+</trans-unit>
+<trans-unit id="s5f950c2d92134895">
+  <source>No events match your search, tags or date filter.</source>
+        <target>Ningún evento coincide con la búsqueda, las etiquetas o el filtro de fechas.</target>
+</trans-unit>
+<trans-unit id="sdbc43ba11c5e6114">
+  <source>Press Enter to add. Up to <x id="0" equiv-text="${MAX_TAGS}"/>.</source>
+        <target>Pulsa Intro para añadirla. Hasta <x id="0" equiv-text="${MAX_TAGS}"/>.</target>
+</trans-unit>
+<trans-unit id="s5362f1ecc6a1354b">
+  <source>Remove tag <x id="0" equiv-text="${tag}"/></source>
+        <target>Quitar la etiqueta <x id="0" equiv-text="${tag}"/></target>
+</trans-unit>
+<trans-unit id="sfb7c3cba82400d06">
+  <source>A tag must be <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> characters or fewer.</source>
+        <target>Una etiqueta no puede pasar de <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> caracteres.</target>
 </trans-unit>
 </body>
 </file>

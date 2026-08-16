@@ -14,6 +14,7 @@ const event = (overrides: Partial<PlanuEvent> = {}): PlanuEvent => ({
 	userId: "u1",
 	memberIds: ["u1"],
 	roles: {},
+	tags: [],
 	...overrides,
 });
 
@@ -188,4 +189,44 @@ test("ownership adds to text and dates, it does not replace them", () => {
 	const visible = filterEvents(events, "concert", {}, "mine", ME);
 	expect(visible).toHaveLength(1);
 	expect(visible[0]?.userId).toBe(ME);
+});
+
+// --- filtrado por etiqueta (F6) -------------------------------------------
+
+test("sin etiquetas seleccionadas no filtra por etiqueta", () => {
+	const events = [event({ tags: ["cine"] }), event({ tags: [] })];
+	expect(filterEvents(events, "", {}, "all", "", [])).toHaveLength(2);
+});
+
+test("varias etiquetas se combinan con Y, no con O", () => {
+	// Con O este filtro devolvería los tres; con Y, sólo el que las tiene
+	// ambas. Es la diferencia que F6 fija de forma explícita.
+	const events = [
+		event({ title: "ambas", tags: ["cine", "teatro"] }),
+		event({ title: "sólo cine", tags: ["cine"] }),
+		event({ title: "sólo teatro", tags: ["teatro"] }),
+	];
+	const visible = filterEvents(events, "", {}, "all", "", ["cine", "teatro"]);
+	expect(visible.map((e) => e.title)).toEqual(["ambas"]);
+});
+
+test("un evento con etiquetas de más sigue encajando", () => {
+	const events = [event({ tags: ["cine", "teatro", "verano"] })];
+	expect(filterEvents(events, "", {}, "all", "", ["cine"])).toHaveLength(1);
+});
+
+test("un evento sin etiquetas no encaja con ninguna", () => {
+	// Al revés que el filtro por fechas, donde no tener fecha pasa siempre:
+	// pedir una etiqueta es pedirla, y un evento sin ninguna no la tiene.
+	const events = [event({ tags: [] })];
+	expect(filterEvents(events, "", {}, "all", "", ["cine"])).toHaveLength(0);
+});
+
+test("la etiqueta se suma al resto de criterios, no los sustituye", () => {
+	const events = [
+		event({ title: "Concierto", tags: ["cine"] }),
+		event({ title: "Cena", tags: ["cine"] }),
+	];
+	const visible = filterEvents(events, "concierto", {}, "all", "", ["cine"]);
+	expect(visible.map((e) => e.title)).toEqual(["Concierto"]);
 });

@@ -64,6 +64,7 @@ function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 		startDate: asDate(document["startDate"]),
 		endDate: asDate(document["endDate"]),
 		createdAt: asDate(document["createdAt"]),
+		tags: document["tags"],
 	});
 
 	if (!parsed.success) {
@@ -118,6 +119,7 @@ export class PlanuEventsView extends LitElement {
 	@state() private searchTerm = "";
 	@state() private range: DateRange = {};
 	@state() private ownership: OwnershipFilter = "all";
+	@state() private tags: string[] = [];
 	@state() private editorOpen = false;
 	@state() private editing: StoredEvent | undefined;
 	@state() private generatorOpen = false;
@@ -180,6 +182,14 @@ export class PlanuEventsView extends LitElement {
 			this.range,
 			this.ownership,
 			this.user?.uid ?? "",
+			this.tags,
+		);
+
+		// Las etiquetas que se ofrecen salen de los eventos que el usuario ya
+		// tiene, no de una colección aparte: así no hay nada que mantener
+		// sincronizado ni una consulta más que pagar.
+		const knownTags = [...new Set(all.flatMap((event) => event.tags))].sort(
+			(a, b) => a.localeCompare(b),
 		);
 
 		return html`
@@ -187,6 +197,7 @@ export class PlanuEventsView extends LitElement {
 
 			<div class="toolbar">
 				<planu-event-filters
+					.availableTags=${knownTags}
 					@planu-filters-change=${this.#onFilters}
 				></planu-event-filters>
 				<wa-dropdown @wa-select=${this.#onCreateOption}>
@@ -207,6 +218,7 @@ export class PlanuEventsView extends LitElement {
 			${this.#renderList(all.length, visible)}
 
 			<planu-event-editor
+				.knownTags=${knownTags}
 				.open=${this.editorOpen}
 				.event=${this.editing}
 				.draft=${this.draft}
@@ -314,7 +326,10 @@ export class PlanuEventsView extends LitElement {
 		// Only when the inbox filter is the sole cause. With a search on top,
 		// "you have not created any events" would be plainly false.
 		const inboxOnly =
-			this.searchTerm === "" && !this.range.from && !this.range.to;
+			this.searchTerm === "" &&
+			!this.range.from &&
+			!this.range.to &&
+			this.tags.length === 0;
 
 		if (inboxOnly && this.ownership === "shared") {
 			return msg("Nobody has shared an event with you yet.");
@@ -322,7 +337,7 @@ export class PlanuEventsView extends LitElement {
 		if (inboxOnly && this.ownership === "mine") {
 			return msg("You have not created any events yet.");
 		}
-		return msg("No events match your search or date filter.");
+		return msg("No events match your search, tags or date filter.");
 	}
 
 	#onFilters(event: Event): void {
@@ -330,6 +345,7 @@ export class PlanuEventsView extends LitElement {
 		this.searchTerm = detail.searchTerm;
 		this.range = { from: detail.from, to: detail.to };
 		this.ownership = detail.ownership;
+		this.tags = detail.tags;
 	}
 
 	#onNew(): void {

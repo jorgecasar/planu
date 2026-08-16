@@ -43,6 +43,12 @@ Numeración continuada: la fase 1 llegó hasta T10.
     propiedad, extraño que lee, usuario que se autoañade.
   - Ficheros: `firestore.rules`, `apps/web/rules/firestore.test.ts`,
     `apps/web/src/lib/types.ts`
+  - **Corrección del registro (T18).** Esta entrada afirmaba que el esquema
+    ganaba también `tags`, y no era cierto: no existía ni en `eventSchema()` ni
+    en el `hasOnly` de `isValidEvent()`, así que un evento con etiquetas lo
+    habrían rechazado las reglas. Lo entrega T18, que es donde tiene sentido:
+    aquí no había nada que etiquetase. Se deja escrito en vez de reescribir la
+    entrada porque la deriva entre esta lista y el código ya ha costado una vez.
 
 - [x] **T14 · Membresía al crear y consulta por membresía** · M · depende de T13
   - Acepta: el editor crea con `memberIds: [uid]` y `roles: {}`; el listado pasa
@@ -103,13 +109,134 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 8 — Organización
 
-- [ ] **T18 · Etiquetas (F6)** · M · depende de T13
+- [x] **T18 · Etiquetas (F6)** · M · depende de T13
   - Acepta: de cero a diez etiquetas, normalizadas (recortadas, en minúsculas,
     sin duplicados, máximo 24 caracteres); autocompletado con las ya usadas;
     filtro que combina varias con **Y**; color estable derivado del nombre.
   - Verifica: unitarios de normalización y de filtrado combinado
-  - Ficheros: `src/events/tags.ts` + test, `src/events/event-editor.ts`,
-    `src/events/filter-events.ts`, `src/events/event-filters.ts`
+  - Ficheros: `src/domain/tags.ts` + test, `src/domain/filter-events.ts`,
+    `src/events/event-editor.ts` + test, `src/events/event-filters.ts` + test,
+    `src/events/event-card.ts`, `src/events/events-view.ts`,
+    `src/lib/types.ts` + test, `firestore.rules`,
+    `apps/web/rules/firestore.test.ts`, `apps/web/e2e/events.spec.ts`
+  - Resultado, y cuatro cosas que conviene saber:
+    1. **`tags.ts` vive en `domain/`**, no en `events/` como decía esta lista:
+       es la misma clase de módulo que `filter-events.ts`, y esta entrada se
+       escribió antes de T35.
+    2. **Hubo que tocar `firestore.rules`**, con persona delante. `tags` entra
+       en el `hasOnly` de `isValidEvent()` pero **no** en el `hasAll`: todo
+       evento anterior a F6 carece del campo y exigirlo lo dejaría ineditable.
+    3. **El lenguaje de reglas no tiene bucles**, así que la longitud de cada
+       etiqueta no se puede comprobar ahí: se acota el agregado, que es lo que
+       de verdad acota el coste. Y `join` **no** falla ante un número, lo
+       convierte — lo dio por bueno un comentario y lo desmintió un test. El
+       tipo se comprueba con una ida y vuelta `join`/`split`.
+    4. **Normalizar rechaza en vez de truncar** lo que pasa de 24 caracteres:
+       truncar le deja al usuario una etiqueta que él no escribió.
+  - Verificado: 128 unitarios y 135 de reglas en verde, con `lint`,
+    `typecheck`, `lint:lit`, `test:arch` y `build` en 0 comprobado con `$?`.
+    **15 mutaciones sobre `tags.ts`, 6 sobre `firestore.rules` y 3 sobre el
+    filtrado, todas detectadas.** Una mutación destapó que el test de prioridad
+    por prefijo no podía fallar —el orden alfabético daba ya el mismo
+    resultado— y se reescribió.
+  - **Corregido en revisión** (un revisor distinto del autor, cinco hallazgos):
+    1. `?checked` **no controla** una `wa-checkbox`: su atributo mapea a
+       `defaultChecked`, así que «Borrar filtros» desfiltraba el listado y
+       dejaba las casillas pintadas como marcadas. Va `.checked` con `live()`,
+       más `repeat()` con clave, porque `availableTags` se reordena sola al
+       crear un evento y sin clave la casilla marcada de una etiqueta acababa
+       rotulando otra.
+    2. **Las tres capas medían «24 caracteres» en unidades distintas.** El
+       `size()` de las reglas y el `maxlength` del campo cuentan unidades
+       UTF-16; sólo `normalizeTag` contaba puntos de código, y diez etiquetas
+       de 24 emojis —válidas para él— sumaban 489 y las reglas las denegaban
+       con un error mudo. Ahora las tres miden lo mismo.
+    3. **Fuera el atajo de la coma en el editor**: una etiqueta puede llevar
+       coma —el dominio y las reglas la aceptan, y por eso el separador de la
+       ida y vuelta es el salto de línea—, así que tratarla como separador
+       prohibía en silencio un valor legítimo.
+    4. El borrado que trae `wa-tag` sale con `tabindex="-1"`: **quien navega
+       con teclado no podía quitar una etiqueta puesta por error**. Lleva
+       control propio. Axe no lo habría detectado.
+    5. Fuera el bloque `prefers-color-scheme`: era el único del repo y la
+       aplicación no tiene tema oscuro, así que pintaba chips negros dentro de
+       una tarjeta clara.
+  - Contraste **medido**, no supuesto: recorriendo los 360 tonos, el peor caso
+    es 8,03:1 en claro, muy por encima del 4,5:1 de AA. Es consecuencia de que
+    el hash decida sólo el tono y nunca la luminosidad.
+  - **Cerrado el hueco de e2e**, que esta entrada llegó a declarar pendiente:
+    hay cinco e2e nuevos —normalización al guardar, filtro combinado con **Y**,
+    que «Borrar filtros» deja las casillas desmarcadas, borrado de una etiqueta
+    con teclado, y axe sobre el listado y sobre el campo del editor—. **39 e2e
+    en verde.**
+  - **Y encontraron una violación real de accesibilidad que ninguna revisión
+    vio**: las etiquetas del editor se pintaban con el neutro por defecto de
+    Web Awesome —4,42:1, por debajo del 4,5:1 de AA— porque los colores por
+    tono vivían sólo en la tarjeta. Ahora el estilo se comparte en
+    `src/events/tag-styles.ts`. Es el argumento entero a favor de no dar por
+    cerrado lo que no tiene oráculo.
+  - **Segunda ronda, tras `/ship`** (tres especialistas; GO con hallazgos).
+    Nueve arreglos, y el patrón de los cuatro primeros es el mismo: un test que
+    no podía fallar o un comentario que afirmaba lo que nadie había comprobado.
+    1. **El autocompletado moría a partir de la undécima etiqueta conocida.**
+       `suggestTags` saneaba el vocabulario del usuario con `normalizeTags`, que
+       corta en `MAX_TAGS` porque es el saneador **de un evento**: con quince
+       etiquetas conocidas, «viaje» dejaba de sugerirse aunque estuviese. Va
+       `cleanTags`, que normaliza y deduplica sin acotar cardinalidad. Lo
+       enmascaraban dos tests que pasaban veinte etiquetas y sólo miraban
+       `toHaveLength`: diez supervivientes los satisfacían igual. Ahora afirman
+       el contenido y la entrada va en orden inverso, así que un corte por
+       delante cambia la respuesta.
+    2. **`tags` no admitía la clave ausente**: en Zod 4 un `z.unknown()` pelado
+       acepta `undefined` pero no que falte, justo lo que traen los eventos
+       anteriores a F6. Funcionaba de rebote porque `toEvent` enumera la clave a
+       mano. Va `.optional()`, y `src/lib/types.test.ts` estrena los tests del
+       esquema, que no tenía ninguno.
+    3. **Una etiqueta seleccionada que dejaba de existir seguía filtrando,
+       invisible.** El filtro pintaba sólo `availableTags`, así que quitarle la
+       etiqueta al último evento que la llevaba borraba la casilla del DOM con
+       el filtro puesto: listado vacío para siempre y nada marcado que lo
+       explicase. Se pinta la unión con lo seleccionado, en vez de podar y
+       reemitir, porque podar ensancha el resultado sin que el usuario lo pida.
+    4. **El comentario del e2e afirmaba un acotado que no estaba puesto.** Ya lo
+       está: la cadena son cuatro saltos de shadow DOM y va **anidada**, porque
+       con el array plano axe acota a nada y devuelve cero violaciones sobre
+       cero elementos sin protestar (medido: 0 reglas aprobadas frente a 21).
+       De ahí que el test afirme además `passes.length > 0`.
+    5. **Identificadores en inglés.** `salida`, `entrada`, `puestas`,
+       `porPrefijo`, `clase`, `etiqueta` y `contenido` eran los únicos en
+       español de todo `src/**/*.ts`. Los comentarios se quedan en español.
+    6. **`event-editor.ts` y `event-filters.ts` estrenan unitarios**: 192 líneas
+       nuevas habían llegado con cero tests montados pese a que el `mount()` ya
+       existía. Diez y siete tests respectivamente, todos sin emulador.
+    7. **El comentario de la clave de `repeat()`** atribuía a la clave un fallo
+       de rotulación que nadie pudo reproducir —`live()` y los *bindings* ya lo
+       reaplican— y la mutación sobrevivía. Ahora afirma lo que sí se rompe sin
+       ella, la retención del foco al reordenar, con su test.
+    8. **Menores:** el contenido de `#renderTagList` se tipa con el
+       `TemplateResult` de lit y no con `unknown`, que admitía una función
+       `void`; añadir una etiqueta ya no borra un aviso ajeno como el de la
+       portada; y `willUpdate` reacciona también a `event` y `draft` — hoy no
+       hay ruta que lo provoque, pero cuesta nada y cierra la trampa.
+    9. **Tres huecos de reglas que pedía el auditor**: el conjunto escribible
+       por un editor queda fijado en `{title, description, location, startDate,
+       endDate, imageUrl, tags}` **leyendo el `hasOnly` del propio fichero de
+       reglas**, de modo que ampliarlo sin clasificar el campo nuevo pone la
+       suite en rojo; `tags` no puede viajar montado en las dos rutas de
+       consentimiento ni en una escritura de membresía, cada denegación con su
+       control que pasa; y el tope agregado se prueba en el borde, 280 pasa y
+       281 deniega. `isValidTags` **no se relajó**.
+  - **Un hallazgo que sólo apareció mutando**: borrar
+    `memberIds == memberIds` de `changesContentOnly()` dejaba los 88 tests de
+    `firestore.test.ts` en verde, porque toda otra forma de tocar `memberIds`
+    muere antes en `isValidMembership()` o en la cláusula de `roles`. La única
+    escritura que llega a esa cláusula y a nada más es **reordenar** la lista, y
+    es la que la fija ahora.
+  - Verificado en esta ronda: **152 unitarios en 16 ficheros, 143 de reglas y
+    40 e2e**, con `lint`, `typecheck`, `lint:lit` y `test:arch` en 0 leídos de
+    `$?`. **14 mutaciones sobre el código de cliente, 9 sobre `firestore.rules`
+    y 3 sobre el e2e**: las 26 mueren, y en el test que dicen fijar. El tope de
+    23 ficheros acoplados no se movió.
 
 - [ ] **T19 · Orden y agrupación (F7)** · S · depende de T13
   - Acepta: orden por fecha de inicio, título o creación; separación entre
@@ -411,6 +538,27 @@ garantiza conflictos.
 ---
 
 ## Deuda transversal
+
+- [ ] **T43 · El diálogo se queda translúcido al reabrirlo** · S · sin dependencias
+  - Síntoma: abrir el editor de eventos, cerrarlo y volver a abrirlo deja el
+    contenido del `wa-dialog` a opacidad parcial. Axe mide entonces contrastes
+    de entre **1,3:1 y 4,4:1** sobre el propio título del diálogo y sobre la
+    etiqueta «Cover image» —elementos que en la primera apertura salen
+    limpios—, y el ratio varía en cada pasada.
+  - **Preexistente y reproducido en `main`**, sin una línea de la rama que lo
+    encontró (T18). La primera apertura da 0 violaciones; la segunda, 1.
+    Esperar a que `document.getAnimations()` se vacíe **no** lo arregla, y
+    apagar las animaciones por CSS tampoco: Web Awesome anima con la Web
+    Animations API, así que `animation-duration: 0s` no la toca. Eso apunta a
+    estado que sobrevive al cierre, no a una carrera.
+  - Acepta: reabrir el editor deja el diálogo completamente opaco; un e2e con
+    axe sobre la **segunda** apertura pasa.
+  - Verifica: el e2e de arriba, escrito para que falle hoy antes de arreglar
+    nada.
+  - Ficheros: `src/events/event-editor.ts`, `apps/web/e2e/events.spec.ts`
+  - Nota: lo encontró un test, no una revisión ni una mirada. Ninguna de las
+    dos lo habría visto: la diferencia de opacidad es sutil y el defecto sólo
+    aparece a la segunda.
 
 - [ ] **T42 · Traducir los comentarios de código al inglés** · M · sin dependencias
   - Acepta: los comentarios de `apps/web/src/**` están en inglés; `AGENTS.md`

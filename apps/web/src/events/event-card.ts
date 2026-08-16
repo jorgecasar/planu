@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
+import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { User } from "firebase/auth";
@@ -20,11 +21,15 @@ import {
 } from "../sharing/permissions.js";
 import "../sharing/share-dialog.js";
 import { formatEventDates } from "../domain/format-dates.js";
+import { tagHue } from "../domain/tags.js";
+import { tagChipStyles } from "./tag-styles.js";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
 @customElement("planu-event-card")
 export class PlanuEventCard extends LitElement {
-	static override styles = css`
+	static override styles = [
+		tagChipStyles,
+		css`
 		:host {
 			display: block;
 		}
@@ -54,7 +59,20 @@ export class PlanuEventCard extends LitElement {
 			color: var(--wa-color-text-quiet);
 			font-size: var(--wa-font-size-s);
 		}
-	`;
+
+		/* Lista de verdad y no un puñado de <span>: un lector de pantalla
+		   anuncia cuántas hay. */
+		.tags {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--wa-space-2xs);
+			margin: var(--wa-space-s) 0 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		`,
+	];
 
 	@property({ attribute: false }) event!: StoredEvent;
 
@@ -99,6 +117,23 @@ export class PlanuEventCard extends LitElement {
 		</wa-badge>`;
 	}
 
+	/** Por qué el hash sólo decide el tono, en `tag-styles.ts`. */
+	#renderTags() {
+		const { tags } = this.event;
+		if (tags.length === 0) return nothing;
+
+		return html`<ul class="tags" aria-label=${msg("Tags")}>
+			${tags.map(
+				(tag) => html`<li>
+					<wa-tag
+						size="small"
+						style=${`--hue: ${tagHue(tag)}`}
+					>${tag}</wa-tag>
+				</li>`,
+			)}
+		</ul>`;
+	}
+
 	override render() {
 		const { event } = this;
 		return html`
@@ -117,6 +152,8 @@ export class PlanuEventCard extends LitElement {
 					${event.location ? html`<span>${event.location}</span>` : nothing}
 					<span>${formatEventDates(event.startDate, event.endDate)}</span>
 				</div>
+
+				${this.#renderTags()}
 
 					${this.#renderRoleBadge()}
 
