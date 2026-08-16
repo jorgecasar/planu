@@ -302,3 +302,38 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 > **Checkpoint G** — los dieciséis criterios de éxito del spec, con `build`,
 > `test`, `test:e2e`, `test:rules` y `lint` limpios.
+
+
+---
+
+## Fase 13 — Registro de invitaciones
+
+Especificado en [`docs/spec-invitation-activity.md`](../docs/spec-invitation-activity.md).
+Amplía F2: hoy una invitación es un aviso efímero que desaparece al decidirla.
+
+- [ ] **T40 · Estado e historial de la invitación** · M · depende de T16
+  - Acepta: `eventInvites` gana `status` (`pending` | `accepted` | `declined`),
+    `createdAt` y `decidedAt`, y deja de borrarse al decidirla. La rama
+    `acceptsInvite()` exige **`status == 'pending'`**, de modo que una
+    invitación ya usada no sirve para volver a entrar: sin eso, conservar el
+    registro haría que expulsar a alguien no significase nada.
+  - Verifica: tests de reglas de cada transición permitida y, sobre todo, de las
+    prohibidas — aceptar una ya aceptada, cambiar el rol al decidir, readmitirse
+    uno mismo tras ser expulsado, borrar una decidida.
+  - Ficheros: `firestore.rules`, `apps/web/rules/event-invites.test.ts`,
+    `src/sharing/invitations.ts`
+
+- [ ] **T41 · Página de invitaciones** · M · depende de T40, T25
+  - Acepta: `/app/invitations` con pendientes arriba y decididas debajo, cada
+    una con título, quién invita, rol, fecha de invitación y, si la hay, fecha y
+    sentido de la decisión. Sobre una rechazada se puede reconsiderar. La
+    sección del listado se queda sólo con las pendientes y enlaza aquí a partir
+    de tres.
+  - Verifica: e2e con dos sesiones del ciclo completo —invitar, rechazar,
+    comprobar que queda registrado, reconsiderar y aceptar—; axe en la página.
+  - Ficheros: `src/sharing/invitations-page.ts`,
+    `src/sharing/invitations-inbox.ts`, `src/app-shell.ts`
+
+**Pendiente de decidir** (en el spec): cuánto se conservan las decididas. Son
+datos personales que crecen sin límite, y sin backend no hay quien las borre
+solas. Entra en F13 (privacidad) y F14 (borrado de cuenta).
