@@ -23,6 +23,19 @@ export const eventSchema = () =>
 				.optional()
 				.or(z.literal("")),
 			userId: z.string().optional(),
+			/**
+			 * Who can see the event, its owner included. This is what the
+			 * listing queries with `array-contains`, so an event without it is
+			 * an invisible event. See ADR 0006.
+			 */
+			memberIds: z.array(z.string()).default([]),
+			/**
+			 * Each guest's role. The owner is absent here: their authority comes
+			 * from `userId`, and giving them a role entry as well would open the
+			 * door to demoting them.
+			 */
+			roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
+			createdAt: z.coerce.date().nullable().optional(),
 		})
 		.refine(
 			(data) => {
@@ -43,13 +56,17 @@ export const eventSchema = () =>
  */
 export type PlanuEvent = z.infer<ReturnType<typeof eventSchema>>;
 
+/** A guest's role. The owner carries none: they are one by `userId`. */
+export type EventRole = "viewer" | "editor";
+
 /** Un evento tal y como vive en Firestore: las fechas son Timestamp. */
 export type PlanuEventDocument = Omit<
 	PlanuEvent,
-	"id" | "startDate" | "endDate"
+	"id" | "startDate" | "endDate" | "createdAt"
 > & {
 	startDate: Timestamp | null;
 	endDate: Timestamp | null;
+	createdAt?: Timestamp | null;
 	imageUrl?: string | null;
 };
 

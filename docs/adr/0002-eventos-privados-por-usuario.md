@@ -1,7 +1,9 @@
 # 0002 · Los eventos son privados por usuario
 
 - **Fecha:** 2026-08-15
-- **Estado:** aceptado
+- **Estado:** aceptado; superado parcialmente por
+  [`0006-sharing-with-invited-members.md`](0006-sharing-with-invited-members.md),
+  que mantiene la privacidad y levanta la exclusividad
 - **Supera a:** la descripción de listado público de [`../blueprint.md`](../blueprint.md)
 
 ## Contexto

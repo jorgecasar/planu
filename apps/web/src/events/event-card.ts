@@ -1,14 +1,24 @@
+import "@awesome.me/webawesome/dist/components/badge/badge.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import { deleteDoc, doc, type Firestore } from "firebase/firestore";
+import type { User } from "firebase/auth";
+import { deleteDoc, doc, type Firestore, updateDoc } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { firestoreContext } from "../firebase/context.js";
+import { firestoreContext, userContext } from "../firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
+import {
+	canDelete,
+	canEdit,
+	canLeave,
+	canManageMembers,
+	roleFor,
+} from "../sharing/permissions.js";
+import "../sharing/share-dialog.js";
 import { formatEventDates } from "./format-dates.js";
 
 /** Tarjeta de un evento, con acciones de editar y borrar. */
@@ -51,9 +61,43 @@ export class PlanuEventCard extends LitElement {
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
 
+	@consume({ context: userContext, subscribe: true })
+	private user: User | null | undefined;
+
 	@state() private confirming = false;
 	@state() private deleting = false;
+	@state() private sharing = false;
+	@state() private leaving = false;
+	@state() private confirmingLeave = false;
 	@state() private error = "";
+
+	/**
+	 * Kept apart from `error`, which is only ever painted inside the delete
+	 * dialog. Leaving reported its failures into that same field, where nothing
+	 * renders them unless the delete dialog happens to be open — so a failed
+	 * leave was completely silent.
+	 */
+	@state() private leaveError = "";
+
+	/** With no session there are no permissions; `roleFor` returns `null`. */
+	get #uid(): string {
+		return this.user?.uid ?? "";
+	}
+
+	/**
+	 * Whose event this is, when it is not the viewer's.
+	 *
+	 * Without it, a shared event looks like your own and its missing Delete
+	 * button reads as a bug.
+	 */
+	#renderRoleBadge() {
+		const role = roleFor(this.event, this.#uid);
+		if (role === "owner" || role === null) return nothing;
+
+		return html`<wa-badge slot="footer" variant="neutral">
+			${role === "editor" ? msg("Shared: you can edit") : msg("Shared: view only")}
+		</wa-badge>`;
+	}
 
 	override render() {
 		const { event } = this;
@@ -74,18 +118,94 @@ export class PlanuEventCard extends LitElement {
 					<span>${formatEventDates(event.startDate, event.endDate)}</span>
 				</div>
 
-				<wa-button slot="footer" appearance="plain" @click=${this.#onEdit}>
-					${msg("Edit")}
+					${this.#renderRoleBadge()}
+
+				${
+					canEdit(event, this.#uid)
+						? html`<wa-button
+								slot="footer"
+								appearance="plain"
+								@click=${this.#onEdit}
+							>
+								${msg("Edit")}
+							</wa-button>`
+						: nothing
+				}
+				${
+					canManageMembers(event, this.#uid)
+						? html`<wa-button
+								slot="footer"
+								appearance="plain"
+								@click=${this.#openShare}
+							>
+								${msg("Share")}
+							</wa-button>`
+						: nothing
+				}
+				${
+					canDelete(event, this.#uid)
+						? html`<wa-button
+								slot="footer"
+								appearance="plain"
+								variant="danger"
+								@click=${this.#askDelete}
+							>
+								${msg("Delete")}
+							</wa-button>`
+						: nothing
+				}
+				${
+					canLeave(event, this.#uid)
+						? html`<wa-button
+								slot="footer"
+								appearance="plain"
+								?disabled=${this.leaving}
+								@click=${this.#askLeave}
+							>
+								${msg("Leave")}
+							</wa-button>`
+						: nothing
+				}
+
+				${
+					this.leaveError
+						? html`<wa-callout variant="danger" role="alert">
+								${this.leaveError}
+							</wa-callout>`
+						: nothing
+				}
+			</wa-card>
+
+			<wa-dialog
+				label=${msg("Leave event")}
+				.open=${this.confirmingLeave}
+				@wa-hide=${this.#cancelLeave}
+			>
+				<p>
+					${msg(str`You will stop seeing “${event.title}”. Its owner would have to invite you again.`)}
+				</p>
+				<wa-button slot="footer" appearance="outlined" @click=${this.#cancelLeave}>
+					${msg("Cancel")}
 				</wa-button>
 				<wa-button
 					slot="footer"
-					appearance="plain"
 					variant="danger"
-					@click=${this.#askDelete}
+					?disabled=${this.leaving}
+					@click=${this.#leave}
 				>
-					${msg("Delete")}
+					${this.leaving ? msg("Leaving…") : msg("Leave")}
 				</wa-button>
-			</wa-card>
+			</wa-dialog>
+
+			${
+				canManageMembers(event, this.#uid)
+					? html`<planu-share-dialog
+							.event=${event}
+							.open=${this.sharing}
+							@planu-share-close=${this.#closeShare}
+						></planu-share-dialog>`
+					: nothing
+			}
 
 			<wa-dialog
 				label=${msg("Delete event")}
@@ -121,6 +241,51 @@ export class PlanuEventCard extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+
+	#openShare(): void {
+		this.sharing = true;
+	}
+
+	#closeShare(): void {
+		this.sharing = false;
+	}
+
+	/**
+	 * Remove yourself from someone else's event.
+	 *
+	 * The write sends exactly what the rule expects from a leaver: their uid
+	 * out of `memberIds` and `roles`, and nothing else. See ADR 0006.
+	 */
+	#askLeave(): void {
+		this.confirmingLeave = true;
+	}
+
+	#cancelLeave(): void {
+		this.confirmingLeave = false;
+	}
+
+	async #leave(): Promise<void> {
+		const { firestore, event } = this;
+		if (!firestore || this.leaving) return;
+
+		const roles = { ...event.roles };
+		delete roles[this.#uid];
+
+		this.leaveError = "";
+		this.leaving = true;
+		try {
+			await updateDoc(doc(firestore, "events", event.id), {
+				memberIds: (event.memberIds ?? []).filter((uid) => uid !== this.#uid),
+				roles,
+			});
+			this.confirmingLeave = false;
+		} catch {
+			this.leaveError = msg("You could not be removed from this event.");
+			this.confirmingLeave = false;
+		} finally {
+			this.leaving = false;
+		}
 	}
 
 	#askDelete(): void {

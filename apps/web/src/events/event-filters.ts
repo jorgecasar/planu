@@ -1,28 +1,31 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
+import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
+import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { DateRange } from "./filter-events.js";
+import type { DateRange, OwnershipFilter } from "./filter-events.js";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;
+	ownership: OwnershipFilter;
 }
 
 /**
- * Lee el valor del input nativo que originó el evento.
+ * Reads the value from the native input that raised the event.
  *
- * No vale `event.target.value`: al escuchar en el host de `wa-input`, el
- * objetivo llega retargeteado al propio `wa-input`, cuya propiedad `value`
- * todavía no se ha sincronizado con la del input interno. El resultado es leer
- * el valor anterior —vacío en la primera pulsación— y no filtrar nada.
+ * `event.target.value` will not do: listening on the `wa-input` host, the
+ * target arrives retargeted to the `wa-input` itself, whose `value` has not yet
+ * synced with the inner input. The result is reading the previous value —
+ * empty on the first keystroke — and filtering nothing.
  */
 function readValue(event: globalThis.Event): string {
 	const source = event.composedPath()[0] as HTMLInputElement | undefined;
 	return source?.value ?? "";
 }
 
-/** Búsqueda por texto y acotado por rango de fechas. */
+/** Text search, date range, and which inbox to show. */
 @customElement("planu-event-filters")
 export class PlanuEventFilters extends LitElement {
 	static override styles = css`
@@ -45,10 +48,14 @@ export class PlanuEventFilters extends LitElement {
 	@state() private searchTerm = "";
 	@state() private from = "";
 	@state() private to = "";
+	@state() private ownership: OwnershipFilter = "all";
 
 	override render() {
 		const filtered =
-			this.searchTerm !== "" || this.from !== "" || this.to !== "";
+			this.searchTerm !== "" ||
+			this.from !== "" ||
+			this.to !== "" ||
+			this.ownership !== "all";
 
 		return html`
 			<form role="search" @submit=${this.#onSubmit}>
@@ -61,6 +68,19 @@ export class PlanuEventFilters extends LitElement {
 					.value=${this.searchTerm}
 					@input=${this.#onSearch}
 				></wa-input>
+
+				<wa-radio-group
+					label=${msg("Show")}
+					orientation="horizontal"
+					.value=${this.ownership}
+					@change=${this.#onOwnership}
+				>
+					<wa-radio appearance="button" value="all">${msg("All")}</wa-radio>
+					<wa-radio appearance="button" value="mine">${msg("Mine")}</wa-radio>
+					<wa-radio appearance="button" value="shared">
+						${msg("Shared with me")}
+					</wa-radio>
+				</wa-radio-group>
 
 				<wa-input
 					type="date"
@@ -89,7 +109,7 @@ export class PlanuEventFilters extends LitElement {
 		`;
 	}
 
-	/** El formulario no navega: filtrar es en vivo. */
+	/** The form never navigates: filtering is live. */
 	#onSubmit(event: SubmitEvent): void {
 		event.preventDefault();
 	}
@@ -109,10 +129,25 @@ export class PlanuEventFilters extends LitElement {
 		this.#emit();
 	}
 
+	/**
+	 * Re-emitting on an unchanged value locks the interface up. Rendering
+	 * reassigns `.value` on the radio group, the group answers with `change`,
+	 * this handler emits, the listing re-renders, and round it goes.
+	 */
+	#onOwnership(event: globalThis.Event): void {
+		const group = event.target as HTMLElement & { value?: string };
+		const chosen = (group.value ?? "all") as OwnershipFilter;
+		if (chosen === this.ownership) return;
+
+		this.ownership = chosen;
+		this.#emit();
+	}
+
 	#clear(): void {
 		this.searchTerm = "";
 		this.from = "";
 		this.to = "";
+		this.ownership = "all";
 		this.#emit();
 	}
 
@@ -121,7 +156,8 @@ export class PlanuEventFilters extends LitElement {
 			new CustomEvent<FiltersChange>("planu-filters-change", {
 				detail: {
 					searchTerm: this.searchTerm,
-					// Un date input vacío es "", que como Date sería inválido.
+					ownership: this.ownership,
+					// An empty date input is "", which as a Date would be invalid.
 					from: this.from ? new Date(`${this.from}T00:00:00`) : null,
 					to: this.to ? new Date(`${this.to}T23:59:59`) : null,
 				},

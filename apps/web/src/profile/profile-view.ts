@@ -1,12 +1,24 @@
 import "@awesome.me/webawesome/dist/components/avatar/avatar.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import { type Auth, signOut, type User } from "firebase/auth";
-import { css, html, LitElement } from "lit";
-import { customElement } from "lit/decorators.js";
-import { authContext, userContext } from "../firebase/context.js";
+import {
+	type Auth,
+	reload,
+	sendEmailVerification,
+	signOut,
+	type User,
+} from "firebase/auth";
+import type { Firestore } from "firebase/firestore";
+import { css, html, LitElement, nothing } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import {
+	authContext,
+	firestoreContext,
+	userContext,
+} from "../firebase/context.js";
 
 /** Datos de la cuenta y cierre de sesión. */
 @customElement("planu-profile-view")
@@ -48,6 +60,13 @@ export class PlanuProfileView extends LitElement {
 	@consume({ context: authContext, subscribe: true })
 	private auth: Auth | undefined;
 
+	@state() private sending = false;
+	@state() private sent = false;
+	@state() private checking = false;
+
+	@consume({ context: firestoreContext, subscribe: true })
+	private firestore: Firestore | undefined;
+
 	override render() {
 		const user = this.user;
 		if (!user) return null;
@@ -55,6 +74,8 @@ export class PlanuProfileView extends LitElement {
 		return html`
 			<wa-card>
 				<h2 slot="header">${msg("Profile")}</h2>
+
+				${this.#renderVerificationNotice(user)}
 
 				<dl>
 					<dt>${msg("Name")}</dt>
@@ -73,6 +94,86 @@ export class PlanuProfileView extends LitElement {
 				</wa-button>
 			</wa-card>
 		`;
+	}
+
+	/**
+	 * Until the email is verified this account is absent from the directory and
+	 * **nobody can invite it to an event**. Better said here than discovered by
+	 * the other person when they cannot find you.
+	 */
+	#renderVerificationNotice(user: User) {
+		if (!user.email || user.emailVerified) return nothing;
+
+		return html`
+			<wa-callout variant="warning">
+				${msg("Verify your email so others can invite you to their events.")}
+				<wa-button
+					appearance="plain"
+					?disabled=${this.sending || this.sent}
+					@click=${this.#onResend}
+				>
+					${this.sent ? msg("Email sent") : msg("Resend email")}
+				</wa-button>
+				<wa-button
+					appearance="plain"
+					?disabled=${this.checking}
+					@click=${this.#onCheck}
+				>
+					${this.checking ? msg("Checking…") : msg("I have verified it")}
+				</wa-button>
+			</wa-callout>
+		`;
+	}
+
+	/**
+	 * Picks up a verification done elsewhere, in this session.
+	 *
+	 * Verifying happens in the mail client, and nothing tells this tab about it:
+	 * `onAuthStateChanged` does not fire, and the cached `emailVerified` stays
+	 * false. Without this the user verifies, comes back, and is still invisible
+	 * to anyone trying to invite them.
+	 *
+	 * `reload()` alone is not enough either. The directory rule reads
+	 * `request.auth.token.email_verified`, so the ID token has to be minted
+	 * again — hence `getIdToken(true)` — before the entry can be published.
+	 */
+	async #onCheck(): Promise<void> {
+		const { user, firestore } = this;
+		if (!user || this.checking) return;
+
+		this.checking = true;
+		try {
+			await reload(user);
+			if (!user.emailVerified) return;
+
+			await user.getIdToken(true);
+			const { publishDirectoryEntry } = await import(
+				"../sharing/user-directory.js"
+			);
+			await publishDirectoryEntry(firestore as Firestore, user);
+			this.requestUpdate();
+		} catch {
+			// Nothing the user can act on: the notice stays put and the button can
+			// be pressed again.
+		} finally {
+			this.checking = false;
+		}
+	}
+
+	async #onResend(): Promise<void> {
+		const user = this.user;
+		if (!user || this.sending) return;
+
+		this.sending = true;
+		try {
+			await sendEmailVerification(user);
+			this.sent = true;
+		} catch {
+			// Firebase throttles repeated attempts. That is not something the
+			// user can act on, and the notice stays visible anyway.
+		} finally {
+			this.sending = false;
+		}
 	}
 
 	#onSignOut(): void {

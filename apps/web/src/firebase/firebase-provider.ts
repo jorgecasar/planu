@@ -149,7 +149,7 @@ export class PlanuFirebaseProvider extends LitElement {
 				this.#user.setValue(user);
 				// Sólo hay datos que leer cuando hay sesión, así que es el momento
 				// exacto de traer Firestore y Storage.
-				if (user) void this.#provideDataServices();
+				if (user) void this.#provideDataServices(user);
 			},
 		);
 	}
@@ -159,11 +159,21 @@ export class PlanuFirebaseProvider extends LitElement {
 	 * los contextos nunca se rellenaban y la vista se quedaba esperando datos
 	 * que no iban a llegar, sin decir nada.
 	 */
-	async #provideDataServices(): Promise<void> {
+	async #provideDataServices(user: User): Promise<void> {
 		try {
 			const { firestore, storage } = await loadDataServices(this.#core.app);
 			this.#firestore.setValue(firestore);
 			this.#storage.setValue(storage);
+
+			// Publishing the directory entry is what lets other people find this
+			// user by email when inviting them. It is not essential to using the
+			// application, so its failure does not propagate: denying someone
+			// their own data because they could not be listed would be
+			// disproportionate.
+			const { publishDirectoryEntry } = await import(
+				"../sharing/user-directory.js"
+			);
+			await publishDirectoryEntry(firestore, user).catch(() => {});
 		} catch {
 			this.dispatchEvent(
 				new CustomEvent("planu-data-services-failed", {

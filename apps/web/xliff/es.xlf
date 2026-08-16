@@ -318,6 +318,194 @@
   <source>Downloading the AI model, this can take a few minutes…</source>
         <target>Descargando el modelo de IA, esto puede tardar unos minutos…</target>
 </trans-unit>
+<trans-unit id="s62a5a9ab05e49cf1">
+  <source>Shared: you can edit</source>
+        <target>Compartido: puedes editar</target>
+</trans-unit>
+<trans-unit id="sdb2472a14f88df3f">
+  <source>Shared: view only</source>
+        <target>Compartido: sólo lectura</target>
+</trans-unit>
+<trans-unit id="s2df075aface0dab8">
+  <source>Share</source>
+        <target>Compartir</target>
+</trans-unit>
+<trans-unit id="s19bee21a859fbea0">
+  <source>Leave</source>
+        <target>Salir</target>
+</trans-unit>
+<trans-unit id="sdbd5a1731c34d981">
+  <source>You could not be removed from this event.</source>
+        <target>No se te pudo quitar de este evento.</target>
+</trans-unit>
+<trans-unit id="s26a6860698d39096">
+  <source>Verify your email so others can invite you to their events.</source>
+        <target>Verifica tu correo para que otras personas puedan invitarte a sus eventos.</target>
+</trans-unit>
+<trans-unit id="sa266303caf1bd27f">
+  <source>Email sent</source>
+        <target>Correo enviado</target>
+</trans-unit>
+<trans-unit id="s7d08759f6f28e606">
+  <source>Resend email</source>
+        <target>Reenviar el correo</target>
+</trans-unit>
+<trans-unit id="se18c9f83ecd43653">
+  <source>Guest</source>
+        <target>Invitado</target>
+</trans-unit>
+<trans-unit id="s8b0ef96eac2571f5">
+  <source>Invite by email</source>
+        <target>Invitar por correo</target>
+</trans-unit>
+<trans-unit id="sca7fed2bef53cb99">
+  <source>Role</source>
+        <target>Rol</target>
+</trans-unit>
+<trans-unit id="s2afc9a717c161490">
+  <source>Invite</source>
+        <target>Invitar</target>
+</trans-unit>
+<trans-unit id="sd4c0805987a20c44">
+  <source>People with access</source>
+        <target>Quién tiene acceso</target>
+</trans-unit>
+<trans-unit id="sa0b2d137b94c1b43">
+  <source>Only you, for now.</source>
+        <target>Sólo tú, por ahora.</target>
+</trans-unit>
+<trans-unit id="secb1f12272712f35">
+  <source>Nobody with that email has an account yet. Ask them to sign up first.</source>
+        <target>Nadie con ese correo tiene cuenta todavía. Pídele que se registre primero.</target>
+</trans-unit>
+<trans-unit id="sc44766eb10f803fe">
+  <source>You already own this event.</source>
+        <target>Este evento ya es tuyo.</target>
+</trans-unit>
+<trans-unit id="sdd35b8d59d206402">
+  <source>This event has reached its limit of guests.</source>
+        <target>Este evento ha llegado a su límite de invitados.</target>
+</trans-unit>
+<trans-unit id="sf6ab68dae8ec8b54">
+  <source>The invitation could not be saved. Please try again.</source>
+        <target>No se pudo guardar la invitación. Inténtalo de nuevo.</target>
+</trans-unit>
+<trans-unit id="sbbdea3edb0f2e6db">
+  <source>The change could not be saved. Please try again.</source>
+        <target>No se pudo guardar el cambio. Inténtalo de nuevo.</target>
+</trans-unit>
+<trans-unit id="s716a6024e3fe999c">
+  <source>Show</source>
+        <target>Ver</target>
+</trans-unit>
+<trans-unit id="sf993bb199fefbe04">
+  <source>All</source>
+        <target>Todos</target>
+</trans-unit>
+<trans-unit id="s04dc16aea8ff5276">
+  <source>Mine</source>
+        <target>Míos</target>
+</trans-unit>
+<trans-unit id="sf73d7490e3579772">
+  <source>Shared with me</source>
+        <target>Compartidos conmigo</target>
+</trans-unit>
+<trans-unit id="s8f4b58168c5eae33">
+  <source>Nobody has shared an event with you yet.</source>
+        <target>Todavía nadie ha compartido un evento contigo.</target>
+</trans-unit>
+<trans-unit id="s1a0b42f82fcb9d76">
+  <source>You have not created any events yet.</source>
+        <target>Todavía no has creado ningún evento.</target>
+</trans-unit>
+<trans-unit id="sff0d722ab790f408">
+  <source>Leave event</source>
+        <target>Salir del evento</target>
+</trans-unit>
+<trans-unit id="sa65856bad8c04ba9">
+  <source>You will stop seeing “<x id="0" equiv-text="${event.title}"/>”. Its owner would have to invite you again.</source>
+        <target>Dejarás de ver “<x id="0" equiv-text="${event.title}"/>”. Su propietario tendría que volver a invitarte.</target>
+</trans-unit>
+<trans-unit id="s936fc0d142fbfd27">
+  <source>Leaving…</source>
+        <target>Saliendo…</target>
+</trans-unit>
+<trans-unit id="s3f53fca347b6edb5">
+  <source>Checking…</source>
+        <target>Comprobando…</target>
+</trans-unit>
+<trans-unit id="s3a00da3ea80c40df">
+  <source>I have verified it</source>
+        <target>Ya lo he verificado</target>
+</trans-unit>
+<trans-unit id="s7d9bb1b8b6c1a2bb">
+  <source>Someone</source>
+        <target>Alguien</target>
+</trans-unit>
+<trans-unit id="s475c0236e0967c5b">
+  <source><x id="0" equiv-text="${who}"/> invited you to edit “<x id="1" equiv-text="${invite.eventTitle}"/>”.</source>
+        <target><x id="0" equiv-text="${who}"/> te ha invitado a editar “<x id="1" equiv-text="${invite.eventTitle}"/>”.</target>
+</trans-unit>
+<trans-unit id="sd35c72fc5cba769e">
+  <source><x id="0" equiv-text="${who}"/> invited you to see “<x id="1" equiv-text="${invite.eventTitle}"/>”.</source>
+        <target><x id="0" equiv-text="${who}"/> te ha invitado a ver “<x id="1" equiv-text="${invite.eventTitle}"/>”.</target>
+</trans-unit>
+<trans-unit id="s13be1af9766661e9">
+  <source>Accept</source>
+        <target>Aceptar</target>
+</trans-unit>
+<trans-unit id="s32322dc45e502559">
+  <source>Decline</source>
+        <target>Rechazar</target>
+</trans-unit>
+<trans-unit id="s18059d87aa01352e">
+  <source>That did not work. Please try again.</source>
+        <target>No ha funcionado. Inténtalo de nuevo.</target>
+</trans-unit>
+<trans-unit id="s840e9f03e8956d6c">
+  <source>That person is already in this event.</source>
+        <target>Esa persona ya está en este evento.</target>
+</trans-unit>
+<trans-unit id="sa290250751a5ecb2">
+  <source>Invitation sent. They join once they accept it.</source>
+        <target>Invitación enviada. Entrará cuando la acepte.</target>
+</trans-unit>
+<trans-unit id="s8f80709597e4b1a1">
+  <source>Share “<x id="0" equiv-text="${event.title}"/>”</source>
+        <target>Compartir “<x id="0" equiv-text="${event.title}"/>”</target>
+</trans-unit>
+<trans-unit id="scb6a9c1a1757adbc">
+  <source>You</source>
+        <target>Tú</target>
+</trans-unit>
+<trans-unit id="sb971debc37bf0b54">
+  <source>Owner</source>
+        <target>Propietario</target>
+</trans-unit>
+<trans-unit id="se84761ef4e88c526">
+  <source>Access for <x id="0" equiv-text="${person.name}"/></source>
+        <target>Acceso de <x id="0" equiv-text="${person.name}"/></target>
+</trans-unit>
+<trans-unit id="sa75b95980cd80e78">
+  <source>Editor</source>
+        <target>Editor</target>
+</trans-unit>
+<trans-unit id="s70b4765cad7bc7cf">
+  <source>Viewer</source>
+        <target>Lector</target>
+</trans-unit>
+<trans-unit id="s9c37f90c711cc80a">
+  <source>Cancel invitation</source>
+        <target>Cancelar la invitación</target>
+</trans-unit>
+<trans-unit id="s32c8fc3697630f75">
+  <source>Remove access</source>
+        <target>Quitar acceso</target>
+</trans-unit>
+<trans-unit id="s78636b92c1a3909c">
+  <source>Pending</source>
+        <target>Pendiente</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
