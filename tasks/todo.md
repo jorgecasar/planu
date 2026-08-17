@@ -360,13 +360,118 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `display: none` al texto que da nombre accesible a cada celda dejaba la suite
     verde, porque el test miraba `textContent`, que es ciego al árbol de
     accesibilidad. Los siete están muertos ahora.
-- [ ] **T21 · Agenda y conmutador de vista (F5, segunda mitad)** · M · depende de T20
+- [x] **T21 · Agenda y conmutador de vista (F5, segunda mitad)** · M · depende de T20
   - Acepta: lista cronológica agrupada por día; conmutador entre rejilla,
     calendario y agenda; la vista elegida sobrevive a la recarga; los filtros se
     aplican en las tres.
   - Verifica: e2e con axe en cada una de las tres vistas
-  - Ficheros: `src/calendar/agenda-view.ts`, `src/events/events-view.ts`,
-    `src/lib/view-preferences.ts`
+  - Ficheros: `src/calendar/agenda-days.ts` + test, `src/calendar/agenda-view.ts`
+    + test, `src/domain/view-mode.ts` + test, `src/events/events-view.ts`,
+    `src/lib/view-preferences.ts`, `e2e/views.spec.ts`
+  - Ficheros tocados fuera de lo previsto: `src/domain/sort-events.ts` + test
+    (ver abajo, la contradicción entre vistas).
+  - Evidencia: `npm run lint` → **0**, `npm run typecheck` → **0**,
+    `npm run lint:lit` → **0**, `npm run test:arch` → **0**,
+    `npm test` → **0** (315 → **363**), `npm run build` → **0**,
+    `npm run test:rules` → **0** (143), `npm run test:e2e` → **0** (46 → **56**).
+    Los e2e, contra emuladores recién arrancados (`firebase emulators:exec`):
+    contra unos acumulados salen fallos de `events.spec.ts` y `sharing.spec.ts`
+    que no son de esta rama.
+  - Resultado: **la agenda no inventa semántica**. `buildAgenda()` ordena con
+    `sortEvents` y decide próximo o pasado con `groupOf`, así que «sin fecha» y
+    «pasado» significan aquí exactamente lo que significan en la rejilla de
+    tarjetas. Lo único propio es el reparto en días, y sale de la **misma clave
+    por la que el evento se ordena** (`startDate ?? endDate`): agrupar por otra
+    dejaría la lista sin ser monótona en su propio criterio y el mismo día
+    aparecería dos veces con otro en medio. De ahí también que **cada evento
+    salga una vez**, el día que empieza, y no repetido por todo su tramo como en
+    la rejilla mensual: allí una línea por celda es lo que hace visible el
+    tramo; aquí sería la misma tarjeta tres veces en una lista que se recorre
+    hacia abajo.
+  - El orden elegido **manda también sobre la secuencia de días**, porque los
+    días se colocan donde aparece su primer evento. Con el valor por defecto eso
+    da la lista cronológica que pide F5; con «lo más lejano primero», la
+    inversa, que es lo que el usuario acaba de pedir.
+  - **Encabezados:** en la agenda cada día es un `h2` y cada tarjeta su `h3`, sin
+    un nivel intermedio de «próximos» y «pasados» — no cabe, porque la tarjeta
+    fija su `h3` desde T19. Los pasados se distinguen por el pliegue, que reutiliza
+    `shouldRevealPast` y cuenta **eventos, no días**. El mes del calendario recibe
+    su nivel desde fuera (`heading-level="2"`), que es lo que T20 dejó pendiente:
+    dentro del componente el nivel no se puede saber.
+  - **`planu-event-picked` abre el editor.** Es lo mismo que hace pulsar una
+    tarjeta, y la alternativa —llevar el calendario al mes del evento— no existe:
+    un evento sin fecha no tiene mes al que ir, y ponérselo es justo lo que el
+    usuario tendría que decidir en el editor.
+  - **Y aquí está lo que sólo se ve juntando las tres vistas, que es para lo que
+    existe la tarea que cierra la fase: no coincidían.** T20 decidió que un
+    evento **sin fecha de fin sigue en curso** y la rejilla mensual lo pinta
+    así; `groupOf`, en cambio, hacía `endDate ?? startDate` y lo mandaba a
+    «pasado» al día siguiente de empezar. Unas obras que empezaron el 10 de
+    junio salían en curso en el calendario y archivadas en la agenda **y en las
+    tarjetas**. Manda la semántica de T20, que es la que eligió el usuario, así
+    que la regla se ha llevado a `activeUntil()` en `domain/sort-events.ts`:
+    sin fin, nunca es pasado; sin inicio, cierra el fin; y con el fin **antes**
+    del inicio se colapsa al inicio, igual que hace `eventSpan`, porque si no el
+    evento caía en el pliegue de pasados bajo un encabezado de día futuro.
+    **Esto cambia también la rejilla de tarjetas**, y es lo correcto: era ella la
+    que discrepaba del calendario. Los dos casos tienen test en
+    `sort-events.test.ts` y, en `agenda-days.test.ts`, uno que comprueba
+    **agenda y calendario a la vez**, que es lo único que detecta que vuelvan a
+    separarse. Efecto colateral en las fixturas de T19: «pasado» ya no se puede
+    escribir con sólo un inicio atrasado, hay que declarar el fin.
+  - **El idioma de los días es el de la interfaz, no el del navegador.**
+    `buildAgenda` recibía `undefined` e `Intl` caía a `navigator.languages`: con
+    el navegador en alemán, la interfaz salía en inglés y los encabezados de día
+    en alemán. Ahora `events-view` pasa `getLocale()`, igual que hace
+    `calendar-view`, y el mismo valor va a `groupEvents` porque gobierna la
+    colación del orden alfabético y que dos vistas ordenaran distinto sería la
+    misma clase de divergencia. Lo prueba un e2e con `test.use({ locale:
+    "de-DE" })`.
+  - **Corregido de paso:** `sortEvents` lanza `RangeError` con un locale
+    inválido igual que `Intl.DateTimeFormat`, así que sanear sólo el formateador
+    —como hacía el primer borrador— dejaba la agenda reventando por el otro
+    lado. Se sanea una vez con `safeLocale` y se usa para los dos. Desde el
+    arreglo del idioma, además, ese camino ya lo pisa producción.
+  - **38 mutantes elegidos para incomodar, 38 muertos**, ocho de ellos añadidos
+    tras una revisión que eligió los suyos y encontró **seis supervivientes**:
+    el idioma alemán codificado a mano, la agenda ignorando el orden elegido,
+    `undated: 0` en la llamada a `shouldRevealPast`, intercambiar el pintado de
+    pasados y sin fecha, y persistir «calendario» como «tarjetas». Todos tienen
+    ya oráculo. Entre los treinta primeros, los cuatro
+    patrones que ya se colaron en esta fase: encabezado de día con `aria-hidden`
+    —lo mata consultar excluyéndolo y con `checkVisibility()`—, `display: none`
+    en la lista de tarjetas, `narrowed` y `headingLevel` sin `type` en el
+    `@property` —probados por el camino del **atributo**, que es el que usa
+    producción—, y el pliegue de pasados con un escenario donde hay días
+    próximos, de modo que la regla de «es lo único que hay» no puede explicar la
+    apertura. Los dos que más importaban: pasarle al calendario y a la agenda los
+    eventos **sin filtrar** mueren en `e2e/views.spec.ts`.
+  - **Decisiones sobre lo discutible**, para que no haya que volver a
+    preguntarlo:
+    - **El peso se acepta.** Las dos vistas nuevas se importan estáticamente, así
+      que el chunk de `events-view` pasa de 160,67 kB a **175,48 kB** (41,54 →
+      **45,52 kB** gz). `app-shell` no se mueve y la línea base de **156 KiB** de
+      la página de acceso queda intacta, que es la que `AGENTS.md` mide. Un
+      `import()` al primer cambio de vista recuperaría unos 4 kB gz a cambio de
+      un parpadeo al conmutar y de un camino que sólo falla en producción: no
+      compensa hoy, y si algún día compensa será con una medida delante.
+    - **`settle()` se queda aunque hoy no espere nada.** Una revisión instrumentó
+      el bucle de axe y midió cero animaciones a ambos lados, porque conmutar no
+      abre ningún diálogo. Cuesta una llamada y la primera vista que anime al
+      entrar la necesitaría sin que nadie se acordara; lo que se ha quitado es la
+      mención en la evidencia de `plan.md`, que sí prometía algo que no ocurre.
+    - **`readViewMode()` en el inicializador del campo se queda, con el comentario
+      suavizado.** Su motivo —que no haya un salto antes del primer pintado— no
+      tiene oráculo, y decirlo como si lo tuviera era el problema.
+    - **`EMPTY` pasa a ser fábrica.** Era un objeto mutable compartido por todas
+      las instancias; hoy nadie lo muta, y el día que alguien lo hiciera el fallo
+      no se parecería en nada a su causa.
+  - **Fuera:** el calendario sigue sin «+N más» cuando un día tiene muchos
+    eventos y sin `Mayús`+`Re/Av Pág` para cambiar de año; la agenda no numera
+    los días ni salta al de hoy; y el mensaje de «ningún evento coincide» sale
+    **antes** de repartir, también en el calendario, así que un filtro sin
+    resultados no enseña el mes vacío sino la explicación. Deliberado: un
+    calendario en blanco no dice por qué está en blanco.
 
 - [x] **T22 · Export a calendario (F4)** · M · depende de T13
   - Acepta: `.ics` por evento y de la agenda completa según los filtros activos;

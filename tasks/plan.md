@@ -162,18 +162,32 @@ encima.
 
 ### Checkpoint C — tras T22
 
-**No se puede evaluar todavía: falta T21**, que es la que crea el conmutador y
-la vista de agenda. Sin ella no hay tres vistas que medir. Dos de los tres
-ítems dependen de ella y el tercero es manual.
+Evaluado con T21, que es la tarea que cierra la fase. Dos de los tres ítems se
+cierran con oráculo; el tercero no lo puede cerrar un agente.
 
-- [ ] Las tres vistas con axe limpio — **bloqueado por T21.** Hoy hay axe sobre
-      el listado y sobre la rejilla mensual (T20 lo mete incluso en el
-      unitario), pero la agenda no existe.
+- [x] Las tres vistas con axe limpio — `npm run test:e2e` → **0**:
+      *«las tres vistas no tienen violaciones de accesibilidad»*
+      (`apps/web/e2e/views.spec.ts`) recorre rejilla, calendario y agenda **con
+      el conjunto de reglas por defecto**, afirmando en cada vuelta qué
+      componente está en pantalla —si no, un conmutador roto dejaría el bucle
+      midiendo Tarjetas tres veces— y que `passes` no está vacío, porque «cero
+      violaciones» y «no se ha mirado» se escriben igual. Las dos vistas nuevas
+      tienen además axe en el **unitario** —`calendar-view.test.ts` y
+      `agenda-view.test.ts`, con el tema de Web Awesome cargado y asserteando
+      también el `incomplete` de `color-contrast`, que sin el tema es donde se
+      esconde «no he podido mirar»—; la rejilla de tarjetas lo tiene en
+      `events.spec.ts` desde antes.
 - [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar —
       **pendiente de persona.** No hay forma de automatizarlo: hace falta abrir
-      el fichero en dos aplicaciones reales.
-- [ ] Los filtros funcionan igual en rejilla, calendario y agenda —
-      **bloqueado por T21.**
+      el fichero en dos aplicaciones reales. Es una de las tres clases que
+      `AGENTS.md` dice que un agente nunca cierra.
+- [x] Los filtros funcionan igual en rejilla, calendario y agenda —
+      `npm run test:e2e` → **0**: *«los filtros se aplican en el calendario»* y
+      *«los filtros se aplican en la agenda»* (`apps/web/e2e/views.spec.ts`).
+      Estructuralmente lo garantiza `events-view.ts`, donde las tres vistas
+      cuelgan de la **misma** llamada a `filterEvents`; y no es sólo estructura:
+      el mutante que le pasa al calendario los eventos sin filtrar, y el mismo
+      para la agenda, mueren los dos en esos e2e.
 
 ### Checkpoint D — tras T24
 

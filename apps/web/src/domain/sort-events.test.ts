@@ -235,11 +235,55 @@ test("tener una sola de las dos fechas ya es tener fecha", () => {
 	expect(groupOf(event({ endDate: day("2026-05-01") }), NOW)).toBe("past");
 });
 
+test("sin fin declarado, un evento que ya empezó sigue en curso", () => {
+	// Lo encontró una revisión juntando las tres vistas, y era una
+	// contradicción de producto: la rejilla mensual pinta estas obras en la
+	// celda de hoy —`eventSpan` las considera abiertas hacia adelante— mientras
+	// que aquí caían en «pasado» al día siguiente de empezar. El mismo evento,
+	// en curso en el calendario y archivado en la agenda.
+	//
+	// Manda el calendario, que es la semántica que se eligió en T20.
+	const obras = event({
+		title: "Obras en la calle",
+		startDate: day("2026-06-10"),
+	});
+
+	expect(groupOf(obras, NOW)).toBe("upcoming");
+	// Y no es que «todo lo que empezó» siga en curso: con fin declarado y
+	// pasado, es pasado.
+	expect(
+		groupOf(
+			event({ startDate: day("2026-06-10"), endDate: day("2026-06-12") }),
+			NOW,
+		),
+	).toBe("past");
+});
+
+test("con el fin antes del inicio manda el inicio", () => {
+	// Dato incoherente que el esquema ya rechaza, pero que pudo guardarse antes.
+	// Con `endDate` mandando, este evento aparecía **dentro del pliegue de
+	// pasados bajo un encabezado de día futuro**, que es una pantalla que se
+	// contradice a sí misma. `eventSpan` colapsa al inicio; aquí, lo mismo.
+	const incoherente = event({
+		startDate: day("2026-06-20"),
+		endDate: day("2026-06-10"),
+	});
+
+	expect(groupOf(incoherente, NOW)).toBe("upcoming");
+});
+
 test("los eventos sin fecha no se cuelan entre los fechados", () => {
 	const events = [
 		event({ title: "Sin fecha" }),
 		event({ title: "Futuro", startDate: day("2026-07-01") }),
-		event({ title: "Pasado", startDate: day("2026-05-01") }),
+		// Con fin declarado: desde que `groupOf` respeta la semántica del
+		// calendario, un evento con sólo inicio no ha terminado nunca, así que
+		// «pasado» hay que decirlo poniendo cuándo acabó.
+		event({
+			title: "Pasado",
+			startDate: day("2026-05-01"),
+			endDate: day("2026-05-02"),
+		}),
 	];
 
 	const groups = groupEvents(events, { now: NOW });
@@ -253,8 +297,16 @@ test("el criterio elegido vale dentro de cada grupo", () => {
 	const events = [
 		event({ title: "Futuro pronto", startDate: day("2026-07-01") }),
 		event({ title: "Futuro tarde", startDate: day("2026-08-01") }),
-		event({ title: "Pasado viejo", startDate: day("2026-01-01") }),
-		event({ title: "Pasado reciente", startDate: day("2026-05-01") }),
+		event({
+			title: "Pasado viejo",
+			startDate: day("2026-01-01"),
+			endDate: day("2026-01-02"),
+		}),
+		event({
+			title: "Pasado reciente",
+			startDate: day("2026-05-01"),
+			endDate: day("2026-05-02"),
+		}),
 	];
 
 	const groups = groupEvents(events, {

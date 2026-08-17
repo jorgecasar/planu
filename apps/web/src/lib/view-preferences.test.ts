@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 import { DEFAULT_SORT, type SortPreference } from "../domain/sort-events.js";
-import { readSortPreference, writeSortPreference } from "./view-preferences.js";
+import { DEFAULT_VIEW } from "../domain/view-mode.js";
+import {
+	readSortPreference,
+	readViewMode,
+	writeSortPreference,
+	writeViewMode,
+} from "./view-preferences.js";
 
 /** Un `Storage` de mentira, para no pisar el `localStorage` del navegador. */
 function fakeStorage(initial: Record<string, string> = {}): Storage {
@@ -94,5 +100,57 @@ test("sin argumento lee del localStorage real, que es como la llama la vista", (
 		expect(readSortPreference()).toEqual({ field: "title", direction: "asc" });
 	} finally {
 		localStorage.removeItem("planu.events.sort");
+	}
+});
+
+test("la vista elegida se vuelve a leer", () => {
+	// Es lo que hace que sobreviva a la recarga, que es criterio de aceptación
+	// de F5: la vista se lee al construir el componente.
+	const storage = fakeStorage();
+
+	writeViewMode("agenda", storage);
+
+	expect(readViewMode(storage)).toBe("agenda");
+});
+
+test("sin nada guardado se ven las tarjetas", () => {
+	expect(readViewMode(fakeStorage())).toBe(DEFAULT_VIEW);
+});
+
+test("una vista que no existe no deja la pantalla en blanco", () => {
+	const storage = fakeStorage({ "planu.events.view": "kanban" });
+
+	expect(readViewMode(storage)).toBe(DEFAULT_VIEW);
+});
+
+test("un almacenamiento denegado devuelve la vista por defecto sin lanzar", () => {
+	expect(readViewMode(hostileStorage())).toBe(DEFAULT_VIEW);
+	expect(() => writeViewMode("calendar", hostileStorage())).not.toThrow();
+});
+
+test("la vista y el orden no comparten clave", () => {
+	// Con la misma clave, cambiar de vista borraría el orden y al revés. Son dos
+	// preferencias distintas de la misma pantalla.
+	const storage = fakeStorage();
+
+	writeSortPreference({ field: "title", direction: "asc" }, storage);
+	writeViewMode("calendar", storage);
+
+	expect(storage.length).toBe(2);
+	expect(storage.getItem("planu.events.view")).toBe("calendar");
+	expect(readSortPreference(storage)).toEqual({
+		field: "title",
+		direction: "asc",
+	});
+});
+
+test("sin argumento la vista también sale del localStorage real", () => {
+	// Los demás tests le pasan un almacenamiento falso, así que borrar el
+	// `?? localStorage` dejaría la suite verde y la vista sin recordarse nunca.
+	localStorage.setItem("planu.events.view", "agenda");
+	try {
+		expect(readViewMode()).toBe("agenda");
+	} finally {
+		localStorage.removeItem("planu.events.view");
 	}
 });

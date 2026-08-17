@@ -542,10 +542,6 @@
   <source>A tag must be <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> characters or fewer.</source>
         <target>Una etiqueta no puede pasar de <x id="0" equiv-text="${MAX_TAG_LENGTH}"/> caracteres.</target>
 </trans-unit>
-<trans-unit id="s922ec025021bb8a0">
-  <source>No events match your search or date filter.</source>
-        <target>Ningún evento coincide con la búsqueda o el filtro de fechas.</target>
-</trans-unit>
 <trans-unit id="s1b620e51708bd4dd">
   <source>Add to calendar</source>
         <target>Añadir al calendario</target>
@@ -631,8 +627,28 @@
         <target>Pasados</target>
 </trans-unit>
 <trans-unit id="sd09408ac94f07b7b">
-  <source>Show <x id="0" equiv-text="${past.length}"/> past events</source>
-        <target>Ver <x id="0" equiv-text="${past.length}"/> eventos pasados</target>
+  <source>Show <x id="0" equiv-text="${count}"/> past events</source>
+        <target>Ver <x id="0" equiv-text="${count}"/> eventos pasados</target>
+</trans-unit>
+<trans-unit id="se43128d1f8f2571d">
+  <source>Show 1 past event</source>
+        <target>Ver 1 evento pasado</target>
+</trans-unit>
+<trans-unit id="s6f5d93a17b8bdc24">
+  <source>Cards</source>
+        <target>Tarjetas</target>
+</trans-unit>
+<trans-unit id="sbb980b38227e171f">
+  <source>Calendar</source>
+        <target>Calendario</target>
+</trans-unit>
+<trans-unit id="seffef28d71e60115">
+  <source>Agenda</source>
+        <target>Agenda</target>
+</trans-unit>
+<trans-unit id="s7f59f507e02a2f38">
+  <source>View</source>
+        <target>Vista</target>
 </trans-unit>
 </body>
 </file>

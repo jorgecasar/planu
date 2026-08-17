@@ -182,6 +182,17 @@ export class PlanuCalendarView extends LitElement {
 	/** Locale a usar. Vacío significa el que la interfaz está sirviendo. */
 	@property() locale = "";
 
+	/**
+	 * Nivel del encabezado del mes. `0` —el valor por defecto— deja un párrafo.
+	 *
+	 * El nivel no puede fijarse aquí: depende de dónde se monte la rejilla, y en
+	 * el listado el árbol es `h1 planu` → `h2 grupo` → `h3 tarjeta`, así que allí
+	 * el mes es un `h2`. Fijar un `h2` dentro del componente lo rompería en
+	 * cualquier otro sitio, y no ponerlo deja el mes fuera de la navegación por
+	 * encabezados. De ahí que lo diga quien lo monta.
+	 */
+	@property({ type: Number, attribute: "heading-level" }) headingLevel = 0;
+
 	/** El día con el foco itinerante. */
 	@state() private focused: Date = new Date();
 
@@ -233,7 +244,7 @@ export class PlanuCalendarView extends LitElement {
 					@click=${() => this.#shiftMonth(-1)}
 				>${msg("Previous month")}</wa-button>
 
-				<p class="title" id="month-title">${grid.title}</p>
+				${this.#renderTitle(grid.title)}
 
 				<wa-button
 					appearance="plain"
@@ -272,6 +283,26 @@ export class PlanuCalendarView extends LitElement {
 
 			<div class="sr-only" role="status">${this.announcement}</div>
 		`;
+	}
+
+	/**
+	 * El título del mes, con el nivel que le haya dado quien monta la vista.
+	 *
+	 * Un `switch` con etiquetas literales y no `unsafeStatic`: sólo hay dos
+	 * niveles que tengan sentido aquí, y una plantilla estática construida desde
+	 * una propiedad es una vía de inyección que no hace falta abrir por dos
+	 * casos. El `id` es el mismo en los tres, porque es lo que nombra la rejilla
+	 * por `aria-labelledby`.
+	 */
+	#renderTitle(title: string) {
+		switch (this.headingLevel) {
+			case 2:
+				return html`<h2 class="title" id="month-title">${title}</h2>`;
+			case 3:
+				return html`<h3 class="title" id="month-title">${title}</h3>`;
+			default:
+				return html`<p class="title" id="month-title">${title}</p>`;
+		}
 	}
 
 	/**
