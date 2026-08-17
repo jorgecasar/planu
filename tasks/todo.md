@@ -368,7 +368,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/calendar/agenda-view.ts`, `src/events/events-view.ts`,
     `src/lib/view-preferences.ts`
 
-- [ ] **T22 · Export a calendario (F4)** · M · depende de T13
+- [x] **T22 · Export a calendario (F4)** · M · depende de T13
   - Acepta: `.ics` por evento y de la agenda completa según los filtros activos;
     RFC 5545 en lo que importa (`UID` estable, `DTSTAMP`, escape de comas y
     saltos de línea, plegado a 75 octetos, `VALUE=DATE` para días completos);
@@ -381,15 +381,20 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Resultado: los dos módulos puros van en `src/domain/` —no en `src/calendar/`,
     que se escribió antes de T35—, con la parte impura aislada en
     `src/lib/download-file.ts` y la interfaz en `src/events/calendar-export.ts`.
-    El `UID` sale del id del documento. La suite unitaria corre con
-    `timezoneId: America/Santiago` (`vite.config.ts`): en UTC —la zona de los
-    runners— los tests de conversión a UTC no pueden fallar, y allí además hay
-    días en los que la medianoche no existe, que era el caso que rompía el
-    detector de día completo.
-  - **Sin cerrar:** `e2e/calendar-export.spec.ts` está escrito pero **no
-    ejecutado** (puertos de los emuladores ocupados). Hasta que corra no hay
-    prueba de que la descarga se dispare de verdad, así que la casilla sigue sin
-    marcar.
+    El `UID` sale del id del documento.
+  - **La zona horaria no se fija en `vite.config.ts`, aunque esta entrada llegó
+    a decirlo.** `playwright({ contextOptions: { timezoneId } })` es **inerte**:
+    con `TZ=UTC` en el entorno el navegador reporta offset 0 pese a pedir otra
+    zona. Manda la variable del proceso, así que vive en el script `test` de
+    `package.json`. Importa porque en UTC —la zona de los runners de GitHub— los
+    tests de conversión a UTC **no pueden fallar**, y `America/Santiago` añade
+    además días en los que la medianoche no existe, que era el caso que rompía
+    el detector de día completo.
+  - **Cerrado.** `e2e/calendar-export.spec.ts` llegó a quedarse sin ejecutar por
+    puertos ocupados, y por eso la casilla estuvo sin marcar. Ya corre: sobre
+    `main`, `npm test && npm run test:rules && npm run test:e2e` dentro de
+    `firebase emulators:exec` sale **0**, con **315 unitarios, 143 de reglas y
+    46 e2e**, y `calendar-export.spec.ts` entre ellos.
 
 > **Checkpoint C** — sesenta eventos se navegan por mes, etiqueta y orden; un
 > `.ics` real se abre en Calendario de macOS y en Google Calendar.
