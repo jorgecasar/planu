@@ -4,13 +4,20 @@ import {
 	type SortPreference,
 	serializeSortPreference,
 } from "../domain/sort-events.js";
+import {
+	DEFAULT_VIEW,
+	parseViewMode,
+	type ViewMode,
+} from "../domain/view-mode.js";
 
 /**
  * Prefijo propio para no chocar con nada más en el mismo origen, y sufijo con
- * la vista a la que pertenece: vendrán más preferencias (T21) y una clave
- * llamada `sort` a secas no diría de qué.
+ * la vista a la que pertenece: una clave llamada `sort` a secas no diría de qué.
  */
 const SORT_KEY = "planu.events.sort";
+
+/** La vista elegida —tarjetas, calendario o agenda—, junto a la del orden. */
+const VIEW_KEY = "planu.events.view";
 
 /**
  * Todo lo que decide qué es válido vive en `domain/sort-events.ts`. Aquí sólo
@@ -43,5 +50,30 @@ export function writeSortPreference(
 		);
 	} catch {
 		// Cuota llena o almacenamiento denegado. El listado sigue funcionando.
+	}
+}
+
+/**
+ * La vista que el usuario dejó puesta. Lo que decide qué es válido vive en
+ * `domain/view-mode.ts`; aquí sólo queda el acceso al almacenamiento.
+ *
+ * Mismo `try` que arriba y por el mismo motivo: nombrar `localStorage` puede
+ * lanzar `SecurityError` antes de leer nada, y un navegador restrictivo debe
+ * perder la preferencia, no la pantalla.
+ */
+export function readViewMode(storage?: Storage): ViewMode {
+	try {
+		return parseViewMode((storage ?? localStorage).getItem(VIEW_KEY));
+	} catch {
+		return DEFAULT_VIEW;
+	}
+}
+
+/** Guardar la vista es una comodidad: si falla, no se avisa de nada. */
+export function writeViewMode(mode: ViewMode, storage?: Storage): void {
+	try {
+		(storage ?? localStorage).setItem(VIEW_KEY, mode);
+	} catch {
+		// Cuota llena o almacenamiento denegado. La vista sigue funcionando.
 	}
 }

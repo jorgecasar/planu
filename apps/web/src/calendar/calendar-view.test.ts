@@ -171,6 +171,40 @@ test("la fecha completa llega al árbol de accesibilidad, no sólo al textConten
 	el.remove();
 });
 
+test("por defecto el título del mes no es un encabezado", async () => {
+	// El nivel depende de dónde se monte la rejilla, así que fijarlo aquí
+	// rompería el orden de encabezados de cualquier página que no sea la que se
+	// tuvo en mente. Sin nivel, es un párrafo y nombra la rejilla por
+	// `aria-labelledby`.
+	const el = await mount();
+
+	expect(el.shadowRoot?.querySelector("#month-title")?.localName).toBe("p");
+	el.remove();
+});
+
+test("el nivel del encabezado llega por atributo, que es como lo monta la vista", async () => {
+	// La vista de eventos lo pasa como `heading-level="2"`, es decir por
+	// **atributo**: sin `type: Number` la propiedad valdría la cadena `"2"`, el
+	// `switch` caería al caso por defecto y el mes se quedaría en párrafo, fuera
+	// de la navegación por encabezados. Asignar la propiedad no probaría eso.
+	const el = await mount();
+	el.setAttribute("heading-level", "2");
+	await el.updateComplete;
+
+	const title = el.shadowRoot?.querySelector("#month-title");
+	expect(title?.localName).toBe("h2");
+	expect(accessibleName(title as Element)).toBe("junio de 2026");
+
+	// Y sigue nombrando la rejilla: el `id` es lo que la etiqueta.
+	expect(
+		el.shadowRoot
+			?.querySelector('[role="grid"]')
+			?.getAttribute("aria-labelledby"),
+	).toBe("month-title");
+
+	el.remove();
+});
+
 test("las siete columnas se alinean de verdad", async () => {
 	// Las filas llevan `display: contents` para que las celdas sean hijas de la
 	// rejilla CSS. Sin eso —con `display: block`, por ejemplo— los roles siguen

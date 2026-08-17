@@ -136,7 +136,7 @@ function isUndated(event: PlanuEvent): boolean {
 }
 
 /**
- * El extremo por el que se ordena y el que decide si ya pasó.
+ * El extremo por el que se ordena.
  *
  * Un evento puede traer sólo uno de los dos, y `filterEvents` ya resuelve ese
  * caso haciendo que el extremo presente valga por los dos (`rangeEnd = to ??
@@ -145,8 +145,38 @@ function isUndated(event: PlanuEvent): boolean {
 const startOf = (event: PlanuEvent): Date | null =>
 	event.startDate ?? event.endDate ?? null;
 
-const endOf = (event: PlanuEvent): Date | null =>
-	event.endDate ?? event.startDate ?? null;
+/**
+ * Cuándo deja de estar en curso un evento. `null` significa «todavía no».
+ *
+ * Aquí **no** vale el atajo de `startOf` —el extremo presente hace de los dos—,
+ * y eso costó una revisión: con `endDate ?? startDate`, unas obras que
+ * empezaron el 10 de junio y no tienen fin declarado pasaban a «pasado» el 11,
+ * estando en curso. La rejilla mensual las seguía pintando en el día de hoy,
+ * porque `eventSpan` decide otra cosa, así que **el mismo evento salía en curso
+ * en el calendario y archivado en la agenda y en las tarjetas**. Sólo se ve al
+ * juntar las tres vistas, que es para lo que existe la tarea que cierra la fase.
+ *
+ * Manda la semántica del calendario, que es la que eligió el usuario en T20:
+ *
+ * - **Sin fin, sigue en curso**: no es un punto en el tiempo, es algo que
+ *   empezó y no ha terminado. Nunca es pasado.
+ * - **Sin inicio**, el fin es una fecha límite y es él quien lo cierra.
+ * - **Con el fin antes del inicio** —dato incoherente que el esquema rechaza
+ *   pero que pudo guardarse antes— se colapsa al inicio, igual que hace
+ *   `eventSpan`. Si no, el evento caía en el pliegue de pasados bajo un
+ *   encabezado de día futuro.
+ *
+ * Lo que **no** cambia es el orden: `sortKey` sigue mirando `startOf`, así que
+ * un evento se coloca en la lista por donde empieza, no por donde acaba.
+ */
+function activeUntil(event: PlanuEvent): Date | null {
+	const start = event.startDate ?? null;
+	const end = event.endDate ?? null;
+
+	if (start && end) return end.getTime() >= start.getTime() ? end : start;
+	if (start) return null;
+	return end;
+}
 
 /**
  * La clave por la que ordena cada criterio.
@@ -216,14 +246,19 @@ export function sortEvents<T extends PlanuEvent>(
  * A qué montón pertenece un evento respecto a un instante dado.
  *
  * Pasado es haber **terminado** antes de `now`, no haber empezado: un congreso
- * de tres días sigue siendo próximo el segundo. El límite es inclusivo, igual
- * que en `filterEvents`, así que lo que acaba justo en `now` todavía cuenta
- * como próximo.
+ * de tres días sigue siendo próximo el segundo, y uno sin fin declarado nunca
+ * llega a pasado (ver `activeUntil`). El límite es inclusivo, igual que en
+ * `filterEvents`, así que lo que acaba justo en `now` todavía cuenta como
+ * próximo.
+ *
+ * Esta es la **única** definición de «pasado» del proyecto: la usan la rejilla
+ * de tarjetas, la agenda y —a través de `eventSpan`, que dice lo mismo con otra
+ * forma— la rejilla mensual.
  */
 export function groupOf(event: PlanuEvent, now: Date): EventGroupName {
 	if (isUndated(event)) return "undated";
 
-	const end = endOf(event);
+	const end = activeUntil(event);
 	return end !== null && end.getTime() < now.getTime() ? "past" : "upcoming";
 }
 

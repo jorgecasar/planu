@@ -3,8 +3,12 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/option/option.js";
+import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
+import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import "@awesome.me/webawesome/dist/components/select/select.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
+import "../calendar/agenda-view.js";
+import "../calendar/calendar-view.js";
 import "./ai-event-generator.js";
 import "./calendar-export.js";
 import "./event-card.js";
@@ -29,6 +33,7 @@ import {
 } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { buildAgenda } from "../calendar/agenda-days.js";
 import {
 	type DateRange,
 	filterEvents,
@@ -42,8 +47,14 @@ import {
 	serializeSortPreference,
 	sortOptions,
 } from "../domain/sort-events.js";
+import {
+	parseViewMode,
+	type ViewMode,
+	viewOptions,
+} from "../domain/view-mode.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
+import { getLocale } from "../i18n/localization.js";
 import {
 	eventSchema,
 	type PlanuEvent,
@@ -51,7 +62,9 @@ import {
 } from "../lib/types.js";
 import {
 	readSortPreference,
+	readViewMode,
 	writeSortPreference,
+	writeViewMode,
 } from "../lib/view-preferences.js";
 import type { FiltersChange } from "./event-filters.js";
 
@@ -154,6 +167,18 @@ export class PlanuEventsView extends LitElement {
 	 */
 	@state() private sort: SortPreference = readSortPreference();
 
+	/**
+	 * La vista elegida, recuperada de la sesión anterior.
+	 *
+	 * Se lee en el inicializador del campo, igual que el orden, con la intención
+	 * de que el primer render ya salga como el usuario lo dejó. **Esa intención
+	 * no tiene oráculo**: moverla a `connectedCallback` no rompe ningún test, y
+	 * un salto de un fotograma no es algo que la suite sepa mirar. Se deja donde
+	 * está por coherencia con `sort` y porque no cuesta nada, no porque esté
+	 * demostrado que haga falta.
+	 */
+	@state() private view: ViewMode = readViewMode();
+
 	readonly #events = new CollectionController<DocumentData>(this);
 
 	override async connectedCallback(): Promise<void> {
@@ -166,6 +191,18 @@ export class PlanuEventsView extends LitElement {
 		super();
 		// La tarjeta no conoce al editor: emite y esta vista decide.
 		this.addEventListener("planu-edit-event", (domEvent) => {
+			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
+			this.editorOpen = true;
+		});
+
+		// La rejilla mensual emite `planu-event-picked` cuando el usuario elige
+		// uno de los eventos sin fecha que no caben en ninguna celda, y no decide
+		// qué hacer con él a propósito. Aquí se decide: **abrir el editor**, que
+		// es lo mismo que hace pulsar la tarjeta en la rejilla de tarjetas. La
+		// alternativa —llevar el calendario al mes del evento— no existe: un
+		// evento sin fecha no tiene mes al que ir, y ponerle uno es justo lo que
+		// el usuario tendría que decidir en el editor.
+		this.addEventListener("planu-event-picked", (domEvent) => {
 			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
 			this.editorOpen = true;
 		});
@@ -227,6 +264,21 @@ export class PlanuEventsView extends LitElement {
 					.availableTags=${knownTags}
 					@planu-filters-change=${this.#onFilters}
 				></planu-event-filters>
+
+				<wa-radio-group
+					class="views"
+					label=${msg("View")}
+					orientation="horizontal"
+					.value=${this.view}
+					@change=${this.#onView}
+				>
+					${viewOptions().map(
+						(option) =>
+							html`<wa-radio appearance="button" value=${option.value}>
+								${option.label}
+							</wa-radio>`,
+					)}
+				</wa-radio-group>
 
 				<wa-select
 					label=${msg("Sort by")}
@@ -331,19 +383,53 @@ export class PlanuEventsView extends LitElement {
 		if (this.#events.loading) return this.#renderSkeletons();
 		if (visible.length === 0) return this.#renderEmpty(total);
 
+		// `visible` y no `all`: **el filtro es de la pantalla, no de la rejilla de
+		// tarjetas**. Las tres vistas cuelgan de esta misma línea y reciben lo
+		// mismo, que es lo que hace imposible que una se quede sin filtrar. Y el
+		// mensaje de «nada coincide» sale antes del reparto, también para las
+		// tres: un calendario vacío no explica por qué está vacío.
+		//
 		// `new Date()` aquí y no dentro del dominio: el reloj es una entrada, y
-		// esta vista es el borde donde se lee. `groupEvents` recibe el instante
-		// y así se puede probar sin depender de cuándo se ejecuten los tests.
+		// esta vista es el borde donde se lee. `groupEvents` y `buildAgenda`
+		// reciben el instante y así se pueden probar sin depender de cuándo se
+		// ejecuten los tests.
 		//
 		// Se lee en cada repintado y no hay temporizador, así que un evento que
 		// termina con la página abierta no salta de «próximos» a «pasados» hasta
 		// el siguiente render —un filtro, un cambio de orden, un snapshot—.
 		// Deliberado: un `setInterval` para reordenar la pantalla bajo el cursor
 		// molesta más de lo que corrige.
-		const groups = groupEvents(visible, { now: new Date(), sort: this.sort });
+		const now = new Date();
+
+		// El idioma **de la interfaz**, no el del navegador.
+		//
+		// `src/i18n/localization.ts` avisa de este peligro por su nombre y
+		// `calendar-view` ya lo obedece: si el navegador pide alemán, la interfaz
+		// sirve inglés, y sin pasar el locale `Intl` formateaba los encabezados de
+		// día de la agenda en alemán dentro de una pantalla en inglés. Va también
+		// a `groupEvents` porque el mismo valor gobierna la colación del orden
+		// alfabético, y que las dos vistas ordenen distinto sería la misma clase
+		// de divergencia que esta revisión vino a cerrar.
+		const locale = getLocale();
+
+		if (this.view === "calendar") {
+			// `heading-level="2"` porque el árbol de la página es h1 planu → h2
+			// grupo → h3 tarjeta, y el mes ocupa el sitio del grupo.
+			return html`<planu-calendar-view
+				heading-level="2"
+				.events=${visible}
+			></planu-calendar-view>`;
+		}
+
+		if (this.view === "agenda") {
+			return html`<planu-agenda-view
+				.agenda=${buildAgenda(visible, { now, sort: this.sort, locale })}
+				?narrowed=${this.#narrowed}
+			></planu-agenda-view>`;
+		}
 
 		return html`<planu-event-groups
-			.groups=${groups}
+			.groups=${groupEvents(visible, { now, sort: this.sort, locale })}
 			?narrowed=${this.#narrowed}
 		></planu-event-groups>`;
 	}
@@ -439,6 +525,25 @@ export class PlanuEventsView extends LitElement {
 
 		this.sort = chosen;
 		writeSortPreference(chosen);
+	}
+
+	/**
+	 * Igual que el orden, y con la misma guarda: reasignar `.value` en cada
+	 * render hace que el `wa-radio-group` responda con `change`, y sin comparar
+	 * antes esto reasignaría el estado, provocaría otro render y volvería a
+	 * empezar.
+	 *
+	 * El valor pasa por `parseViewMode` aunque venga de nuestros propios radios:
+	 * es el mismo saneado que se aplica a lo que llega de `localStorage`, y así
+	 * no hay dos caminos por los que el estado pueda tomar valores distintos.
+	 */
+	#onView(domEvent: Event): void {
+		const group = domEvent.target as HTMLElement & { value?: string };
+		const chosen = parseViewMode(group.value);
+		if (chosen === this.view) return;
+
+		this.view = chosen;
+		writeViewMode(chosen);
 	}
 
 	#onNew(): void {
