@@ -162,8 +162,9 @@ encima.
 
 ### Checkpoint C — tras T22
 
-Evaluado con T21, que es la tarea que cierra la fase. Dos de los tres ítems se
-cierran con oráculo; el tercero no lo puede cerrar un agente.
+**Cerrado.** Evaluado con T21, que es la tarea que cierra la fase: dos ítems con
+oráculo automático y el tercero verificado a mano, porque abrir un fichero en
+dos aplicaciones reales no lo puede hacer un agente.
 
 - [x] Las tres vistas con axe limpio — `npm run test:e2e` → **0**:
       *«las tres vistas no tienen violaciones de accesibilidad»*
@@ -177,15 +178,15 @@ cierran con oráculo; el tercero no lo puede cerrar un agente.
       también el `incomplete` de `color-contrast`, que sin el tema es donde se
       esconde «no he podido mirar»—; la rejilla de tarjetas lo tiene en
       `events.spec.ts` desde antes.
-- [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar —
-      **media verificada, media pendiente.** El 17 de agosto de 2026 se descargó
-      un `.ics` desde una tarjeta y **se abrió correctamente en Calendario de
-      macOS**; en **Google Calendar todavía no lo ha abierto nadie**. La casilla
-      se queda sin marcar porque el ítem pide las dos, y marcarla afirmaría algo
-      que nadie ha visto.
-      No hay forma de automatizarlo: hace falta abrir el fichero en dos
-      aplicaciones reales. Es una de las tres clases que `AGENTS.md` dice que un
-      agente nunca cierra.
+- [x] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar —
+      **verificado a mano el 17 de agosto de 2026**, en las dos: se descargó un
+      `.ics` desde una tarjeta y abre correctamente en Calendario de macOS y en
+      Google Calendar.
+      No se puede automatizar: hace falta abrir el fichero en dos aplicaciones
+      reales, y es una de las tres clases que `AGENTS.md` dice que un agente
+      nunca cierra. Google Calendar es el que de verdad pone a prueba el plegado
+      de líneas a 75 octetos de `domain/build-ics.ts`, más quisquilloso que
+      Calendario: por eso el ítem pedía las dos y no una.
 - [x] Los filtros funcionan igual en rejilla, calendario y agenda —
       `npm run test:e2e` → **0**: *«los filtros se aplican en el calendario»* y
       *«los filtros se aplican en la agenda»* (`apps/web/e2e/views.spec.ts`).
