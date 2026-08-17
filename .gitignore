@@ -30,5 +30,8 @@ playwright-report/
 .qmd/index.sqlite
 .qmd/*.sqlite-*
 
-# Adjuntos que Vitest deja al fallar un test de navegador.
+# Adjuntos y capturas que Vitest deja al fallar un test de navegador. Las
+# capturas se escriben junto al fuente, así que sin esto cualquier test que
+# falle una vez ensucia `git status` y acaba colándose en un `git add -A`.
 apps/web/.vitest-attachments/
+**/__screenshots__/
