@@ -13,6 +13,9 @@ coverage/
 test-results/
 playwright-report/
 .firebase/
+
+# Datos que los emuladores exportan al salir, para no volver a sembrar.
+.emulator-data/
 *.local
 *-debug.log
 

@@ -237,6 +237,33 @@ Homebrew instala `openjdk` como *keg-only*, así que no basta con
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"   # en ~/.zshrc
 ```
 
+`npm run emulators` **conserva los datos entre reinicios**: exporta a
+`.emulator-data/` al salir e importa de ahí al arrancar. Sin eso, cada reinicio
+se llevaba las cuentas y había que volver a registrarse; el síntoma era un
+«no me autentica» que no explicaba nada, porque la cuenta simplemente había
+dejado de existir.
+
+Dos límites que conviene conocer antes de extrañarse:
+
+1. **Sólo exporta si los emuladores salen limpiamente.** Ctrl-C sí; `kill -9`
+   no.
+2. **La exportación de Firestore sólo cubre la base `(default)`, y la de este
+   proyecto se llama `planu`.** Comprobado escribiendo un documento en cada una:
+   tras reiniciar sobrevive el de `(default)` y desaparece el de `planu`. Es
+   decir, **las cuentas sobreviven y los eventos no**.
+
+Para volver a poner datos con los que probar a mano:
+
+```bash
+npm run seed                        # cuenta de ejemplo y once eventos
+npm run seed -- otra@example.com    # o la cuenta que quieras
+```
+
+Siembra **escribiendo como el usuario**, no con el acceso de administración: si
+algo no pasa `firestore.rules`, es mejor enterarse ahí que en la interfaz. Y las
+fechas son relativas a hoy, porque el listado separa próximos de pasados por el
+instante actual y un dato fijo dejaría de enseñar lo que viene a enseñar.
+
 Los puertos no son los de por defecto: Firestore usa el **8181** y Hosting el
 **5050**, porque en macOS el 5000 lo ocupa el receptor AirPlay del sistema y el
 8080 suele estar cogido. Están en `firebase.json` y replicados en
