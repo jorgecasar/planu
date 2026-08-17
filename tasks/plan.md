@@ -178,9 +178,14 @@ cierran con oráculo; el tercero no lo puede cerrar un agente.
       esconde «no he podido mirar»—; la rejilla de tarjetas lo tiene en
       `events.spec.ts` desde antes.
 - [ ] Un `.ics` generado se abre en Calendario de macOS y en Google Calendar —
-      **pendiente de persona.** No hay forma de automatizarlo: hace falta abrir
-      el fichero en dos aplicaciones reales. Es una de las tres clases que
-      `AGENTS.md` dice que un agente nunca cierra.
+      **media verificada, media pendiente.** El 17 de agosto de 2026 se descargó
+      un `.ics` desde una tarjeta y **se abrió correctamente en Calendario de
+      macOS**; en **Google Calendar todavía no lo ha abierto nadie**. La casilla
+      se queda sin marcar porque el ítem pide las dos, y marcarla afirmaría algo
+      que nadie ha visto.
+      No hay forma de automatizarlo: hace falta abrir el fichero en dos
+      aplicaciones reales. Es una de las tres clases que `AGENTS.md` dice que un
+      agente nunca cierra.
 - [x] Los filtros funcionan igual en rejilla, calendario y agenda —
       `npm run test:e2e` → **0**: *«los filtros se aplican en el calendario»* y
       *«los filtros se aplican en la agenda»* (`apps/web/e2e/views.spec.ts`).
