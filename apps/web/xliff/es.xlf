@@ -214,10 +214,6 @@
   <source>Create manually</source>
         <target>Crear a mano</target>
 </trans-unit>
-<trans-unit id="s84f0be6038507c28">
-  <source>Generate from an image</source>
-        <target>Generar desde una imagen</target>
-</trans-unit>
 <trans-unit id="s95c7d4bfce3a645e">
   <source>You have no events yet.</source>
         <target>Todavía no tienes eventos.</target>
@@ -270,14 +266,6 @@
   <source>Loading</source>
         <target>Cargando</target>
 </trans-unit>
-<trans-unit id="s1ee927d0f0f6b718">
-  <source>Generate event from an image</source>
-        <target>Generar un evento desde una imagen</target>
-</trans-unit>
-<trans-unit id="sb441392801bb49cc">
-  <source>Upload a poster or flyer and the details will be filled in for you. You can review everything before saving.</source>
-        <target>Sube un cartel o un folleto y rellenaremos los datos por ti. Podrás revisarlo todo antes de guardar.</target>
-</trans-unit>
 <trans-unit id="s707e0d1d235eb9f2">
   <source>Event image</source>
         <target>Imagen del evento</target>
@@ -285,10 +273,6 @@
 <trans-unit id="s6abb04e95b59ed89">
   <source>Saving the image…</source>
         <target>Guardando la imagen…</target>
-</trans-unit>
-<trans-unit id="s40114e8cfce8a581">
-  <source>Reading the image…</source>
-        <target>Leyendo la imagen…</target>
 </trans-unit>
 <trans-unit id="s8ac3d8b6d9eec835">
   <source>The image could not be read as an event. Try a clearer photo.</source>
@@ -649,6 +633,74 @@
 <trans-unit id="s7f59f507e02a2f38">
   <source>View</source>
         <target>Vista</target>
+</trans-unit>
+<trans-unit id="sfa071e68dcfdd864">
+  <source>Generate event with AI</source>
+        <target>Generar un evento con IA</target>
+</trans-unit>
+<trans-unit id="s9465c45b1029715f">
+  <source>Upload a poster or flyer, or paste the text of an invitation, and the details will be filled in for you. You can review everything before saving.</source>
+        <target>Sube un cartel o un folleto, o pega el texto de una invitación, y rellenaremos los datos por ti. Podrás revisarlo todo antes de guardar.</target>
+</trans-unit>
+<trans-unit id="s722bf6e76015fe57">
+  <source>Or paste the text of the event</source>
+        <target>O pega el texto del evento</target>
+</trans-unit>
+<trans-unit id="sca4fc0f449ba7789">
+  <source>An email, a message or an announcement. Nothing is saved until you review it.</source>
+        <target>Un correo, un mensaje o un anuncio. No se guarda nada hasta que lo revises.</target>
+</trans-unit>
+<trans-unit id="s452841348c6529c5">
+  <source>Generate from text</source>
+        <target>Generar desde el texto</target>
+</trans-unit>
+<trans-unit id="s904eb581ea5ae530">
+  <source>No event could be found in that text. Add the date and the place, or create the event by hand.</source>
+        <target>No hemos encontrado ningún evento en ese texto. Añade la fecha y el lugar, o crea el evento a mano.</target>
+</trans-unit>
+<trans-unit id="s66c3646cd8886258">
+  <source>That text is too long. Leave just the part that describes the event.</source>
+        <target>Ese texto es demasiado largo. Deja sólo la parte que describe el evento.</target>
+</trans-unit>
+<trans-unit id="s910a464b5ec8cba4">
+  <source>Paste the text of the event first.</source>
+        <target>Pega antes el texto del evento.</target>
+</trans-unit>
+<trans-unit id="s3b857fd430a74794">
+  <source>Generate with AI</source>
+        <target>Generar con IA</target>
+</trans-unit>
+<trans-unit id="s367b05f44337d652">
+  <source>Getting the AI model ready…</source>
+        <target>Preparando el modelo de IA…</target>
+</trans-unit>
+<trans-unit id="s23645894a63cf540">
+  <source>Reading your text and pulling out the event…</source>
+        <target>Leyendo tu texto y sacando el evento…</target>
+</trans-unit>
+<trans-unit id="sb8ceb7b3e515265c">
+  <source>Reading the image and pulling out the event…</source>
+        <target>Leyendo la imagen y sacando el evento…</target>
+</trans-unit>
+<trans-unit id="s35d8703b75eb5d32">
+  <source>It only happens once. You can leave this open.</source>
+        <target>Sólo ocurre una vez. Puedes dejar esto abierto.</target>
+</trans-unit>
+<trans-unit id="sbef378e79a14ec72">
+  <source>It runs on your device: nothing you wrote leaves it.</source>
+        <target>Se ejecuta en tu dispositivo: nada de lo que has escrito sale de él.</target>
+</trans-unit>
+<trans-unit id="sef915eef9f7824d8">
+  <source>This can take a few seconds.</source>
+        <target>Puede tardar unos segundos.</target>
+</trans-unit>
+<trans-unit id="s77cbddf2c31d5fff">
+  <source>The image is saved to your account.</source>
+        <target>La imagen se guarda en tu cuenta.</target>
+</trans-unit>
+<trans-unit id="s5dd12f8b7981d806">
+  <source><x id="0" equiv-text="${this.text.trim().length}"/> / <x id="1" equiv-text="${MAX_TEXT_LENGTH}"/></source>
+        <target><x id="0" equiv-text="${this.text.trim().length}"/> / <x id="1" equiv-text="${MAX_TEXT_LENGTH}"/></target>
 </trans-unit>
 </body>
 </file>

@@ -22,7 +22,7 @@ async function signUp(page: Page): Promise<void> {
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 
-test("la generación desde imagen se ofrece junto al alta manual", async ({
+test("la generación con IA se ofrece junto al alta manual", async ({
 	page,
 }) => {
 	await signUp(page);
@@ -32,17 +32,13 @@ test("la generación desde imagen se ofrece junto al alta manual", async ({
 		page.getByRole("menuitem", { name: "Create manually" }),
 	).toBeVisible();
 	await expect(
-		page.getByRole("menuitem", { name: "Generate from an image" }),
+		page.getByRole("menuitem", { name: "Generate with AI" }),
 	).toBeVisible();
 });
 
-test("si la IA no está disponible lo dice y no bloquea el alta manual", async ({
+test("el texto pegado se ofrece junto a la imagen, y su fallo tampoco bloquea", async ({
 	page,
 }) => {
-	// Se fija el estado en vez de confiar en lo que traiga el Chromium
-	// instalado: el de Playwright sí expone LanguageModel y responde
-	// "downloadable", así que sin esto el test pasaría por la razón equivocada
-	// y se rompería solo con el próximo bump de Playwright.
 	await page.addInitScript(() => {
 		Object.defineProperty(globalThis, "LanguageModel", {
 			value: { availability: async () => "available" },
@@ -51,7 +47,96 @@ test("si la IA no está disponible lo dice y no bloquea el alta manual", async (
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate from an image" }).click();
+	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
+
+	// Las dos entradas conviven en el mismo diálogo: si el campo de texto
+	// hubiera sustituido al de imagen, esto lo diría.
+	await expect(page.getByLabel("Event image")).toBeVisible();
+
+	const generar = page.getByRole("button", { name: "Generate from text" });
+	// Sin texto no hay nada que generar: el botón lo dice en vez de fallar luego.
+	await expect(generar).toBeDisabled();
+
+	// El contador hace visible el tope antes de chocar con él. Se escapó de la
+	// revisión: `?withCount` pone un atributo que no existe, así que el campo se
+	// veía bien y no contaba nada.
+	await expect(page.getByText("0 / 2000")).toBeVisible();
+
+	// Un texto que de verdad no describe ningún evento, y no una invitación
+	// perfectamente válida: con la segunda, la aserción de abajo sólo era cierta
+	// porque aquí no hay IA, y se habría roto el día que la generación funcione.
+	// Medido contra Gemini Nano, éste es además el texto que hace que el modelo
+	// lance un error en vez de contestar.
+	await page
+		.getByLabel("Or paste the text of the event")
+		.fill("Recuerda comprar leche y pilas.");
+	await expect(generar).toBeEnabled();
+	await generar.click();
+
+	// El navegador dice tener el modelo listo y aun así no sale nada: la culpa
+	// se le echa al texto, no a la IA, y se ofrece salida.
+	await expect(page.getByRole("alert")).toContainText(
+		"no event could be found in that text",
+		{ ignoreCase: true },
+	);
+
+	await page.getByRole("button", { name: "Cancel" }).click();
+	await expect(page.getByRole("button", { name: "New event" })).toBeEnabled();
+});
+
+test("pasarse del tope se explica, en vez de recortar el pegado en silencio", async ({
+	page,
+}) => {
+	// El campo llevaba `maxlength`, que **recorta el pegado sin decir nada**:
+	// justo el truncado silencioso que el tope venía a impedir. Quien pegaba
+	// 2500 caracteres se quedaba con 2000 y el modelo contestaba sobre la mitad.
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "available" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
+
+	const campo = page.getByLabel("Or paste the text of the event");
+	await campo.fill("a".repeat(2500));
+
+	// Nada se ha perdido por el camino…
+	await expect(campo).toHaveValue("a".repeat(2500));
+	await expect(page.getByText("2500 / 2000")).toBeVisible();
+	// …y se dice qué hacer, con el botón cerrado hasta entonces.
+	await expect(page.getByText("That text is too long")).toBeVisible();
+	await expect(
+		page.getByRole("button", { name: "Generate from text" }),
+	).toBeDisabled();
+});
+
+test("si la IA no está lista lo dice y no bloquea el alta manual", async ({
+	page,
+}) => {
+	// Se fija el estado en vez de confiar en lo que traiga el Chromium
+	// instalado: el de Playwright sí expone LanguageModel y responde
+	// "downloadable", así que sin esto el test pasaría por la razón equivocada
+	// y se rompería solo con el próximo bump de Playwright.
+	//
+	// «downloadable» y no «available» a propósito: es el estado en el que un
+	// fallo **sí** se explica por la IA, y es la rama que este test defiende.
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "downloadable" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
+
+	// Y se avisa de la descarga antes de empezar, no después.
+	await expect(
+		page.getByText("your browser downloads the AI model"),
+	).toBeVisible();
 
 	await page.getByLabel("Event image").setInputFiles({
 		name: "cartel.png",

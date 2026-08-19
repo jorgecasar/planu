@@ -41,6 +41,48 @@ test("las fechas vacías o inválidas quedan en null y no rompen", () => {
 	expect(result.endDate).toBeNull();
 });
 
+test("una fecha de sólo día se queda en ese día, no en el anterior", () => {
+	// `new Date("2026-06-20")` es medianoche UTC: al oeste de Greenwich —y la
+	// suite corre en America/Santiago— eso es el 19.
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
+	);
+
+	expect(result.startDate?.getFullYear()).toBe(2026);
+	expect(result.startDate?.getMonth()).toBe(5);
+	expect(result.startDate?.getDate()).toBe(20);
+});
+
+test("una fecha con hora se respeta tal cual", () => {
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Cena", startDate: "2026-06-20T21:00" }),
+	);
+
+	expect(result.startDate?.getDate()).toBe(20);
+	expect(result.startDate?.getHours()).toBe(21);
+});
+
+test("lo que no es ISO se descarta en vez de adivinarse", () => {
+	// Lo importante no es que sean null, sino **por qué**: `new Date("June 20")`
+	// devuelve el año 2001, y una fecha así se guarda con un despiste. Vacío es
+	// mejor que equivocado.
+	for (const raw of ["June 20", "20 de junio", "20/06/2026", "20-06-2026"]) {
+		const result = parseGeneratedEvent(
+			JSON.stringify({ title: "x", startDate: raw }),
+		);
+		expect(result.startDate, raw).toBeNull();
+	}
+});
+
+test("un día que no existe no desborda al mes siguiente", () => {
+	// `new Date(2026, 5, 32)` es el 2 de julio, sin avisar.
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "x", startDate: "2026-06-32" }),
+	);
+
+	expect(result.startDate).toBeNull();
+});
+
 test("los campos de texto ausentes quedan vacíos, no undefined", () => {
 	const result = parseGeneratedEvent(JSON.stringify({ title: "Concierto" }));
 
@@ -82,12 +124,21 @@ test("envía el prompt y la imagen en línea", async () => {
 		return JSON.stringify({ title: "Feria" });
 	};
 
-	const result = await generateEventFromImage(generate, image());
+	const result = await generateEventFromImage(
+		generate,
+		image(),
+		new Date(2026, 7, 17),
+	);
 
 	expect(result.title).toBe("Feria");
 	expect(enviado).toHaveLength(2);
 	expect(enviado[0]).toMatchObject({
 		text: expect.stringContaining("event planner"),
+	});
+	// La imagen tiene el mismo problema con las fechas que el texto pegado: sin
+	// saber qué día es hoy, un cartel que dice «20 de junio» no tiene año.
+	expect(enviado[0]).toMatchObject({
+		text: expect.stringContaining("2026-08-17"),
 	});
 	expect(enviado[1]).toMatchObject({
 		inlineData: { mimeType: "image/png", data: "AQID" },
@@ -121,5 +172,38 @@ test("el esquema para la IA del navegador exige los campos con contenido", () =>
 		"location",
 		"startDate",
 		"endDate",
+	]);
+});
+
+test("un año de dos cifras es ese año, no el del siglo XX", () => {
+	// `new Date(26, 5, 20)` es 1926, y la comprobación de desbordamiento lo da
+	// por bueno porque mes y día cuadran.
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "x", startDate: "0026-06-20" }),
+	);
+
+	expect(result.startDate?.getFullYear()).toBe(26);
+});
+
+test("el modelo no puede colar campos que no se le han pedido", () => {
+	// Lo que hace que la inyección de prompt no escale: el objeto se
+	// **reconstruye** con cinco claves, no se filtra. Si alguien lo cambiara por
+	// un spread, `imageUrl` sería una baliza y `memberIds`, una autoinvitación.
+	const result = parseGeneratedEvent(
+		JSON.stringify({
+			title: "Cena",
+			imageUrl: "https://evil.example/beacon.png",
+			userId: "otro",
+			memberIds: ["otro"],
+			tags: ["colada"],
+		}),
+	) as unknown as Record<string, unknown>;
+
+	expect(Object.keys(result).sort()).toEqual([
+		"description",
+		"endDate",
+		"location",
+		"startDate",
+		"title",
 	]);
 });
