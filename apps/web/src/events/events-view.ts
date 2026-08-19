@@ -309,7 +309,7 @@ export class PlanuEventsView extends LitElement {
 					${
 						this.aiAvailable
 							? html`<wa-dropdown-item value="ai">
-										${msg("Generate from an image")}
+										${msg("Generate with AI")}
 									</wa-dropdown-item>`
 							: nothing
 					}

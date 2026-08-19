@@ -6,6 +6,8 @@
  * Gemini Nano en el dispositivo si está disponible, Gemini en la nube si no.
  */
 
+import { toInputDate } from "../domain/format-dates.js";
+
 export interface GeneratedEvent {
 	title: string;
 	description: string;
@@ -29,16 +31,44 @@ export type EventPart =
  */
 export type GenerateContent = (parts: EventPart[]) => Promise<string>;
 
+/**
+ * Las reglas de fecha, que son las mismas para la imagen y para el texto.
+ *
+ * Tres cosas que el modelo no resuelve solo, y cada una costaba un campo mal
+ * puesto:
+ *
+ * 1. **No sabe en qué día vive.** Pedirle que «asuma el año actual» era pedirle
+ *    un dato que no tiene; con «el 20 de junio» delante, o se lo inventaba o lo
+ *    dejaba sin año.
+ * 2. **Escribe la fecha en el idioma del texto** si nadie le dice otra cosa, y
+ *    `20 de junio` no lo entiende ningún `Date`.
+ * 3. **Inicio y fin no son el mismo caso siempre.** Una cena ocurre en un día
+ *    —inicio y fin, el mismo—; un curso que «empieza el 1 de septiembre» no
+ *    tiene fin; y «antes del 30 de junio» es un plazo, que es **fin** y no
+ *    inicio. Rellenarlos con una regla fija se equivoca en dos de los tres.
+ */
+export function dateRules(today: Date): string {
+	return `- Today is ${toInputDate(today)}. Resolve "next Friday", "in June" or any date without a year against it.
+- If the year is missing, use the current one; if that date has already passed, use the next year.
+- Write dates in ISO 8601 and nothing else: YYYY-MM-DD, or YYYY-MM-DDTHH:mm when there is a time. Never in words, never in any other format.
+- Something that happens on a single day — a dinner, a meeting, a concert — starts and ends that day: write the same value in both fields.
+- Something that starts on a date without saying when it ends: fill the start and leave the end empty.
+- A deadline — "before June 30", "until Friday", "by the 15th" — is an end, not a start: fill the end and leave the start empty.
+- Never write a date the source does not give.`;
+}
+
 /** Reaprovechado casi literalmente del flow de Genkit del prototipo. */
-export const EXTRACTION_PROMPT = `You are an expert event planner. Extract event details from the provided image.
+export function extractionPrompt(today: Date): string {
+	return `You are an expert event planner. Extract event details from the provided image.
 Analyze the image, which could be a poster, a photo of an event in progress, or a flyer.
 Identify the event's title, a detailed description, its location, and start/end dates.
 
 - If the image contains text, prioritize it for extracting details.
 - If there is no text, infer the details from the visual context. For example, a picture of a birthday party could be titled "Birthday Celebration".
-- If a date is mentioned but no year, assume the current year.
 - If a specific time is not mentioned, you can leave it out.
-- Be creative but accurate. The goal is to create a complete and helpful event entry.`;
+- Be creative but accurate. The goal is to create a complete and helpful event entry.
+${dateRules(today)}`;
+}
 
 /**
  * Esquema JSON plano para `responseConstraint` de la IA del navegador.
@@ -79,11 +109,47 @@ export async function fileToBase64(file: File): Promise<string> {
 	return btoa(binary);
 }
 
-/** Convierte a Date sólo lo que de verdad lo es. */
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_INSTANT =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+
+/**
+ * Convierte a Date sólo lo que de verdad lo es, y **sólo en ISO 8601**.
+ *
+ * Se dejó de usar `new Date(texto)` a secas porque acepta demasiado y de forma
+ * imprevisible: `"June 20"` le sale **2001**, y una fecha así, puesta en el
+ * formulario sin avisar, se guarda con un despiste. Un campo vacío que el
+ * usuario rellena es mejor que uno relleno con un año equivocado.
+ *
+ * La fecha de sólo día se construye con componentes locales: `new Date`
+ * interpreta `"2026-06-20"` como medianoche **UTC**, que al oeste de Greenwich
+ * cae en el día anterior. Es el mismo motivo por el que `toInputDate` no pasa
+ * por `toISOString()`.
+ */
 function toDate(value: unknown): Date | null {
-	if (typeof value !== "string" || value.trim() === "") return null;
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
+	if (typeof value !== "string") return null;
+	const text = value.trim();
+
+	const day = ISO_DAY.exec(text);
+	if (day) {
+		const [year, month, date] = [
+			Number(day[1]),
+			Number(day[2]),
+			Number(day[3]),
+		];
+		const local = new Date(year, month - 1, date);
+		// `new Date(26, …)` es **1926**: el constructor mapea los años de dos
+		// cifras al siglo XX, y la comprobación de abajo lo daría por bueno.
+		local.setFullYear(year);
+		// `new Date(2026, 5, 32)` desborda a julio en silencio.
+		return local.getMonth() === month - 1 && local.getDate() === date
+			? local
+			: null;
+	}
+
+	if (!ISO_INSTANT.test(text)) return null;
+	const instant = new Date(text);
+	return Number.isNaN(instant.getTime()) ? null : instant;
 }
 
 export class GenerationError extends Error {}
@@ -130,9 +196,10 @@ export function parseGeneratedEvent(text: string): GeneratedEvent {
 export async function generateEventFromImage(
 	generate: GenerateContent,
 	file: File,
+	today: Date = new Date(),
 ): Promise<GeneratedEvent> {
 	const text = await generate([
-		{ text: EXTRACTION_PROMPT },
+		{ text: extractionPrompt(today) },
 		{ inlineData: { mimeType: file.type, data: await fileToBase64(file) } },
 	]);
 
