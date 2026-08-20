@@ -9,6 +9,7 @@ import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
+import type { FirebaseApp } from "firebase/app";
 import type { User } from "firebase/auth";
 import {
 	addDoc,
@@ -22,8 +23,10 @@ import {
 import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
 	describeInferenceSource,
+	type InferenceModeName,
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
 import { toInputDate } from "../domain/format-dates.js";
@@ -36,6 +39,7 @@ import {
 	tagHue,
 } from "../domain/tags.js";
 import {
+	appContext,
 	firestoreContext,
 	storageContext,
 	userContext,
@@ -46,6 +50,8 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
+import { createAiModelSession, type ModelLike } from "./ai-model-session.js";
+import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 import { tagChipStyles } from "./tag-styles.js";
 
 /** Coincide con el tope de storage.rules; comprobarlo aquí da mejor mensaje. */
@@ -122,6 +128,9 @@ export class PlanuEventEditor extends LitElement {
 	/** Dónde se resolvió la generación, para decírselo al usuario. */
 	@property({ attribute: false }) draftSource: InferenceSourceName | undefined;
 
+	@consume({ context: appContext, subscribe: true })
+	private app: FirebaseApp | undefined;
+
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
 
@@ -146,6 +155,44 @@ export class PlanuEventEditor extends LitElement {
 	/** Las que el usuario ya usa en otros eventos, para el autocompletado. */
 	@property({ attribute: false }) knownTags: readonly string[] = [];
 
+	/**
+	 * Hasta tres etiquetas que propuso la IA al pulsar «Suggest tags with AI».
+	 * Aparecen desmarcadas y nunca se aplican solas (T24).
+	 */
+	@state() private aiSuggestedTags: string[] = [];
+	@state() private suggestingTags = false;
+
+	/**
+	 * Si descargar el modelo forma parte de la espera actual. Distinto de
+	 * `suggestingTags` porque el botón dice algo distinto en cada caso: aquí
+	 * puede tardar minutos la primera vez, y sin esto parecería colgado.
+	 */
+	@state() private tagSuggestionDownloading = false;
+	@state() private tagSuggestionProgress = 0;
+
+	/**
+	 * Si merece la pena mostrar el botón. Igual que `aiAvailable` en
+	 * `events-view.ts`: un botón que siempre fallaría es peor que un botón que
+	 * no está, así que no se ofrece con `unavailable` ni sin la API del
+	 * navegador.
+	 */
+	@state() private aiAvailable = false;
+
+	/** Perezosa: construirla no llama al modelo por sí sola. */
+	#tagSuggestionSession: ReturnType<typeof createAiModelSession> | undefined;
+
+	/**
+	 * El mismo patrón que `#generation` en `ai-event-generator.ts`: el editor
+	 * es una única instancia que se reutiliza entre eventos —`events-view.ts`
+	 * alterna `.open`/`.event`/`.draft` sobre el mismo elemento, nunca lo
+	 * desmonta—, así que una sugerencia pedida para un evento no puede
+	 * aplicarse si, mientras el modelo pensaba, el editor se cerró y se volvió
+	 * a abrir para otro. Una revisión encontró exactamente esta clase de fallo
+	 * en el diseño anterior —la compuerta de guardado en dos fases— antes de
+	 * que este botón la sustituyera.
+	 */
+	#tagGeneration = 0;
+
 	override willUpdate(changed: Map<string, unknown>): void {
 		// Al abrirse, el formulario parte de lo que se está editando o de lo que
 		// propuso la IA. Sin esto el diálogo conservaría lo de la vez anterior.
@@ -164,7 +211,24 @@ export class PlanuEventEditor extends LitElement {
 			this.tagDraft = "";
 			this.error = "";
 			this.progress = 0;
+			this.aiSuggestedTags = [];
+			this.suggestingTags = false;
+			this.tagSuggestionDownloading = false;
+			this.tagSuggestionProgress = 0;
+			// Cuenta como un cierre: una sugerencia pedida antes de reabrir —para
+			// el mismo evento o para otro— no debe aplicarse cuando resuelva.
+			this.#tagGeneration++;
+			void this.#refreshAiAvailability();
 		}
+	}
+
+	/**
+	 * Si merece la pena ofrecer el botón. Se comprueba en cada apertura y no
+	 * una sola vez: el estado del modelo puede cambiar entre una apertura y
+	 * la siguiente —una descarga que termina, por ejemplo—.
+	 */
+	async #refreshAiAvailability(): Promise<void> {
+		this.aiAvailable = canOffer(await checkAvailability());
 	}
 
 	override render() {
@@ -353,6 +417,57 @@ export class PlanuEventEditor extends LitElement {
 								`,
 							)
 				}
+
+				<!-- El botón es explícito a propósito: automático al escribir
+				     exigiría un debounce con cancelación, y ligarlo a guardar
+				     —el diseño anterior— dejaba una sugerencia en vuelo aplicarse
+				     sobre un evento distinto si el editor se reabría mientras
+				     tanto. Oculto por completo sin IA, igual que "Generate with
+				     AI": un botón que siempre falla es peor que ningún botón. -->
+				${
+					this.aiAvailable
+						? html`<wa-button
+								type="button"
+								size="small"
+								appearance="outlined"
+								?disabled=${this.suggestingTags || full}
+								@click=${this.#onSuggestTags}
+							>
+								${
+									this.tagSuggestionDownloading
+										? msg("Downloading the AI model…")
+										: this.suggestingTags
+											? msg("Suggesting tags…")
+											: msg("Suggest tags with AI")
+								}
+							</wa-button>`
+						: nothing
+				}
+				${
+					this.tagSuggestionDownloading
+						? html`<wa-progress-bar
+								value=${this.tagSuggestionProgress}
+							></wa-progress-bar>`
+						: nothing
+				}
+
+				<!-- Distinta de "Suggested tags" a propósito: aquella filtra el
+				     vocabulario conocido por lo que se está tecleando; esto lo
+				     propone la IA al pulsar el botón de arriba, y confundir las
+				     dos secciones sería peor que separarlas. -->
+				${this.#renderTagList(
+					"ai-suggestions",
+					msg("Tags suggested by AI"),
+					this.aiSuggestedTags,
+					(tag) => html`
+						<wa-button
+							type="button"
+							size="small"
+							appearance="outlined"
+							@click=${() => this.#addAiSuggestedTag(tag)}
+						>${tag}</wa-button>
+					`,
+				)}
 			</div>
 		`;
 	}
@@ -438,6 +553,13 @@ export class PlanuEventEditor extends LitElement {
 
 	#removeTag(tag: string): void {
 		this.tags = this.tags.filter((each) => each !== tag);
+	}
+
+	#addAiSuggestedTag(tag: string): void {
+		this.#addTag(tag);
+		// No desaparece por ganar una: si la IA propuso tres, aceptar la primera
+		// no debería obligar a repetir el guardado para llegar a la segunda.
+		this.aiSuggestedTags = this.aiSuggestedTags.filter((each) => each !== tag);
 	}
 
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
@@ -556,7 +678,112 @@ export class PlanuEventEditor extends LitElement {
 		});
 	}
 
+	/**
+	 * Lee un campo del formulario tal cual está escrito ahora mismo, sin
+	 * esperar a enviar. El formulario es no controlado —se lee con
+	 * `FormData` al guardar—, así que el botón necesita su propio camino
+	 * hasta el DOM para saber qué hay escrito en este instante.
+	 */
+	#fieldValue(name: string): string {
+		const field = this.shadowRoot?.querySelector<
+			HTMLElement & { value?: string }
+		>(`[name="${name}"]`);
+		return (field?.value ?? "").trim();
+	}
+
+	/**
+	 * Pide hasta tres etiquetas a la IA con lo que haya escrito ahora mismo.
+	 * Es un botón explícito y no algo automático al escribir —Título,
+	 * descripción y ubicación no están enlazados a estado reactivo, así que
+	 * disparar esto en cada pulsación habría exigido además un `debounce` con
+	 * cancelación de la llamada anterior— y tampoco depende de guardar: se
+	 * puede pedir, ignorar y guardar sin ninguna, igual que antes de que
+	 * existiera este botón.
+	 */
+	async #onSuggestTags(): Promise<void> {
+		if (!this.app) return;
+
+		const token = this.#tagGeneration;
+		this.suggestingTags = true;
+		try {
+			// A diferencia de la compuerta anterior, aquí sí se descarga el
+			// modelo si hace falta: quien pulsa el botón ya ha pedido la IA de
+			// forma explícita, igual que con «Generate with AI», así que forzar
+			// la espera de la primera vez no es una sorpresa.
+			await this.#tagSession().warmUp((percent) => {
+				if (token !== this.#tagGeneration) return;
+				this.tagSuggestionDownloading = true;
+				this.tagSuggestionProgress = percent;
+			});
+			if (token !== this.#tagGeneration) return;
+			this.tagSuggestionDownloading = false;
+
+			const suggestions = await suggestTagsWithAi(
+				(parts) =>
+					this.#tagSession()
+						.generate(parts)
+						.then((response) => response.text),
+				{
+					title: this.#fieldValue("title"),
+					description: this.#fieldValue("description"),
+					location: this.#fieldValue("location"),
+					knownTags: this.knownTags,
+					// Las que ya están en este evento no se vuelven a proponer.
+					chosenTags: this.tags,
+				},
+			);
+
+			// El editor es una única instancia reutilizada entre eventos: si
+			// mientras el modelo pensaba se cerró y se volvió a abrir —para el
+			// mismo evento o para otro—, esta respuesta ya no es de nadie.
+			if (token !== this.#tagGeneration) return;
+			this.aiSuggestedTags = suggestions;
+		} catch {
+			// `suggestTagsWithAi()` ya se traga sus propios fallos; lo único que
+			// puede llegar aquí es un fallo de `warmUp()` —descarga
+			// interrumpida—, y silencio es la respuesta correcta también para
+			// eso: nadie pidió más que «inténtalo».
+		} finally {
+			if (token === this.#tagGeneration) {
+				this.suggestingTags = false;
+				this.tagSuggestionDownloading = false;
+			}
+		}
+	}
+
+	/**
+	 * Construye el modelo para sugerir etiquetas. Sólo texto: a diferencia del
+	 * generador de eventos, aquí no hay imagen que analizar.
+	 */
+	async #buildTagModel(mode: InferenceModeName): Promise<ModelLike> {
+		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
+			"firebase/ai"
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: sólo se llama con app
+		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
+		return getGenerativeModel(ai, {
+			mode,
+			onDeviceParams: {
+				createOptions: { expectedInputs: [{ type: "text" }] },
+				promptOptions: { responseConstraint: TAG_SUGGESTION_SCHEMA },
+			},
+		});
+	}
+
+	/** Perezosa: crearla no descarga nada por sí sola. */
+	#tagSession() {
+		this.#tagSuggestionSession ??= createAiModelSession({
+			getUser: () => this.user,
+			buildModel: (mode) => this.#buildTagModel(mode),
+		});
+		return this.#tagSuggestionSession;
+	}
+
 	#close(): void {
+		// Ver el comentario de `#tagGeneration`: cerrar invalida cualquier
+		// sugerencia que siguiera pensando.
+		this.#tagGeneration++;
 		this.open = false;
 		this.dispatchEvent(new CustomEvent("planu-editor-close"));
 	}

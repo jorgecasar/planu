@@ -372,6 +372,70 @@ test("una etiqueta seleccionada no desaparece al dejar de usarse", async ({
 	).toBeVisible();
 });
 
+// --- Sugerencia de etiquetas con IA (T24) -----------------------------------
+//
+// El botón es explícito: guardar ya no toca la IA en ningún caso, con o sin
+// etiquetas puestas, así que las únicas dos cosas que quedan por comprobar
+// aquí son que el botón obedece a la disponibilidad y que pulsarlo no rompe
+// nada cuando el intento real falla —que es lo único que puede pasar en este
+// entorno, sin IA integrada de verdad—.
+
+test("sin IA, no se ofrece el botón de sugerir y el alta funciona igual", async ({
+	page,
+}) => {
+	// Un botón que siempre falla es peor que ningún botón: `unavailable`
+	// —y no la ausencia de la API, que es un caso distinto ya cubierto en
+	// ai.spec.ts— es el estado en el que no debe ofrecerse.
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "unavailable" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena sin etiquetas");
+
+	await expect(
+		page.getByRole("button", { name: "Suggest tags with AI" }),
+	).toBeHidden();
+
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Cena sin etiquetas" }),
+	).toBeVisible();
+});
+
+test("con la IA disponible, el botón aparece y un fallo real no bloquea nada", async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "available" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena de fin de curso con el equipo");
+
+	const sugerir = page.getByRole("button", { name: "Suggest tags with AI" });
+	await expect(sugerir).toBeVisible();
+	await sugerir.click();
+
+	// No hay IA integrada de verdad en este entorno: el intento real falla, se
+	// traga en silencio —«si la IA no está disponible, silencio y ningún
+	// error»—, y ni aparece ninguna etiqueta ni se muestra ningún aviso.
+	await expect(page.getByRole("alert")).toHaveCount(0);
+	await expect(sugerir).toBeEnabled();
+
+	// Y el alta, sin ninguna etiqueta, sigue funcionando igual.
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Cena de fin de curso con el equipo" }),
+	).toBeVisible();
+});
+
 /**
  * Una fecha relativa a hoy, en el formato del `<input type="date">`.
  *

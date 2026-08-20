@@ -15,34 +15,26 @@ import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+	checkAvailability,
+	type ModelAvailability,
+	needsDownload,
+} from "../domain/ai-availability.js";
+import type {
+	InferenceModeName,
+	InferenceSourceName,
+} from "../domain/ai-policy.js";
+import {
 	appContext,
 	storageContext,
 	userContext,
 } from "../firebase/context.js";
 import { uploadFile } from "../firebase/storage.js";
 import type { PlanuEvent } from "../lib/types.js";
-
-/** Lo que devuelve `getGenerativeModel`, sin importar el SDK en el arranque. */
-type GenerativeModelInstance = Awaited<
-	ReturnType<
-		Awaited<typeof import("firebase/ai")>["getGenerativeModel"] extends (
-			...args: infer _A
-		) => infer R
-			? () => R
-			: never
-	>
->;
-
 import {
-	checkAvailability,
-	type ModelAvailability,
-	needsDownload,
-} from "../domain/ai-availability.js";
-import {
-	type InferenceModeName,
-	type InferenceSourceName,
-	resolveInferenceMode,
-} from "../domain/ai-policy.js";
+	type AiModelSession,
+	createAiModelSession,
+	type ModelLike,
+} from "./ai-model-session.js";
 import {
 	type GenerateContent,
 	type GeneratedEvent,
@@ -247,11 +239,11 @@ export class PlanuAiEventGenerator extends LitElement {
 
 	@state() private availability: ModelAvailability | undefined;
 
-	/** Se reutiliza entre aperturas: preparar el modelo dos veces no aporta. */
-	#warmup: Promise<void> | undefined;
-
-	/** El modelo también: construirlo dos veces duplicaría la inicialización. */
-	#modelPromise: Promise<GenerativeModelInstance> | undefined;
+	/**
+	 * Una por instancia de componente: reconstruirla en cada apertura repetiría
+	 * la descarga del modelo.
+	 */
+	#modelSession: AiModelSession | undefined;
 
 	/**
 	 * Cambia al cerrar el diálogo. Todo lo que estuviera en vuelo comprueba su
@@ -280,22 +272,17 @@ export class PlanuAiEventGenerator extends LitElement {
 		this.availability = await checkAvailability();
 		if (!this.app) return;
 
-		this.#warmup ??= (async () => {
-			const model = await this.#model();
-			await model.initializeDeviceModel((progreso) => {
-				this.downloading = true;
-				this.progress = progreso * 100;
-			});
-			this.downloading = false;
-		})();
-
 		this.preparing = true;
 		try {
-			await this.#warmup;
+			await this.#session().warmUp((percent) => {
+				this.downloading = true;
+				this.progress = percent;
+			});
+			this.downloading = false;
 		} catch {
 			// Silencio a propósito: el usuario todavía no ha pedido nada. Si
-			// falla de verdad, lo sabrá al intentar generar, con su mensaje.
-			this.#warmup = undefined;
+			// falla de verdad, lo sabrá al intentar generar, con su mensaje. La
+			// sesión ya se cura sola: el próximo intento vuelve a construir.
 		} finally {
 			this.preparing = false;
 		}
@@ -424,14 +411,11 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Construye el modelo. Sólo en el dispositivo.
-	 *
-	 * `only_on_device` espera a que la descarga termine en vez de resolver por
-	 * otro camino, y ante un problema lanza la causa real en lugar de callar.
-	 * No hay `inCloudParams` a propósito: reactivar la nube exige volver a
-	 * añadirlos y configurar App Check, no cambiar una variable de entorno.
+	 * Construye el modelo de verdad. Es la única función de este componente que
+	 * conoce el SDK; `ai-model-session.ts` no lo importa a propósito, para no
+	 * sumar un fichero acoplado nuevo a la frontera de `arch/boundary.test.ts`.
 	 */
-	async #buildModel() {
+	async #buildModel(mode: InferenceModeName): Promise<ModelLike> {
 		// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría de
 		// las sesiones no lo usan nunca. No debe entrar en el arranque.
 		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
@@ -441,7 +425,7 @@ export class PlanuAiEventGenerator extends LitElement {
 		// biome-ignore lint/style/noNonNullAssertion: sólo se llama con app
 		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
 		return getGenerativeModel(ai, {
-			mode: await this.#inferenceMode(),
+			mode,
 			onDeviceParams: {
 				createOptions: {
 					expectedInputs: [{ type: "text" }, { type: "image" }],
@@ -452,19 +436,20 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Una sola instancia por sesión: el calentamiento y la generación comparten.
-	 *
-	 * Un rechazo **no** se queda memoizado. Si se guardase, un fallo pasajero al
-	 * traer el SDK —es un import dinámico, basta la red floja— dejaría la IA
-	 * muerta hasta recargar la página: cada reintento volvería a esperar el
-	 * mismo rechazo. `#warmUp` ya se cura así; esto no lo hacía.
+	 * Crea la sesión con el modelo, sólo en el dispositivo. Perezosa y lazy:
+	 * construirla no descarga nada por sí sola, `warmUp()`/`generate()` sí.
 	 */
-	#model() {
-		this.#modelPromise ??= this.#buildModel().catch((cause: unknown) => {
-			this.#modelPromise = undefined;
-			throw cause;
+	#session(): AiModelSession {
+		this.#modelSession ??= createAiModelSession({
+			getUser: () => this.user,
+			buildModel: (mode) => this.#buildModel(mode),
+			// Lo que se le promete al usuario mientras espera sale de aquí, no
+			// de una suposición escrita en la plantilla.
+			onInferenceMode: (mode) => {
+				this.onDevice = mode === "only_on_device";
+			},
 		});
-		return this.#modelPromise;
+		return this.#modelSession;
 	}
 
 	#revokePreview(): void {
@@ -545,19 +530,13 @@ export class PlanuAiEventGenerator extends LitElement {
 			// El modelo ya se estaba preparando desde que se abrió el diálogo;
 			// aquí sólo se espera a que termine si aún no lo ha hecho.
 			await this.#warmUp();
-			const model = await this.#model();
+			const session = this.#session();
 
 			let source: InferenceSourceName | undefined;
 			const generated = await extract(async (parts) => {
-				const result = await model.generateContent({
-					contents: [{ role: "user", parts }],
-				});
-				// El SDK dice dónde acabó ejecutándose; es la única forma fiable
-				// de saberlo, porque el modo sólo expresa una preferencia.
-				source = result.response.inferenceSource as
-					| InferenceSourceName
-					| undefined;
-				return result.response.text();
+				const response = await session.generate(parts);
+				source = response.source;
+				return response.text;
 			});
 
 			// Si el usuario canceló mientras el modelo pensaba, aquí se para: ni
@@ -623,32 +602,6 @@ export class PlanuAiEventGenerator extends LitElement {
 		} finally {
 			this.uploading = false;
 		}
-	}
-
-	/**
-	 * Decide si esta sesión puede recurrir a la nube.
-	 *
-	 * El derecho viaja en un claim del token, no en Firestore: así el permiso
-	 * lo concede el servidor y el cliente no puede dárselo a sí mismo.
-	 */
-	async #inferenceMode(): Promise<InferenceModeName> {
-		const cloudEnabled = import.meta.env.VITE_AI_CLOUD_FALLBACK === "true";
-
-		let premium = false;
-		if (cloudEnabled && this.user) {
-			try {
-				const token = await this.user.getIdTokenResult();
-				premium = token.claims["premium"] === true;
-			} catch {
-				premium = false;
-			}
-		}
-
-		const mode = resolveInferenceMode({ cloudEnabled, premium });
-		// Lo que se le promete al usuario mientras espera sale de aquí, no de
-		// una suposición escrita en la plantilla.
-		this.onDevice = mode === "only_on_device";
-		return mode;
 	}
 
 	#emit(draft: GeneratedDraft): void {

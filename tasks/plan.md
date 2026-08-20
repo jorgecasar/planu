@@ -197,8 +197,16 @@ dos aplicaciones reales no lo puede hacer un agente.
 
 ### Checkpoint D — tras T24
 
-- [ ] Pegar el texto de una convocatoria produce un borrador correcto
-- [ ] Con la IA no disponible, el alta manual funciona igual
+- [x] Pegar el texto de una convocatoria produce un borrador correcto —
+      verificado con una sesión real de Gemini Nano, conduciendo el Chrome del
+      autor: seis textos distintos, año y semántica de inicio/fin correctos en
+      los seis. Evidencia completa en la entrada de T23 de `todo.md`.
+- [x] Con la IA no disponible, el alta manual funciona igual — cubierto para
+      las dos rutas: `apps/web/e2e/ai.spec.ts` (generar desde imagen o texto) y
+      `apps/web/e2e/events.spec.ts:377,394` (sugerir etiquetas). Las tres
+      forzando disponibilidad y dejando que el intento real falle en silencio,
+      que es el camino que de verdad se da en cualquier entorno sin IA
+      integrada. `npm run test:e2e` → **0**, 60 e2e.
 
 ### Checkpoint E — tras T25 · el más delicado
 
