@@ -660,13 +660,64 @@ Numeración continuada: la fase 1 llegó hasta T10.
     revisión lo señala como **la palanca única**: con esa costura, los tests
     que faltan son de veinte líneas cada uno.
 
-- [ ] **T24 · Sugerencia de etiquetas (F9)** · S · depende de T18, T23
-  - Acepta: hasta tres etiquetas propuestas al guardar un evento sin ellas,
-    priorizando las que el usuario ya usa; aparecen desmarcadas y nunca se
-    aplican solas; si la IA no está disponible, silencio y ningún error.
-  - Verifica: unitarios con el modelo simulado, incluido que devuelva etiquetas
-    que incumplen la normalización de T18
+- [x] **T24 · Sugerencia de etiquetas (F9)** · S · depende de T18, T23
+  - Acepta: hasta tres etiquetas propuestas con un botón explícito junto al
+    campo de etiquetas, priorizando las que el usuario ya usa y sin repetir
+    las que el evento ya tiene; aparecen desmarcadas y nunca se aplican
+    solas; sin IA disponible, el botón no se ofrece.
+  - Verifica: unitarios con el modelo simulado, incluido que devuelva
+    etiquetas que incumplen la normalización de T18 o que ya están puestas.
   - Ficheros: `src/events/suggest-tags.ts` + test, `src/events/event-editor.ts`
+  - **Rediseñada a mitad de revisión, tras probarla a mano.** La primera
+    versión interceptaba el primer guardado de un evento sin etiquetas para
+    ofrecer sugerencias, exigiendo pulsar Guardar dos veces. El propio usuario
+    la probó, la encontró incómoda, y pidió lo contrario: un botón explícito,
+    en segundo plano, que no obligara a nada. Una revisión de código encontró
+    además, antes de fusionar nada, un fallo real en ese diseño: el editor es
+    una única instancia que `events-view.ts` reutiliza entre eventos, y el
+    hueco asíncrono antes de guardar no tenía guarda de cancelación, así que
+    una sugerencia —o el guardado mismo— podía aterrizar sobre el evento
+    equivocado si el usuario reabría el editor mientras tanto. El botón
+    resuelve las dos cosas a la vez: nunca bloquea Guardar, y el riesgo de la
+    instancia reutilizada se cierra con el mismo patrón de contador que ya usa
+    `ai-event-generator.ts` (`#tagGeneration`), verificado con un test que deja
+    una sugerencia pensando, reabre el editor para otro evento, y comprueba
+    que la respuesta tardía se descarta.
+  - **Un hallazgo del propio usuario, probándolo a mano: la IA podía repetir
+    una etiqueta ya puesta.** «cena» llegó a aparecer dos veces —una en el
+    autocompletado del vocabulario conocido, otra en la propuesta de la IA—.
+    Pedírselo en el prompt no basta —la lección de T23 sobre no fiarse del
+    orden se aplica igual aquí—, así que `parseSuggestedTags()` recibe ahora
+    las etiquetas ya puestas y las descarta por código, con normalización
+    incluida para que mayúsculas o espacios no dejen pasar un duplicado.
+  - **Hecho.** `npm test` → **0**, 436 unitarios. `npm run test:e2e` → **0**,
+    60 e2e. `test:arch`, `typecheck`, `lint` y `lint:lit` en 0.
+  - **Refactor previo, no opcional: `ai-model-session.ts`.** Sugerir etiquetas
+    necesitaba la misma fontanería de T23 —disponibilidad, construcción del
+    modelo, descarga, política de nube— y duplicarla en `event-editor.ts`
+    habría sido justo la deuda que la revisión de T23 señaló. El módulo no
+    importa `firebase/*` en ningún sitio: recibe un `buildModel` ya construido
+    por quien llama, que es quien tiene el acoplamiento legítimo. Un primer
+    diseño sí importaba el SDK y `npm run lint` lo paró en seco —era un
+    fichero acoplado nuevo, y `arch/boundary.test.ts` fija el tope en 23 y
+    **sólo puede bajar**—.
+  - **Esa agnosticidad es la costura que T23 no tenía.** La memoización, la
+    autocuración tras un rechazo y el `warmUp` deduplicado tienen ahora 9
+    unitarios reales (`ai-model-session.test.ts`) con un modelo falso.
+  - **El botón se oculta por completo sin IA**, igual que «Generate with AI»:
+    un botón que siempre falla es peor que ningún botón. Al pulsarlo sí se
+    descarga el modelo si hace falta —a diferencia del intento en segundo
+    plano del primer diseño, aquí el usuario ya ha pedido la IA de forma
+    explícita, así que esperar la primera descarga no es una sorpresa—.
+  - **El camino del clic está probado de extremo a extremo**, no sólo
+    inyectando el resultado: un test simula únicamente la frontera real
+    —`firebase/ai`, con `vi.mock`— y comprueba que pulsar el botón, de verdad,
+    sugiere etiquetas y excluye las ya puestas. Es el hueco que una revisión
+    de tests señaló como crítico en el primer diseño: todo lo que probaba la
+    sección de sugerencias lo hacía con `aiSuggestedTags` inyectado a mano.
+  - **Lo que no puede verificar un agente:** que las etiquetas que de verdad
+    proponga un modelo tengan sentido. Igual que en T23, sólo lo comprueba una
+    persona con IA integrada delante.
 
 > **Checkpoint D** — las dos rutas nuevas de IA funcionan con el modelo simulado
 > y su fallo no rompe nada.

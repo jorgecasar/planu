@@ -1,7 +1,33 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "../domain/tags.js";
 import "./event-editor.js";
 import type { PlanuEventEditor } from "./event-editor.js";
+
+/**
+ * El único punto donde este fichero toca Firebase de verdad: el SDK de IA que
+ * `#buildTagModel` importa dinámicamente. `vi.hoisted` porque la factoría de
+ * `vi.mock` se sube por encima de este `const` y necesita que ya exista.
+ * `generateContent` es el que cada test reconfigura con `mockResolvedValueOnce`
+ * para simular una respuesta concreta del modelo.
+ */
+interface FakeModelResponse {
+	response: { text: () => string; inferenceSource: string };
+}
+
+const { generateContent, initializeDeviceModel } = vi.hoisted(() => ({
+	generateContent: vi.fn(
+		async (): Promise<FakeModelResponse> => ({
+			response: { text: () => '{"tags":[]}', inferenceSource: "on_device" },
+		}),
+	),
+	initializeDeviceModel: vi.fn(async (): Promise<void> => {}),
+}));
+
+vi.mock("firebase/ai", () => ({
+	getAI: vi.fn(() => ({})),
+	getGenerativeModel: vi.fn(() => ({ initializeDeviceModel, generateContent })),
+	GoogleAIBackend: vi.fn(),
+}));
 
 const IMAGEN =
 	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -290,6 +316,275 @@ test("cambiar de evento con el editor abierto renueva las etiquetas", async () =
 	await el.updateComplete;
 
 	expect(chosen(el)).toEqual(["teatro"]);
+
+	el.remove();
+});
+
+// --- Sugerencia de etiquetas con IA (T24) -----------------------------------
+//
+// La calidad de lo que sugiere el modelo se prueba aparte, sin componente, en
+// `suggest-tags.test.ts`. Aquí sólo el cableado: cómo se pintan, cómo se
+// añaden, y cuándo el editor decide siquiera intentarlo.
+
+/**
+ * Los campos de estado son `private` en TypeScript pero públicos en tiempo de
+ * ejecución: Lit no sabe de visibilidad de TS, y asignarlos dispara la misma
+ * reactividad que si fueran públicos. Ya se usa el mismo principio más arriba
+ * al fijar `draft` para probar el resultado del generador sin invocarlo.
+ */
+function setState(el: PlanuEventEditor, key: string, value: unknown): void {
+	(el as unknown as Record<string, unknown>)[key] = value;
+}
+
+const aiSuggested = (el: PlanuEventEditor): string[] =>
+	[
+		...(el.shadowRoot?.querySelectorAll("ul.ai-suggestions wa-button") ?? []),
+	].map((button) => button.textContent?.trim() ?? "");
+
+async function fillTitle(el: PlanuEventEditor, value: string): Promise<void> {
+	const host = el.shadowRoot?.querySelector<InputHost>(
+		'wa-input[name="title"]',
+	);
+	await host?.updateComplete;
+	const inner = host?.shadowRoot?.querySelector("input");
+	if (!inner) throw new Error("El campo de título no está en el DOM");
+	inner.value = value;
+	inner.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await el.updateComplete;
+}
+
+function submit(el: PlanuEventEditor): void {
+	const form = el.shadowRoot?.querySelector("form") as HTMLFormElement;
+	form.requestSubmit();
+}
+
+test("una sugerencia de la IA se pinta con etiqueta propia, distinta del autocompletado", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	setState(el, "aiSuggestedTags", ["música", "verano"]);
+	await el.updateComplete;
+
+	expect(aiSuggested(el)).toEqual(["música", "verano"]);
+	// Y no se confunde con la lista de "Suggested tags" del autocompletado.
+	expect(suggested(el)).toEqual([]);
+
+	el.remove();
+});
+
+test("aceptar una sugerencia la añade y la quita de la lista, sin tocar las demás", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	setState(el, "aiSuggestedTags", ["música", "verano", "amigos"]);
+	await el.updateComplete;
+
+	const boton = [
+		...(el.shadowRoot?.querySelectorAll("ul.ai-suggestions wa-button") ?? []),
+	].find((b) => b.textContent?.trim() === "verano") as HTMLElement;
+	boton.click();
+	await el.updateComplete;
+
+	expect(chosen(el)).toEqual(["verano"]);
+	expect(aiSuggested(el)).toEqual(["música", "amigos"]);
+
+	el.remove();
+});
+
+test("reabrir el editor olvida las sugerencias de la vez anterior", async () => {
+	const el = await mount((editor) => {
+		editor.draft = { tags: ["cine"] };
+		editor.open = true;
+	});
+	setState(el, "aiSuggestedTags", ["música"]);
+	await el.updateComplete;
+	expect(aiSuggested(el)).toEqual(["música"]);
+
+	// Cerrar y reabrir es lo que dispara el `willUpdate` que resetea el estado.
+	el.open = false;
+	await el.updateComplete;
+	el.open = true;
+	await el.updateComplete;
+
+	expect(aiSuggested(el)).toEqual([]);
+
+	el.remove();
+});
+
+test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ella", async () => {
+	// El diseño anterior interceptaba el primer envío sin etiquetas para
+	// ofrecer sugerencias, y una revisión encontró ahí un fallo real: el
+	// editor es una única instancia reutilizada entre eventos
+	// (`events-view.ts` alterna `.open`/`.event` sobre el mismo elemento), así
+	// que el hueco asíncrono antes de guardar podía dejar que una sugerencia
+	// —o el propio guardado— se aplicase sobre el evento equivocado si el
+	// usuario reabría el editor mientras tanto. La sugerencia es ahora un
+	// botón aparte: guardar es exactamente el mismo camino síncrono de antes
+	// de T24, y este test lo fija para que no vuelva a acoplarse.
+	const el = await mount((editor) => {
+		setState(editor, "firestore", {});
+		setState(editor, "user", { uid: "abc" });
+		editor.open = true;
+	});
+
+	await fillTitle(el, "Cena de prueba");
+	submit(el);
+	await el.updateComplete;
+
+	// Firestore falso: el SDK real rechaza rápido y sin red, así que este
+	// mensaje demuestra que se llegó a intentar guardar de inmediato.
+	expect(errorText(el)).toBe("The event could not be saved. Please try again.");
+	expect(aiSuggested(el)).toEqual([]);
+
+	el.remove();
+});
+
+// --- El botón de sugerir --------------------------------------------------
+
+test("sin IA disponible, no se ofrece el botón: un botón que siempre falla es peor que ninguno", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes("Suggest tags"),
+	);
+	expect(boton).toBeUndefined();
+
+	el.remove();
+});
+
+test("con la IA disponible, el botón aparece", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes("Suggest tags with AI"),
+	);
+	expect(boton).toBeDefined();
+
+	el.remove();
+});
+
+test("pulsarlo sin Firebase configurado no hace nada, y no deja el botón colgado", async () => {
+	// Sin `appContext`, `this.app` es `undefined`: el editor ni siquiera lo
+	// intenta. Es el mismo silencio que pide T24 para cuando la IA no está,
+	// aplicado también a esta rama.
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes("Suggest tags with AI"),
+	) as HTMLElement;
+	boton.click();
+	await el.updateComplete;
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+
+	expect(errorText(el)).toBe("");
+	expect(boton.hasAttribute("disabled")).toBe(false);
+
+	el.remove();
+});
+
+test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", async () => {
+	// El único test que atraviesa el camino completo: botón → #onSuggestTags
+	// → suggestTagsWithAi → ai-model-session → el SDK de IA, simulado en la
+	// frontera real y no en un punto intermedio. Sirve además para comprobar
+	// de extremo a extremo la exclusión de etiquetas ya puestas, no sólo a
+	// nivel de `suggest-tags.test.ts`.
+	generateContent.mockResolvedValueOnce({
+		response: {
+			text: () => JSON.stringify({ tags: ["cena", "trabajo", "equipo"] }),
+			inferenceSource: "on_device",
+		},
+	});
+
+	const el = await mount((editor) => {
+		setState(editor, "app", {});
+		setState(editor, "user", { uid: "abc" });
+		setState(editor, "aiAvailable", true);
+		editor.draft = { tags: ["cena"] };
+		editor.open = true;
+	});
+
+	await fillTitle(el, "Cena de fin de curso con el equipo");
+
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes("Suggest tags with AI"),
+	) as HTMLElement;
+	boton.click();
+
+	for (let i = 0; i < 40 && aiSuggested(el).length === 0; i++) {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		await el.updateComplete;
+	}
+
+	// "cena" no aparece: ya estaba puesta en el evento.
+	expect(aiSuggested(el)).toEqual(["trabajo", "equipo"]);
+
+	el.remove();
+});
+
+test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada", async () => {
+	// El mismo patrón de `#generation` que ya usa `ai-event-generator.ts`: el
+	// editor no se desmonta entre eventos, así que una respuesta que llega
+	// tarde no puede aplicarse sobre lo que se esté editando para entonces.
+	// La descarga resuelve enseguida (el mock por defecto); lo que se deja
+	// pendiente es la propia generación, para reabrir justo después de
+	// calentar el modelo y antes de que el modelo conteste.
+	let resuelveGeneracion: ((value: FakeModelResponse) => void) | undefined;
+	generateContent.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				resuelveGeneracion = resolve;
+			}),
+	);
+
+	const el = await mount((editor) => {
+		setState(editor, "app", {});
+		setState(editor, "user", { uid: "abc" });
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+	await fillTitle(el, "Evento original");
+
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes("Suggest tags with AI"),
+	) as HTMLElement;
+	boton.click();
+	// Espera a que la descarga (rápida) termine y la generación quede en
+	// vuelo, antes de reabrir.
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+	expect(el.shadowRoot?.textContent).toContain("Suggesting tags");
+
+	// Se cierra y se reabre para otro evento mientras el modelo sigue
+	// pensando: es justo el escenario que invalida la respuesta cuando llegue.
+	el.open = false;
+	await el.updateComplete;
+	el.draft = { tags: ["nuevo"] };
+	el.open = true;
+	await el.updateComplete;
+
+	// Ahora se deja resolver la generación de la petición vieja.
+	resuelveGeneracion?.({
+		response: {
+			text: () => JSON.stringify({ tags: ["tarde"] }),
+			inferenceSource: "on_device",
+		},
+	});
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	await el.updateComplete;
+
+	expect(aiSuggested(el)).toEqual([]);
+	expect(chosen(el)).toEqual(["nuevo"]);
 
 	el.remove();
 });

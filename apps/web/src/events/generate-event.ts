@@ -91,8 +91,12 @@ export const RESPONSE_JSON_SCHEMA = {
 /**
  * Quita el bloque de código con el que muchos modelos envuelven el JSON.
  * Ocurre incluso pidiendo salida estructurada, sobre todo en modelos pequeños.
+ *
+ * Exportada porque `suggest-tags.ts` la necesita igual: el mismo modelo, el
+ * mismo tic. Duplicarla sería la clase de deriva que una revisión de T23 pidió
+ * evitar.
  */
-function stripCodeFence(text: string): string {
+export function stripCodeFence(text: string): string {
 	const trimmed = text.trim();
 	if (!trimmed.startsWith("```")) return trimmed;
 	return trimmed

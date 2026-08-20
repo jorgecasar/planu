@@ -702,6 +702,22 @@
   <source><x id="0" equiv-text="${this.text.trim().length}"/> / <x id="1" equiv-text="${MAX_TEXT_LENGTH}"/></source>
         <target><x id="0" equiv-text="${this.text.trim().length}"/> / <x id="1" equiv-text="${MAX_TEXT_LENGTH}"/></target>
 </trans-unit>
+<trans-unit id="sa6b668d62ccb88be">
+  <source>Tags suggested by AI</source>
+        <target>Etiquetas propuestas por la IA</target>
+</trans-unit>
+<trans-unit id="se7cbac4e79e6c59f">
+  <source>Downloading the AI model…</source>
+        <target>Descargando el modelo de IA…</target>
+</trans-unit>
+<trans-unit id="s35c301d9bb7c187e">
+  <source>Suggesting tags…</source>
+        <target>Sugiriendo etiquetas…</target>
+</trans-unit>
+<trans-unit id="s94bd24a178924a34">
+  <source>Suggest tags with AI</source>
+        <target>Sugerir etiquetas con IA</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
