@@ -117,26 +117,33 @@ async function buildLanding() {
 
 	// Compile landing.ts to JS using esbuild (bundles dependencies for Node)
 	console.log("  → Compiling landing template...");
-	const esbuildResult = spawnSync(
-		"npx",
-		[
-			"esbuild",
-			"apps/web/src/landing/landing.ts",
-			"--platform=node",
-			"--format=esm",
-			"--bundle",
-			"--outfile=dist/landing.js",
-			"--external:@lit/localize",
-			"--external:lit",
-		],
-		{
-			cwd: ROOT,
-			stdio: "inherit",
-			shell: true,
-		},
-	);
-	if (esbuildResult.status !== 0) {
-		throw new Error("esbuild compilation failed");
+	// Uno por fichero y con `--outfile`: `--outdir` conserva la estructura de
+	// directorios del origen y las rutas de salida dejarían de ser predecibles.
+	for (const [entry, outfile] of [
+		["apps/web/src/landing/landing.ts", "dist/landing.js"],
+		["apps/web/src/generated/locales/locale-codes.ts", "dist/locale-codes.js"],
+	]) {
+		const esbuildResult = spawnSync(
+			"npx",
+			[
+				"esbuild",
+				entry,
+				"--platform=node",
+				"--format=esm",
+				"--bundle",
+				`--outfile=${outfile}`,
+				"--external:@lit/localize",
+				"--external:lit",
+			],
+			{
+				cwd: ROOT,
+				stdio: "inherit",
+				shell: true,
+			},
+		);
+		if (esbuildResult.status !== 0) {
+			throw new Error(`esbuild falló compilando ${entry}`);
+		}
 	}
 
 	// Mock window for @lit/localize SSR (it calls window.dispatchEvent)
@@ -150,9 +157,12 @@ async function buildLanding() {
 	const { landingTemplate, jsonLd } = await import(
 		resolve(ROOT, "dist/landing.js")
 	);
-	// Import locale-codes.ts directly (esbuild not needed for this simple file)
+	// Compilado, no importado en crudo: importar un `.ts` sólo funciona en Node
+	// >= 22, que hace type-stripping. CI corre Node 20 y abortaba el despliegue
+	// con ERR_UNKNOWN_FILE_EXTENSION — un fallo que no se ve en local si tu Node
+	// es más nuevo que el suyo.
 	const { sourceLocale, allLocales } = await import(
-		resolve(ROOT, "apps/web/src/generated/locales/locale-codes.ts")
+		resolve(ROOT, "dist/locale-codes.js")
 	);
 	const { configureLocalization } = await import(
 		"@lit/localize/init/runtime.js"
