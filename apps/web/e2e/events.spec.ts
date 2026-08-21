@@ -539,3 +539,92 @@ test("filtrar por etiqueta abre el pliegue igual que buscar", async ({
 		page.getByRole("heading", { name: "Feria de otoño" }),
 	).toBeVisible();
 });
+
+// --- T33 · Onboarding y primera sesión --------------------------------------
+//
+// El estado vacío deja de ser una frase suelta: explica qué hacer y ofrece
+// las mismas tres vías de alta que ya existían en el menú "New event" —a
+// mano, con IA— más un evento de ejemplo, discreto y que nunca se guarda
+// solo. Nada de tour modal.
+
+test("un usuario recién registrado crea su primer evento sin salir del estado vacío", async ({
+	page,
+}) => {
+	await signUp(page);
+
+	await expect(page.getByText("You have no events yet.")).toBeVisible();
+
+	// El botón directo del estado vacío, no el menú "New event" de la barra.
+	await page.getByRole("button", { name: "Create your first event" }).click();
+	await expect(page.getByLabel("Title")).toBeVisible();
+
+	await page.getByLabel("Title").fill("Concierto de verano");
+	await page.getByLabel("Location").fill("Madrid");
+	await page.getByRole("button", { name: "Save event" }).click();
+
+	await expect(
+		page.getByRole("heading", { name: "Concierto de verano" }),
+	).toBeVisible();
+	await expect(page.getByText("You have no events yet.")).toBeHidden();
+});
+
+test("probar un evento de ejemplo prerrellena el editor, pero no lo guarda por su cuenta", async ({
+	page,
+}) => {
+	await signUp(page);
+
+	await page
+		.getByRole("button", { name: "Try a sample event instead" })
+		.click();
+
+	// El aviso deja claro que es un ejemplo, no algo que trajo la IA.
+	await expect(page.getByText("This is a sample event.")).toBeVisible();
+	await expect(page.getByLabel("Title")).toHaveValue("Dinner with friends");
+
+	// Cerrarlo sin guardar no crea nada: la invitación es discreta y no actúa
+	// por su cuenta.
+	await page.getByRole("button", { name: "Cancel" }).click();
+	await expect(page.getByText("You have no events yet.")).toBeVisible();
+	await expect(page.locator("planu-event-card")).toHaveCount(0);
+
+	// Pedirlo otra vez y esta vez revisarlo y guardarlo sí lo crea, como
+	// cualquier alta manual.
+	await page
+		.getByRole("button", { name: "Try a sample event instead" })
+		.click();
+	await page.getByLabel("Title").fill("Cena con Ana");
+	await page.getByRole("button", { name: "Save event" }).click();
+
+	await expect(
+		page.getByRole("heading", { name: "Cena con Ana" }),
+	).toBeVisible();
+});
+
+test("cerrar un ejemplo sin guardar y crear a mano no arrastra sus datos", async ({
+	page,
+}) => {
+	// El editor es una única instancia que se reutiliza: sin limpiar el
+	// borrador al pedir un alta manual, este título de ejemplo se habría
+	// quedado puesto.
+	await signUp(page);
+
+	await page
+		.getByRole("button", { name: "Try a sample event instead" })
+		.click();
+	await expect(page.getByLabel("Title")).toHaveValue("Dinner with friends");
+	await page.getByRole("button", { name: "Cancel" }).click();
+
+	await page.getByRole("button", { name: "Create your first event" }).click();
+
+	await expect(page.getByLabel("Title")).toHaveValue("");
+	await expect(page.getByText("This is a sample event.")).toBeHidden();
+});
+
+test("el estado vacío no tiene violaciones de accesibilidad", async ({
+	page,
+}) => {
+	await signUp(page);
+
+	const results = await new AxeBuilder({ page }).analyze();
+	expect(results.violations).toEqual([]);
+});

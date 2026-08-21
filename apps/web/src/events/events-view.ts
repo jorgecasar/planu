@@ -11,9 +11,11 @@ import "../calendar/agenda-view.js";
 import "../calendar/calendar-view.js";
 import "./ai-event-generator.js";
 import "./calendar-export.js";
+import "./empty-state.js";
 import "./event-card.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import type { InferenceSourceName } from "../domain/ai-policy.js";
+import { sampleEventDraft } from "../domain/sample-event.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import "./event-editor.js";
 import "./event-filters.js";
@@ -158,6 +160,14 @@ export class PlanuEventsView extends LitElement {
 	@state() private generatorOpen = false;
 	@state() private draft: Partial<PlanuEvent> | undefined;
 	@state() private draftSource: InferenceSourceName | undefined;
+
+	/**
+	 * Si `draft` es el evento de ejemplo de T33. Va aparte de `draftSource`
+	 * porque ese campo ya significa "se generó, pero no se sabe dónde"; el
+	 * ejemplo no se generó en absoluto, así que reutilizarlo lo anunciaría
+	 * como obra de la IA.
+	 */
+	@state() private draftIsSample = false;
 	@state() private aiAvailable = false;
 
 	/**
@@ -324,6 +334,7 @@ export class PlanuEventsView extends LitElement {
 				.event=${this.editing}
 				.draft=${this.draft}
 				.draftSource=${this.draftSource}
+				?isSample=${this.draftIsSample}
 				@planu-editor-close=${this.#onEditorClose}
 			></planu-event-editor>
 
@@ -350,6 +361,7 @@ export class PlanuEventsView extends LitElement {
 		const { event, source } = (domEvent as CustomEvent<GeneratedDraft>).detail;
 		this.draft = event;
 		this.draftSource = source;
+		this.draftIsSample = false;
 		this.editing = undefined;
 		this.generatorOpen = false;
 		this.editorOpen = true;
@@ -362,6 +374,34 @@ export class PlanuEventsView extends LitElement {
 	#onEditorClose(): void {
 		this.editorOpen = false;
 		this.editing = undefined;
+	}
+
+	/**
+	 * El estado vacío no conoce al editor ni al generador: emite y esta vista
+	 * decide, igual que `event-card` con `planu-edit-event`. Los tres caminos
+	 * que ofrece son los mismos que el menú "New event" —a mano o con IA—, y
+	 * no algo nuevo: T33 pide hacerlos evidentes desde el vacío, no inventar
+	 * una cuarta vía.
+	 */
+	#onEmptyCreate(): void {
+		this.#onNew();
+	}
+
+	#onEmptyGenerate(): void {
+		this.generatorOpen = true;
+	}
+
+	/**
+	 * "Probar con un ejemplo" (T33): el borrador se prerrellena con datos de
+	 * muestra y se abre el mismo editor que un alta manual o una IA — el
+	 * usuario lo revisa y decide si lo guarda, nunca se escribe solo.
+	 */
+	#onEmptySample(): void {
+		this.editing = undefined;
+		this.draft = sampleEventDraft();
+		this.draftSource = undefined;
+		this.draftIsSample = true;
+		this.editorOpen = true;
 	}
 
 	#renderList(total: number, visible: StoredEvent[]) {
@@ -471,12 +511,12 @@ export class PlanuEventsView extends LitElement {
 			${
 				total > 0
 					? html`<p>${this.#emptyFilteredMessage()}</p>`
-					: html`
-							<p>${msg("You have no events yet.")}</p>
-							<wa-button variant="brand" @click=${this.#onNew}>
-								${msg("Create your first event")}
-							</wa-button>
-						`
+					: html`<planu-empty-state
+							?aiAvailable=${this.aiAvailable}
+							@planu-create-event=${this.#onEmptyCreate}
+							@planu-open-generator=${this.#onEmptyGenerate}
+							@planu-try-sample=${this.#onEmptySample}
+						></planu-empty-state>`
 			}
 		</div>`;
 	}
@@ -546,8 +586,18 @@ export class PlanuEventsView extends LitElement {
 		writeViewMode(chosen);
 	}
 
+	/**
+	 * Limpia también el borrador. Sin esto, un ejemplo o una generación con IA
+	 * cancelados sin guardar se quedaban en `this.draft` —el editor es una
+	 * única instancia que se reutiliza (ver la nota de `#tagGeneration` en
+	 * `event-editor.ts`)— y un alta manual posterior reabría con esos mismos
+	 * datos, sin ningún aviso de por qué.
+	 */
 	#onNew(): void {
 		this.editing = undefined;
+		this.draft = undefined;
+		this.draftSource = undefined;
+		this.draftIsSample = false;
 		this.editorOpen = true;
 	}
 }
