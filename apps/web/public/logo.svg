@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="planu">
+	<title>planu</title>
+	<!--
+		Un día marcado sobre una hoja de calendario: es lo que hace la aplicación.
+		Indigo #3f51b5 del ADR 0008, el mismo valor que el token de marca
+		brand-fill-loud. Sin texto: el logotipo se usa a 16 px como favicon y ahí
+		no se leería.
+	-->
+	<rect width="64" height="64" rx="14" fill="#3f51b5"/>
+	<rect x="14" y="17" width="36" height="33" rx="4" fill="#ffffff"/>
+	<rect x="14" y="17" width="36" height="9" rx="4" fill="#e8eaf6"/>
+	<rect x="21" y="12" width="4" height="9" rx="2" fill="#1a237e"/>
+	<rect x="39" y="12" width="4" height="9" rx="2" fill="#1a237e"/>
+	<circle cx="32" cy="38" r="7" fill="#3f51b5"/>
+</svg>

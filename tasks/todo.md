@@ -743,21 +743,25 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 11 — Producto: la cara
 
-- [ ] **T26 · Decidir la identidad visual (F12, decisión)** · S · sin dependencias
+- [x] **T26 · Decidir la identidad visual (F12, decisión)** · S · sin dependencias
   - Acepta: ADR 0008 que resuelve si se adopta el indigo `#3F51B5` con Belleza y
     Alegreya del blueprint, se ajusta o se descarta. **Cualquiera de las tres es
     válida; seguir sin decidir no lo es.** Incluye la tabla de contraste AA
     verificada, no supuesta.
   - Verifica: revisión humana; contraste comprobado
   - Ficheros: `docs/adr/0008-*.md`, `docs/blueprint.md`
-  - **Parcial, no se marca.** El ADR 0008 está escrito y la decisión tomada:
-    se adopta la paleta del blueprint. Lo que falta es lo que el criterio llama
-    «verificada, no supuesta»: la tabla de contraste de `theme.css` está
-    **calculada sobre los valores**, y ningún e2e visita la landing, así que axe
-    no ha medido la página pintada. El ADR lo dice en vez de afirmar lo
-    contrario. **Depende de T29**, que es donde entra axe en los dos idiomas.
+  - **Hecho.** ADR 0008: se adopta la paleta del blueprint (indigo `#3f51b5`,
+    Belleza, Alegreya) traducida a tokens `--wa-*`.
+  - El contraste ya es **medido, no calculado**, que es lo que pedía el criterio:
+    `npm run test:e2e:landing` → **0**, con axe sobre la página pintada en `/`,
+    `/en/` y `/es/`, sin `withTags` para no recortar lo que sabe ver.
+    `apps/web/e2e-landing/landing.spec.ts:35`.
+  - Lo primero que encontró fue **una violación real**: sin `<main>`, todo el
+    contenido quedaba fuera de landmarks (`landmark-one-main`, `region`). Se
+    comprobó que la aserción puede fallar quitando el `<main>` de nuevo → axe en
+    rojo.
 
-- [ ] **T27 · Tokens de tema y tipografías (F12, implementación)** · M · depende de T26
+- [x] **T27 · Tokens de tema y tipografías (F12, implementación)** · M · depende de T26
   - Acepta: la decisión traducida a tokens `--wa-*` en una hoja única compartida
     por landing y aplicación; sin colores sueltos en componentes; modo claro y
     oscuro con `prefers-color-scheme`; **tipografías servidas desde el propio
@@ -767,15 +771,31 @@ Numeración continuada: la fase 1 llegó hasta T10.
     sin regresiones visuales
   - Ficheros: `src/styles/theme.css`, `public/fonts/`, `src/main.ts`,
     `apps/web/app.html`
-  - **Parcial, no se marca.** Hecho: `theme.css` como hoja única que consumen
-    la aplicación (`main.ts`) y la landing prerrenderizada, modo claro y oscuro,
-    y las cinco fuentes servidas del propio dominio como woff2 latino con
-    `font-display: swap` — sin CDN, que es lo que mantiene la línea base de cero
-    orígenes ajenos. `npm test` → 0, 436 unitarios.
-  - Falta, y por eso sigue abierta: **logotipo, favicon y `og:image`**. La
-    landing ya referencia `/assets/landing/og.png` y `hero.webp`, y el build
-    avisa de que ninguno existe. Y **axe sobre el tema** no ha corrido: no hay
-    e2e de la landing. Ambas cosas son T29.
+  - **Hecho.** `theme.css` es la hoja única que consumen la aplicación
+    (`main.ts`) y la landing prerrenderizada; modo claro y oscuro por
+    `prefers-color-scheme`; las cinco fuentes servidas del propio dominio como
+    woff2 latino con `font-display: swap` — sin CDN, que es lo que mantiene la
+    línea base de cero orígenes ajenos y lo que la CSP permite.
+  - Logotipo, favicon y `og:image`: `apps/web/public/logo.svg` (742 B, un día
+    marcado sobre una hoja de calendario, sin texto porque a 16 px no se leería),
+    enlazado como `rel="icon"` desde `app.html:18` y desde la landing, visible en
+    el hero; y `assets/landing/og.png`, 1200×630, con la `og:image` absoluta
+    porque los rastreadores sociales no resuelven rutas relativas.
+  - axe sobre el tema: `npm run test:e2e:landing` → **0**, 12 tests. Ver T26.
+  - `npm test` → 0 (436 en 32 ficheros), `lint`, `lint:lit`, `typecheck`,
+    `test:arch` y `build` → 0.
+  - **Encontrado de paso, y no es de esta rama:** el e2e «promoted to editor, can
+    edit but still cannot delete» (`e2e/sharing.spec.ts:259`) falla **también en
+    `main`**, comprobado en aislamiento con `--workers=1` en las dos ramas. Y la
+    suite es **inestable en paralelo**: dos tandas seguidas de la misma rama
+    fallaron 6 y 8 tests **sin una sola coincidencia**, mientras en serie da 59
+    de 60. Apunta a estado compartido entre tests sobre los emuladores. No se
+    arregla aquí porque no es de esta tarea, pero queda escrito.
+  - **Salvedad medida, no supuesta:** el `og:image` lleva la fuente del sistema,
+    no Belleza ni Alegreya. `sips` es el único rasterizador disponible aquí e
+    **ignora los `@font-face`** incluso incrustados como data URI; se comparó el
+    PNG con y sin fuentes y es idéntico. Anotado en el ADR para regenerarlo
+    cuando haya `rsvg-convert` o Chrome headless.
 
 - [x] **T28 · Pipeline de prerender (F11, primera mitad)** · M · depende de T25
   - Acepta: `scripts/build-landing.js` renderiza plantillas `lit-html` con

@@ -48,13 +48,21 @@ Se definen como:
   - `--wa-color-brand-fill-quiet` → `#283593` (indigo 900)
   - `--wa-color-brand-on-quiet` → `#E8EAF6`
 
-### Contraste: calculado, no medido todavía
+### Contraste verificado
 
 Los pares se eligieron para superar **WCAG AA (4.5:1)** y la tabla está en
-`src/styles/theme.css` como comentario. Pero **es un cálculo sobre los valores,
-no una medida sobre la página pintada**: hoy ningún e2e visita la landing, así
-que axe no ha comprobado nada aquí. Queda pendiente y se dice, en vez de
-marcarlo por adelantado.
+`src/styles/theme.css`. Ya no es sólo un cálculo: `apps/web/e2e-landing/`
+ejecuta axe sobre la página **pintada** en los tres URLs (`/`, `/en/`, `/es/`)
+y falla si aparece una violación, contraste incluido —sin `withTags`, para no
+recortar lo que axe sabe ver—.
+
+Corre contra `dist/`, no contra `npm run dev`: en desarrollo la landing no
+existe, y un test suyo ahí habría comprobado otra página. Ver
+`playwright.landing.config.ts`.
+
+Lo primero que encontró fue una violación real: sin `<main>`, todo el contenido
+quedaba fuera de landmarks (`landmark-one-main` y `region`), así que un lector
+de pantalla no tenía a dónde saltar.
 
 ## Consecuencias
 
@@ -84,14 +92,27 @@ Hecha:
 - `npm run lint:lit` → 0 sobre 85 ficheros
 - `npm run build:landing` → 0, los dos idiomas dentro del presupuesto de bytes
 
+- `npm run test:e2e:landing` → **0**, 12 tests: axe sin violaciones en `/`,
+  `/en/` y `/es/`, cero `<script>` que no sea el JSON-LD, la página se ve con
+  JavaScript desactivado, y el `hreflang` apunta a URLs que responden 200.
+- Cada aserción nueva se rompió a propósito para comprobar que puede fallar:
+  quitar el `<main>` → axe en rojo; volver a `<wa-icon>` → 0 de 6 iconos;
+  escribir sólo en `localized/` → 404 en el `hreflang`; servir la aplicación en
+  la raíz → el test de la portada en rojo.
+
 Pendiente, y de quién depende:
 
-- **axe sobre la landing en los dos idiomas.** No hay ningún e2e que la visite
-  (`apps/web/e2e/` no la cubre); el contraste de la tabla está calculado sobre
-  los valores, no medido sobre la página. Lo cierra T29.
 - **Lighthouse con rendimiento y SEO en 100.** Exige un bundle desplegado, no
   `npm run dev`; y con n = 1 este proyecto oscila entre 93 y 98, así que hace
   falta la mediana de cinco pasadas. Lo cierra T29 con `/webperf`.
+- **El `og:image` no lleva las tipografías de la marca.** `sips` es lo único
+  que hay aquí para rasterizar y **ignora los `@font-face`**, también
+  incrustados como data URI: el texto sale con la fuente del sistema en vez de
+  Belleza y Alegreya. Comprobado, no supuesto. Se regenera cuando haya un
+  rasterizador que resuelva fuentes (`rsvg-convert` o Chrome headless).
+- **La captura del hero.** T29 pide que sea real y aquí no hay navegador con el
+  que tomarla; se dejó fuera en vez de referenciar un fichero ausente, que en
+  una página sin JavaScript sería un 404 en el LCP.
 
 ## Enlaces
 

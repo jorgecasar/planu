@@ -76,16 +76,10 @@ footer a:hover {
 	padding-inline: var(--wa-space-xl);
 }
 
-.hero figure {
-	margin: 0;
-	margin-block-start: var(--wa-space-2xl);
-}
-
-.hero img {
-	max-width: 100%;
-	height: auto;
-	border-radius: var(--wa-border-radius-l);
-	box-shadow: var(--wa-shadow-l);
+.hero-logo {
+	inline-size: 4.5rem;
+	block-size: 4.5rem;
+	margin-inline: auto;
 }
 
 .features .feature-grid {
