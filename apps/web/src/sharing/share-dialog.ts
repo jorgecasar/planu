@@ -12,7 +12,6 @@ import "@awesome.me/webawesome/dist/components/select/select.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { User } from "firebase/auth";
 import {
 	collection,
 	type DocumentData,
@@ -26,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
 import { INVITES_COLLECTION, inviteToEvent } from "./invitations.js";
@@ -166,7 +166,7 @@ export class PlanuShareDialog extends LitElement {
 	private firestore: Firestore | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private people: Person[] = [];
 	@state() private loading = false;
@@ -341,7 +341,7 @@ export class PlanuShareDialog extends LitElement {
 	}
 
 	/** You, first and unchangeable. Seeing yourself listed makes the list read. */
-	#renderOwner(user: User) {
+	#renderOwner(user: SessionUser) {
 		return html`
 			<li>
 				<wa-avatar

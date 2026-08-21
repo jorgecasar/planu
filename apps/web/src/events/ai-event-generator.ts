@@ -10,10 +10,10 @@ import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
-import type { User } from "firebase/auth";
 import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import {
 	checkAvailability,
 	type ModelAvailability,
@@ -34,6 +34,7 @@ import {
 	type AiModelSession,
 	createAiModelSession,
 	type ModelLike,
+	type TokenClaims,
 } from "./ai-model-session.js";
 import {
 	type GenerateContent,
@@ -214,7 +215,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	private storage: FirebaseStorage | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private preview = "";
 	@state() private text = "";
@@ -436,12 +437,23 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
+	 * `SessionUser.getIdTokenResult` es opcional —no todo adaptador puede
+	 * resolverlo—, y `TokenClaims` lo exige. Sin usuario o sin ese método no
+	 * hay claim que leer: la IA en la nube trata eso igual que "no premium",
+	 * que es el valor seguro por defecto.
+	 */
+	#claims(): TokenClaims | null {
+		const getIdTokenResult = this.user?.getIdTokenResult;
+		return getIdTokenResult ? { getIdTokenResult } : null;
+	}
+
+	/**
 	 * Crea la sesión con el modelo, sólo en el dispositivo. Perezosa y lazy:
 	 * construirla no descarga nada por sí sola, `warmUp()`/`generate()` sí.
 	 */
 	#session(): AiModelSession {
 		this.#modelSession ??= createAiModelSession({
-			getUser: () => this.user,
+			getUser: () => this.#claims(),
 			buildModel: (mode) => this.#buildModel(mode),
 			// Lo que se le promete al usuario mientras espera sale de aquí, no
 			// de una suposición escrita en la plantilla.
