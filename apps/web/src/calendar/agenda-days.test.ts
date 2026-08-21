@@ -13,6 +13,7 @@ function event(
 	title: string,
 	start: string | null,
 	end?: string | null,
+	allDay = true,
 ): StoredEvent {
 	return {
 		id,
@@ -21,7 +22,7 @@ function event(
 		endDate: end ? local(end) : null,
 		memberIds: [],
 		roles: {},
-		allDay: true,
+		allDay,
 		tags: [],
 	} satisfies StoredEvent;
 }
@@ -138,8 +139,9 @@ test("un evento sin fin sigue en curso, igual que en el calendario", () => {
 	// La contradicción que encontró la revisión: la rejilla mensual pinta estas
 	// obras en la celda de hoy y la agenda las metía en el pliegue de pasados.
 	// Se comprueban **las dos vistas a la vez**, que es lo único que detecta que
-	// vuelvan a separarse.
-	const obras = event("1", "Obras en la calle", "2026-06-10");
+	// vuelvan a separarse. Y `allDay: false` a propósito: un fin abierto sólo
+	// puede declararse en un evento con hora (decisión 4 del spec de horas).
+	const obras = event("1", "Obras en la calle", "2026-06-10", null, false);
 	const agenda = buildAgenda([obras], { now: NOW, locale: "es" });
 	const grid = buildMonthGrid([obras], local("2026-06-01"), "es", NOW);
 	const hoy = grid.weeks.flat().find((cell) => cell.key === dayKey(NOW));
@@ -254,9 +256,12 @@ test("contar eventos suma los de todos los días, no los días", () => {
 test("lo que termina justo ahora todavía cuenta como próximo", () => {
 	// El límite es inclusivo, igual que en `filterEvents` y en `groupOf`. Sin
 	// esto, el evento en curso desaparece al pliegue en el instante exacto en
-	// que aún está pasando.
+	// que aún está pasando. Con hora y no de día completo: la precisión de
+	// milisegundo que prueba este test sólo tiene sentido para una cita
+	// puntual, que es la que cierra en su propio instante en vez de al final
+	// del día (ver `sort-events.test.ts` para el caso de día completo).
 	const agenda = buildAgenda(
-		[event("1", "Charla", "2026-06-15T09:00", "2026-06-15T10:00")],
+		[event("1", "Charla", "2026-06-15T09:00", "2026-06-15T10:00", false)],
 		{
 			now: NOW,
 			locale: "es",

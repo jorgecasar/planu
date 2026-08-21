@@ -145,6 +145,19 @@ function isUndated(event: PlanuEvent): boolean {
 const startOf = (event: PlanuEvent): Date | null =>
 	event.startDate ?? event.endDate ?? null;
 
+/** El último instante del día local de `date`, con precisión de milisegundo. */
+function endOfDay(date: Date): Date {
+	return new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+		23,
+		59,
+		59,
+		999,
+	);
+}
+
 /**
  * Cuándo deja de estar en curso un evento. `null` significa «todavía no».
  *
@@ -156,10 +169,23 @@ const startOf = (event: PlanuEvent): Date | null =>
  * en el calendario y archivado en la agenda y en las tarjetas**. Sólo se ve al
  * juntar las tres vistas, que es para lo que existe la tarea que cierra la fase.
  *
- * Manda la semántica del calendario, que es la que eligió el usuario en T20:
+ * Manda la semántica del calendario, que es la que eligió el usuario en T20, con
+ * un ajuste de T47: **de día completo, el instante que cierra el evento es el
+ * final de ese día local (23:59:59.999), no su comienzo.** Sin el ajuste,
+ * `endDate` de un evento de hoy vale medianoche, y a las 00:01 ya es «pasado»
+ * durante el resto del día que se supone que ocurre. Sólo se puede distinguir
+ * de una cita puntual a medianoche desde que existe `allDay` —`eventSchema()`
+ * lo suple con `default(true)`, así que aquí llega siempre resuelto— y de ahí
+ * que este arreglo llegue con esta tarea y no antes.
  *
- * - **Sin fin, sigue en curso**: no es un punto en el tiempo, es algo que
- *   empezó y no ha terminado. Nunca es pasado.
+ * - **Sin fin y con hora** (`allDay: false`), sigue en curso: no es un punto en
+ *   el tiempo, es algo que empezó y no ha terminado. Nunca es pasado — el caso
+ *   que ya cubría la revisión de arriba.
+ * - **Sin fin y de día completo** (`allDay: true`), es un evento de un solo
+ *   día: cierra al final de ese mismo día. Un día completo, a diferencia de
+ *   una cita con hora, no admite «fin abierto»: el editor no ofrece esa
+ *   combinación (decisión 4 del spec de horas), así que sin fin declarado sólo
+ *   puede significar «dura ese día».
  * - **Sin inicio**, el fin es una fecha límite y es él quien lo cierra.
  * - **Con el fin antes del inicio** —dato incoherente que el esquema rechaza
  *   pero que pudo guardarse antes— se colapsa al inicio, igual que hace
@@ -172,10 +198,14 @@ const startOf = (event: PlanuEvent): Date | null =>
 function activeUntil(event: PlanuEvent): Date | null {
 	const start = event.startDate ?? null;
 	const end = event.endDate ?? null;
+	const { allDay } = event;
+	const wrap = (date: Date) => (allDay ? endOfDay(date) : date);
 
-	if (start && end) return end.getTime() >= start.getTime() ? end : start;
-	if (start) return null;
-	return end;
+	if (start && end) {
+		return wrap(end.getTime() >= start.getTime() ? end : start);
+	}
+	if (start) return allDay ? wrap(start) : null;
+	return end ? wrap(end) : null;
 }
 
 /**

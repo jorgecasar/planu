@@ -209,13 +209,21 @@ test("pasado es haber terminado, no haber empezado", () => {
 });
 
 test("lo que acaba justo en el instante de corte todavía es próximo", () => {
-	// Límite inclusivo, igual que el del rango en `filterEvents`.
-	const justo = event({ startDate: day("2026-06-01"), endDate: NOW });
+	// Límite inclusivo, igual que el del rango en `filterEvents`. Con hora y no
+	// de día completo: la precisión de milisegundo que prueba este test sólo
+	// tiene sentido para una cita puntual, no para un día entero, que siempre
+	// cierra al final de su día local (ver el test de más abajo).
+	const justo = event({
+		startDate: day("2026-06-01"),
+		endDate: NOW,
+		allDay: false,
+	});
 	expect(groupOf(justo, NOW)).toBe("upcoming");
 
 	const unMsAntes = event({
 		startDate: day("2026-06-01"),
 		endDate: new Date(NOW.getTime() - 1),
+		allDay: false,
 	});
 	expect(groupOf(unMsAntes, NOW)).toBe("past");
 });
@@ -243,10 +251,14 @@ test("sin fin declarado, un evento que ya empezó sigue en curso", () => {
 	// que aquí caían en «pasado» al día siguiente de empezar. El mismo evento,
 	// en curso en el calendario y archivado en la agenda.
 	//
-	// Manda el calendario, que es la semántica que se eligió en T20.
+	// Manda el calendario, que es la semántica que se eligió en T20. Y es
+	// `allDay: false` a propósito: el editor no ofrece «día completo sin fin»
+	// —decisión 4 del spec de horas—, así que un fin abierto sólo puede
+	// declararse en un evento con hora.
 	const obras = event({
 		title: "Obras en la calle",
 		startDate: day("2026-06-10"),
+		allDay: false,
 	});
 
 	expect(groupOf(obras, NOW)).toBe("upcoming");
@@ -254,10 +266,46 @@ test("sin fin declarado, un evento que ya empezó sigue en curso", () => {
 	// pasado, es pasado.
 	expect(
 		groupOf(
-			event({ startDate: day("2026-06-10"), endDate: day("2026-06-12") }),
+			event({
+				startDate: day("2026-06-10"),
+				endDate: day("2026-06-12"),
+				allDay: false,
+			}),
 			NOW,
 		),
 	).toBe("past");
+});
+
+test("un evento de día completo de hoy sigue en próximos a las 23:59", () => {
+	// El defecto que arregla esta tarea: sin el ajuste, `endDate` de un día
+	// completo vale medianoche, y a las 00:01 el evento ya es «pasado» durante
+	// el resto del día en que en realidad ocurre.
+	const hoyMuyTarde = new Date(2026, 5, 15, 23, 59, 0);
+	const diaCompletoDeHoy = event({
+		title: "Feria",
+		startDate: day("2026-06-15"),
+		allDay: true,
+	});
+
+	expect(groupOf(diaCompletoDeHoy, hoyMuyTarde)).toBe("upcoming");
+
+	// Y sí es pasado al día siguiente, ya con su día entero consumido.
+	const mananaTemprano = new Date(2026, 5, 16, 0, 1, 0);
+	expect(groupOf(diaCompletoDeHoy, mananaTemprano)).toBe("past");
+});
+
+test("un día completo de varios días sigue en próximos hasta el final del último", () => {
+	const diaCompleto = event({
+		title: "Vacaciones",
+		startDate: day("2026-06-10"),
+		endDate: day("2026-06-12"),
+		allDay: true,
+	});
+
+	expect(groupOf(diaCompleto, new Date(2026, 5, 12, 23, 59, 0))).toBe(
+		"upcoming",
+	);
+	expect(groupOf(diaCompleto, new Date(2026, 5, 13, 0, 1, 0))).toBe("past");
 });
 
 test("con el fin antes del inicio manda el inicio", () => {
