@@ -10,18 +10,10 @@ import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
-import {
-	addDoc,
-	collection,
-	doc,
-	type Firestore,
-	serverTimestamp,
-	setDoc,
-	Timestamp,
-} from "firebase/firestore";
-import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { EventRepositoryPort } from "../application/ports/event-repository.js";
+import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
@@ -29,7 +21,7 @@ import {
 	type InferenceModeName,
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
-import { toInputDate } from "../domain/format-dates.js";
+import { toInputDate, toInputTime } from "../domain/format-dates.js";
 import {
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
@@ -40,11 +32,10 @@ import {
 } from "../domain/tags.js";
 import {
 	appContext,
-	firestoreContext,
-	storageContext,
+	eventRepositoryContext,
+	imageStoreContext,
 	userContext,
 } from "../firebase/context.js";
-import { uploadFile } from "../firebase/storage.js";
 import {
 	eventSchema,
 	type PlanuEvent,
@@ -145,11 +136,11 @@ export class PlanuEventEditor extends LitElement {
 	@consume({ context: appContext, subscribe: true })
 	private app: FirebaseApp | undefined;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
+	@consume({ context: eventRepositoryContext, subscribe: true })
+	private eventRepository: EventRepositoryPort | undefined;
 
-	@consume({ context: storageContext, subscribe: true })
-	private storage: FirebaseStorage | undefined;
+	@consume({ context: imageStoreContext, subscribe: true })
+	private imageStore: ImageStorePort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -365,11 +356,25 @@ export class PlanuEventEditor extends LitElement {
 							.value=${toInputDate(initial.startDate)}
 						></wa-input>
 						<wa-input
+							type="time"
+							name="startTime"
+							label=${msg("Start time")}
+							.value=${
+								(initial.allDay ?? true) ? "" : toInputTime(initial.startDate)
+							}
+						></wa-input>
+						<wa-input
 							type="date"
 							name="endDate"
 							label=${msg("End date")}
-							enterkeyhint="done"
 							.value=${toInputDate(initial.endDate)}
+						></wa-input>
+						<wa-input
+							type="time"
+							name="endTime"
+							label=${msg("End time")}
+							enterkeyhint="done"
+							.value=${(initial.allDay ?? true) ? "" : toInputTime(initial.endDate)}
 						></wa-input>
 					</div>
 				</form>
@@ -587,8 +592,8 @@ export class PlanuEventEditor extends LitElement {
 		const file = input.files?.[0];
 		if (!file) return;
 
-		const { storage, user } = this;
-		if (!storage || !user) return;
+		const { imageStore, user } = this;
+		if (!imageStore || !user) return;
 
 		// Las reglas rechazarían el fichero igualmente, pero con un error de
 		// permisos que no explica nada al usuario.
@@ -602,8 +607,7 @@ export class PlanuEventEditor extends LitElement {
 		this.uploading = true;
 		this.progress = 0;
 		try {
-			this.imageUrl = await uploadFile(
-				storage,
+			this.imageUrl = await imageStore.upload(
 				file,
 				`events/${user.uid}`,
 				(percent) => {
@@ -625,22 +629,31 @@ export class PlanuEventEditor extends LitElement {
 	async #onSubmit(domEvent: SubmitEvent): Promise<void> {
 		domEvent.preventDefault();
 
-		const { firestore, user } = this;
-		if (!firestore || !user) return;
+		const { eventRepository, user } = this;
+		if (!eventRepository || !user) return;
 
 		const data = new FormData(domEvent.target as HTMLFormElement);
 		const text = (key: string) => String(data.get(key) ?? "").trim();
-		const date = (key: string) => {
-			const value = text(key);
-			return value === "" ? null : new Date(`${value}T00:00:00`);
+		const startTime = text("startTime");
+		const endTime = text("endTime");
+		// Decisión 4 del spec de horas: la bandera es del evento entero, no de
+		// cada extremo. Escribir cualquiera de las dos horas lo declara con
+		// hora; borrar las dos lo devuelve a día completo.
+		const allDay = startTime === "" && endTime === "";
+		const date = (dateKey: string, timeKey: string) => {
+			const value = text(dateKey);
+			if (value === "") return null;
+			const time = text(timeKey);
+			return new Date(`${value}T${time === "" ? "00:00" : time}:00`);
 		};
 
 		const parsed = eventSchema().safeParse({
 			title: text("title"),
 			description: text("description"),
 			location: text("location"),
-			startDate: date("startDate"),
-			endDate: date("endDate"),
+			startDate: date("startDate", "startTime"),
+			endDate: date("endDate", "endTime"),
+			allDay,
 			imageUrl: this.imageUrl,
 			userId: user.uid,
 			tags: this.tags,
@@ -653,7 +666,7 @@ export class PlanuEventEditor extends LitElement {
 
 		this.saving = true;
 		try {
-			await this.#save(firestore, user, parsed.data);
+			await this.#save(eventRepository, user, parsed.data);
 			this.#close();
 		} catch {
 			this.error = msg("The event could not be saved. Please try again.");
@@ -662,40 +675,41 @@ export class PlanuEventEditor extends LitElement {
 		}
 	}
 
+	/**
+	 * Decisión 5 del spec: de día completo, las fechas se normalizan al
+	 * comienzo del día local antes de guardar. Así el dato es honesto —un
+	 * evento de día completo no arrastra una hora residual de cuando la
+	 * tuvo— y `toIcsDate()` puede seguir leyendo componentes locales.
+	 */
+	#normalize(values: PlanuEvent): PlanuEvent {
+		if (!values.allDay) return values;
+		const startOfDay = (found: Date) =>
+			new Date(found.getFullYear(), found.getMonth(), found.getDate());
+		return {
+			...values,
+			startDate: values.startDate ? startOfDay(values.startDate) : null,
+			endDate: values.endDate ? startOfDay(values.endDate) : null,
+		};
+	}
+
 	#save(
-		firestore: Firestore,
+		eventRepository: EventRepositoryPort,
 		user: SessionUser,
 		values: PlanuEvent,
 	): Promise<unknown> {
-		const content = {
-			title: values.title,
-			description: values.description ?? "",
-			location: values.location ?? "",
-			imageUrl: values.imageUrl ?? "",
-			startDate: values.startDate ? Timestamp.fromDate(values.startDate) : null,
-			endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
-			tags: values.tags,
-		};
+		const normalized = this.#normalize(values);
 
 		// Editing sends content only. Resending the editor's uid would cost an
 		// invited editor their permission, because to the rules that is
 		// transferring ownership; and membership is not touched from here, which
 		// is what the share dialog is for.
 		if (this.event) {
-			return setDoc(doc(firestore, "events", this.event.id), content, {
-				merge: true,
-			});
+			return eventRepository.update(this.event.id, normalized);
 		}
 
 		// An event is born with its creator as sole member and no guests: the
 		// rules reject any other way of starting.
-		return addDoc(collection(firestore, "events"), {
-			...content,
-			userId: user.uid,
-			memberIds: [user.uid],
-			roles: {},
-			createdAt: serverTimestamp(),
-		});
+		return eventRepository.create(normalized, user.uid);
 	}
 
 	/**

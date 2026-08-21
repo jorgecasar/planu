@@ -13,6 +13,8 @@ import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
+import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
+import { FirebaseImageStore } from "../infrastructure/firebase/image-store.js";
 import {
 	FirebaseSessionAdapter,
 	toSessionUser,
@@ -20,7 +22,9 @@ import {
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
+	eventRepositoryContext,
 	firestoreContext,
+	imageStoreContext,
 	sessionContext,
 	storageContext,
 	userContext,
@@ -131,6 +135,14 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	readonly #storage = new ContextProvider(this, { context: storageContext });
 
+	readonly #eventRepository = new ContextProvider(this, {
+		context: eventRepositoryContext,
+	});
+
+	readonly #imageStore = new ContextProvider(this, {
+		context: imageStoreContext,
+	});
+
 	#unsubscribe: (() => void) | undefined;
 
 	constructor() {
@@ -170,6 +182,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			const { firestore, storage } = await loadDataServices(this.#core.app);
 			this.#firestore.setValue(firestore);
 			this.#storage.setValue(storage);
+			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
+			this.#imageStore.setValue(new FirebaseImageStore(storage));
 
 			// Publishing the directory entry is what lets other people find this
 			// user by email when inviting them. It is not essential to using the

@@ -42,6 +42,53 @@ async function mount(
 	return el;
 }
 
+/**
+ * Un `EventRepositoryPort` falso que sólo guarda lo que recibe. `create` es
+ * lo que ejercitan estos tests; `update` acompaña por si algún test futuro
+ * abre el editor en modo edición.
+ */
+function fakeRepository() {
+	const calls: { values: unknown; ownerUid: string }[] = [];
+	return {
+		calls,
+		create: async (values: unknown, ownerUid: string) => {
+			calls.push({ values, ownerUid });
+			return "new-id";
+		},
+		update: async () => {},
+	};
+}
+
+/** Lee el `.value` de un `wa-input` por su atributo `name`. */
+function field(el: PlanuEventEditor, name: string): HTMLInputElement {
+	const found = el.shadowRoot?.querySelector<HTMLInputElement>(
+		`[name="${name}"]`,
+	);
+	if (!found) throw new Error(`El campo "${name}" no está en el DOM`);
+	return found;
+}
+
+/**
+ * Escribe el `.value` de un `wa-input` y espera a que se propague al
+ * `ElementInternals` que respalda `FormData`.
+ *
+ * `wa-input` sincroniza su valor con el formulario desde `willUpdate()`, un
+ * ciclo de Lit que corre de forma asíncrona tras asignar la propiedad. Sin
+ * esperar `updateComplete` —del propio campo, no sólo del editor—, un
+ * `submit()` inmediatamente después podía leer el valor todavía no
+ * propagado.
+ */
+async function setField(
+	el: PlanuEventEditor,
+	name: string,
+	value: string,
+): Promise<void> {
+	const input = field(el, name);
+	input.value = value;
+	await (input as InputHost).updateComplete;
+	await el.updateComplete;
+}
+
 // --- El campo de etiquetas -------------------------------------------------
 //
 // Se maneja el `input` nativo que `wa-input` esconde en su shadow root, que es
@@ -347,6 +394,180 @@ test("cambiar de evento con el editor abierto renueva las etiquetas", async () =
 	el.remove();
 });
 
+// --- Fechas y hora (T48) -----------------------------------------------------
+
+test("cuatro campos: fecha y hora de inicio, fecha y hora de fin", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	expect(field(el, "startDate").getAttribute("type")).toBe("date");
+	expect(field(el, "startTime").getAttribute("type")).toBe("time");
+	expect(field(el, "endDate").getAttribute("type")).toBe("date");
+	expect(field(el, "endTime").getAttribute("type")).toBe("time");
+
+	el.remove();
+});
+
+test("reabrir con horas guardadas las muestra en sus campos", async () => {
+	// El criterio de aceptación literal: «Cena, 4 jul 19:30–23:00», reabrir y
+	// ver 19:30 y 23:00 en sus campos.
+	const el = await mount((editor) => {
+		editor.event = {
+			id: "1",
+			title: "Cena",
+			startDate: new Date(2026, 6, 4, 19, 30),
+			endDate: new Date(2026, 6, 4, 23, 0),
+			allDay: false,
+			memberIds: ["abc"],
+			roles: {},
+			tags: [],
+		};
+		editor.open = true;
+	});
+
+	expect(field(el, "startDate").value).toBe("2026-07-04");
+	expect(field(el, "startTime").value).toBe("19:30");
+	expect(field(el, "endDate").value).toBe("2026-07-04");
+	expect(field(el, "endTime").value).toBe("23:00");
+
+	el.remove();
+});
+
+test("un evento de día completo no muestra ninguna hora al reabrir", async () => {
+	// El otro lado del mismo criterio: «Vacaciones, 1–15 ago» sin horas, y no
+	// ver ninguna al reabrir.
+	const el = await mount((editor) => {
+		editor.event = {
+			id: "1",
+			title: "Vacaciones",
+			startDate: new Date(2026, 7, 1),
+			endDate: new Date(2026, 7, 15),
+			allDay: true,
+			memberIds: ["abc"],
+			roles: {},
+			tags: [],
+		};
+		editor.open = true;
+	});
+
+	expect(field(el, "startTime").value).toBe("");
+	expect(field(el, "endTime").value).toBe("");
+
+	el.remove();
+});
+
+test("escribir una hora de inicio guarda el evento con allDay: false", async () => {
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		editor.open = true;
+	});
+
+	await fillTitle(el, "Cena de prueba");
+	await setField(el, "startDate", "2026-07-04");
+	await setField(el, "startTime", "19:30");
+	submit(el);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+
+	expect(repository.calls).toHaveLength(1);
+	expect(repository.calls[0]?.values).toMatchObject({ allDay: false });
+
+	el.remove();
+});
+
+test("borrar las dos horas devuelve el evento a día completo", async () => {
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		editor.event = {
+			id: "1",
+			title: "Cena",
+			startDate: new Date(2026, 6, 4, 19, 30),
+			endDate: new Date(2026, 6, 4, 23, 0),
+			allDay: false,
+			memberIds: ["abc"],
+			roles: {},
+			tags: [],
+		};
+		editor.open = true;
+	});
+
+	await setField(el, "startTime", "");
+	await setField(el, "endTime", "");
+	submit(el);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+
+	expect(repository.calls).toHaveLength(1);
+	expect(repository.calls[0]?.values).toMatchObject({ allDay: true });
+
+	el.remove();
+});
+
+test("de día completo, las fechas se guardan al comienzo del día local", async () => {
+	// Decisión 5 del spec: sin esto, un evento de día completo arrastraría una
+	// hora residual de cuando la tuvo, y `toIcsDate()` dejaría de bastar.
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		editor.open = true;
+	});
+
+	await fillTitle(el, "Vacaciones");
+	await setField(el, "startDate", "2026-08-01");
+	await setField(el, "endDate", "2026-08-15");
+	submit(el);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+
+	expect(repository.calls).toHaveLength(1);
+	const saved = repository.calls[0]?.values as {
+		allDay: boolean;
+		startDate: Date;
+		endDate: Date;
+	};
+	expect(saved.allDay).toBe(true);
+	expect(saved.startDate.getHours()).toBe(0);
+	expect(saved.startDate.getMinutes()).toBe(0);
+	expect(saved.endDate.getHours()).toBe(0);
+	expect(saved.endDate.getMinutes()).toBe(0);
+
+	el.remove();
+});
+
+test("una hora de fin sin su propia fecha no inventa una: sigue sin fin declarado", async () => {
+	// La fecha manda sobre la hora, no al revés: escribir sólo la hora de fin
+	// sin poner también su fecha no arrastra la fecha de inicio ni ninguna
+	// otra. Es lo que ya prueba `build-ics.test.ts` para «un evento con hora y
+	// sin fin no emite DTEND» — aquí se comprueba que el editor no le da la
+	// vuelta.
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		editor.open = true;
+	});
+
+	await fillTitle(el, "Turno de guardia");
+	await setField(el, "startDate", "2026-07-04");
+	await setField(el, "startTime", "09:00");
+	await setField(el, "endTime", "17:00");
+	submit(el);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+
+	expect(repository.calls).toHaveLength(1);
+	const saved = repository.calls[0]?.values as { endDate: Date | null };
+	expect(saved.endDate).toBeNull();
+
+	el.remove();
+});
+
 // --- Sugerencia de etiquetas con IA (T24) -----------------------------------
 //
 // La calidad de lo que sugiere el modelo se prueba aparte, sin componente, en
@@ -451,7 +672,9 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 	// botón aparte: guardar es exactamente el mismo camino síncrono de antes
 	// de T24, y este test lo fija para que no vuelva a acoplarse.
 	const el = await mount((editor) => {
-		setState(editor, "firestore", {});
+		setState(editor, "eventRepository", {
+			create: () => Promise.reject(new Error("boom")),
+		});
 		setState(editor, "user", { uid: "abc" });
 		editor.open = true;
 	});
@@ -460,8 +683,8 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 	submit(el);
 	await el.updateComplete;
 
-	// Firestore falso: el SDK real rechaza rápido y sin red, así que este
-	// mensaje demuestra que se llegó a intentar guardar de inmediato.
+	// Repositorio falso que rechaza: este mensaje demuestra que se llegó a
+	// intentar guardar de inmediato.
 	expect(errorText(el)).toBe("The event could not be saved. Please try again.");
 	expect(aiSuggested(el)).toEqual([]);
 

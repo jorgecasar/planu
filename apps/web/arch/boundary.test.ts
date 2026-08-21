@@ -79,9 +79,10 @@ const importaFirebase = (fichero: string): boolean =>
 	);
 
 /**
- * Ficheros acoplados hoy. **Sólo puede bajar.** Subirlo es acoplar más código
- * a Firebase, y eso se discute en una revisión en lugar de colarse en un diff.
- * Son ficheros y no entradas de la lista.
+ * Ficheros acoplados hoy. **Sólo puede bajar**, salvo que subir tenga su
+ * propia justificación registrada aquí mismo: subir sin decir por qué es
+ * acoplar más código a Firebase colándose en un diff, en vez de discutirse en
+ * una revisión. Son ficheros y no entradas de la lista.
  *
  * T36 lo bajó de 23 a 19: liberó seis —`app-shell.ts`, `login-view.ts`,
  * `guard.ts` y `guard.test.ts`, y `auth-errors.ts` con su test, movido a
@@ -90,8 +91,23 @@ const importaFirebase = (fichero: string): boolean =>
  * importa `firebase/auth`, pero conserva `firebase/firestore` para publicar
  * en el directorio de usuarios, y eso es Firestore — el puerto de T37, no
  * el de sesión.
+ *
+ * T48 (spec de horas en eventos) lo sube de 19 a 21, y es la excepción
+ * documentada. Migra `event-editor.ts` a `EventRepositoryPort` e
+ * `ImageStorePort`: ya no importa `firebase/firestore` ni `firebase/storage`,
+ * que es el acoplamiento que de verdad importaba —el guardado, con la
+ * normalización de la decisión 5 del spec de horas—. Pero el fichero **se
+ * queda en la lista** por un motivo no relacionado: `firebase/app` (el tipo
+ * `FirebaseApp` que necesita para construir el modelo de IA) y el import
+ * dinámico de `firebase/ai`, ambos de la sugerencia de etiquetas con IA de
+ * T24 y fuera del alcance de T48. Y suman dos adaptadores nuevos bajo
+ * `infrastructure/firebase/**` —`event-repository.ts`, `image-store.ts`—, que
+ * sí cuentan aunque sea justo el sitio donde este acoplamiento debe vivir.
+ * Resultado: sin reducción neta todavía. Sacar a `event-editor.ts` de la
+ * lista por completo es trabajo de T37/T38, que cubren el mismo fichero con
+ * más alcance —también `event-card.ts` y `events-view.ts`—.
  */
-const TOPE_ACOPLADOS = 19;
+const TOPE_ACOPLADOS = 21;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

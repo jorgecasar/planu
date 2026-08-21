@@ -746,6 +746,14 @@
   <source>This is a sample event. Change anything you like, then save it.</source>
         <target>Esto es un evento de ejemplo. Cambia lo que quieras y guárdalo.</target>
 </trans-unit>
+<trans-unit id="sef5852ec91873a6c">
+  <source>Start time</source>
+        <target>Hora de inicio</target>
+</trans-unit>
+<trans-unit id="s2e33731c2ead8d57">
+  <source>End time</source>
+        <target>Hora de fin</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
