@@ -15,6 +15,7 @@ const event = (title: string): StoredEvent => ({
 	userId: "u1",
 	memberIds: ["u1"],
 	roles: {},
+	allDay: true,
 	tags: [],
 	createdAt: null,
 });

@@ -72,3 +72,33 @@ test("un título corto sigue invalidando el evento entero", () => {
 	// para que el esquema deje pasar cualquier cosa.
 	expect(parse({ title: "ab" }).success).toBe(false);
 });
+
+test("allDay por defecto es true (evento sin el campo)", () => {
+	// Los eventos anteriores a esta feature no traen allDay y deben leerse
+	// como día completo. default(true) lo garantiza.
+	const result = parse();
+	expect(result.success).toBe(true);
+	expect(result.data?.allDay).toBe(true);
+});
+
+test("allDay: false se acepta y se guarda como false", () => {
+	const result = parse({ allDay: false });
+	expect(result.success).toBe(true);
+	expect(result.data?.allDay).toBe(false);
+});
+
+test("allDay: true explícito se acepta", () => {
+	const result = parse({ allDay: true });
+	expect(result.success).toBe(true);
+	expect(result.data?.allDay).toBe(true);
+});
+
+test("allDay rechaza string", () => {
+	const result = parse({ allDay: "true" });
+	expect(result.success).toBe(false);
+});
+
+test("allDay rechaza number", () => {
+	const result = parse({ allDay: 1 });
+	expect(result.success).toBe(false);
+});

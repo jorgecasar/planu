@@ -23,6 +23,7 @@ function event(id: string, title: string, start: string, end?: string) {
 		endDate: end ? local(end) : null,
 		memberIds: [],
 		roles: {},
+		allDay: true,
 		tags: [],
 	} satisfies StoredEvent;
 }
@@ -528,6 +529,7 @@ test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => 
 				endDate: null,
 				memberIds: [],
 				roles: {},
+				allDay: true,
 				tags: [],
 			},
 			{
@@ -537,6 +539,7 @@ test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => 
 				endDate: null,
 				memberIds: [],
 				roles: {},
+				allDay: true,
 				tags: [],
 			},
 		];
@@ -577,6 +580,7 @@ test("elegir un evento sin fecha lo anuncia hacia fuera", async () => {
 				endDate: null,
 				memberIds: [],
 				roles: {},
+				allDay: true,
 				tags: [],
 			},
 		];

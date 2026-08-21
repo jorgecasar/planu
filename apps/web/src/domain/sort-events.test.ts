@@ -24,6 +24,7 @@ const event = (overrides: Partial<PlanuEvent> = {}): PlanuEvent => ({
 	userId: "u1",
 	memberIds: ["u1"],
 	roles: {},
+	allDay: true,
 	tags: [],
 	createdAt: null,
 	...overrides,

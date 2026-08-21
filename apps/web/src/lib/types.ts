@@ -38,6 +38,13 @@ export const eventSchema = () =>
 			roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
 			createdAt: z.coerce.date().nullable().optional(),
 			/**
+			 * Día completo. default(true): los eventos anteriores no traen
+			 * el campo y todos son de día completo —el editor los guardó a
+			 * T00:00:00—. Con false por defecto, cada evento existente se
+			 * convertiría en una cita de medianoche en el .ics.
+			 */
+			allDay: z.boolean().default(true),
+			/**
 			 * Etiquetas libres, normalizadas por `domain/tags.ts`.
 			 *
 			 * Se sanea en vez de rechazar, y de ahí el `unknown`: este esquema
@@ -95,6 +102,7 @@ export type PlanuEventDocument = Omit<
 	endDate: Timestamp | null;
 	createdAt?: Timestamp | null;
 	imageUrl?: string | null;
+	allDay: boolean;
 };
 
 /** Un evento ya leído de Firestore, con su identificador. */

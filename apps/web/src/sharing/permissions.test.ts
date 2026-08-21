@@ -23,6 +23,7 @@ const anEvent = (): StoredEvent => ({
 	imageUrl: "",
 	userId: OWNER,
 	memberIds: [OWNER, EDITOR, VIEWER],
+	allDay: true,
 	tags: [],
 	roles: { [EDITOR]: "editor", [VIEWER]: "viewer" },
 });
