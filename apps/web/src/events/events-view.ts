@@ -24,7 +24,6 @@ import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import type { User } from "firebase/auth";
 import {
 	collection,
 	type DocumentData,
@@ -35,6 +34,7 @@ import {
 } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import { buildAgenda } from "../calendar/agenda-days.js";
 import {
 	type DateRange,
@@ -149,7 +149,7 @@ export class PlanuEventsView extends LitElement {
 	private firestore: Firestore | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private searchTerm = "";
 	@state() private range: DateRange = {};

@@ -6,10 +6,10 @@ import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { User } from "firebase/auth";
 import { deleteDoc, doc, type Firestore, updateDoc } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
 import {
@@ -85,7 +85,7 @@ export class PlanuEventCard extends LitElement {
 	private firestore: Firestore | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private confirming = false;
 	@state() private deleting = false;
