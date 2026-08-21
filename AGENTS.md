@@ -214,8 +214,10 @@ GitHub.
 npm run setup       # instala dependencias y restaura las skills del agente
 npm run dev         # servidor de desarrollo en http://localhost:3000
 npm run build       # typecheck + build de producción a apps/web/dist
+npm run build:landing  # landing prerrenderizada + app, a dist/ (lo que se publica)
 npm test            # tests unitarios (Vitest en Chromium real)
-npm run test:e2e    # tests e2e con Playwright y axe
+npm run test:e2e    # tests e2e con Playwright y axe, contra `npm run dev`
+npm run test:e2e:landing  # e2e de la landing, contra dist/ (exige build:landing)
 npm run lint        # Biome: formato y lint
 npm run lint:fix    # Biome con autoarreglo
 npm run lint:lit    # lit-analyzer sobre las plantillas
@@ -223,8 +225,24 @@ npm run typecheck   # tsc --noEmit
 npm run emulators   # emuladores de Firebase (auth, firestore, storage)
 ```
 
-`npm test` y `npm run test:e2e` necesitan el navegador de Playwright:
+`npm test` y los dos `test:e2e*` necesitan el navegador de Playwright:
 `npx playwright install chromium`.
+
+**La landing no existe en `npm run dev`.** La genera `build:landing` con
+`@lit-labs/ssr` y sale a `dist/`, así que sus e2e tienen configuración propia
+—`playwright.landing.config.ts`— que levanta `scripts/serve-dist.js` sobre ese
+directorio. Probarla contra el servidor de desarrollo comprobaría una página que
+no es la que se publica, que es la definición de test vacuo de este repo.
+
+Ese servidor **no hace fallback a `index.html` a propósito**: la landing es
+multipágina y un fallback haría responder 200 a cualquier ruta inexistente,
+incluidas las tres que el `hreflang` promete —y comprobar que existen es justo
+uno de los tests.
+
+**Lo que se publica es `dist/`, no `apps/web/dist`.** El `predeploy` de
+`firebase.json` corre `build:landing`, que construye la aplicación y luego copia
+su salida junto a la landing. Si `public` volviera a apuntar a `apps/web/dist`,
+se desplegaría la aplicación sin la portada.
 
 `npm run emulators` necesita **Java 21 o superior en el PATH**. `firebase-tools`
 15 rechaza cualquier versión anterior y aborta con «no longer supports Java
@@ -340,7 +358,9 @@ Tres cosas que no son obvias y que conviene no deshacer:
    un paso propio del workflow. Si el job construyera por su cuenta, el
    predeploy volvería a construir encima y se publicaría un bundle distinto de
    aquel cuyos debug IDs se subieron a Sentry: maps huérfanos, trazas
-   minificadas, y ni un solo error visible.
+   minificadas, y ni un solo error visible. Ese predeploy es hoy
+   **`npm run build:landing`**, que construye la aplicación *y* prerrenderiza la
+   portada; `npm run build` a secas dejaría `dist/` sin landing.
 2. **La subida de source maps la gobierna `SENTRY_UPLOAD=true`**, que sólo pone
    el job de producción — no la presencia de `SENTRY_AUTH_TOKEN`. Con el gate
    por token, exportarlo en el `.zshrc` convertiría cada build local en una

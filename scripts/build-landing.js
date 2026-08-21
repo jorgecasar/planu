@@ -18,14 +18,13 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "@lit-labs/ssr";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const DIST = resolve(ROOT, "dist");
-const LOCALIZED = resolve(DIST, "localized");
 const APP_DIST = resolve(ROOT, "apps/web/dist");
 const ASSETS_LANDING = resolve(ROOT, "apps/web/public/assets/landing");
 const FONTS_SOURCE = resolve(ROOT, "apps/web/public/fonts");
@@ -215,13 +214,13 @@ async function buildLanding() {
 			// documento.
 			.replace(/<html lang="[^"]*"/, `<html lang="${locale}"`);
 
-		const localeDir =
-			locale === sourceLocale
-				? resolve(DIST, "index.html")
-				: resolve(LOCALIZED, locale, "index.html");
-
-		if (locale !== sourceLocale) {
-			mkdirSync(dirname(localeDir), { recursive: true });
+		// Cada idioma se escribe donde el `hreflang` del propio HTML promete que
+		// está, y el de origen además en la raíz como `x-default`. Antes sólo se
+		// escribía `localized/{locale}/`, así que las tres URLs anunciadas a los
+		// buscadores —`/`, `/en/` y `/es/`— eran 404.
+		const targets = [resolve(DIST, locale, "index.html")];
+		if (locale === sourceLocale) {
+			targets.push(resolve(DIST, "index.html"));
 		}
 
 		html = stripLitMarkers(html);
@@ -235,9 +234,13 @@ async function buildLanding() {
 			);
 		}
 
-		writeFileSync(localeDir, html, "utf-8");
-		writtenPages.push(localeDir);
-		console.log(`  ✓ ${localeDir} (${bytes} B / ${HTML_BUDGET_BYTES} B)`);
+		for (const target of targets) {
+			mkdirSync(dirname(target), { recursive: true });
+			writeFileSync(target, html, "utf-8");
+			writtenPages.push(target);
+			console.log(`  ✓ ${relative(ROOT, target)}`);
+		}
+		console.log(`    ${bytes} B / ${HTML_BUDGET_BYTES} B`);
 	}
 
 	// Copy landing assets to dist/assets/landing
