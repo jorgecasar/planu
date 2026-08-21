@@ -74,11 +74,12 @@ export function landingTemplate(): TemplateResult {
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title><!--TITLE_PLACEHOLDER--></title>
 				<meta name="description" content="<!--DESCRIPTION_PLACEHOLDER-->" />
+				<link rel="icon" href="/logo.svg" type="image/svg+xml" />
 				<meta property="og:title" content="<!--OG_TITLE_PLACEHOLDER-->" />
 				<meta property="og:description" content="<!--OG_DESC_PLACEHOLDER-->" />
 				<meta property="og:type" content="website" />
 				<meta property="og:url" content="https://planu-app.web.app/" />
-				<meta property="og:image" content="/assets/landing/og.png" />
+				<meta property="og:image" content="https://planu-app.web.app/assets/landing/og.png" />
 				<meta name="twitter:card" content="summary_large_image" />
 				<link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
 				<link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
@@ -87,8 +88,10 @@ export function landingTemplate(): TemplateResult {
 				<style><!--INLINE_CSS_PLACEHOLDER--></style>
 			</head>
 			<body>
-				${hero()}
-				${features()}
+				<main>
+					${hero()}
+					${features()}
+				</main>
 				${footer()}
 			</body>
 		</html>
@@ -99,6 +102,13 @@ function hero(): TemplateResult {
 	return html`
 		<section class="hero wa-stack wa-gap-l">
 			<div class="wa-stack wa-gap-m">
+				<img
+					class="hero-logo"
+					src="/logo.svg"
+					alt="planu"
+					width="72"
+					height="72"
+				/>
 				<h1 class="wa-text-3xl wa-text-bold">${msg("Your events. Private. Shareable. Yours.")}</h1>
 				<p class="wa-text-lg wa-color-text-quiet">${msg("Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.")}</p>
 				<div class="wa-cluster wa-gap-s wa-justify-content-center">
@@ -107,14 +117,6 @@ function hero(): TemplateResult {
 				</div>
 				<p class="wa-text-sm wa-color-text-quiet">${msg("Free. No ads. Your data stays yours.")}</p>
 			</div>
-			<figure>
-				<img
-					src="/assets/landing/hero.webp"
-					alt="${msg("Screenshot of planu showing event cards with title, date, location and cover image")}"
-					width="1200"
-					height="675"
-				/>
-			</figure>
 		</section>
 	`;
 }
