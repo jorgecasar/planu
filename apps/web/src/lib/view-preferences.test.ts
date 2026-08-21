@@ -8,7 +8,7 @@ import {
 	writeViewMode,
 } from "./view-preferences.js";
 
-/** Un `Storage` de mentira, para no pisar el `localStorage` del navegador. */
+/** A fake `Storage`, to avoid stepping on the browser's `localStorage`. */
 function fakeStorage(initial: Record<string, string> = {}): Storage {
 	const data = new Map(Object.entries(initial));
 	return {
@@ -25,7 +25,7 @@ function fakeStorage(initial: Record<string, string> = {}): Storage {
 	} as Storage;
 }
 
-/** Lo que hace un navegador con el almacenamiento denegado o la cuota llena. */
+/** What a browser does with storage denied or the quota full. */
 function hostileStorage(): Storage {
 	return {
 		get length(): number {
@@ -63,8 +63,8 @@ test("sin nada guardado, el orden por defecto", () => {
 });
 
 test("un valor corrupto no rompe el listado", () => {
-	// Una versión anterior guardó otra cosa, o alguien editó el almacenamiento
-	// a mano. Ninguna de las dos puede dejar la vista sin orden.
+	// An earlier version saved something else, or someone edited storage by
+	// hand. Neither of the two can leave the view without a sort order.
 	const storage = fakeStorage({ "planu.events.sort": '{"orden":"raro"}' });
 
 	expect(readSortPreference(storage)).toEqual(DEFAULT_SORT);
@@ -84,8 +84,8 @@ test("no poder guardar la preferencia no lanza", () => {
 });
 
 test("usa una clave con prefijo propio", () => {
-	// El origen se comparte con lo que se despliegue al lado: una clave `sort`
-	// a secas es una colisión esperando a ocurrir.
+	// The origin is shared with whatever gets deployed alongside: a bare
+	// `sort` key is a collision waiting to happen.
 	const storage = fakeStorage();
 	writeSortPreference({ field: "createdAt", direction: "desc" }, storage);
 
@@ -93,8 +93,9 @@ test("usa una clave con prefijo propio", () => {
 });
 
 test("sin argumento lee del localStorage real, que es como la llama la vista", () => {
-	// Todos los demás tests le pasan un almacenamiento falso, así que borrar el
-	// `?? localStorage` dejaba la suite verde y la preferencia sin leerse jamás.
+	// All the other tests pass it a fake storage, so removing the
+	// `?? localStorage` would leave the suite green while the preference is
+	// never actually read.
 	localStorage.setItem("planu.events.sort", "title:asc");
 	try {
 		expect(readSortPreference()).toEqual({ field: "title", direction: "asc" });
@@ -104,8 +105,8 @@ test("sin argumento lee del localStorage real, que es como la llama la vista", (
 });
 
 test("la vista elegida se vuelve a leer", () => {
-	// Es lo que hace que sobreviva a la recarga, que es criterio de aceptación
-	// de F5: la vista se lee al construir el componente.
+	// This is what makes it survive a reload, which is an acceptance criterion
+	// of F5: the view is read when the component is constructed.
 	const storage = fakeStorage();
 
 	writeViewMode("agenda", storage);
@@ -129,8 +130,8 @@ test("un almacenamiento denegado devuelve la vista por defecto sin lanzar", () =
 });
 
 test("la vista y el orden no comparten clave", () => {
-	// Con la misma clave, cambiar de vista borraría el orden y al revés. Son dos
-	// preferencias distintas de la misma pantalla.
+	// With the same key, changing the view would erase the sort order and vice
+	// versa. They are two distinct preferences of the same screen.
 	const storage = fakeStorage();
 
 	writeSortPreference({ field: "title", direction: "asc" }, storage);
@@ -145,8 +146,9 @@ test("la vista y el orden no comparten clave", () => {
 });
 
 test("sin argumento la vista también sale del localStorage real", () => {
-	// Los demás tests le pasan un almacenamiento falso, así que borrar el
-	// `?? localStorage` dejaría la suite verde y la vista sin recordarse nunca.
+	// The other tests pass it a fake storage, so removing the
+	// `?? localStorage` would leave the suite green while the view is never
+	// actually remembered.
 	localStorage.setItem("planu.events.view", "agenda");
 	try {
 		expect(readViewMode()).toBe("agenda");

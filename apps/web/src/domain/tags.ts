@@ -1,49 +1,49 @@
 /**
- * Normalización, sugerencia y color de las etiquetas.
+ * Normalisation, suggestion and colour of tags.
  *
- * Vive en `domain/` porque no depende de nada: es la misma clase de módulo que
- * `filter-events.ts`. El editor, el filtro y la tarjeta se limitan a llamar
- * aquí, de modo que las tres coinciden en qué es una etiqueta válida. Duplicar
- * la normalización en cada componente es cómo se acaba con `Concierto` y
- * `concierto` conviviendo en el mismo evento.
+ * Lives in `domain/` because it depends on nothing: it is the same kind of
+ * module as `filter-events.ts`. The editor, the filter and the card all just
+ * call in here, so the three agree on what counts as a valid tag. Duplicating
+ * the normalisation in each component is how you end up with `Concierto` and
+ * `concierto` coexisting on the same event.
  */
 
-/** De cero a diez etiquetas por evento (F6). */
+/** Zero to ten tags per event (F6). */
 export const MAX_TAGS = 10;
 
 /**
- * Máximo por etiqueta, en **unidades UTF-16** — o sea, en lo que mide
- * `String.length`.
+ * Maximum per tag, in **UTF-16 units** — that is, whatever `String.length`
+ * measures.
  *
- * Se midió en puntos de código y era un error de tres capas: el `maxlength` de
- * `wa-input` cuenta unidades UTF-16, y el `size()` de las reglas de Firestore
- * también (comprobado contra el emulador: 280 `a` pasan, 281 no; 140 emoji
- * pasan, 150 no). Sólo esta constante contaba puntos de código, así que diez
- * etiquetas de 24 emoji —válidas aquí— sumaban 489 unidades y las reglas las
- * denegaban con un «no se pudo guardar» que no explicaba nada.
+ * It used to be measured in code points, and that was a three-layer bug:
+ * `wa-input`'s `maxlength` counts UTF-16 units, and so does the `size()` in
+ * the Firestore rules (checked against the emulator: 280 `a`s pass, 281 do
+ * not; 140 emoji pass, 150 do not). Only this constant counted code points,
+ * so ten tags of 24 emoji each — valid here — added up to 489 units, and the
+ * rules rejected them with a "could not save" that explained nothing.
  *
- * Con las tres capas midiendo lo mismo, diez etiquetas de 24 más nueve
- * separadores son 249 y el tope agregado de las reglas nunca se alcanza por
- * las buenas. El coste es que una etiqueta de sólo emoji admite doce y no
- * veinticuatro, que es justo lo que el campo ya dejaba teclear.
+ * With all three layers measuring the same thing, ten tags of 24 plus nine
+ * separators come to 249, and the rules' aggregate cap is never legitimately
+ * reached. The cost is that a tag made only of emoji fits twelve, not
+ * twenty-four, which is exactly what the field already let you type.
  */
 export const MAX_TAG_LENGTH = 24;
 
 /**
- * Una etiqueta normalizada, o `null` si el texto no da para una.
+ * A normalised tag, or `null` if the text does not amount to one.
  *
- * Se devuelve `null` en vez de recortar a 24 porque truncar destroza la
- * palabra en silencio —«conciertos de música clásica» se quedaría en
- * «conciertos de música clá»— y el usuario no se entera de que ha guardado
- * otra cosa. Quien llama decide: el editor avisa, `normalizeTags` descarta.
+ * `null` is returned instead of trimming to 24 because truncating silently
+ * mangles the word — "quarterly team retrospectives" would end up as
+ * "quarterly team retrospect" — and the user has no way of knowing they saved
+ * something else. The caller decides: the editor warns, `normalizeTags`
+ * discards.
  *
- * La longitud se mide como `String.length`; el porqué está en
- * `MAX_TAG_LENGTH`.
+ * Length is measured as `String.length`; the reason is in `MAX_TAG_LENGTH`.
  */
 export function normalizeTag(raw: string): string | null {
-	// Los espacios interiores se colapsan además de recortarse los extremos:
-	// «música  clásica» y «música clásica» son la misma etiqueta para el
-	// usuario, y sin esto la deduplicación no las junta.
+	// Interior spaces are collapsed on top of trimming the ends: "morning
+	// run" (two spaces) and "morning run" (one space) are the same tag to
+	// the user, and without this deduplication would not merge them.
 	const clean = raw.trim().replace(/\s+/gu, " ").toLowerCase();
 	if (clean === "") return null;
 	if (clean.length > MAX_TAG_LENGTH) return null;
@@ -51,14 +51,14 @@ export function normalizeTag(raw: string): string | null {
 }
 
 /**
- * Normaliza y deduplica **sin acotar cuántas hay**, conservando el primer
- * orden de aparición.
+ * Normalises and deduplicates **without capping how many there are**,
+ * preserving the first order of appearance.
  *
- * Separada de `normalizeTags` porque el tope de cardinalidad es del contrato
- * *por evento* y no de la normalización. Aplicárselo al vocabulario del
- * usuario —la unión de las etiquetas de todos sus eventos, que no tiene cota—
- * truncaba la lista antes de filtrarla y dejaba el autocompletado ciego a
- * partir de la undécima etiqueta conocida.
+ * Kept separate from `normalizeTags` because the cardinality cap belongs to
+ * the *per-event* contract, not to normalisation. Applying it to the user's
+ * vocabulary — the union of the tags across all of their events, which has
+ * no bound — truncated the list before it was even filtered, leaving
+ * autocomplete blind past the eleventh known tag.
  */
 function cleanTags(raw: readonly string[]): string[] {
 	const output: string[] = [];
@@ -73,58 +73,60 @@ function cleanTags(raw: readonly string[]): string[] {
 }
 
 /**
- * Normaliza la lista de etiquetas **de un evento**: descarta lo que no vale,
- * deduplica conservando el primer orden de aparición y corta en `MAX_TAGS`.
+ * Normalises the tag list **for one event**: discards what is not valid,
+ * deduplicates preserving the first order of appearance, and caps at
+ * `MAX_TAGS`.
  *
- * Esta es la puerta por la que pasa todo lo que no ha escrito una persona —lo
- * que propone la IA (T24), lo que trae un documento heredado— así que descarta
- * en silencio en lugar de fallar: un evento con una etiqueta imposible se
- * muestra sin ella, no deja de mostrarse.
+ * This is the gate through which everything a person did not type passes —
+ * what the AI proposes (T24), what a legacy document brings in — so it
+ * discards silently instead of failing: an event with an impossible tag is
+ * shown without it, not left unshown altogether.
  *
- * No sirve como saneador genérico: el corte en `MAX_TAGS` sólo tiene sentido
- * sobre las etiquetas de un evento. Para una lista sin cota, `cleanTags`.
+ * It is not a general-purpose sanitiser: the cap at `MAX_TAGS` only makes
+ * sense over one event's tags. For an unbounded list, use `cleanTags`.
  */
 export function normalizeTags(raw: readonly string[]): string[] {
 	return cleanTags(raw).slice(0, MAX_TAGS);
 }
 
 /**
- * Tono en grados (0–359) derivado del nombre, estable entre recargas.
+ * Hue in degrees (0–359) derived from the name, stable across reloads.
  *
- * Devuelve un tono y no un color porque el contraste no puede depender del
- * hash: quien pinta fija luminosidad y croma desde los tokens del tema y sólo
- * gira el tono, y así las diez etiquetas cumplen AA por construcción en vez de
- * por suerte. Sortear también la luminosidad es cómo se acaba con una etiqueta
- * amarilla ilegible sobre blanco.
+ * Returns a hue and not a colour because contrast cannot depend on the hash:
+ * whoever renders it fixes lightness and chroma from the theme tokens and
+ * only rotates the hue, so all ten tags meet AA by construction rather than
+ * by luck. Randomising lightness too is how you end up with an illegible
+ * yellow tag on a white background.
  *
- * FNV-1a de 32 bits: barato, sin dependencias y bien repartido para cadenas
- * cortas. No es criptográfico y no le hace falta serlo.
+ * 32-bit FNV-1a: cheap, dependency-free and well distributed for short
+ * strings. It is not cryptographic and does not need to be.
  */
 export function tagHue(tag: string): number {
 	let hash = 0x811c9dc5;
 	for (let i = 0; i < tag.length; i++) {
 		hash ^= tag.charCodeAt(i);
-		// Multiplicación por el primo 16777619 en aritmética de 32 bits sin
-		// signo. `Math.imul` es lo que evita perder precisión al pasar de 2^53.
+		// Multiplication by the prime 16777619 in unsigned 32-bit arithmetic.
+		// `Math.imul` is what avoids losing precision past 2^53.
 		hash = Math.imul(hash, 0x01000193) >>> 0;
 	}
 	return hash % 360;
 }
 
 /**
- * Las etiquetas ya usadas que encajan con lo que se está escribiendo, para el
- * autocompletado del editor.
+ * Already-used tags that match what is being typed, for the editor's
+ * autocomplete.
  *
- * Coincide por subcadena y no sólo por prefijo: con etiquetas compuestas
- * —«música clásica»— buscar por prefijo obliga a recordar por dónde empieza.
- * Las que ya están puestas se excluyen: ofrecer lo que no se puede añadir es
- * ruido.
+ * Matches by substring and not just by prefix: with compound tags —
+ * "classical music" — matching by prefix forces you to remember how it
+ * starts. Tags
+ * already applied are excluded: offering something that cannot be added is
+ * noise.
  *
- * `known` es el vocabulario del usuario —la unión de las etiquetas de todos
- * sus eventos—, así que se sanea con `cleanTags` y no con `normalizeTags`: el
- * tope de diez es del evento, y aplicarlo aquí recortaba el vocabulario antes
- * de buscar en él. Lo único acotado es cuántas sugerencias se ofrecen, y de eso
- * ya se encarga `limit`.
+ * `known` is the user's vocabulary — the union of the tags across all of
+ * their events — so it is sanitised with `cleanTags` and not `normalizeTags`:
+ * the cap of ten belongs to the event, and applying it here trimmed the
+ * vocabulary before it was even searched. The only thing bounded is how many
+ * suggestions are offered, and `limit` already takes care of that.
  */
 export function suggestTags(
 	known: readonly string[],
@@ -138,8 +140,8 @@ export function suggestTags(
 	return cleanTags(known)
 		.filter((tag) => !chosen.has(tag) && (term === "" || tag.includes(term)))
 		.sort((a, b) => {
-			// Lo que empieza por el término va antes que lo que sólo lo contiene:
-			// es lo que el usuario está tecleando.
+			// What starts with the term goes before what merely contains it:
+			// that is what the user is typing.
 			const byPrefix = Number(b.startsWith(term)) - Number(a.startsWith(term));
 			return byPrefix !== 0 ? byPrefix : a.localeCompare(b);
 		})

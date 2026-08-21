@@ -20,11 +20,11 @@ import {
 } from "../../domain/session-error.js";
 
 /**
- * Lo que el dominio necesita del `User` de Firebase, y nada más.
+ * What the domain needs from Firebase's `User`, and nothing more.
  *
- * `getIdTokenResult` delega en el método real de `user`: es la única forma
- * en que `SessionUser` puede llevar el claim `premium` (T23) sin que su
- * firma conozca `firebase/auth`.
+ * `getIdTokenResult` delegates to `user`'s real method: it's the only way
+ * `SessionUser` can carry the `premium` claim (T23) without its signature
+ * knowing about `firebase/auth`.
  */
 export function toSessionUser(user: User): SessionUser {
 	return {
@@ -38,10 +38,10 @@ export function toSessionUser(user: User): SessionUser {
 }
 
 /**
- * De código de Firebase a código de dominio. Tres códigos distintos colapsan
- * a `invalid-credential` a propósito: distinguirlos permitiría averiguar qué
- * correos están registrados. Ver `domain/auth-errors.test.ts`, que prueba el
- * mensaje, y el test de este fichero, que prueba el colapso.
+ * From Firebase code to domain code. Three distinct codes collapse into
+ * `invalid-credential` on purpose: distinguishing them would let someone
+ * find out which emails are registered. See `domain/auth-errors.test.ts`,
+ * which tests the message, and this file's test, which tests the collapse.
  */
 const CODIGOS: Record<string, SessionErrorCode> = {
 	"auth/invalid-credential": "invalid-credential",
@@ -58,8 +58,9 @@ const CODIGOS: Record<string, SessionErrorCode> = {
 };
 
 /**
- * Traduce cualquier fallo a `SessionError`. Nunca deja pasar un
- * `FirebaseError` —ni su `.code`, ni su mensaje crudo— hacia el dominio.
+ * Translates any failure into a `SessionError`. It never lets a
+ * `FirebaseError` through to the domain — neither its `.code` nor its raw
+ * message.
  */
 export function toSessionError(cause: unknown): SessionError {
 	if (cause instanceof FirebaseError) {
@@ -69,8 +70,8 @@ export function toSessionError(cause: unknown): SessionError {
 }
 
 /**
- * Único adaptador de sesión: el resto de la aplicación conoce `SessionPort`,
- * no `Auth`.
+ * The one session adapter: the rest of the application knows `SessionPort`,
+ * not `Auth`.
  */
 export class FirebaseSessionAdapter implements SessionPort {
 	readonly #auth: Auth;
@@ -111,13 +112,13 @@ export class FirebaseSessionAdapter implements SessionPort {
 
 	async signInWithGoogle(): Promise<void> {
 		try {
-			// El resolver llega aquí y no en `initializeAuth`, porque arrastra
-			// gapi y el iframe de autenticación: 137 KiB de tres orígenes
-			// ajenos. Antes se descargaban en cada visita; ahora sólo tras este
-			// clic. La importación dinámica —del mismo módulo que ya se importa
-			// de forma estática arriba— es lo que aísla ese trozo del SDK en su
-			// propio fragmento: importar el nombre de forma estática lo habría
-			// metido en el bundle principal.
+			// The resolver arrives here and not in `initializeAuth`, because it
+			// drags in gapi and the authentication iframe: 137 KiB from three
+			// third-party origins. They used to download on every visit; now
+			// only after this click. The dynamic import — of the same module
+			// already imported statically above — is what isolates that chunk
+			// of the SDK into its own fragment: importing the name statically
+			// would have put it in the main bundle.
 			const { browserPopupRedirectResolver } = await import("firebase/auth");
 			await signInWithPopup(
 				this.#auth,
@@ -143,9 +144,9 @@ export class FirebaseSessionAdapter implements SessionPort {
 		const user = this.#auth.currentUser;
 		if (!user) return null;
 
-		// `reload()` solo no basta: la regla de directorio lee
-		// `request.auth.token.email_verified`, así que hay que reemitir el
-		// token —`getIdToken(true)`— antes de que la verificación cuente para
+		// `reload()` alone isn't enough: the directory rule reads
+		// `request.auth.token.email_verified`, so the token has to be
+		// reissued — `getIdToken(true)` — before the verification counts for
 		// Firestore.
 		await reload(user);
 		if (user.emailVerified) await user.getIdToken(true);

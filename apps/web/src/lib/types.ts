@@ -4,8 +4,9 @@ import { z } from "zod";
 import { normalizeTags } from "../domain/tags.js";
 
 /**
- * Fábrica y no constante: los mensajes de validación son interfaz y deben
- * traducirse, así que se construyen al usar el esquema, no al importarlo.
+ * Factory and not a constant: validation messages are interface and must be
+ * translated, so they are built when the schema is used, not when it is
+ * imported.
  */
 export const eventSchema = () =>
 	z
@@ -38,20 +39,20 @@ export const eventSchema = () =>
 			roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
 			createdAt: z.coerce.date().nullable().optional(),
 			/**
-			 * Etiquetas libres, normalizadas por `domain/tags.ts`.
+			 * Free-form tags, normalized by `domain/tags.ts`.
 			 *
-			 * Se sanea en vez de rechazar, y de ahí el `unknown`: este esquema
-			 * también valida lo que se lee de Firestore, y ahí un `tags` con
-			 * basura dentro tiraría el evento entero del listado. Una etiqueta
-			 * imposible se descarta; el evento se sigue viendo.
+			 * Sanitized instead of rejected, hence the `unknown`: this schema
+			 * also validates what is read from Firestore, and there a `tags`
+			 * with junk inside would drop the whole event from the listing. An
+			 * impossible tag gets discarded; the event keeps showing.
 			 *
-			 * El `.optional()` no es decorativo: en Zod 4 un `z.unknown()` pelado
-			 * acepta la clave puesta a `undefined` pero **no** que falte, y es
-			 * justo lo que traen los eventos anteriores a F6 —los mismos que las
-			 * reglas se molestan en dejar editables sin `tags` en `hasAll`—. Sin
-			 * él, la resiliencia que promete este comentario dependía de que
-			 * `toEvent` enumerase la clave a mano: parsear un documento heredado
-			 * con un *spread* los tiraba a todos del listado.
+			 * The `.optional()` is not decorative: in Zod 4 a bare `z.unknown()`
+			 * accepts the key set to `undefined` but **not** it being missing,
+			 * and that is exactly what events predating F6 bring —the same ones
+			 * the rules bother to leave editable without `tags` in `hasAll`—.
+			 * Without it, the resilience this comment promises depended on
+			 * `toEvent` listing the key by hand: parsing a legacy document with
+			 * a *spread* dropped all of them from the listing.
 			 */
 			tags: z
 				.unknown()
@@ -78,15 +79,15 @@ export const eventSchema = () =>
 		);
 
 /**
- * En el prototipo este tipo se llamaba `Event` y tapaba al `Event` del DOM en
- * todos los componentes, con errores de tipos difíciles de leer. Renombrado.
+ * In the prototype this type was called `Event` and shadowed the DOM's
+ * `Event` in every component, with hard-to-read type errors. Renamed.
  */
 export type PlanuEvent = z.infer<ReturnType<typeof eventSchema>>;
 
 /** A guest's role. The owner carries none: they are one by `userId`. */
 export type EventRole = "viewer" | "editor";
 
-/** Un evento tal y como vive en Firestore: las fechas son Timestamp. */
+/** An event as it lives in Firestore: dates are Timestamp. */
 export type PlanuEventDocument = Omit<
 	PlanuEvent,
 	"id" | "startDate" | "endDate" | "createdAt"
@@ -97,5 +98,5 @@ export type PlanuEventDocument = Omit<
 	imageUrl?: string | null;
 };
 
-/** Un evento ya leído de Firestore, con su identificador. */
+/** An event already read from Firestore, with its identifier. */
 export type StoredEvent = PlanuEvent & { id: string };

@@ -1,8 +1,8 @@
-// El tema de Web Awesome, igual que lo carga `main.ts`. Sin él ningún token
-// `--wa-*` resuelve, los fondos quedan transparentes y axe no puede calcular el
-// contraste: devolvía dos nodos en `incomplete` —«background color could not be
-// determined»— y la regla que más papeletas tiene de romperse aquí se estaba
-// probando sobre un color que nadie verá nunca.
+// The Web Awesome theme, same as `main.ts` loads it. Without it no `--wa-*`
+// token resolves, backgrounds stay transparent and axe can't compute
+// contrast: it used to return two nodes in `incomplete` —"background color
+// could not be determined"— and the rule most likely to break here was being
+// tested against a color nobody will ever see.
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "@awesome.me/webawesome/dist/styles/themes/default.css";
 import axe from "axe-core";
@@ -54,7 +54,7 @@ function cells(el: PlanuCalendarView): HTMLElement[] {
 	];
 }
 
-/** La celda que tiene el foco itinerante. */
+/** The cell that has the roving focus. */
 function tabbable(el: PlanuCalendarView): HTMLElement | null {
 	return (
 		el.shadowRoot?.querySelector<HTMLElement>(
@@ -64,8 +64,8 @@ function tabbable(el: PlanuCalendarView): HTMLElement | null {
 }
 
 /**
- * Pulsa una tecla sobre la celda que ahora mismo tiene el foco y devuelve el
- * evento, para poder mirar si se consumió.
+ * Presses a key on the cell that currently has focus and returns the event,
+ * so you can check whether it was consumed.
  */
 async function press(
 	el: PlanuCalendarView,
@@ -90,11 +90,11 @@ function status(el: PlanuCalendarView): string {
 }
 
 /**
- * El nombre accesible de un elemento, calculado por axe.
+ * An element's accessible name, computed by axe.
  *
- * `textContent` no sirve para esto: es ciego a `aria-hidden` y a si el texto
- * tiene caja. Un `display: none` en el texto oculto deja la celda sin nombre y
- * `textContent` no se entera.
+ * `textContent` doesn't work for this: it's blind to `aria-hidden` and to
+ * whether the text has a box. A `display: none` on the hidden text leaves the
+ * cell without a name, and `textContent` doesn't notice.
  */
 function accessibleName(node: Element): string {
 	axe.setup(document.body);
@@ -106,9 +106,10 @@ function accessibleName(node: Element): string {
 }
 
 test("axe no encuentra ninguna violación en la rejilla", async () => {
-	// La aceptación de F5 pide axe sobre la vista, y una rejilla de fechas es
-	// donde axe encuentra problemas. Aquí y no sólo en el e2e: así el oráculo
-	// corre en cada `npm test` en vez de esperar a una pasada que llega tarde.
+	// F5's acceptance criteria asks for axe on the view, and a date grid is
+	// where axe finds problems. Here and not only in the e2e: this way the
+	// oracle runs on every `npm test` instead of waiting for a pass that comes
+	// late.
 	const el = await mount();
 
 	const results = await axe.run(el, {
@@ -124,15 +125,15 @@ test("axe no encuentra ninguna violación en la rejilla", async () => {
 });
 
 test("el contraste de la rejilla se mide, no se da por bueno", async () => {
-	// `incomplete` es «no he podido mirar», y se descartaba en silencio: sin el
-	// tema cargado, el fondo de las celdas era `rgba(0,0,0,0)` y axe devolvía
-	// «background color could not be determined». El contraste es justo lo que
-	// aquí depende de tokens —el día de relleno y el chip del evento—, así que
-	// se comprueban las dos listas.
+	// `incomplete` means "I couldn't check", and it used to be silently
+	// dismissed: without the theme loaded, the cells' background was
+	// `rgba(0,0,0,0)` and axe returned "background color could not be
+	// determined". Contrast is exactly what depends on tokens here —the
+	// filler day and the event chip— so both lists are checked.
 	//
-	// La pasada va sobre la rejilla y no sobre el componente entero porque los
-	// dos `wa-button` de la barra devuelven «overlapped by another element» por
-	// su propia estructura interna: eso es de Web Awesome, no de T20.
+	// The pass runs on the grid and not on the whole component because the
+	// two toolbar `wa-button`s return "overlapped by another element" due to
+	// their own internal structure: that's on Web Awesome, not on T20.
 	const el = await mount();
 	const grid = el.shadowRoot?.querySelector(".grid");
 
@@ -151,19 +152,20 @@ test("el contraste de la rejilla se mide, no se da por bueno", async () => {
 });
 
 test("la fecha completa llega al árbol de accesibilidad, no sólo al textContent", async () => {
-	// El criterio de aceptación es «celdas etiquetadas con la fecha completa», y
-	// `textContent` no lo mide: con la fecha oculta a `display: none` el nodo
-	// sigue teniendo texto pero la celda se queda sin nombre accesible. Este
-	// test compara el nombre calculado, que es lo que oye el usuario.
+	// The acceptance criterion is "cells labeled with the full date", and
+	// `textContent` doesn't measure that: with the date hidden via
+	// `display: none` the node still has text but the cell ends up without an
+	// accessible name. This test compares the computed name, which is what
+	// the user hears.
 	const el = await mount();
 	const empty = cells(el).find((cell) => cell.dataset["key"] === "20260602");
 	const busy = cells(el).find((cell) => cell.dataset["key"] === "20260610");
 
-	// Sin eventos, el nombre es la fecha y nada más: el número del día va con
-	// `aria-hidden` para no repetirlo detrás.
+	// Without events, the name is the date and nothing else: the day number
+	// carries `aria-hidden` so it isn't repeated afterward.
 	expect(accessibleName(empty as Element)).toBe("martes, 2 de junio de 2026");
 
-	// Con eventos, la fecha primero y los títulos después.
+	// With events, the date first and the titles after.
 	expect(accessibleName(busy as Element)).toBe(
 		"miércoles, 10 de junio de 2026 Feria del libro Sin fecha",
 	);
@@ -172,9 +174,9 @@ test("la fecha completa llega al árbol de accesibilidad, no sólo al textConten
 });
 
 test("por defecto el título del mes no es un encabezado", async () => {
-	// El nivel depende de dónde se monte la rejilla, así que fijarlo aquí
-	// rompería el orden de encabezados de cualquier página que no sea la que se
-	// tuvo en mente. Sin nivel, es un párrafo y nombra la rejilla por
+	// The level depends on where the grid is mounted, so fixing it here would
+	// break the heading order of any page other than the one it was designed
+	// for. Without a level, it's a paragraph and names the grid via
 	// `aria-labelledby`.
 	const el = await mount();
 
@@ -183,10 +185,11 @@ test("por defecto el título del mes no es un encabezado", async () => {
 });
 
 test("el nivel del encabezado llega por atributo, que es como lo monta la vista", async () => {
-	// La vista de eventos lo pasa como `heading-level="2"`, es decir por
-	// **atributo**: sin `type: Number` la propiedad valdría la cadena `"2"`, el
-	// `switch` caería al caso por defecto y el mes se quedaría en párrafo, fuera
-	// de la navegación por encabezados. Asignar la propiedad no probaría eso.
+	// The events view passes it as `heading-level="2"`, that is, by
+	// **attribute**: without `type: Number` the property would hold the
+	// string `"2"`, the `switch` would fall to the default case, and the
+	// month would stay a paragraph, outside heading navigation. Assigning the
+	// property wouldn't test that.
 	const el = await mount();
 	el.setAttribute("heading-level", "2");
 	await el.updateComplete;
@@ -195,7 +198,7 @@ test("el nivel del encabezado llega por atributo, que es como lo monta la vista"
 	expect(title?.localName).toBe("h2");
 	expect(accessibleName(title as Element)).toBe("junio de 2026");
 
-	// Y sigue nombrando la rejilla: el `id` es lo que la etiqueta.
+	// And it still names the grid: the `id` is what labels it.
 	expect(
 		el.shadowRoot
 			?.querySelector('[role="grid"]')
@@ -206,10 +209,11 @@ test("el nivel del encabezado llega por atributo, que es como lo monta la vista"
 });
 
 test("las siete columnas se alinean de verdad", async () => {
-	// Las filas llevan `display: contents` para que las celdas sean hijas de la
-	// rejilla CSS. Sin eso —con `display: block`, por ejemplo— los roles siguen
-	// ahí y todos los tests de ARIA pasan, pero el calendario se pinta como una
-	// columna. Se comprueba la geometría, que es lo que se rompe.
+	// The rows carry `display: contents` so that the cells become children of
+	// the CSS grid. Without that —with `display: block`, for example— the
+	// roles are still there and all the ARIA tests pass, but the calendar
+	// gets painted as a single column. The geometry is what's checked, since
+	// that's what breaks.
 	const el = await mount();
 	const week = cells(el)
 		.slice(0, 7)
@@ -226,15 +230,15 @@ test("la rejilla tiene los roles que espera un lector de pantalla", async () => 
 	const grid = el.shadowRoot?.querySelector('[role="grid"]');
 
 	expect(grid?.getAttribute("aria-labelledby")).toBe("month-title");
-	// Las celdas no se editan desde aquí, y decirlo evita que un lector ofrezca
-	// un modo de edición que no existe.
+	// Cells aren't edited from here, and saying so keeps a screen reader from
+	// offering an editing mode that doesn't exist.
 	expect(grid?.getAttribute("aria-readonly")).toBe("true");
 	expect(el.shadowRoot?.querySelector("#month-title")?.textContent).toBe(
 		"junio de 2026",
 	);
 
-	// Una fila de cabeceras y cinco semanas: junio de 2026 empieza en lunes y
-	// son treinta días.
+	// One header row and five weeks: June 2026 starts on a Monday and has
+	// thirty days.
 	expect(grid?.querySelectorAll('[role="row"]')).toHaveLength(6);
 	expect(grid?.querySelectorAll('[role="columnheader"]')).toHaveLength(7);
 	expect(cells(el)).toHaveLength(35);
@@ -296,7 +300,7 @@ test("los eventos se pintan como entradas compactas en su día", async () => {
 		[...(tenth?.querySelectorAll("li") ?? [])].map((item) => item.textContent),
 	).toEqual(["Feria del libro", "Sin fecha"]);
 
-	// Y el que cruza el borde del mes también está en las celdas de relleno.
+	// And the one that crosses the month's edge is also in the filler cells.
 	const july = cells(el).find((cell) => cell.dataset["key"] === "20260701");
 	expect(july?.textContent).toContain("Congreso");
 
@@ -313,7 +317,7 @@ test("la rejilla es un único punto de tabulación", async () => {
 		el.shadowRoot?.querySelectorAll('[role="gridcell"][tabindex="-1"]'),
 	).toHaveLength(34);
 
-	// Y arranca en hoy, que es lo que el usuario espera encontrar.
+	// And it starts on today, which is what the user expects to find.
 	expect(tabbable(el)?.dataset["key"]).toBe("20260617");
 
 	el.remove();
@@ -335,7 +339,7 @@ test("las flechas mueven el foco por días y por semanas", async () => {
 	await press(el, "ArrowUp");
 	expect(tabbable(el)?.dataset["key"]).toBe("20260617");
 
-	// Sigue habiendo un solo punto de tabulación después de moverse.
+	// There's still a single tab stop after moving.
 	expect(
 		el.shadowRoot?.querySelectorAll('[role="gridcell"][tabindex="0"]'),
 	).toHaveLength(1);
@@ -344,8 +348,9 @@ test("las flechas mueven el foco por días y por semanas", async () => {
 });
 
 test("pinchar en una celda se lleva allí el punto de tabulación", async () => {
-	// Si no, tras pinchar el día 3 y salir y volver con el tabulador, el foco
-	// reaparecería en otro día: el ratón y el teclado dejarían de coincidir.
+	// Otherwise, after clicking day 3 and tabbing away and back, the focus
+	// would reappear on a different day: the mouse and the keyboard would
+	// stop agreeing.
 	const el = await mount();
 	const third = cells(el).find((cell) => cell.dataset["key"] === "20260603");
 
@@ -358,10 +363,10 @@ test("pinchar en una celda se lleva allí el punto de tabulación", async () => 
 });
 
 test("pinchar el relleno de otro mes deja el foco donde dice el tabindex", async () => {
-	// Es el fallo que encontró la revisión. La plantilla no lleva claves, así
-	// que Lit reutiliza los nodos por posición: al saltar a julio, el nodo
-	// pinchado seguía enfocado y ya contenía el 29. La flecha siguiente daba un
-	// salto de veintisiete días sin explicación.
+	// This is the bug the review found. The template doesn't carry keys, so
+	// Lit reuses nodes by position: when jumping to July, the clicked node
+	// stayed focused but already held the 29th. The next arrow key made an
+	// unexplained twenty-seven-day jump.
 	const el = await mount();
 	const filler = cells(el).find((cell) => cell.dataset["key"] === "20260701");
 
@@ -381,23 +386,25 @@ test("pinchar el relleno de otro mes deja el foco donde dice el tabindex", async
 });
 
 test("las teclas de la rejilla se consumen, y sólo ésas", async () => {
-	// Sin `preventDefault()` las flechas desplazan la página y `Av Pág` la salta
-	// entera mientras el foco se mueve por el calendario: dos cosas a la vez.
+	// Without `preventDefault()` the arrows scroll the page and `Page Down`
+	// skips it entirely while the focus moves through the calendar: two
+	// things at once.
 	const el = await mount();
 
 	expect((await press(el, "ArrowRight")).defaultPrevented).toBe(true);
 	expect((await press(el, "Home")).defaultPrevented).toBe(true);
 	expect((await press(el, "PageDown")).defaultPrevented).toBe(true);
 
-	// Una tecla que no es nuestra sigue su camino.
+	// A key that isn't ours goes on its way.
 	expect((await press(el, "a")).defaultPrevented).toBe(false);
 
 	el.remove();
 });
 
 test("una tecla con modificador no es nuestra", async () => {
-	// `Control+Inicio` es «ir al principio del documento». Entrar por la rama de
-	// `Inicio` se lo tragaría con `preventDefault()` y además movería el foco.
+	// `Ctrl+Home` means "go to the start of the document". Going through the
+	// `Home` branch would swallow it with `preventDefault()` and would also
+	// move the focus.
 	const el = await mount();
 	const before = tabbable(el)?.dataset["key"];
 
@@ -410,8 +417,8 @@ test("una tecla con modificador no es nuestra", async () => {
 });
 
 test("moverse dentro del mismo mes no anuncia nada", async () => {
-	// Sin el guardián, el mes se anunciaría en cada pulsación: treinta
-	// interrupciones para cruzar un mes con la flecha.
+	// Without the guard, the month would be announced on every keystroke:
+	// thirty interruptions to cross a month with the arrow key.
 	const el = await mount();
 
 	await press(el, "ArrowRight");
@@ -426,7 +433,8 @@ test("moverse dentro del mismo mes no anuncia nada", async () => {
 test("Inicio y Fin van a los extremos de la semana del locale", async () => {
 	const el = await mount();
 
-	// El 17 de junio de 2026 es miércoles; en español la semana va del 15 al 21.
+	// June 17, 2026 is a Wednesday; in Spanish the week runs from the 15th to
+	// the 21st.
 	await press(el, "Home");
 	expect(tabbable(el)?.dataset["key"]).toBe("20260615");
 
@@ -488,8 +496,9 @@ test("los botones cambian de mes sin robar el foco de la rejilla", async () => {
 });
 
 test("cambiar de mes por Av Pág recorta el día al último del destino", async () => {
-	// Del 31 de enero, febrero no tiene 31. Sin recortar, `Date` desborda y el
-	// foco se iría a marzo, saltándose el mes que el usuario pidió ver.
+	// From January 31, February doesn't have 31 days. Without clamping,
+	// `Date` overflows and the focus would go to March, skipping past the
+	// month the user asked to see.
 	const el = await mount((view) => {
 		view.month = local("2026-01-15");
 		view.today = local("2026-01-31");
@@ -505,8 +514,9 @@ test("cambiar de mes por Av Pág recorta el día al último del destino", async 
 });
 
 test("un mes sin nada que ver por teclado sigue teniendo punto de tabulación", async () => {
-	// Con `today` en otro año no hay celda de hoy: el foco itinerante tiene que
-	// caer igualmente en algún sitio, o la rejilla se sale del recorrido.
+	// With `today` in another year there's no cell for today: the roving
+	// focus still has to land somewhere, or the grid falls outside the tab
+	// order.
 	const el = await mount((view) => {
 		view.today = local("2030-01-01");
 	});
@@ -517,8 +527,8 @@ test("un mes sin nada que ver por teclado sigue teniendo punto de tabulación", 
 });
 
 test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => {
-	// Contarlos y nada más los dejaba anunciados pero inalcanzables: el usuario
-	// sabía que existían y no tenía forma de abrirlos desde el calendario.
+	// Just counting them left them announced but unreachable: the user knew
+	// they existed and had no way to open them from the calendar.
 	const el = await mount((view) => {
 		view.events = [
 			{
@@ -545,7 +555,7 @@ test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => 
 	const detalle = el.shadowRoot?.querySelector(".undated");
 	expect(detalle?.getAttribute("summary")).toContain("2");
 
-	// Desplegado, porque es donde el usuario los alcanza de verdad.
+	// Expanded, because that's where the user actually reaches them.
 	(detalle as HTMLElement & { open: boolean }).open = true;
 	await el.updateComplete;
 	await new Promise((listo) => requestAnimationFrame(() => listo(null)));
@@ -556,8 +566,9 @@ test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => 
 		"Otro día",
 	]);
 
-	// Y que ocupen sitio: encontrarlos con `querySelector` no prueba que se
-	// puedan pulsar. Con la lista oculta, la aserción de arriba pasa igual.
+	// And that they take up space: finding them with `querySelector` doesn't
+	// prove they can be clicked. With the list hidden, the assertion above
+	// would still pass.
 	for (const boton of botones) {
 		expect(boton.getBoundingClientRect().width).toBeGreaterThan(0);
 	}
@@ -566,8 +577,8 @@ test("a los eventos sin fecha se puede llegar, no sólo contarlos", async () => 
 });
 
 test("elegir un evento sin fecha lo anuncia hacia fuera", async () => {
-	// La rejilla no sabe qué hacer con un evento —abrir el editor es decisión de
-	// quien la monta, y eso es T21— así que sólo lo dice.
+	// The grid doesn't know what to do with an event —opening the editor is a
+	// decision for whoever mounts it, and that's T21— so it just says so.
 	const el = await mount((view) => {
 		view.events = [
 			{

@@ -1,25 +1,26 @@
 /**
- * La parte de la generación con IA que no tiene nada de Lit ni de Firebase:
- * disponibilidad de la sesión, caché del modelo, autocuración tras un fallo,
- * descarga y resolución del modo de inferencia.
+ * The part of AI generation that has nothing to do with Lit or Firebase:
+ * session availability, model caching, self-healing after a failure,
+ * download and resolving the inference mode.
  *
- * Vivía duplicada dentro de `ai-event-generator.ts` sólo por ser el único
- * componente que la necesitaba. T24 necesita lo mismo en `event-editor.ts`
- * para sugerir etiquetas, y duplicarla ahí sería exactamente la deuda que una
- * revisión de T23 señaló como pendiente.
+ * It used to live duplicated inside `ai-event-generator.ts` only because it
+ * was the sole component that needed it. T24 needs the same thing in
+ * `event-editor.ts` to suggest tags, and duplicating it there would have
+ * been exactly the debt a T23 review flagged as pending.
  *
- * **No importa `firebase/*` en ningún sitio, a propósito.** Extraer esto a un
- * fichero que sí importara el SDK habría añadido un fichero acoplado nuevo —
- * `arch/boundary.test.ts` fija el tope en 23 y sólo puede bajar—, así que en
- * vez de traer aquí `getAI`/`getGenerativeModel` se recibe `buildModel` ya
- * construido: quien llama es quien ya tiene el acoplamiento legítimo —un
- * componente con `@consume` de contextos de Firebase—, y aquí sólo vive la
- * orquestación, que es justo lo que es agnóstico al proveedor.
+ * **It does not import `firebase/*` anywhere, on purpose.** Extracting this
+ * into a file that did import the SDK would have added a new coupled file —
+ * `arch/boundary.test.ts` fixes the cap at 23 and it can only go down — so
+ * instead of bringing `getAI`/`getGenerativeModel` in here, an already-built
+ * `buildModel` is received: whoever calls it is the one who already has the
+ * legitimate coupling — a component with `@consume` on Firebase contexts —
+ * and only orchestration lives here, which is exactly what is
+ * provider-agnostic.
  *
- * Esto también es lo que abre la costura que faltaba: sin ella, nada de esto
- * se podía probar sin hablar con Firebase de verdad, y la cancelación y
- * auto-curación tras un fallo se quedaron sin ningún test en T23 por ese
- * motivo exacto.
+ * This is also what opens the seam that was missing: without it, none of
+ * this could be tested without talking to Firebase for real, and
+ * cancellation and self-healing after a failure were left with no test at
+ * all in T23 for that exact reason.
  */
 
 import {
@@ -30,18 +31,18 @@ import {
 import type { EventPart } from "./generate-event.js";
 
 /**
- * Lo mínimo de una sesión de usuario que hace falta: el claim de premium.
- * Duck typing en vez de `User` de `firebase/auth`, para no importarlo aquí.
+ * The minimum a user session needs: the premium claim. Duck typing instead
+ * of `User` from `firebase/auth`, so as not to import it here.
  */
 export interface TokenClaims {
 	getIdTokenResult(): Promise<{ claims: Record<string, unknown> }>;
 }
 
-/** Lo mínimo de un modelo generativo que hace falta, sin el tipo real del SDK. */
+/** The minimum a generative model needs, without the SDK's real type. */
 export interface ModelLike {
 	initializeDeviceModel(onProgress: (progress: number) => void): Promise<void>;
-	// El SDK real restringe `role` a una unión de literales; aquí sólo hace
-	// falta "user", que es el único que este módulo envía.
+	// The real SDK restricts `role` to a union of literals; here only "user"
+	// is needed, which is the only one this module ever sends.
 	generateContent(input: {
 		contents: Array<{ role: "user"; parts: EventPart[] }>;
 	}): Promise<{ response: { text(): string; inferenceSource?: string } }>;
@@ -49,54 +50,55 @@ export interface ModelLike {
 
 export interface GeneratedResponse {
 	text: string;
-	/** El SDK dice dónde acabó ejecutándose; el modo sólo es una preferencia. */
+	/** The SDK says where it ended up running; the mode is only a preference. */
 	source: InferenceSourceName | undefined;
 }
 
 export interface AiModelSessionOptions {
 	/**
-	 * Función y no valor: el claim de premium se relee en cada construcción del
-	 * modelo, así que hace falta la sesión actual en ese instante, no la que
-	 * había cuando se creó esta sesión.
+	 * A function, not a value: the premium claim is re-read on every model
+	 * build, so the current session at that instant is needed, not the one
+	 * that existed when this session was created.
 	 */
 	getUser: () => TokenClaims | null | undefined;
 	/**
-	 * Construye el modelo ya resuelto el modo. Quien llama conoce el SDK; esto
-	 * no necesita conocerlo para cachear, cancelar y autocurarse.
+	 * Builds the model with the mode already resolved. The caller knows the
+	 * SDK; this does not need to know it in order to cache, cancel and
+	 * self-heal.
 	 */
 	buildModel: (mode: InferenceModeName) => Promise<ModelLike>;
-	/** Se le avisa del modo resuelto; útil para no prometer privacidad de más. */
+	/** Told the resolved mode; useful for not over-promising privacy. */
 	onInferenceMode?: (mode: InferenceModeName) => void;
 }
 
 export interface AiModelSession {
-	/** Prepara el modelo en el dispositivo. Memoizado: llamar dos veces no repite la descarga. */
+	/** Prepares the on-device model. Memoised: calling twice does not repeat the download. */
 	warmUp(onProgress: (percent: number) => void): Promise<void>;
-	/** Genera a partir de las partes del mensaje. */
+	/** Generates from the message parts. */
 	generate(parts: EventPart[]): Promise<GeneratedResponse>;
 }
 
 /**
- * Construye una sesión de modelo.
+ * Builds a model session.
  *
- * `only_on_device` espera a que la descarga termine en vez de resolver por
- * otro camino, y ante un problema lanza la causa real en lugar de callar. No
- * hay `inCloudParams` a propósito: reactivar la nube exige volver a añadirlos
- * y configurar App Check en quien construye el modelo, no cambiar una
- * variable de entorno.
+ * `only_on_device` waits for the download to finish instead of resolving
+ * some other way, and on a problem it throws the real cause instead of
+ * staying silent. There is no `inCloudParams` on purpose: reopening the
+ * cloud requires adding them back and configuring App Check in whoever
+ * builds the model, not changing an environment variable.
  */
 export function createAiModelSession(
 	options: AiModelSessionOptions,
 ): AiModelSession {
 	/**
-	 * Una sola instancia por sesión: el calentamiento y la generación
-	 * comparten. Un rechazo **no** se queda memoizado —si se guardase, un fallo
-	 * pasajero al construir el modelo dejaría la IA muerta el resto de la
-	 * sesión—.
+	 * A single instance per session: warm-up and generation share it. A
+	 * rejection is **not** left memoised — if it were kept, a transient
+	 * failure while building the model would leave the AI dead for the rest
+	 * of the session.
 	 */
 	let modelPromise: Promise<ModelLike> | undefined;
 
-	/** Igual que `modelPromise`: memoizado, pero no si falla. */
+	/** Same as `modelPromise`: memoised, but not on failure. */
 	let warmupPromise: Promise<void> | undefined;
 
 	async function inferenceMode(): Promise<InferenceModeName> {

@@ -1,31 +1,32 @@
 /**
- * Sugerencia de etiquetas con IA al guardar un evento que no tiene ninguna.
+ * AI tag suggestion when saving an event that has none.
  *
- * Es una entrada más al mismo modelo que `generate-event.ts` y
- * `generate-from-text.ts`, con dos diferencias que cambian todo lo demás:
+ * It is one more caller of the same model as `generate-event.ts` and
+ * `generate-from-text.ts`, with two differences that change everything
+ * else:
  *
- * 1. **Es una comodidad de fondo, no algo que el usuario pidió expresamente.**
- *    T23 muestra un error cuando la generación falla porque el usuario acaba
- *    de pulsar un botón para pedirla; aquí no hay tal petición, así que
- *    ningún fallo se hace visible. `suggestTagsWithAi()` no lanza nunca: un modelo
- *    que no contesta, contesta basura, o no está disponible, resuelve en una
- *    lista vacía y el editor sigue exactamente igual que si no existiera esta
- *    función.
- * 2. **La prioridad de las etiquetas ya usadas no se le confía al modelo.**
- *    Pedírselo en el prompt ayuda, pero T23 enseñó que confiar en que un
- *    modelo pequeño obedezca un orden no se puede verificar sin IA integrada
- *    delante. Aquí se reordena de forma determinista después de parsear, así
- *    que es una garantía que un test unitario puede fijar sin necesitar que el
- *    modelo coopere.
+ * 1. **It is a background convenience, not something the user explicitly
+ *    asked for.** T23 shows an error when generation fails because the user
+ *    just pressed a button to request it; here there is no such request,
+ *    so no failure ever becomes visible. `suggestTagsWithAi()` never
+ *    throws: a model that does not answer, answers garbage, or is
+ *    unavailable resolves to an empty list, and the editor stays exactly as
+ *    if this function did not exist.
+ * 2. **The priority of already-used tags is not left to the model.** Asking
+ *    for it in the prompt helps, but T23 showed that trusting a small model
+ *    to obey an ordering cannot be verified without built-in AI in front of
+ *    you. Here it is deterministically reordered after parsing, so it is a
+ *    guarantee a unit test can pin down without needing the model to
+ *    cooperate.
  */
 
 import { normalizeTag } from "../domain/tags.js";
 import { type GenerateContent, stripCodeFence } from "./generate-event.js";
 
-/** Como máximo tres, para no convertir el guardado en un formulario nuevo. */
+/** At most three, so as not to turn saving into a whole new form. */
 export const MAX_SUGGESTIONS = 3;
 
-/** Esquema JSON plano para `responseConstraint`: una única clave, un array de texto. */
+/** Flat JSON schema for `responseConstraint`: a single key, an array of text. */
 export const TAG_SUGGESTION_SCHEMA = {
 	type: "object",
 	properties: { tags: { type: "array", items: { type: "string" } } },
@@ -36,24 +37,24 @@ export interface SuggestTagsInput {
 	title: string;
 	description: string;
 	location: string;
-	/** El vocabulario del usuario: sus etiquetas ya usadas en otros eventos. */
+	/** The user's vocabulary: their tags already used on other events. */
 	knownTags: readonly string[];
 	/**
-	 * Las que este evento ya tiene puestas. Se excluyen del resultado, no sólo
-	 * se piden con menos ganas: confiar en que el modelo no repita una
-	 * etiqueta que ya ve puesta es exactamente la clase de instrucción que T23
-	 * enseñó a no dar por cumplida sin comprobarlo.
+	 * The ones already applied to this event. They are excluded from the
+	 * result, not merely requested with less enthusiasm: trusting the model
+	 * not to repeat a tag it already sees applied is exactly the kind of
+	 * instruction T23 taught us not to consider fulfilled without checking.
 	 */
 	chosenTags: readonly string[];
 }
 
 /**
- * Instrucciones para el modelo.
+ * Instructions for the model.
  *
- * Pide reutilizar el vocabulario del usuario antes que inventar uno nuevo
- * —«música» y «conciertos» conviviendo en la misma cuenta es justo lo que la
- * normalización de T18 existe para evitar—, y limita la respuesta a JSON con
- * una única clave para que el parseo no tenga que adivinar la forma.
+ * Asks it to reuse the user's vocabulary before inventing a new one —
+ * "music" and "concerts" coexisting on the same account is exactly what
+ * T18's normalisation exists to prevent — and restricts the response to
+ * JSON with a single key so the parsing does not have to guess the shape.
  */
 export function suggestTagsPrompt(input: SuggestTagsInput): string {
 	const known =
@@ -77,13 +78,13 @@ Location: ${input.location}${known}${chosen}
 }
 
 /**
- * Interpreta la respuesta del modelo.
+ * Interprets the model's response.
  *
- * Nunca lanza: una respuesta que no es JSON, que no trae un array, o cuyos
- * elementos no son texto, se convierte en «ninguna sugerencia» en vez de en un
- * error. Es lo mismo que decide T23 para las fechas —vacío antes que
- * inventado— pero llevado un paso más allá, porque aquí ni siquiera hay un
- * usuario esperando una respuesta a la que reaccionar.
+ * Never throws: a response that is not JSON, that does not carry an array,
+ * or whose items are not text, becomes "no suggestions" instead of an
+ * error. It is the same thing T23 decided for dates — empty rather than
+ * made up — but taken one step further, because here there is not even a
+ * user waiting for a response to react to.
  */
 export function parseSuggestedTags(
 	text: string,
@@ -117,23 +118,24 @@ export function parseSuggestedTags(
 	for (const item of tags) {
 		if (typeof item !== "string") continue;
 		const tag = normalizeTag(item);
-		// `chosen` fuera del modelo: la instrucción del prompt ayuda, pero lo
-		// que de verdad impide repetir una etiqueta ya puesta es este filtro.
+		// `chosen` outside the model: the prompt's instruction helps, but what
+		// actually keeps an already-applied tag from being repeated is this
+		// filter.
 		if (tag === null || seen.has(tag) || chosen.has(tag)) continue;
 		seen.add(tag);
 		cleaned.push(tag);
 	}
 
-	// Estable desde ES2019: entre dos etiquetas nuevas, o entre dos ya
-	// conocidas, se conserva el orden que propuso el modelo.
+	// Stable since ES2019: between two new tags, or between two already
+	// known ones, the order the model proposed is preserved.
 	cleaned.sort((a, b) => Number(known.has(b)) - Number(known.has(a)));
 
 	return cleaned.slice(0, MAX_SUGGESTIONS);
 }
 
 /**
- * Pide al modelo etiquetas para el evento. Nunca falla: ver el docblock del
- * módulo sobre por qué esto es una comodidad de fondo y no una generación.
+ * Asks the model for tags for the event. Never fails: see the module's
+ * docblock for why this is a background convenience and not a generation.
  */
 export async function suggestTagsWithAi(
 	generate: GenerateContent,

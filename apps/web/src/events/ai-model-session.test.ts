@@ -2,7 +2,7 @@ import { expect, test, vi } from "vitest";
 import type { ModelLike, TokenClaims } from "./ai-model-session.js";
 import { createAiModelSession } from "./ai-model-session.js";
 
-/** Un modelo falso: no hay SDK que simular, sólo la forma que usa la sesión. */
+/** A fake model: there is no SDK to simulate, only the shape the session uses. */
 function fakeModel(
 	overrides: Partial<{
 		generateContent: ModelLike["generateContent"];
@@ -60,8 +60,8 @@ test("el modelo se construye una sola vez, no una por llamada", async () => {
 });
 
 test("un fallo al construir el modelo no envenena la sesión entera", async () => {
-	// El fallo que se coló en T23: un rechazo memoizado dejaba la IA muerta
-	// hasta recargar la página, aunque la causa fuera pasajera.
+	// The bug that slipped through in T23: a memoised rejection left the AI
+	// dead until the page was reloaded, even if the cause was transient.
 	let intentos = 0;
 	const model = fakeModel();
 	const buildModel = async () => {
@@ -72,7 +72,7 @@ test("un fallo al construir el modelo no envenena la sesión entera", async () =
 	const session = createAiModelSession(baseOptions(buildModel));
 
 	await expect(session.generate([{ text: "x" }])).rejects.toThrow("red floja");
-	// El segundo intento, con la red recuperada, sí genera.
+	// The second attempt, with the network recovered, does generate.
 	await expect(session.generate([{ text: "x" }])).resolves.toMatchObject({
 		text: "{}",
 	});
@@ -132,8 +132,9 @@ test("se avisa del modo de inferencia resuelto", async () => {
 
 	await session.generate([{ text: "x" }]);
 
-	// El candado de ai-policy fuerza este modo hoy; lo importante es que se
-	// avise de lo que de verdad se resolvió, no que se adivine en la plantilla.
+	// The lock in ai-policy forces this mode today; what matters is that
+	// whatever was actually resolved gets reported, not guessed at in the
+	// template.
 	expect(visto).toBe("only_on_device");
 });
 

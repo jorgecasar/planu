@@ -1,13 +1,13 @@
 /**
- * Elige el idioma de la interfaz a partir de las preferencias del navegador.
+ * Picks the interface language from the browser's preferences.
  *
- * Reglas, en este orden:
- * 1. Coincidencia exacta con un idioma disponible (`es-MX` con `es-MX`).
- * 2. Coincidencia por subetiqueta principal (`es-ES` con `es`).
- * 3. Inglés.
+ * Rules, in this order:
+ * 1. Exact match with an available language (`es-MX` with `es-MX`).
+ * 2. Match by primary subtag (`es-ES` with `es`).
+ * 3. English.
  *
- * Se respeta el orden de `navigator.languages`: la primera preferencia del
- * usuario que se pueda servir gana, aunque una posterior encaje mejor.
+ * The order of `navigator.languages` is respected: the user's first
+ * preference that can be served wins, even if a later one matches better.
  */
 export function pickLocale(
 	preferred: readonly string[],
@@ -19,7 +19,7 @@ export function pickLocale(
 
 	const byExact = new Map(available.map((tag) => [normalize(tag), tag]));
 	const byPrimary = new Map<string, string>();
-	// El primero gana: `es` antes que `es-419` si ambos estuvieran disponibles.
+	// The first one wins: `es` before `es-419` if both were available.
 	for (const tag of available) {
 		const key = primary(tag);
 		if (!byPrimary.has(key)) byPrimary.set(key, tag);
@@ -36,7 +36,7 @@ export function pickLocale(
 	return fallback;
 }
 
-/** Preferencias del navegador, con `navigator.language` como respaldo. */
+/** Browser preferences, with `navigator.language` as a fallback. */
 export function browserLocales(nav: Navigator = navigator): readonly string[] {
 	if (nav.languages && nav.languages.length > 0) return nav.languages;
 	return nav.language ? [nav.language] : [];

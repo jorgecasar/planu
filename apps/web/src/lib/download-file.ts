@@ -1,13 +1,13 @@
 /**
- * Entrega un texto al usuario como fichero descargable.
+ * Delivers a text to the user as a downloadable file.
  *
- * Es la única parte impura de la exportación y por eso está aquí y no en
- * `domain/`: todo lo que decide *qué* contiene el fichero se prueba como una
- * cadena, y lo que queda —crear el `Blob`, el object URL, pinchar el enlace y
- * revocarlo— es trivial a propósito.
+ * It is the only impure part of the export, which is why it lives here and
+ * not in `domain/`: everything that decides *what* the file contains is
+ * tested as a string, and what's left —creating the `Blob`, the object URL,
+ * clicking the link and revoking it— is deliberately trivial.
  *
- * Sin red: el fichero se construye en el navegador, así que no hay servidor
- * que vea el contenido de una agenda privada.
+ * No network: the file is built in the browser, so there is no server that
+ * gets to see the contents of a private calendar.
  */
 export function downloadTextFile(
 	content: string,
@@ -19,15 +19,15 @@ export function downloadTextFile(
 	anchor.href = url;
 	anchor.download = fileName;
 
-	// En el documento y no suelto: hay navegadores que ignoran el `click()` de
-	// un enlace que no está en el árbol.
+	// In the document and not detached: some browsers ignore the `click()` of
+	// a link that is not in the tree.
 	document.body.append(anchor);
 	anchor.click();
 	anchor.remove();
 
-	// Un segundo, no cero: la descarga que acaba de arrancar todavía tiene que
-	// leer el object URL, y revocarlo antes la cancela en algunos navegadores.
-	// El margen es gratis —un `Blob` en memoria— y el turno siguiente se ha
-	// quedado corto en más de un navegador.
+	// One second, not zero: the download that just started still has to read
+	// the object URL, and revoking it before then cancels it in some browsers.
+	// The margin is free —a `Blob` in memory— and the next tick has fallen
+	// short in more than one browser.
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

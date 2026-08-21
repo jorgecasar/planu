@@ -8,7 +8,7 @@ test("usa el idioma del usuario cuando está disponible", () => {
 });
 
 test("ignora la región si el idioma base está disponible", () => {
-	// Un usuario en es-AR debe ver español, no inglés.
+	// A user on es-AR should see Spanish, not English.
 	expect(pickLocale(["es-AR"], AVAILABLE, "en")).toBe("es");
 	expect(pickLocale(["en-GB"], AVAILABLE, "en")).toBe("en");
 });
@@ -18,7 +18,7 @@ test("cae a inglés cuando no hay nada que encaje", () => {
 });
 
 test("respeta el orden de preferencia del usuario", () => {
-	// Prefiere español aunque inglés también esté disponible y vaya después.
+	// Prefers Spanish even though English is also available and comes later.
 	expect(pickLocale(["es-ES", "en-US"], AVAILABLE, "en")).toBe("es");
 	expect(pickLocale(["en-US", "es-ES"], AVAILABLE, "en")).toBe("en");
 });
@@ -43,7 +43,7 @@ test("lee las preferencias del navegador, con language de respaldo", () => {
 		} as unknown as Navigator),
 	).toEqual(["es-ES", "es"]);
 
-	// Safari antiguo y algunos entornos sólo exponen `language`.
+	// Old Safari and some environments only expose `language`.
 	expect(
 		browserLocales({
 			languages: [],

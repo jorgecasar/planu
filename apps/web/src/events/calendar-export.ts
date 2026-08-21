@@ -15,17 +15,17 @@ import {
 import { googleCalendarUrl } from "../domain/google-calendar-url.js";
 import { downloadTextFile } from "../lib/download-file.js";
 
-/** Cuánto se queda el aviso en pantalla antes de irse solo. */
+/** How long the notice stays on screen before it dismisses itself. */
 const WARNING_MS = 8000;
 
 /**
- * Exporta eventos al calendario del usuario: un `.ics` descargable y, cuando
- * hay un solo evento, un enlace a la plantilla de Google Calendar.
+ * Exports events to the user's calendar: a downloadable `.ics` and, when
+ * there's a single event, a link to the Google Calendar template.
  *
- * El mismo componente sirve a la tarjeta y a la agenda porque la única
- * diferencia es cuántos eventos recibe. Google Calendar sólo aparece con uno:
- * su plantilla no admite más, y ofrecerlo para la agenda entera prometería algo
- * que no puede cumplir.
+ * The same component serves both the card and the agenda because the only
+ * difference is how many events it receives. Google Calendar only appears
+ * with one: its template doesn't support more, and offering it for the
+ * whole agenda would promise something it can't deliver.
  */
 @customElement("planu-calendar-export")
 export class PlanuCalendarExport extends LitElement {
@@ -35,14 +35,14 @@ export class PlanuCalendarExport extends LitElement {
 		}
 
 		/*
-		 * Fijo, y por tanto fuera del flujo de quien nos coloque.
+		 * Fixed, and therefore out of the flow of whoever places us.
 		 *
-		 * El aviso vive dentro del componente pero no puede depender de dónde
-		 * esté: la barra de herramientas es una fila flex con
-		 * justify-content: space-between, así que un aviso en flujo se colaba
-		 * como columna entre el desplegable y el botón de nuevo evento; y el pie
-		 * de la tarjeta es otra fila flex. Anclarlo a la ventana lo saca de
-		 * ambos y de cualquier recorte por overflow.
+		 * The notice lives inside the component but can't depend on where it
+		 * sits: the toolbar is a flex row with justify-content:
+		 * space-between, so an in-flow notice would slip in as a column
+		 * between the dropdown and the new-event button; and the card footer
+		 * is another flex row. Anchoring it to the viewport takes it out of
+		 * both and out of any overflow clipping.
 		 */
 		wa-callout {
 			position: fixed;
@@ -53,22 +53,22 @@ export class PlanuCalendarExport extends LitElement {
 		}
 	`;
 
-	/** Lo que se exporta. En la agenda son los eventos ya filtrados. */
+	/** What gets exported. In the agenda these are the already-filtered events. */
 	@property({ attribute: false }) events: readonly CalendarEvent[] = [];
 
 	/**
-	 * Qué se está exportando, y **se declara, no se deduce**.
+	 * What's being exported, and **it's declared, not inferred**.
 	 *
-	 * La primera versión lo inferría de `events.length === 1`, y con eso la
-	 * barra de la agenda se convertía en un exportador de un solo evento en
-	 * cuanto un filtro dejaba una sola tarjeta visible: cambiaba el rótulo,
-	 * ofrecía Google Calendar y el fichero pasaba a llamarse como el evento en
-	 * vez de `planu-agenda.ics`. El componente vive en dos sitios con dos
-	 * papeles distintos; deducir el papel de los datos los confunde.
+	 * The first version inferred it from `events.length === 1`, and with
+	 * that the agenda toolbar would turn into a single-event exporter as
+	 * soon as a filter left just one card visible: the label changed, it
+	 * offered Google Calendar, and the file got named after the event
+	 * instead of `planu-agenda.ics`. The component lives in two places with
+	 * two different roles; inferring the role from the data confuses them.
 	 */
 	@property({ type: String }) mode: "event" | "agenda" = "event";
 
-	/** Nombre del fichero cuando se exporta la agenda. */
+	/** File name used when exporting the agenda. */
 	@property({ attribute: false }) agendaFileName = "planu-agenda.ics";
 
 	@state() private warning = "";
@@ -80,15 +80,15 @@ export class PlanuCalendarExport extends LitElement {
 	}
 
 	/**
-	 * El evento único, sólo en modo `event`. En la agenda es siempre
-	 * `undefined`, aunque el filtro haya dejado una sola tarjeta.
+	 * The single event, only in `event` mode. In the agenda it's always
+	 * `undefined`, even if the filter has left just one card.
 	 */
 	get #single(): CalendarEvent | undefined {
 		if (this.mode !== "event") return undefined;
 		return this.events.length === 1 ? this.events[0] : undefined;
 	}
 
-	/** Un aviso anclado a la ventana que no se fuera solo taparía la interfaz. */
+	/** A notice anchored to the viewport that didn't dismiss itself would cover the interface. */
 	#warn(message: string): void {
 		this.warning = message;
 		clearTimeout(this.#warningTimer);
@@ -105,9 +105,9 @@ export class PlanuCalendarExport extends LitElement {
 
 	override render() {
 		const single = this.#single;
-		// Sin ningún evento no hay nada que exportar y el desplegable se
-		// deshabilita: un menú que sólo puede contestar «no hay nada» es peor que
-		// un botón apagado.
+		// With no events there's nothing to export and the dropdown gets
+		// disabled: a menu that can only answer "there's nothing" is worse
+		// than a disabled button.
 		const empty = this.events.length === 0;
 
 		return html`
@@ -150,11 +150,11 @@ export class PlanuCalendarExport extends LitElement {
 	}
 
 	/**
-	 * Qué decir cuando no sale ningún fichero.
+	 * What to say when no file comes out.
 	 *
-	 * Con la agenda vacía —una búsqueda sin resultados— decir «ninguno de estos
-	 * eventos tiene fechas» sería falso: no es que les falten fechas, es que no
-	 * hay eventos.
+	 * With an empty agenda —a search with no results— saying "none of these
+	 * events have dates" would be false: it's not that they're missing
+	 * dates, it's that there are no events.
 	 */
 	#nothingToExport(): string {
 		if (this.events.length === 0) return msg("There are no events to export.");
@@ -166,11 +166,11 @@ export class PlanuCalendarExport extends LitElement {
 	}
 
 	/**
-	 * Un evento sin fechas no genera fichero: se avisa.
+	 * An event with no dates doesn't produce a file: it warns instead.
 	 *
-	 * Exportarlo daría un `VEVENT` sin `DTSTART`, que algunos clientes rechazan
-	 * entero; y un fichero que no se abre es peor que un aviso, porque el
-	 * usuario no sabe a quién echarle la culpa.
+	 * Exporting it would give a `VEVENT` with no `DTSTART`, which some
+	 * clients reject entirely; and a file that won't open is worse than a
+	 * warning, because the user doesn't know who to blame.
 	 */
 	#download(): void {
 		const exportable = this.#exportable;
@@ -179,7 +179,7 @@ export class PlanuCalendarExport extends LitElement {
 			return;
 		}
 
-		// Parcial: se exporta lo que se puede y se dice qué se ha quedado fuera.
+		// Partial: what can be exported gets exported, and it says what got left out.
 		this.#warn(
 			exportable.length < this.events.length
 				? msg("The events without dates were left out of the file.")
@@ -205,7 +205,7 @@ export class PlanuCalendarExport extends LitElement {
 		}
 
 		this.#warn("");
-		// `noopener`: la pestaña de Google no debe poder tocar la nuestra.
+		// `noopener`: the Google tab must not be able to touch ours.
 		window.open(url, "_blank", "noopener");
 	}
 }

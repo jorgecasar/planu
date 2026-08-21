@@ -83,8 +83,13 @@ un salto repentino a miles de errores. Los motivos van aquí, no ahí.
 
 ### Idioma
 
-- **Documentación, ADRs y comentarios de código: español.** Con acentos y
-  diacríticos correctos, sin sustituirlos por ASCII.
+- **Comentarios de código: inglés.** No siempre fue así: hasta T42 iban en
+  español, y ese cambio de convención tradujo comentario por comentario todo
+  `apps/web/src/**`, sin tocar una sola línea de comportamiento.
+- **Documentación, ADRs y cualquier fichero Markdown: siguen en español**,
+  con acentos y diacríticos correctos, sin sustituirlos por ASCII. T42 sólo
+  tradujo lo que vive dentro del código TypeScript; `docs/`, los ADR y este
+  mismo fichero no cambian de idioma.
 - **Mensajes de commit: inglés**, siguiendo [Conventional Commits](https://www.conventionalcommits.org):
   `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Lo valida commitlint.
 - Los identificadores de código van en inglés.

@@ -4,32 +4,33 @@ import "@awesome.me/webawesome/dist/styles/themes/default.css";
 import { captureStartupErrors } from "./domain/startup-buffer.js";
 import { initLocale } from "./i18n/localization.js";
 
-// Lo primero de todo, y síncrono: a partir de aquí cualquier error queda
-// guardado aunque el SDK de Sentry tarde segundos en cargar.
+// The very first thing, and synchronous: from here on any error stays
+// captured even if the Sentry SDK takes seconds to load.
 captureStartupErrors();
 
-// El idioma se fija antes de registrar los componentes: si la aplicación
-// pintara primero y cambiara después, el usuario vería el salto de inglés a su
-// idioma. `document.documentElement.lang` importa para lectores de pantalla y
-// para la traducción automática del navegador.
+// The language is set before the components are registered: if the
+// application painted first and changed afterward, the user would see the
+// jump from English to their language. `document.documentElement.lang`
+// matters for screen readers and for the browser's automatic translation.
 //
-// Este `await` va antes de los import() a propósito, y no se puede paralelizar
-// con ellos: un import() **ejecuta** el módulo al cargarlo, y ejecutar
-// `app-shell.js` registra los componentes, que se pintarían en el idioma que
-// hubiera en ese momento. Adelantar sólo la descarga es cosa de
-// `modulepreload`, no de import().
+// This `await` comes before the import()s on purpose, and cannot be
+// parallelized with them: an import() **executes** the module as it loads
+// it, and executing `app-shell.js` registers the components, which would
+// render in whatever language was in effect at that moment. Getting ahead
+// of just the download is what `modulepreload` is for, not import().
 const locale = await initLocale();
 document.documentElement.lang = locale;
 
-// Estos dos sí van en paralelo: son independientes entre sí —`app-shell` no
-// importa el provider; los une el marcado de index.html— y encadenarlos con
-// `await` añadía una onda de red a la ruta crítica.
+// These two do go in parallel: they are independent of each other —
+// `app-shell` does not import the provider; index.html's markup is what
+// links them— and chaining them with `await` added a network round trip to
+// the critical path.
 const [{ initializeFirebase }] = await Promise.all([
 	import("./firebase/firebase-provider.js"),
 	import("./app-shell.js"),
 ]);
 
-// Con la aplicación ya en pie: la observabilidad no debe competir por el
-// primer pintado. Dentro espera además a que el navegador esté ocioso.
+// With the application already up: observability must not compete for the
+// first paint. Inside, it also waits for the browser to be idle.
 const { startObservability } = await import("./observability/index.js");
 startObservability(initializeFirebase().app);

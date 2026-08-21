@@ -49,16 +49,16 @@ import {
 	TextInputError,
 } from "./generate-from-text.js";
 
-/** De cuál de las dos entradas salió la generación en curso. */
+/** Which of the two inputs the current generation came from. */
 export type WorkingOn = "image" | "text";
 
 /**
- * Qué está pasando ahora mismo, dicho con las palabras de la entrada que lo
- * disparó.
+ * What's happening right now, phrased with the words of the input that
+ * triggered it.
  *
- * Vive fuera de la clase para poder probarlo: el mensaje llegó a decir
- * «Reading the image…» mientras se leía un texto pegado, y ningún test podía
- * verlo porque estaba incrustado en la plantilla.
+ * Lives outside the class so it can be tested: the message once said
+ * "Reading the image…" while a pasted text was being read, and no test could
+ * catch it because it was embedded in the template.
  */
 export function progressMessage(state: {
 	preparing: boolean;
@@ -77,11 +77,11 @@ export function progressMessage(state: {
 }
 
 /**
- * La segunda línea: por qué la espera merece la pena.
+ * The second line: why the wait is worth it.
  *
- * El modelo corre en el dispositivo, así que ni el texto ni la foto salen de
- * aquí. Decirlo mientras se espera convierte un silencio incómodo en la razón
- * por la que tarda.
+ * The model runs on the device, so neither the text nor the photo leave here.
+ * Saying so while waiting turns an uncomfortable silence into the reason it
+ * takes a while.
  */
 export function progressHint(state: {
 	downloading: boolean;
@@ -91,9 +91,9 @@ export function progressHint(state: {
 	if (state.downloading) {
 		return msg("It only happens once. You can leave this open.");
 	}
-	// La portada **sí** sale del dispositivo: se guarda en tu cuenta. Prometer
-	// aquí que no sale nada sería mentir justo en el momento en que deja de ser
-	// verdad.
+	// The cover image **does** leave the device: it's saved to your account.
+	// Promising here that nothing leaves would be a lie exactly at the moment
+	// it stops being true.
 	if (state.uploading) return msg("The image is saved to your account.");
 	return state.onDevice
 		? msg("It runs on your device: nothing you wrote leaves it.")
@@ -101,16 +101,18 @@ export function progressHint(state: {
 }
 
 /**
- * Qué decirle a quien está delante cuando algo falla.
+ * What to tell the person in front of the screen when something fails.
  *
- * Los tres casos son distintos y llevan a acciones distintas: lo que ha pegado
- * no vale, no se ha podido sacar un evento, o la IA no está. Un único mensaje
- * para los tres obliga a adivinar qué hacer.
+ * The three cases are different and lead to different actions: what they
+ * pasted isn't valid, no event could be extracted, or the AI isn't
+ * available. A single message for all three forces them to guess what to
+ * do.
  *
- * `modelReady` decide el caso intermedio, y no es teoría: medido contra Gemini
- * Nano, un texto sin ningún evento —«Recuerda comprar leche y pilas»— hace que
- * el modelo **lance un error** en vez de contestar con el título vacío que se
- * le pide. Sin esto, ese texto anunciaba una avería de la IA.
+ * `modelReady` decides the middle case, and it's not theoretical: measured
+ * against Gemini Nano, a text with no event at all —"Remember to buy milk
+ * and batteries"— makes the model **throw an error** instead of answering
+ * with the empty title it's asked for. Without this, that text would
+ * announce an AI failure that isn't real.
  */
 export function explainFailure(state: {
 	cause: unknown;
@@ -134,25 +136,27 @@ export function explainFailure(state: {
 	);
 }
 
-/** Lo que el generador entrega al editor. */
+/** What the generator hands off to the editor. */
 export interface GeneratedDraft {
 	event: Partial<PlanuEvent>;
-	/** Dónde se resolvió: útil para el usuario y para vigilar el gasto. */
+	/** Where it was resolved: useful for the user and for watching the spend. */
 	source: InferenceSourceName | undefined;
 }
 
 /**
- * Genera un evento a partir de la foto de un cartel o de un texto pegado.
+ * Generates an event from the photo of a poster or from pasted text.
  *
- * Usa Firebase AI Logic en modo híbrido: si el navegador trae IA integrada
- * corre en el dispositivo —gratis, sin red y sin que la imagen salga de aquí—;
- * si no, cae a Gemini en la nube. Lo que devuelva pasa siempre por el editor
- * para que el usuario lo revise: Gemini Nano se equivoca a menudo con fechas.
+ * Uses Firebase AI Logic in hybrid mode: if the browser ships built-in AI it
+ * runs on the device —free, no network, and the image never leaves here—;
+ * otherwise it falls back to Gemini in the cloud. Whatever it returns always
+ * goes through the editor for the user to review: Gemini Nano often gets
+ * dates wrong.
  *
- * Las dos entradas comparten modelo, esquema de respuesta y política de nube:
- * lo único que cambia es el prompt y, en la imagen, que el cartel se sube como
- * portada. Por eso el camino común vive en `#generate()` y cada entrada sólo
- * aporta cómo extraer y qué decir si el modelo no entiende nada.
+ * The two inputs share the model, the response schema and the cloud policy:
+ * the only things that change are the prompt and, for the image, that the
+ * poster gets uploaded as the cover. That's why the common path lives in
+ * `#generate()` and each input only contributes how to extract and what to
+ * say if the model can't make sense of anything.
  */
 @customElement("planu-ai-event-generator")
 export class PlanuAiEventGenerator extends LitElement {
@@ -226,13 +230,14 @@ export class PlanuAiEventGenerator extends LitElement {
 	@state() private downloading = false;
 
 	/**
-	 * Si esta sesión se resuelve sin salir del dispositivo. Hoy siempre, por el
-	 * candado de `ai-policy.ts`; se consulta en vez de darlo por hecho para que
-	 * el aviso no mienta el día que se abra la nube.
+	 * Whether this session resolves without leaving the device. Today always
+	 * true, because of the lock in `ai-policy.ts`; it's queried instead of
+	 * assumed so the notice doesn't lie the day the cloud path opens up.
 	 *
-	 * Arranca en `false` por lo mismo: el bloque de progreso se pinta ya durante
-	 * la preparación, antes de que la política haya resuelto, y prometer
-	 * privacidad en esa ventana sería afirmar algo que aún no se sabe.
+	 * Starts as `false` for the same reason: the progress block already paints
+	 * during preparation, before the policy has resolved, and promising
+	 * privacy in that window would be asserting something that isn't known
+	 * yet.
 	 */
 	@state() private onDevice = false;
 	@state() private progress = 0;
@@ -241,15 +246,16 @@ export class PlanuAiEventGenerator extends LitElement {
 	@state() private availability: ModelAvailability | undefined;
 
 	/**
-	 * Una por instancia de componente: reconstruirla en cada apertura repetiría
-	 * la descarga del modelo.
+	 * One per component instance: rebuilding it on every open would repeat the
+	 * model download.
 	 */
 	#modelSession: AiModelSession | undefined;
 
 	/**
-	 * Cambia al cerrar el diálogo. Todo lo que estuviera en vuelo comprueba su
-	 * token antes de tener efecto: sin esto, cancelar no cancelaba nada y una
-	 * generación tardía subía la imagen y reabría el editor igualmente.
+	 * Changes when the dialog closes. Anything still in flight checks its
+	 * token before taking effect: without this, cancelling didn't cancel
+	 * anything and a late-arriving generation would upload the image and
+	 * reopen the editor anyway.
 	 */
 	#generation = 0;
 
@@ -261,14 +267,15 @@ export class PlanuAiEventGenerator extends LitElement {
 			this.progress = 0;
 			this.error = "";
 			this.downloading = false;
-			// Abrir el diálogo ya es intención clara: Chrome recomienda preparar
-			// el modelo aquí y no al pulsar generar, para que la descarga ocurra
-			// mientras el usuario elige la foto en vez de después.
+			// Opening the dialog is already clear intent: Chrome recommends
+			// preparing the model here rather than on clicking generate, so the
+			// download happens while the user picks the photo instead of
+			// after.
 			void this.#warmUp();
 		}
 	}
 
-	/** Prepara el modelo en segundo plano. Los errores esperan al generar. */
+	/** Prepares the model in the background. Errors wait until generation. */
 	async #warmUp(): Promise<void> {
 		this.availability = await checkAvailability();
 		if (!this.app) return;
@@ -281,9 +288,10 @@ export class PlanuAiEventGenerator extends LitElement {
 			});
 			this.downloading = false;
 		} catch {
-			// Silencio a propósito: el usuario todavía no ha pedido nada. Si
-			// falla de verdad, lo sabrá al intentar generar, con su mensaje. La
-			// sesión ya se cura sola: el próximo intento vuelve a construir.
+			// Deliberately silent: the user hasn't asked for anything yet. If it
+			// genuinely fails, they'll find out when they try to generate, with
+			// its own message. The session already heals itself: the next
+			// attempt rebuilds it.
 		} finally {
 			this.preparing = false;
 		}
@@ -309,8 +317,8 @@ export class PlanuAiEventGenerator extends LitElement {
 				}
 
 				${
-					// Avisar antes, no después: la descarga puede tardar minutos y
-					// una espera sin explicación parece que se ha colgado.
+					// Warn beforehand, not after: the download can take minutes and
+					// an unexplained wait looks like it has frozen.
 					needsDownload(this.availability)
 						? html`<wa-callout variant="neutral">
 								${msg("The first time, your browser downloads the AI model. It can take a few minutes and only happens once.")}
@@ -333,10 +341,11 @@ export class PlanuAiEventGenerator extends LitElement {
 				<wa-divider></wa-divider>
 
 				<div class="paste">
-					<!-- Sin \`maxlength\`, y no es un olvido: el atributo nativo
-					     **recorta el pegado** sin decir nada, que es justo el
-					     truncado silencioso que este tope venía a impedir. Quien
-					     pega de más lo ve escrito y decide qué quitar. -->
+					<!-- No \`maxlength\`, and it's not an oversight: the native
+					     attribute **trims the paste** without saying anything, which
+					     is exactly the silent truncation this limit exists to
+					     prevent. Whoever pastes too much sees it written out and
+					     decides what to remove. -->
 					<wa-textarea
 						label=${msg("Or paste the text of the event")}
 						hint=${
@@ -356,9 +365,9 @@ export class PlanuAiEventGenerator extends LitElement {
 					></wa-textarea>
 					<p class="count" ?data-over=${this.#tooLong}>
 						${
-							// El contador nativo de Web Awesome cuenta hacia atrás
-							// desde `maxlength`, que ya no está; éste dice lo mismo
-							// y además puede pasarse de la raya.
+							// Web Awesome's native counter counts down from
+							// `maxlength`, which is no longer there; this one says
+							// the same thing and can also go past the limit.
 							msg(str`${this.text.trim().length} / ${MAX_TEXT_LENGTH}`)
 						}
 					</p>
@@ -371,9 +380,10 @@ export class PlanuAiEventGenerator extends LitElement {
 					</wa-button>
 				</div>
 
-				<!-- Un solo sitio para el estado, y el texto lo decide la entrada
-				     que lo disparó. Estaba dentro del bloque de la imagen, así que
-				     generar desde texto anunciaba que se estaba leyendo una foto. -->
+				<!-- A single place for the status, and the text is decided by the
+				     input that triggered it. It used to live inside the image
+				     block, so generating from text would announce that a photo
+				     was being read. -->
 				${
 					this.busy || this.downloading || this.preparing
 						? html`<div class="working">
@@ -412,18 +422,19 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Construye el modelo de verdad. Es la única función de este componente que
-	 * conoce el SDK; `ai-model-session.ts` no lo importa a propósito, para no
-	 * sumar un fichero acoplado nuevo a la frontera de `arch/boundary.test.ts`.
+	 * Builds the actual model. It's the only function in this component that
+	 * knows the SDK; `ai-model-session.ts` deliberately doesn't import it, so
+	 * as not to add a new coupled file to the boundary in
+	 * `arch/boundary.test.ts`.
 	 */
 	async #buildModel(mode: InferenceModeName): Promise<ModelLike> {
-		// Importación dinámica: el SDK de IA pesa cientos de kB y la mayoría de
-		// las sesiones no lo usan nunca. No debe entrar en el arranque.
+		// Dynamic import: the AI SDK weighs hundreds of kB and most sessions
+		// never use it. It must not be part of the startup bundle.
 		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
 			"firebase/ai"
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: sólo se llama con app
+		// biome-ignore lint/style/noNonNullAssertion: only called with app set
 		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
 		return getGenerativeModel(ai, {
 			mode,
@@ -437,10 +448,10 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * `SessionUser.getIdTokenResult` es opcional —no todo adaptador puede
-	 * resolverlo—, y `TokenClaims` lo exige. Sin usuario o sin ese método no
-	 * hay claim que leer: la IA en la nube trata eso igual que "no premium",
-	 * que es el valor seguro por defecto.
+	 * `SessionUser.getIdTokenResult` is optional — not every adapter can
+	 * resolve it — and `TokenClaims` requires it. With no user or no such
+	 * method, there's no claim to read: cloud AI treats that the same as
+	 * "not premium", which is the safe default.
 	 */
 	#claims(): TokenClaims | null {
 		const getIdTokenResult = this.user?.getIdTokenResult;
@@ -448,15 +459,15 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Crea la sesión con el modelo, sólo en el dispositivo. Perezosa y lazy:
-	 * construirla no descarga nada por sí sola, `warmUp()`/`generate()` sí.
+	 * Creates the session with the model, on-device only. Lazy: building it
+	 * doesn't download anything by itself, `warmUp()`/`generate()` do.
 	 */
 	#session(): AiModelSession {
 		this.#modelSession ??= createAiModelSession({
 			getUser: () => this.#claims(),
 			buildModel: (mode) => this.#buildModel(mode),
-			// Lo que se le promete al usuario mientras espera sale de aquí, no
-			// de una suposición escrita en la plantilla.
+			// What's promised to the user while they wait comes from here, not
+			// from an assumption written into the template.
 			onInferenceMode: (mode) => {
 				this.onDevice = mode === "only_on_device";
 			},
@@ -480,20 +491,21 @@ export class PlanuAiEventGenerator extends LitElement {
 			await this.#generate({
 				on: "image",
 				extract: (generate) => generateEventFromImage(generate, file),
-				// El cartel del que se extrajo el evento es su portada natural.
+				// The poster the event was extracted from is its natural cover.
 				cover: file,
 				unreadable: msg(
 					"The image could not be read as an event. Try a clearer photo.",
 				),
 			});
 		} finally {
-			// Sin esto, elegir dos veces la misma foto no dispara `change` y el
-			// segundo intento parecería que no hace nada.
+			// Without this, picking the same photo twice doesn't trigger
+			// `change`, and the second attempt would look like it does
+			// nothing.
 			input.value = "";
 		}
 	}
 
-	/** Si lo pegado se pasa del tope. `generate-from-text.ts` lo vuelve a mirar. */
+	/** Whether the pasted text exceeds the limit. `generate-from-text.ts` checks it again. */
 	get #tooLong(): boolean {
 		return this.text.trim().length > MAX_TEXT_LENGTH;
 	}
@@ -516,11 +528,12 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * El camino común de las dos entradas: prepara el modelo, extrae, y entrega
-	 * el borrador al editor.
+	 * The common path for both inputs: prepares the model, extracts, and hands
+	 * the draft off to the editor.
 	 *
-	 * Ningún fallo de aquí deja al usuario sin salida: se queda en el diálogo con
-	 * el motivo escrito y el alta manual intacta detrás.
+	 * No failure here leaves the user without a way out: they stay in the
+	 * dialog with the reason written out and manual entry still intact
+	 * behind it.
 	 */
 	async #generate({
 		on,
@@ -539,8 +552,8 @@ export class PlanuAiEventGenerator extends LitElement {
 		this.busy = true;
 
 		try {
-			// El modelo ya se estaba preparando desde que se abrió el diálogo;
-			// aquí sólo se espera a que termine si aún no lo ha hecho.
+			// The model has already been preparing since the dialog opened; this
+			// just waits for it to finish if it hasn't already.
 			await this.#warmUp();
 			const session = this.#session();
 
@@ -551,16 +564,19 @@ export class PlanuAiEventGenerator extends LitElement {
 				return response.text;
 			});
 
-			// Si el usuario canceló mientras el modelo pensaba, aquí se para: ni
-			// se sube la imagen ni se reabre el editor a su espalda.
+			// If the user cancelled while the model was thinking, it stops here:
+			// the image doesn't get uploaded and the editor doesn't reopen
+			// behind their back.
 			if (token !== this.#generation) return;
 
-			// La portada se sube después de generar, no antes, para no dejar en
-			// Storage las imágenes de los intentos que no llegan a nada.
+			// The cover is uploaded after generating, not before, so as not to
+			// leave the images of attempts that don't lead anywhere in
+			// Storage.
 			const imageUrl = cover ? await this.#uploadCover(cover) : "";
 
-			// Otra vez, porque subir la portada tarda: sin esto, cancelar durante
-			// la subida terminaba de subir y reabría el editor a su espalda.
+			// Again, because uploading the cover takes a while: without this,
+			// cancelling during the upload would let it finish and reopen the
+			// editor behind their back.
 			if (token !== this.#generation) return;
 
 			this.#emit({
@@ -576,9 +592,10 @@ export class PlanuAiEventGenerator extends LitElement {
 				modelReady: this.availability === "available",
 			});
 		} finally {
-			// Sólo apaga las luces quien las encendió. Sin esta guarda, una
-			// generación cancelada que resolvía tarde apagaba el aviso de la que
-			// estaba en curso y rehabilitaba sus campos a mitad de vuelo.
+			// Only whoever turned the lights on turns them off. Without this
+			// guard, a cancelled generation that resolved late would turn off
+			// the notice of the one currently in progress and re-enable its
+			// fields mid-flight.
 			if (token === this.#generation) {
 				this.busy = false;
 				this.preparing = false;
@@ -588,11 +605,11 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Sube el cartel como portada. Devuelve cadena vacía si no puede.
+	 * Uploads the poster as the cover. Returns an empty string if it can't.
 	 *
-	 * Un fallo aquí no invalida lo que la IA acaba de extraer: es peor perder
-	 * los datos del evento que quedarse sin imagen, así que se abre el editor
-	 * igualmente y el usuario puede añadirla a mano.
+	 * A failure here doesn't invalidate what the AI just extracted: losing
+	 * the event data is worse than being left without an image, so the
+	 * editor opens anyway and the user can add it by hand.
 	 */
 	async #uploadCover(file: File): Promise<string> {
 		const { storage, user } = this;
@@ -629,10 +646,11 @@ export class PlanuAiEventGenerator extends LitElement {
 	#close(): void {
 		this.#generation++;
 		this.#revokePreview();
-		// Y se olvida lo que había: cancelar durante una generación lenta dejaba
-		// `busy` encendido, así que al reabrir el diálogo salía con el campo, el
-		// selector y el botón deshabilitados y un aviso de la vez anterior. La
-		// única salida era esperar a una llamada que quizá no volvía nunca.
+		// And it forgets what was there: cancelling during a slow generation
+		// left `busy` on, so reopening the dialog came up with the field, the
+		// selector and the button disabled and a notice from the previous
+		// time. The only way out was waiting for a call that might never come
+		// back.
 		this.preview = "";
 		this.busy = false;
 		this.preparing = false;

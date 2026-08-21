@@ -1,11 +1,12 @@
 import type { PlanuEvent } from "../lib/types.js";
 
 /**
- * Día de la semana con la numeración de `Date.prototype.getDay()`:
- * 0 = domingo … 6 = sábado.
+ * Day of the week using `Date.prototype.getDay()`'s numbering:
+ * 0 = Sunday … 6 = Saturday.
  *
- * No es la de `Intl.Locale.prototype.getWeekInfo()`, que sigue la ISO 8601
- * (1 = lunes … 7 = domingo). La conversión se hace en un solo sitio, abajo.
+ * It's not the one from `Intl.Locale.prototype.getWeekInfo()`, which follows
+ * ISO 8601 (1 = Monday … 7 = Sunday). The conversion happens in a single
+ * place, below.
  */
 export type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -15,19 +16,19 @@ const FRIDAY: WeekDay = 5;
 const SATURDAY: WeekDay = 6;
 
 /**
- * Las regiones cuya semana **no** empieza en lunes, que es el caso mayoritario
- * y hace de valor por defecto.
+ * The regions whose week does **not** start on Monday, which is the majority
+ * case and serves as the default.
  *
- * Las tres tablas no están escritas a mano: salen de recorrer los 676 códigos
- * de región de dos letras preguntándole a `getWeekInfo()` al propio ICU. Una
- * tabla a ojo daba sábado por lunes en catorce regiones árabes y no podía ni
- * representar el viernes de Maldivas.
+ * The three tables aren't written by hand: they come from walking all 676
+ * two-letter region codes and asking ICU itself via `getWeekInfo()`. A
+ * hand-written table mistook Saturday for Monday in fourteen Arabic regions
+ * and couldn't even represent the Maldives' Friday.
  *
- * Un test vuelve a recorrer los 676 y compara las dos rutas, así que el
- * respaldo está **atado a la versión de ICU del navegador con el que probamos**.
- * Si ese test falla nombrando una región, es un dato que se ha movido y lo que
- * toca es regenerar la tabla, no arreglar la lógica. Ya hay precedente: Node 24
- * e ICU de Chromium discrepan hoy en Islandia.
+ * A test walks the 676 again and compares the two paths, so the fallback is
+ * **tied to the ICU version of the browser we test with**. If that test
+ * fails naming a region, it's a fact that has shifted and what's needed is
+ * regenerating the table, not fixing the logic. There's already precedent:
+ * Node 24 and Chromium's ICU disagree today on Iceland.
  */
 const FRIDAY_REGIONS = new Set(["MV"]);
 
@@ -117,14 +118,15 @@ const SUNDAY_REGIONS = new Set([
 ]);
 
 /**
- * Primer día de la semana según el locale, sin `getWeekInfo()`.
+ * First day of the week according to the locale, without `getWeekInfo()`.
  *
- * La región sale de `maximize()`, no de partir la etiqueta por guiones: en
- * `de-u-ca-gregory` el primer trozo de dos letras es `ca`, y darlo por Canadá
- * dejaba el alemán empezando la semana en domingo.
+ * The region comes from `maximize()`, not from splitting the tag on hyphens:
+ * in `de-u-ca-gregory` the first two-letter chunk is `ca`, and taking it for
+ * Canada left German starting the week on Sunday.
  *
- * Se exporta para poder probarla: en Chromium `getWeekInfo()` existe siempre y
- * este camino quedaría sin ejercitar, que es como se cuela un respaldo roto.
+ * It's exported so it can be tested: in Chromium `getWeekInfo()` always
+ * exists and this path would go unexercised, which is how a broken fallback
+ * slips through.
  */
 export function fallbackFirstDayOfWeek(locale: string | undefined): WeekDay {
 	if (!locale) return MONDAY;
@@ -132,8 +134,8 @@ export function fallbackFirstDayOfWeek(locale: string | undefined): WeekDay {
 	let region: string | undefined;
 	try {
 		const tag = new Intl.Locale(locale);
-		// La región explícita manda sobre la que infiere `maximize()`, que ante
-		// una desconocida —`und-ZZ`— se inventa `US` y devolvía domingo.
+		// The explicit region overrides the one `maximize()` infers, which for
+		// an unknown one —`und-ZZ`— makes up `US` and returned Sunday.
 		region = tag.region ?? tag.maximize().region;
 	} catch {
 		return MONDAY;
@@ -148,43 +150,43 @@ export function fallbackFirstDayOfWeek(locale: string | undefined): WeekDay {
 }
 
 /**
- * `getWeekInfo()` todavía no está en las librerías de TypeScript, y declararlo
- * opcional es además lo correcto: no todos los navegadores lo traen.
+ * `getWeekInfo()` isn't in TypeScript's libraries yet, and declaring it
+ * optional is also the correct thing to do: not every browser ships it.
  */
 type LocaleWithWeekInfo = Intl.Locale & {
 	getWeekInfo?: () => { firstDay: number };
 };
 
 /**
- * Primer día de la semana del locale activo.
+ * First day of the week for the active locale.
  *
- * `Intl.Locale.prototype.getWeekInfo()` no es Baseline widely available, así que
- * va detrás de detección de disponibilidad y degrada a la tabla de arriba, tal y
- * como manda el soporte de navegador del proyecto.
+ * `Intl.Locale.prototype.getWeekInfo()` isn't Baseline widely available, so
+ * it goes behind availability detection and degrades to the table above,
+ * just as the project's browser support policy requires.
  */
 export function firstDayOfWeek(locale?: string): WeekDay {
-	// Sin locale, el del entorno; `navigator` no, que aquí no hay documento.
+	// Without a locale, the environment's; not `navigator`, since there's no
+	// document here.
 	const tag = locale ?? new Intl.DateTimeFormat().resolvedOptions().locale;
 
 	try {
 		const info = (new Intl.Locale(tag) as LocaleWithWeekInfo).getWeekInfo?.();
-		// La ISO numera 1 = lunes … 7 = domingo; `getDay()`, 0 = domingo.
+		// The ISO numbers 1 = Monday … 7 = Sunday; `getDay()`, 0 = Sunday.
 		if (info) return (info.firstDay % 7) as WeekDay;
 	} catch {
-		// Etiqueta de locale inválida: mejor el respaldo que reventar la vista.
+		// Invalid locale tag: better the fallback than crashing the view.
 	}
 
 	return fallbackFirstDayOfWeek(tag);
 }
 
 /**
- * Una etiqueta de locale que `Intl` acepte, o `undefined` para usar la del
- * entorno.
+ * A locale tag that `Intl` accepts, or `undefined` to use the environment's.
  *
- * `Intl.DateTimeFormat` lanza `RangeError` con una etiqueta mal formada, y
- * `buildMonthGrid` construye cuatro. Sin este filtro, un `locale` cualquiera
- * llegado desde fuera dejaba la vista en blanco: `firstDayOfWeek()` sí se
- * protegía, pero era el único sitio protegido de todo el camino.
+ * `Intl.DateTimeFormat` throws `RangeError` with a malformed tag, and
+ * `buildMonthGrid` constructs four of them. Without this filter, any
+ * `locale` arriving from outside left the view blank: `firstDayOfWeek()` did
+ * protect itself, but it was the only protected spot along the whole path.
  */
 export function safeLocale(locale?: string): string | undefined {
 	if (locale === undefined) return undefined;
@@ -197,11 +199,12 @@ export function safeLocale(locale?: string): string | undefined {
 }
 
 /**
- * Identifica un día del calendario local con un entero comparable: 20260629.
+ * Identifies a local calendar day with a comparable integer: 20260629.
  *
- * Es lo que permite decidir si un evento cae en una celda **sin restar fechas**.
- * Comparar marcas de tiempo obligaría a razonar sobre husos y cambios de hora;
- * comparar campos locales es exactamente la pregunta que hace el calendario.
+ * It's what lets you decide whether an event falls in a cell **without
+ * subtracting dates**. Comparing timestamps would force you to reason about
+ * timezones and time changes; comparing local fields is exactly the question
+ * a calendar asks.
  */
 export function dayKey(date: Date): number {
 	return (
@@ -210,27 +213,31 @@ export function dayKey(date: Date): number {
 }
 
 /**
- * Días que ocupa un evento, como par de claves inclusivo.
+ * Days an event occupies, as an inclusive pair of keys.
  *
- * Cuatro reglas, y ninguna es obvia:
- * - Sin ninguna fecha no ocupa ningún día: `null`. Una celda **es** una fecha, y
- *   colocarlo en una nos obligaría a inventarla. Esos eventos salen aparte en
- *   `undated`, y la vista los ofrece en una lista al lado en vez de limitarse a
- *   contarlos: un evento que existe pero no se puede alcanzar está perdido.
- * - **Sin fin, dura desde su inicio en adelante.** No es un punto en el tiempo:
- *   es algo que empezó y no ha terminado. Se pinta hasta el final de la rejilla
- *   visible, y vuelve a pintarse en los meses siguientes, porque sigue vigente.
- * - **Sin inicio, dura desde hoy hasta su fin.** Un fin sin inicio es una fecha
- *   límite, y lo útil es ver cuánto queda; si el fin ya pasó, se pinta sólo ese
- *   día para no llenar el pasado con algo que ya no está en curso.
- * - Con el fin antes del inicio —dato incoherente que el esquema rechaza pero
- *   que pudo guardarse antes— se colapsa al día de inicio en vez de no pintar
- *   nada.
+ * Four rules, and none of them is obvious:
+ * - With no date at all it occupies no day: `null`. A cell **is** a date, and
+ *   placing it in one would force us to invent it. Those events go out
+ *   separately in `undated`, and the view offers them in a list alongside
+ *   instead of just counting them: an event that exists but can't be reached
+ *   is lost.
+ * - **With no end, it lasts from its start onward.** It's not a point in
+ *   time: it's something that started and hasn't finished. It's painted
+ *   through the end of the visible grid, and painted again in the following
+ *   months, because it's still ongoing.
+ * - **With no start, it lasts from today until its end.** An end with no
+ *   start is a deadline, and what's useful is seeing how much is left; if
+ *   the end has already passed, only that day is painted so as not to fill
+ *   the past with something no longer ongoing.
+ * - With the end before the start —inconsistent data the schema rejects but
+ *   that could have been saved before— it collapses to the start day rather
+ *   than painting nothing.
  *
- * Es una semántica **distinta** de la de `domain/filter-events.ts`, donde un
- * solo extremo hace de los dos, y está decidido así a propósito: allí se
- * pregunta «¿solapa este evento con el rango que he pedido?», y aquí «¿en qué
- * días está en curso?». La misma respuesta no sirve a las dos preguntas.
+ * It's a **different** semantics from `domain/filter-events.ts`'s, where a
+ * single end stands in for both, and it's deliberately decided this way:
+ * there the question is "does this event overlap the range I asked for?",
+ * and here "on which days is it ongoing?". The same answer doesn't serve
+ * both questions.
  */
 function eventSpan(
 	event: PlanuEvent,
@@ -246,13 +253,14 @@ function eventSpan(
 		return to >= from ? [from, to] : [from, from];
 	}
 
-	// Sin fin: abierto hacia adelante, acotado por lo que se está pintando.
+	// No end: open-ended forward, bounded by what's being painted.
 	if (start) {
 		const from = dayKey(start);
 		return [from, Math.max(from, windowEnd)];
 	}
 
-	// Sin inicio: desde hoy hasta el fin. Si el fin ya pasó, sólo ese día.
+	// No start: from today until the end. If the end has already passed, just
+	// that day.
 	if (end) {
 		const to = dayKey(end);
 		return to >= today ? [today, to] : [to, to];
@@ -261,74 +269,75 @@ function eventSpan(
 	return null;
 }
 
-/** Una celda de la rejilla: un día del calendario y lo que ocurre en él. */
+/** A grid cell: a calendar day and what happens on it. */
 export interface MonthCell<T> {
 	/**
-	 * El día que representa, **a las 12:00 locales**.
+	 * The day it represents, **at 12:00 local time**.
 	 *
-	 * Y no a medianoche, aunque sea lo natural, por dos motivos que se suman.
-	 * Hay husos donde las 00:00 no existen un día al año —Santiago, La Habana,
-	 * Asunción, Beirut— y el motor devuelve la 01:00; peor aún, `setDate()`
-	 * conserva la hora del cursor, así que ese desfase **no se corrige solo**:
-	 * en Santiago 2024 toda la rejilla desde el 8 de septiembre se quedaba a la
-	 * 01:00. El mediodía existe en todos los husos y en todos los días, porque
-	 * ningún salto real de horario lo alcanza.
+	 * And not at midnight, even though that seems natural, for two reasons
+	 * that add up. There are timezones where 00:00 doesn't exist one day a
+	 * year —Santiago, Havana, Asuncion, Beirut— and the engine returns 01:00
+	 * instead; worse still, `setDate()` keeps the cursor's time, so that
+	 * offset **doesn't fix itself**: in Santiago in 2024 the whole grid from
+	 * September 8th onward stayed stuck at 01:00. Noon exists in every
+	 * timezone and on every day, because no real time-change jump reaches it.
 	 *
-	 * Importa porque `date` es campo público y sus consumidores —el `.ics` de
-	 * T22, el primero— van a leerlo esperando el día, no un instante.
+	 * It matters because `date` is a public field and its consumers —T22's
+	 * `.ics`, the first one— will read it expecting a day, not an instant.
 	 */
 	date: Date;
-	/** El día como entero comparable. Ver `dayKey`. */
+	/** The day as a comparable integer. See `dayKey`. */
 	key: number;
-	/** `false` en los días de relleno del mes anterior o del siguiente. */
+	/** `false` on the filler days from the previous or the following month. */
 	inMonth: boolean;
 	isToday: boolean;
-	/** Fecha completa según el locale, para etiquetar la celda. */
+	/** Full date according to the locale, to label the cell. */
 	label: string;
-	/** Número del día, formateado según el locale. */
+	/** The day's number, formatted according to the locale. */
 	day: string;
-	/** Eventos activos ese día, en el orden en que llegaron. */
+	/** Events active that day, in the order they arrived. */
 	events: T[];
 }
 
-/** Cabecera de columna: el nombre del día en corto y en largo. */
+/** Column header: the day's name, short and long. */
 export interface WeekdayHeading {
 	short: string;
 	long: string;
 }
 
 export interface MonthGrid<T> {
-	/** Primer día del mes representado. */
+	/** First day of the represented month. */
 	month: Date;
-	/** Mes y año según el locale: «junio de 2026». */
+	/** Month and year according to the locale: "June 2026". */
 	title: string;
-	/** Los siete días, empezando por el primero de la semana del locale. */
+	/** The seven days, starting from the locale's first day of the week. */
 	weekdays: WeekdayHeading[];
-	/** Semanas completas: entre cuatro y seis, nunca parciales. */
+	/** Complete weeks: between four and six, never partial. */
 	weeks: MonthCell<T>[][];
-	/** Eventos sin ninguna fecha. No caben en el calendario; ver `eventSpan`. */
+	/** Events with no date at all. They don't fit in the calendar; see `eventSpan`. */
 	undated: T[];
 }
 
 /**
- * Reparte los eventos en las celdas del mes.
+ * Spreads the events across the month's cells.
  *
- * Función pura: todo lo que puede variar —el mes, el locale y qué día es hoy—
- * entra por parámetro. Sin eso no habría forma de probar el cambio de horario
- * de verano sin esperar a marzo.
+ * A pure function: everything that can vary —the month, the locale, and what
+ * day today is— comes in as a parameter. Without that there would be no way
+ * to test the daylight saving time change without waiting for March.
  *
- * La rejilla siempre trae semanas completas, así que arrastra días del mes
- * anterior y del siguiente. Son días reales y llevan sus eventos: un evento que
- * empieza el 30 de junio y acaba el 2 de julio se ve entero en las dos vistas.
+ * The grid always brings complete weeks, so it drags in days from the
+ * previous and following months. They're real days and carry their events:
+ * an event that starts June 30 and ends July 2 shows up in full in both
+ * views.
  *
- * **El avance de día se hace con `setDate()`, nunca sumando 86 400 000 ms.**
- * Un día no siempre dura 24 horas: el 25 de octubre de 2026 en Madrid dura 25,
- * y la suma de milisegundos deja el cursor en las 23:00 de ese mismo día. A
- * partir de ahí la rejilla lo repite y pierde el último día del mes.
- * `setDate()` opera sobre campos locales y sobrevive al cambio de hora.
+ * **The day advance is done with `setDate()`, never by adding 86,400,000
+ * ms.** A day doesn't always last 24 hours: October 25, 2026 in Madrid lasts
+ * 25 hours, and adding milliseconds leaves the cursor at 23:00 on that same
+ * day. From there the grid repeats it and loses the month's last day.
+ * `setDate()` operates on local fields and survives the time change.
  *
- * Genérica para no perder por el camino nada que el llamante haya colgado del
- * evento, como el `id` que trae de Firestore.
+ * Generic so nothing the caller has hung off the event gets lost along the
+ * way, like the `id` it brings from Firestore.
  */
 export function buildMonthGrid<T extends PlanuEvent>(
 	events: readonly T[],
@@ -339,13 +348,13 @@ export function buildMonthGrid<T extends PlanuEvent>(
 	const year = month.getFullYear();
 	const monthIndex = month.getMonth();
 
-	// Una sola vez y para todo el camino: si la etiqueta no vale, se usa la del
-	// entorno en los cuatro formateadores **y** en el primer día de la semana.
+	// Once, for the whole path: if the tag isn't valid, the environment's is
+	// used in all four formatters **and** in the first day of the week.
 	const tag = safeLocale(locale);
 
-	// Al mediodía por el mismo motivo que las celdas: es fecha pública.
+	// At noon for the same reason as the cells: it's a public date.
 	const first = new Date(year, monthIndex, 1, 12);
-	// El día 0 del mes siguiente es el último de éste: 28, 29, 30 o 31.
+	// Day 0 of the next month is this one's last day: 28, 29, 30, or 31.
 	const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
 	const firstDay = firstDayOfWeek(tag);
@@ -364,9 +373,9 @@ export function buildMonthGrid<T extends PlanuEvent>(
 
 	const todayKey = dayKey(today);
 
-	// El último día que esta rejilla llega a pintar, incluido el relleno del mes
-	// siguiente. Es lo que acota a un evento sin fecha de fin: sigue abierto,
-	// pero aquí sólo se puede pintar hasta donde hay celdas.
+	// The last day this grid ever paints, including the following month's
+	// filler. It's what bounds an event with no end date: it's still open,
+	// but here it can only be painted as far as there are cells.
 	const windowEndDate = new Date(year, monthIndex, 1);
 	windowEndDate.setDate(windowEndDate.getDate() - lead + weekCount * 7 - 1);
 	const windowEnd = dayKey(windowEndDate);
@@ -375,7 +384,7 @@ export function buildMonthGrid<T extends PlanuEvent>(
 		(event) => [event, eventSpan(event, windowEnd, todayKey)] as const,
 	);
 
-	// Un solo cursor que avanza día a día por campos de calendario.
+	// A single cursor that advances day by day through calendar fields.
 	const cursor = new Date(year, monthIndex, 1);
 	cursor.setDate(cursor.getDate() - lead);
 
@@ -386,9 +395,9 @@ export function buildMonthGrid<T extends PlanuEvent>(
 		const cells: MonthCell<T>[] = [];
 
 		for (let column = 0; column < 7; column++) {
-			// La celda se construye desde los **campos** del cursor y al mediodía,
-			// no copiando su marca de tiempo: así no hereda el desfase que el
-			// cursor pueda arrastrar desde un cambio de hora. Ver `MonthCell.date`.
+			// The cell is built from the cursor's **fields** and at noon, not by
+			// copying its timestamp: this way it doesn't inherit any offset the
+			// cursor might be carrying from a time change. See `MonthCell.date`.
 			const date = new Date(
 				cursor.getFullYear(),
 				cursor.getMonth(),

@@ -3,7 +3,7 @@ import type { StoredEvent } from "../lib/types.js";
 import { buildAgenda, countEvents } from "./agenda-days.js";
 import { buildMonthGrid, dayKey } from "./month-grid.js";
 
-/** Mediodía local, para que ninguna aserción dependa del huso del runner. */
+/** Local noon, so no assertion depends on the runner's timezone. */
 function local(text: string): Date {
 	return new Date(text.includes("T") ? text : `${text}T12:00`);
 }
@@ -49,8 +49,8 @@ test("los eventos del mismo día caen en un solo día", () => {
 });
 
 test("con el orden por defecto los días salen en orden cronológico", () => {
-	// Es la definición de agenda que fija F5: «lista cronológica agrupada por
-	// día». La entrada llega desordenada a propósito.
+	// It's the definition of agenda that F5 fixes: "chronological list grouped
+	// by day". The input arrives unordered on purpose.
 	const agenda = buildAgenda(
 		[
 			event("3", "Tercero", "2026-07-01"),
@@ -68,8 +68,8 @@ test("con el orden por defecto los días salen en orden cronológico", () => {
 });
 
 test("pidiendo lo más lejano primero, los días se dan la vuelta", () => {
-	// El orden elegido manda también sobre la secuencia de días: si sólo mandara
-	// dentro de cada día, la agenda contradiría al selector.
+	// The chosen order also governs the sequence of days: if it only governed
+	// within each day, the agenda would contradict the selector.
 	const agenda = buildAgenda(
 		[
 			event("1", "Primero", "2026-06-18"),
@@ -87,9 +87,9 @@ test("pidiendo lo más lejano primero, los días se dan la vuelta", () => {
 });
 
 test("un día no se parte en dos aunque sus eventos no lleguen seguidos", () => {
-	// Ordenando por título, los dos del día 20 quedan separados por el del 21.
-	// Sin agrupar por clave, la agenda enseñaría «20 de junio» dos veces con el
-	// 21 en medio, que es un calendario que se contradice a sí mismo.
+	// Sorting by title, the two from day 20 end up separated by the one from
+	// day 21. Without grouping by key, the agenda would show "June 20" twice
+	// with the 21st in between, which is a calendar that contradicts itself.
 	const agenda = buildAgenda(
 		[
 			event("1", "Ana", "2026-06-20"),
@@ -116,9 +116,9 @@ test("los eventos sin fecha van aparte y no inventan un día", () => {
 });
 
 test("pasado es haber terminado, no haber empezado", () => {
-	// Un congreso que empezó hace dos días y acaba dentro de dos sigue siendo
-	// próximo, aunque su día de entrada en la agenda ya quedara atrás. Mirar el
-	// inicio lo mandaría al pliegue de pasados estando en curso.
+	// A conference that started two days ago and ends in two more is still
+	// upcoming, even though its entry day in the agenda is already behind.
+	// Looking at the start would send it to the past fold while still ongoing.
 	const agenda = buildAgenda(
 		[
 			event("1", "Congreso", "2026-06-13", "2026-06-17"),
@@ -134,10 +134,10 @@ test("pasado es haber terminado, no haber empezado", () => {
 });
 
 test("un evento sin fin sigue en curso, igual que en el calendario", () => {
-	// La contradicción que encontró la revisión: la rejilla mensual pinta estas
-	// obras en la celda de hoy y la agenda las metía en el pliegue de pasados.
-	// Se comprueban **las dos vistas a la vez**, que es lo único que detecta que
-	// vuelvan a separarse.
+	// The contradiction the review found: the month grid paints this ongoing
+	// work in today's cell, and the agenda put it in the past fold. **Both
+	// views are checked at once**, which is the only thing that would catch
+	// them diverging again.
 	const obras = event("1", "Obras en la calle", "2026-06-10");
 	const agenda = buildAgenda([obras], { now: NOW, locale: "es" });
 	const grid = buildMonthGrid([obras], local("2026-06-01"), "es", NOW);
@@ -149,8 +149,8 @@ test("un evento sin fin sigue en curso, igual que en el calendario", () => {
 });
 
 test("con el fin antes del inicio, agenda y calendario coinciden en el día", () => {
-	// Dato incoherente heredado. Antes caía en el pliegue de pasados bajo un
-	// encabezado de día **futuro**: una pantalla que se contradice a sí misma.
+	// Inherited inconsistent data. It used to fall in the past fold under a
+	// **future** day heading: a screen that contradicts itself.
 	const raro = event("1", "Datos raros", "2026-06-20", "2026-06-10");
 	const agenda = buildAgenda([raro], { now: NOW, locale: "es" });
 	const grid = buildMonthGrid([raro], local("2026-06-01"), "es", NOW);
@@ -164,9 +164,10 @@ test("con el fin antes del inicio, agenda y calendario coinciden en el día", ()
 });
 
 test("el evento entra por el día que lo ordena, y una sola vez", () => {
-	// El congreso ocupa cinco días. En la rejilla mensual se pinta en los cinco
-	// —una línea por celda hace visible el tramo—; aquí repetir la tarjeta
-	// entera cinco veces en una lista que se recorre hacia abajo sería ruido.
+	// The conference spans five days. In the month grid it's painted on all
+	// five —one line per cell makes the span visible—; here repeating the
+	// whole card five times in a list you scroll through top to bottom would
+	// be noise.
 	const congreso = event("1", "Congreso", "2026-06-20", "2026-06-24");
 	const agenda = buildAgenda([congreso], { now: NOW, locale: "es" });
 
@@ -176,8 +177,9 @@ test("el evento entra por el día que lo ordena, y una sola vez", () => {
 });
 
 test("sin inicio, el fin hace de día de entrada", () => {
-	// Es lo que ya hace `sortEvents` para ordenarlo: si la agenda agrupara por
-	// otro extremo, el evento aparecería fuera de su propio sitio en la lista.
+	// It's what `sortEvents` already does to order it: if the agenda grouped
+	// by a different end, the event would show up out of its own place in the
+	// list.
 	const agenda = buildAgenda([event("1", "Entrega", null, "2026-06-30")], {
 		now: NOW,
 		locale: "es",
@@ -188,9 +190,10 @@ test("sin inicio, el fin hace de día de entrada", () => {
 });
 
 test("el día se representa al mediodía, no a medianoche", () => {
-	// Igual que en `MonthCell`: hay husos donde las 00:00 no existen un día al
-	// año —la suite corre en America/Santiago, que es uno— y el motor devuelve
-	// la 01:00. El mediodía existe siempre, y `date` es campo público.
+	// Same as in `MonthCell`: there are timezones where 00:00 doesn't exist one
+	// day a year —the suite runs in America/Santiago, which is one— and the
+	// engine returns 01:00 instead. Noon always exists, and `date` is a public
+	// field.
 	const agenda = buildAgenda([event("1", "Taller", "2026-06-20")], {
 		now: NOW,
 		locale: "es",
@@ -200,9 +203,9 @@ test("el día se representa al mediodía, no a medianoche", () => {
 });
 
 test("un evento a última hora sigue perteneciendo a su día", () => {
-	// Con la fecha guardada a las 23:30, agrupar por marca de tiempo en vez de
-	// por campos locales lo empujaba al día siguiente en cuanto el huso movía
-	// unas horas.
+	// With the date stored at 23:30, grouping by timestamp instead of by local
+	// fields pushed it to the next day as soon as the timezone shifted by a
+	// few hours.
 	const agenda = buildAgenda(
 		[event("1", "Fin de fiesta", "2026-06-20T23:30")],
 		{ now: NOW, locale: "es" },
@@ -213,8 +216,8 @@ test("un evento a última hora sigue perteneciendo a su día", () => {
 });
 
 test("el día se escribe entero y en el idioma pedido", () => {
-	// El rótulo es el encabezado del día en la agenda, así que es el nombre por
-	// el que se navega. «20/6/2026» no dice qué día de la semana es.
+	// The label is the day's heading in the agenda, so it's the name you
+	// navigate by. "20/6/2026" doesn't say what day of the week it is.
 	const agenda = buildAgenda([event("1", "Taller", "2026-06-20")], {
 		now: NOW,
 		locale: "es",
@@ -224,8 +227,8 @@ test("el día se escribe entero y en el idioma pedido", () => {
 });
 
 test("un locale inválido no deja la agenda sin días", () => {
-	// Llega desde `navigator.languages` o desde una URL, y `Intl` lanza
-	// `RangeError` con cualquier cosa que no sea una etiqueta BCP 47.
+	// It arrives from `navigator.languages` or from a URL, and `Intl` throws
+	// `RangeError` with anything that isn't a BCP 47 tag.
 	const agenda = buildAgenda([event("1", "Taller", "2026-06-20")], {
 		now: NOW,
 		locale: "no-es-un-locale",
@@ -251,9 +254,9 @@ test("contar eventos suma los de todos los días, no los días", () => {
 });
 
 test("lo que termina justo ahora todavía cuenta como próximo", () => {
-	// El límite es inclusivo, igual que en `filterEvents` y en `groupOf`. Sin
-	// esto, el evento en curso desaparece al pliegue en el instante exacto en
-	// que aún está pasando.
+	// The boundary is inclusive, same as in `filterEvents` and in `groupOf`.
+	// Without this, the ongoing event disappears into the fold at the exact
+	// instant it's still happening.
 	const agenda = buildAgenda(
 		[event("1", "Charla", "2026-06-15T09:00", "2026-06-15T10:00")],
 		{

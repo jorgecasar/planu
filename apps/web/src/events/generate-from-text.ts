@@ -1,9 +1,9 @@
 /**
- * Extracción de los datos de un evento a partir de un texto pegado.
+ * Extracting event data from pasted text.
  *
- * El camino gemelo de `generate-event.ts`: mismo esquema de respuesta, mismo
- * parseo y misma política de nube. Sólo cambia la entrada —un correo, un
- * mensaje, un cartel copiado— y, con ella, el prompt.
+ * The twin path to `generate-event.ts`: the same response schema, the same
+ * parsing and the same cloud policy. Only the input changes — an email, a
+ * message, a copied poster — and, with it, the prompt.
  */
 
 import { toInputDate } from "../domain/format-dates.js";
@@ -15,21 +15,22 @@ import {
 } from "./generate-event.js";
 
 /**
- * Tope de longitud del texto aceptado.
+ * Length cap for the accepted text.
  *
- * No es un capricho: Gemini Nano tiene una ventana pequeña y un texto largo se
- * trunca por dentro sin avisar, así que el modelo contestaría sobre la mitad de
- * lo pegado. Mejor decirlo antes que devolver un evento a medias. Dos mil
- * caracteres cubren de sobra un correo de invitación.
+ * It is not arbitrary: Gemini Nano has a small window and a long text gets
+ * silently truncated internally, so the model would answer about half of
+ * what was pasted. Better to say so up front than to return a half-baked
+ * event. Two thousand characters comfortably cover an invitation email.
  */
 export const MAX_TEXT_LENGTH = 2000;
 
 /**
- * El texto no vale, y el modelo ni se entera.
+ * The text is not valid, and the model never even finds out.
  *
- * **No hereda de `GenerationError` a propósito.** Son cosas distintas para el
- * usuario —«pega algo» frente a «no he sabido leerlo»— y la interfaz las
- * distingue con `instanceof`; heredar las mezclaría en el mismo mensaje.
+ * **Does not inherit from `GenerationError` on purpose.** They are different
+ * things to the user — "paste something" versus "I could not read it" — and
+ * the interface tells them apart with `instanceof`; inheriting would mix
+ * them into the same message.
  */
 export class TextInputError extends Error {
 	constructor(readonly reason: "empty" | "too-long") {
@@ -42,17 +43,18 @@ export class TextInputError extends Error {
 }
 
 /**
- * Instrucciones para el modelo.
+ * Instructions for the model.
  *
- * Dos diferencias con las de la imagen, y las dos importan. La primera:
- * prohibir inventar, porque de un texto es más fácil alucinar un lugar
- * plausible que de una foto. La segunda: el título vacío como salida legítima
- * cuando no hay ningún evento, que es lo que convierte «recuerda comprar
- * leche» en un error claro en vez de en un evento absurdo.
+ * Two differences from the image ones, and both matter. The first: forbid
+ * inventing, because from a text it is easier to hallucinate a plausible
+ * place than from a photo. The second: an empty title as a legitimate
+ * output when there is no event at all, which is what turns "remember to
+ * buy milk" into a clear error instead of an absurd event.
  *
- * Las reglas de fecha son compartidas —ver `dateRules`— porque el modelo falla
- * igual por los dos caminos: sin saber qué día es hoy, «el 20 de junio» no
- * tiene año, y sin que se le exija ISO lo escribe en el idioma del texto.
+ * The date rules are shared — see `dateRules` — because the model fails the
+ * same way through either path: without knowing what day it is today, "20
+ * June" has no year, and without being required to use ISO it writes it in
+ * the language of the text.
  */
 export function textExtractionPrompt(today: Date): string {
 	return `You are an expert event planner. Extract the event described in the text the user pastes below.
@@ -67,14 +69,14 @@ ${dateRules(today)}
 ${examples(today)}`;
 }
 
-/** El mismo día, corrido `days` días. */
+/** The same day, shifted `days` days. */
 function shift(from: Date, days: number): Date {
 	const moved = new Date(from);
 	moved.setDate(moved.getDate() + days);
 	return moved;
 }
 
-/** «18 de junio», que es como lo escribe quien pega el texto. */
+/** "18 de junio", which is how whoever pastes the text would write it. */
 function spoken(date: Date): string {
 	return new Intl.DateTimeFormat("es-ES", {
 		day: "numeric",
@@ -83,21 +85,22 @@ function spoken(date: Date): string {
 }
 
 /**
- * Cuatro ejemplos resueltos, **calculados desde hoy**.
+ * Four worked examples, **computed from today**.
  *
- * Empezaron con años fijos escritos a mano y salió el tiro por la culata: con
- * `2027` en los tres ejemplos, Gemini Nano devolvía 2027 para todo —incluido
- * un «3 de octubre» que aún no había llegado— porque copiaba el año en vez de
- * calcularlo. Medido contra el modelo real, no supuesto.
+ * They started with fixed years written by hand, and it backfired: with
+ * `2027` in all three examples, Gemini Nano returned 2027 for everything —
+ * including a "3 October" that had not even arrived yet — because it copied
+ * the year instead of computing it. Measured against the real model, not
+ * assumed.
  *
- * Generándolos desde `today` el año del ejemplo siempre es el correcto, y de
- * paso uno de ellos enseña el caso que la regla explica con palabras: una
- * fecha que ya pasó este año cae en el siguiente.
+ * Generating them from `today` means the example's year is always correct,
+ * and as a bonus one of them demonstrates the case the rule explains in
+ * words: a date that has already passed this year falls into the next one.
  *
- * Los cuatro cubren las cuatro formas: con hora, sin hora, sólo inicio y sólo
- * fin. El de un día sin hora está porque, con un único ejemplo de día completo
- * y con hora, el modelo ataba «repetir el fin» a que hubiera hora y dejaba sin
- * fin los eventos de un día que no la traían.
+ * The four cover the four shapes: with a time, without a time, only a
+ * start, and only an end. The one-day-no-time example exists because, with
+ * only one all-day and one timed example, the model tied "repeat the end"
+ * to having a time and left one-day events with no time without an end.
  */
 function examples(today: Date): string {
 	const cena = shift(today, 20);
@@ -123,7 +126,7 @@ Text: "Hay que entregar el formulario antes del ${spoken(plazo)}"
 Answer: {"title":"Entregar el formulario","description":"","location":"","startDate":"","endDate":"${iso(plazo)}"}`;
 }
 
-/** Pide al modelo los datos del evento que describe el texto. */
+/** Asks the model for the event data the text describes. */
 export async function generateEventFromText(
 	generate: GenerateContent,
 	text: string,

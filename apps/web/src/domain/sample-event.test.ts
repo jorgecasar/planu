@@ -12,8 +12,8 @@ test("trae título, descripción, ubicación y las dos fechas", () => {
 });
 
 test('el inicio es relativo a "now" y no una fecha fija', () => {
-	// Igual que en `scripts/seed-emulator.js`: un dato fijo deja de "verse"
-	// próximo con el paso del tiempo, y el ejemplo perdería su sentido.
+	// Same as in `scripts/seed-emulator.js`: a fixed value stops "looking"
+	// upcoming as time passes, and the sample would lose its point.
 	const now = new Date("2026-01-01T00:00:00Z");
 	const start = sampleEventDraft(now).startDate as Date;
 
@@ -37,6 +37,6 @@ test("sin argumento usa el instante actual", () => {
 	const despues = Date.now();
 
 	expect(start).toBeGreaterThan(antes);
-	// Con margen de sobra: no depende de a qué hora corra el test.
+	// With plenty of margin: doesn't depend on what time the test runs.
 	expect(start).toBeLessThan(despues + 8 * 24 * 60 * 60 * 1000);
 });

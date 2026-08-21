@@ -4,23 +4,24 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 /**
- * Vigila el trinquete que aísla Firebase, definido en `biome.json`.
+ * Watches the ratchet that isolates Firebase, defined in `biome.json`.
  *
- * Biome comprueba que nadie importe `firebase/**` fuera de la lista de
- * exenciones. Lo que **no** comprueba es que esa lista esté apretada: una
- * entrada de más deja una zona franca y el lint sigue en verde. Ya pasó — un
- * comodín `sharing/**` eximía tres ficheros que no importaban Firebase, uno de
- * ellos un módulo de política sin dependencias, y sólo lo vio una revisión.
+ * Biome checks that nobody imports `firebase/**` outside the exemption
+ * list. What it does **not** check is that that list stays tight: one
+ * extra entry leaves a free zone and the lint stays green. It has already
+ * happened — a `sharing/**` wildcard exempted three files that did not
+ * import Firebase, one of them a dependency-free policy module, and only a
+ * review caught it.
  *
- * Y vigila la puerta, no sólo la lista: borrar el override que **impone** la
- * regla dejaba las cuatro aserciones en verde y el lint limpio. También lo
- * encontró una revisión, no este fichero.
+ * And it watches the gate, not just the list: deleting the override that
+ * **enforces** the rule left the four assertions green and the lint clean.
+ * That was also found by a review, not by this file.
  *
- * Corre en Node y sin emuladores: sólo lee ficheros.
+ * Runs in Node with no emulators: it only reads files.
  */
 
-// `fileURLToPath` y no `import.meta.dirname`, que exige Node ≥20.11 mientras
-// `engines` declara `>=20`.
+// `fileURLToPath` and not `import.meta.dirname`, which requires Node ≥20.11
+// while `engines` declares `>=20`.
 const RAIZ = fileURLToPath(new URL("../../..", import.meta.url));
 const SRC = join(RAIZ, "apps/web/src");
 
@@ -38,12 +39,12 @@ function overrides(): Override[] {
 
 const regla = (o: Override) => o.linter?.rules?.style?.noRestrictedImports;
 
-/** El que prohíbe. Se busca por forma, no por posición. */
+/** The one that forbids. Found by shape, not by position. */
 const imponen = () => overrides().filter((o) => typeof regla(o) === "object");
-/** El que exime. Ídem. */
+/** The one that exempts. Same idea. */
 const eximen = () => overrides().filter((o) => regla(o) === "off");
 
-/** Todos los .ts bajo un directorio, en rutas relativas a la raíz del repo. */
+/** Every .ts under a directory, as paths relative to the repo root. */
 function ficherosBajo(dir: string): string[] {
 	const salida: string[] = [];
 	for (const entrada of readdirSync(dir)) {
@@ -55,10 +56,11 @@ function ficherosBajo(dir: string): string[] {
 }
 
 /**
- * Qué ficheros cubre un patrón. Sólo se admiten dos formas —ruta exacta y
- * `directorio/**`— a propósito: un comodín más expresivo es más difícil de
- * auditar de un vistazo, y la aserción «sólo rutas exactas o directorio/**»
- * es lo que impide que aquí se cuele una forma que Biome entienda y esto no.
+ * Which files a pattern covers. Only two shapes are allowed — an exact path
+ * and `directorio/**` — on purpose: a more expressive wildcard is harder to
+ * audit at a glance, and the "only exact paths or directorio/**" assertion
+ * is what keeps a shape that Biome understands and this does not from
+ * sneaking in here.
  */
 function cubiertos(patron: string, todos: string[]): string[] {
 	if (patron.endsWith("/**")) {
@@ -69,9 +71,9 @@ function cubiertos(patron: string, todos: string[]): string[] {
 }
 
 /**
- * Las cinco formas que Biome marca: estática, `import type`, `export … from`,
- * dinámica —incluso partida en varias líneas— y de efecto lateral, más el
- * paquete raíz `firebase` sin barra.
+ * The five shapes Biome flags: static, `import type`, `export … from`,
+ * dynamic — even split across several lines — and side-effect, plus the
+ * bare `firebase` root package with no slash.
  */
 const importaFirebase = (fichero: string): boolean =>
 	/(?:from|import)\s*\(?\s*["']firebase(?:\/|["'])/.test(
@@ -79,17 +81,17 @@ const importaFirebase = (fichero: string): boolean =>
 	);
 
 /**
- * Ficheros acoplados hoy. **Sólo puede bajar.** Subirlo es acoplar más código
- * a Firebase, y eso se discute en una revisión en lugar de colarse en un diff.
- * Son ficheros y no entradas de la lista.
+ * Files coupled today. **Can only go down.** Raising it means coupling more
+ * code to Firebase, and that gets discussed in a review instead of
+ * sneaking into a diff. It counts files, not list entries.
  *
- * T36 lo bajó de 23 a 19: liberó seis —`app-shell.ts`, `login-view.ts`,
- * `guard.ts` y `guard.test.ts`, y `auth-errors.ts` con su test, movido a
- * `domain/`— y sumó dos nuevos bajo `infrastructure/firebase/**`, el primer
- * adaptador de la migración. `profile-view.ts` sigue en la lista: ya no
- * importa `firebase/auth`, pero conserva `firebase/firestore` para publicar
- * en el directorio de usuarios, y eso es Firestore — el puerto de T37, no
- * el de sesión.
+ * T36 brought it down from 23 to 19: it freed six —`app-shell.ts`,
+ * `login-view.ts`, `guard.ts` and `guard.test.ts`, and `auth-errors.ts` with
+ * its test, moved to `domain/`— and added two new ones under
+ * `infrastructure/firebase/**`, the migration's first adapter.
+ * `profile-view.ts` stays on the list: it no longer imports `firebase/auth`,
+ * but it still keeps `firebase/firestore` to publish to the user directory,
+ * and that's Firestore — T37's port, not the session one.
  */
 const TOPE_ACOPLADOS = 19;
 
@@ -98,8 +100,9 @@ const LISTA = eximen().flatMap((o) => o.includes);
 
 describe("la frontera de Firebase", () => {
 	test("biome.json conserva un override que impone y otro que exime", () => {
-		// Sin esto, borrar el que impone deja el resto de aserciones en verde
-		// y el lint limpio: el vigilante guardaría la lista y no la puerta.
+		// Without this, deleting the one that enforces leaves the rest of the
+		// assertions green and the lint clean: the watcher would be guarding
+		// the list and not the gate.
 		expect({ imponen: imponen().length, eximen: eximen().length }).toEqual({
 			imponen: 1,
 			eximen: 1,
@@ -114,8 +117,8 @@ describe("la frontera de Firebase", () => {
 			options?: { patterns?: { group?: string[] }[] };
 		};
 		const grupo = opciones.options?.patterns?.[0]?.group ?? [];
-		// `firebase` a secas además de `firebase/**`: el paquete raíz también
-		// se puede importar.
+		// Bare `firebase` in addition to `firebase/**`: the root package can
+		// also be imported.
 		expect(grupo).toContain("firebase/**");
 		expect(grupo).toContain("firebase");
 	});
@@ -127,16 +130,16 @@ describe("la lista de exenciones", () => {
 			cubiertos(patron, TODOS).filter((f) => !importaFirebase(f)),
 		);
 
-		// Un fichero eximido sin necesidad es una zona franca: mañana alguien
-		// añade Firebase ahí y nada se queja.
+		// A file exempted with no need for it is a free zone: tomorrow
+		// someone adds Firebase there and nothing complains.
 		expect(sobrantes).toEqual([]);
 	});
 
 	test("no tiene entradas muertas", () => {
 		const vacias = LISTA.filter((p) => cubiertos(p, TODOS).length === 0);
 
-		// Una ruta que no casa con nada suele ser un fichero renombrado, y deja
-		// la lista contando exenciones que ya no existen.
+		// A path that matches nothing is usually a renamed file, and leaves
+		// the list counting exemptions that no longer exist.
 		expect(vacias).toEqual([]);
 	});
 
@@ -146,7 +149,8 @@ describe("la lista de exenciones", () => {
 			(f) => importaFirebase(f) && !eximidos.has(f),
 		);
 
-		// Esto lo detectaría también el lint; aquí el mensaje dice cuáles son.
+		// The lint would also catch this; here the message says which ones
+		// they are.
 		expect(sinEximir).toEqual([]);
 	});
 
@@ -156,8 +160,8 @@ describe("la lista de exenciones", () => {
 	});
 
 	test("sólo usa rutas exactas o `directorio/**`", () => {
-		// La negación se lee como «acotar» y para Biome significa «excluir»,
-		// así que se rechaza aparte para que el mensaje no mienta.
+		// The negation reads as "narrow down" but to Biome means "exclude", so
+		// it is rejected separately so the message does not lie.
 		expect(LISTA.filter((p) => p.startsWith("!"))).toEqual([]);
 		expect(LISTA.filter((p) => p.includes("*") && !p.endsWith("/**"))).toEqual(
 			[],

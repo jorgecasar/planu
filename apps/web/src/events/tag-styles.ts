@@ -1,21 +1,21 @@
 import { css } from "lit";
 
 /**
- * El aspecto de una etiqueta, compartido por la tarjeta y por el editor.
+ * A tag's look, shared by the card and by the editor.
  *
- * Vivía sólo en la tarjeta, y el resultado fue que las etiquetas del editor se
- * pintaban con el neutro por defecto de Web Awesome: **4,42:1**, por debajo del
- * 4,5:1 que exige AA. Lo encontró axe en el e2e, no una revisión visual.
+ * It used to live only in the card, and the result was that the editor's
+ * tags got painted with Web Awesome's default neutral: **4.42:1**, below
+ * the 4.5:1 AA requires. axe found it in the e2e, not a visual review.
  *
- * El nombre de la etiqueta gira el tono y nada más. La luminosidad y el croma
- * son constantes, así que el contraste es el mismo para las diez y no depende
- * de qué palabra escribió el usuario: medido recorriendo los 360 tonos, el peor
- * caso es 8,03:1. Éstas son las tres propiedades que `wa-tag` lee de verdad,
- * comprobado en su hoja de estilos y no supuesto.
+ * The tag's name rotates the hue and nothing else. Lightness and chroma
+ * are constant, so the contrast is the same for all ten and doesn't depend
+ * on which word the user typed: measured across the full 360 hues, the
+ * worst case is 8.03:1. These are the three properties `wa-tag` actually
+ * reads, checked in its stylesheet and not assumed.
  *
- * Sin variante oscura a propósito: el tema oscuro de Web Awesome es opt-in por
- * clase y nadie la pone, así que una consulta de preferencia del sistema
- * pintaría chips negros dentro de una tarjeta clara.
+ * No dark variant on purpose: Web Awesome's dark theme is opt-in via a
+ * class and nobody sets it, so a system preference query would paint
+ * black chips inside a light card.
  */
 export const tagChipStyles = css`
 	wa-tag {

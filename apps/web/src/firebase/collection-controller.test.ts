@@ -2,7 +2,7 @@ import type { DocumentData, Query } from "firebase/firestore";
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { beforeEach, expect, test, vi } from "vitest";
 
-/** Estado del doble de `onSnapshot`, compartido con el mock del módulo. */
+/** State of the `onSnapshot` double, shared with the module mock. */
 const spy = {
 	subscriptions: 0,
 	unsubscriptions: 0,
@@ -27,14 +27,14 @@ vi.mock("firebase/firestore", () => ({
 			spy.unsubscriptions++;
 		};
 	},
-	// Dos consultas son la misma si son el mismo objeto: basta para estos tests.
+	// Two queries are the same if they are the same object: enough for these tests.
 	queryEqual: (a: unknown, b: unknown) => a === b,
 	refEqual: (a: unknown, b: unknown) => a === b,
 }));
 
 const { CollectionController } = await import("./collection-controller.js");
 
-/** Host mínimo que cuenta los `requestUpdate` recibidos. */
+/** Minimal host that counts the `requestUpdate` calls it receives. */
 class FakeHost implements ReactiveControllerHost {
 	updates = 0;
 	readonly controllers: ReactiveController[] = [];
