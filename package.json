@@ -13,6 +13,7 @@
 		"setup:skills": "node scripts/setup-skills.js",
 		"dev": "npm run dev --workspace @planu/web",
 		"build": "npm run build --workspace @planu/web",
+		"build:landing": "node scripts/build-landing.js",
 		"preview": "npm run preview --workspace @planu/web",
 		"test": "npm run test --workspace @planu/web",
 		"test:e2e": "npm run test:e2e --workspace @planu/web",

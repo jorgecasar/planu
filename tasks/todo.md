@@ -750,6 +750,12 @@ Numeración continuada: la fase 1 llegó hasta T10.
     verificada, no supuesta.
   - Verifica: revisión humana; contraste comprobado
   - Ficheros: `docs/adr/0008-*.md`, `docs/blueprint.md`
+  - **Parcial, no se marca.** El ADR 0008 está escrito y la decisión tomada:
+    se adopta la paleta del blueprint. Lo que falta es lo que el criterio llama
+    «verificada, no supuesta»: la tabla de contraste de `theme.css` está
+    **calculada sobre los valores**, y ningún e2e visita la landing, así que axe
+    no ha medido la página pintada. El ADR lo dice en vez de afirmar lo
+    contrario. **Depende de T29**, que es donde entra axe en los dos idiomas.
 
 - [ ] **T27 · Tokens de tema y tipografías (F12, implementación)** · M · depende de T26
   - Acepta: la decisión traducida a tokens `--wa-*` en una hoja única compartida
@@ -761,9 +767,18 @@ Numeración continuada: la fase 1 llegó hasta T10.
     sin regresiones visuales
   - Ficheros: `src/styles/theme.css`, `public/fonts/`, `src/main.ts`,
     `apps/web/app.html`
+  - **Parcial, no se marca.** Hecho: `theme.css` como hoja única que consumen
+    la aplicación (`main.ts`) y la landing prerrenderizada, modo claro y oscuro,
+    y las cinco fuentes servidas del propio dominio como woff2 latino con
+    `font-display: swap` — sin CDN, que es lo que mantiene la línea base de cero
+    orígenes ajenos. `npm test` → 0, 436 unitarios.
+  - Falta, y por eso sigue abierta: **logotipo, favicon y `og:image`**. La
+    landing ya referencia `/assets/landing/og.png` y `hero.webp`, y el build
+    avisa de que ninguno existe. Y **axe sobre el tema** no ha corrido: no hay
+    e2e de la landing. Ambas cosas son T29.
 
-- [ ] **T28 · Pipeline de prerender (F11, primera mitad)** · M · depende de T25
-  - Acepta: `scripts/build-landing.mjs` renderiza plantillas `lit-html` con
+- [x] **T28 · Pipeline de prerender (F11, primera mitad)** · M · depende de T25
+  - Acepta: `scripts/build-landing.js` renderiza plantillas `lit-html` con
     `@lit-labs/ssr` a `dist/localized/{locale}/index.html`, con los textos
     saliendo del mismo XLIFF que la aplicación; corre tras `vite build`; el CSS
     va minificado y en línea; **el build comprueba el presupuesto de bytes y
@@ -771,10 +786,40 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Verifica: con una landing de «hola mundo» en los dos idiomas — barato de
     rehacer si algo del pipeline no encaja. **Aquí se confirma que la i18n de
     Hosting convive con los rewrites de T25.**
-  - Ficheros: `scripts/build-landing.mjs`, `src/landing/landing.ts`,
+  - Ficheros: `scripts/build-landing.js`, `src/landing/landing.ts`,
     `apps/web/package.json`, `firebase.json`
   - Nota: separar el pipeline del contenido es deliberado. Si el prerender falla,
     falla con «hola mundo» y no con la landing entera escrita.
+  - **Hecho.** `npm run build:landing` → **0**: `dist/index.html` (12 540 B) y
+    `dist/localized/es/index.html` (12 630 B), los dos con el CSS de `theme.css`
+    + `landing.css` minificado y en línea, y los textos saliendo del mismo
+    `xliff/es.xlf` que la aplicación. `npm run lint`, `lint:lit`, `typecheck`,
+    `test` (436 en 32 ficheros) y `test:arch` → **0**.
+  - El presupuesto de bytes **no es decorativo**: bajado a 8 KiB a propósito, el
+    build para con «El HTML de "en" pesa 12540 B y el tope es 8192 B» y sale con
+    1. Restaurado a 24 KiB, que deja margen y sigue por debajo del punto en que
+    el CSS en línea deja de compensar.
+  - Tres fallos que encontró esta tarea, ninguno previsto en el plan:
+    1. **El doctype no era el primer nodo.** `@lit-labs/ssr` emite un
+       `<!--lit-part-->` antes, y un documento cuyo primer nodo no es el doctype
+       se pinta en *quirks mode*. `stripLitMarkers()` los quita: no hay nada que
+       hidratar en una página estática.
+    2. **Los seis `<wa-icon>` no pintaban nada** —la landing no carga
+       JavaScript, así que el custom element nunca se define— y además
+       `<wa-icon>` descarga los SVG de `ka-p.fontawesome.com`, que la CSP no
+       permite y que rompería la línea base de «cero orígenes ajenos». Ahora son
+       SVG de Font Awesome Free en línea. Lo cazó `lint:lit`, no una revisión.
+    3. **El pie enlazaba a `/es/privacy.html` en los dos idiomas**: la versión
+       inglesa mandaba a la española. El prefijo del idioma lo inyecta el build.
+  - `lint:lit` queda en **0 sobre los 85 ficheros**, sin excluir la landing ni
+    bajar ninguna regla: `property` en `<meta>` es RDFa válido y va declarado en
+    `globalAttributes` del `ts-lit-plugin`. Comprobado que la regla sigue viva
+    inyectando `propiedad=` → sale con 1.
+  - **No verificado, y no lo cierra un agente:** que la i18n de Hosting convive
+    con los rewrites de T25. Los e2e corren contra `npm run dev` y no ven
+    `firebase.json`; hace falta mirarlo tras desplegar. Tampoco hay `hero.webp`
+    todavía —el build avisa de los referenciados y ausentes— ni `privacy.html` y
+    `terms.html`, que son T29 y T30.
 
 - [ ] **T29 · Contenido de la landing (F11, segunda mitad)** · M · depende de T27, T28
   - Acepta: qué es planu en una frase, tres o cuatro bloques de valor, una
