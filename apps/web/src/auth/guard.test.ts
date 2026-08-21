@@ -1,8 +1,14 @@
-import type { User } from "firebase/auth";
 import { expect, test } from "vitest";
+import type { SessionUser } from "../application/ports/session.js";
 import { guardRedirect, HOME_PATH, LOGIN_PATH } from "./guard.js";
 
-const signedIn = { uid: "u1" } as User;
+const signedIn: SessionUser = {
+	uid: "u1",
+	email: "ana@example.com",
+	displayName: null,
+	photoURL: null,
+	emailVerified: true,
+};
 
 test("la aplicación vive bajo /app, no en la raíz", () => {
 	// La raíz queda libre para la landing pública, que no arranca la aplicación

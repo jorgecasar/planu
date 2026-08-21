@@ -9,8 +9,8 @@
  * See docs/adr/0007-client-side-user-directory.md.
  */
 
-import type { User } from "firebase/auth";
 import { doc, type Firestore, getDoc, setDoc } from "firebase/firestore";
+import type { SessionUser } from "../application/ports/session.js";
 
 export const DIRECTORY_COLLECTION = "userDirectory";
 
@@ -71,7 +71,7 @@ export async function emailHash(email: string): Promise<string> {
  */
 export async function publishDirectoryEntry(
 	firestore: Firestore,
-	user: User,
+	user: SessionUser,
 ): Promise<void> {
 	if (!user.email || !user.emailVerified) return;
 

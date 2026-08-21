@@ -4,19 +4,14 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import {
-	type Auth,
-	reload,
-	sendEmailVerification,
-	signOut,
-	type User,
-} from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import { signOut } from "../application/sign-out.js";
 import {
-	authContext,
 	firestoreContext,
+	sessionContext,
 	userContext,
 } from "../firebase/context.js";
 
@@ -55,10 +50,10 @@ export class PlanuProfileView extends LitElement {
 	`;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
-	@consume({ context: authContext, subscribe: true })
-	private auth: Auth | undefined;
+	@consume({ context: sessionContext, subscribe: true })
+	private session: SessionPort | undefined;
 
 	@state() private sending = false;
 	@state() private sent = false;
@@ -101,7 +96,7 @@ export class PlanuProfileView extends LitElement {
 	 * **nobody can invite it to an event**. Better said here than discovered by
 	 * the other person when they cannot find you.
 	 */
-	#renderVerificationNotice(user: User) {
+	#renderVerificationNotice(user: SessionUser) {
 		if (!user.email || user.emailVerified) return nothing;
 
 		return html`
@@ -138,19 +133,21 @@ export class PlanuProfileView extends LitElement {
 	 * again — hence `getIdToken(true)` — before the entry can be published.
 	 */
 	async #onCheck(): Promise<void> {
-		const { user, firestore } = this;
-		if (!user || this.checking) return;
+		const { session, firestore } = this;
+		if (!session || this.checking) return;
 
 		this.checking = true;
 		try {
-			await reload(user);
-			if (!user.emailVerified) return;
+			const refreshed = await session.refreshEmailVerification();
+			if (!refreshed?.emailVerified) return;
 
-			await user.getIdToken(true);
+			// Asignación manual, no una nueva llegada por el contexto: `@consume`
+			// no la intercepta, así que hace falta pedir la actualización a mano.
+			this.user = refreshed;
 			const { publishDirectoryEntry } = await import(
 				"../sharing/user-directory.js"
 			);
-			await publishDirectoryEntry(firestore as Firestore, user);
+			await publishDirectoryEntry(firestore as Firestore, refreshed);
 			this.requestUpdate();
 		} catch {
 			// Nothing the user can act on: the notice stays put and the button can
@@ -161,12 +158,12 @@ export class PlanuProfileView extends LitElement {
 	}
 
 	async #onResend(): Promise<void> {
-		const user = this.user;
-		if (!user || this.sending) return;
+		const { session } = this;
+		if (!session || this.sending) return;
 
 		this.sending = true;
 		try {
-			await sendEmailVerification(user);
+			await session.sendVerificationEmail();
 			this.sent = true;
 		} catch {
 			// Firebase throttles repeated attempts. That is not something the
@@ -177,7 +174,7 @@ export class PlanuProfileView extends LitElement {
 	}
 
 	#onSignOut(): void {
-		if (this.auth) void signOut(this.auth);
+		if (this.session) void signOut(this.session);
 	}
 }
 

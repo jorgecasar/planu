@@ -8,16 +8,17 @@ import "./auth/login-view.js";
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { Router } from "@lit-labs/router";
-import { type Auth, signOut, type User } from "firebase/auth";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { SessionPort, SessionUser } from "./application/ports/session.js";
+import { signOut } from "./application/sign-out.js";
 import {
 	APP_BASE,
 	guardRedirect,
 	HOME_PATH,
 	LOGIN_PATH,
 } from "./auth/guard.js";
-import { authContext, userContext } from "./firebase/context.js";
+import { sessionContext, userContext } from "./firebase/context.js";
 
 /** Raíz de la aplicación: enrutado, cabecera y guarda de sesión. */
 @customElement("planu-app")
@@ -55,12 +56,12 @@ export class PlanuApp extends LitElement {
 	`;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private navigating = false;
 
-	@consume({ context: authContext, subscribe: true })
-	private auth: Auth | undefined;
+	@consume({ context: sessionContext, subscribe: true })
+	private session: SessionPort | undefined;
 
 	/**
 	 * Las rutas privadas se cargan bajo demanda.
@@ -101,7 +102,7 @@ export class PlanuApp extends LitElement {
 	}
 
 	/** Última sesión vista, para detectar cuándo deja de ser desconocida. */
-	#seenUser: User | null | undefined;
+	#seenUser: SessionUser | null | undefined;
 
 	override willUpdate(): void {
 		const target = guardRedirect(this.user, window.location.pathname);
@@ -150,7 +151,7 @@ export class PlanuApp extends LitElement {
 	}
 
 	#onSignOut(): void {
-		if (this.auth) void signOut(this.auth);
+		if (this.session) void signOut(this.session);
 	}
 
 	override render() {
@@ -176,7 +177,7 @@ export class PlanuApp extends LitElement {
 		`;
 	}
 
-	#renderHeader(user: User) {
+	#renderHeader(user: SessionUser) {
 		const label = user.displayName ?? user.email ?? msg("Account");
 		return html`
 			<header>

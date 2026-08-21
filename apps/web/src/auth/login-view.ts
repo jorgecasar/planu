@@ -8,19 +8,14 @@ import "@awesome.me/webawesome/dist/components/tab-panel/tab-panel.js";
 import "@awesome.me/webawesome/dist/components/tab/tab.js";
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import type { Auth } from "firebase/auth";
-import {
-	createUserWithEmailAndPassword,
-	GoogleAuthProvider,
-	sendEmailVerification,
-	signInWithEmailAndPassword,
-	signInWithPopup,
-} from "firebase/auth";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { authContext } from "../firebase/context.js";
-import { authErrorMessage } from "./auth-errors.js";
-import { credentialsSchema, signUpSchema } from "./schemas.js";
+import type { SessionPort } from "../application/ports/session.js";
+import { signIn } from "../application/sign-in.js";
+import { signInWithGoogle } from "../application/sign-in-with-google.js";
+import { signUp } from "../application/sign-up.js";
+import { authErrorMessage } from "../domain/auth-errors.js";
+import { sessionContext } from "../firebase/context.js";
 
 /**
  * Acceso y registro. La redirección al entrar no se hace aquí: el cambio de
@@ -58,8 +53,8 @@ export class PlanuLoginView extends LitElement {
 		}
 	`;
 
-	@consume({ context: authContext, subscribe: true })
-	private auth: Auth | undefined;
+	@consume({ context: sessionContext, subscribe: true })
+	private session: SessionPort | undefined;
 
 	@state() private error = "";
 	@state() private busy = false;
@@ -152,12 +147,15 @@ export class PlanuLoginView extends LitElement {
 	/** Recoge el formulario y ejecuta la acción, unificando errores y estado. */
 	async #submit(
 		event: SubmitEvent,
-		action: (values: Record<string, string>, auth: Auth) => Promise<unknown>,
+		action: (
+			values: Record<string, string>,
+			session: SessionPort,
+		) => Promise<unknown>,
 	): Promise<void> {
 		event.preventDefault();
 		// Se captura aquí para que las acciones lo reciban ya estrechado.
-		const auth = this.auth;
-		if (!auth) return;
+		const session = this.session;
+		if (!session) return;
 
 		const form = event.target as HTMLFormElement;
 		const values = Object.fromEntries(
@@ -170,7 +168,7 @@ export class PlanuLoginView extends LitElement {
 		this.error = "";
 		this.busy = true;
 		try {
-			await action(values, auth);
+			await action(values, session);
 		} catch (cause) {
 			this.error = authErrorMessage(cause);
 		} finally {
@@ -179,59 +177,20 @@ export class PlanuLoginView extends LitElement {
 	}
 
 	#onSignIn(event: SubmitEvent): void {
-		void this.#submit(event, async (values, auth) => {
-			const parsed = credentialsSchema().safeParse(values);
-			if (!parsed.success) throw parsed.error;
-			return signInWithEmailAndPassword(
-				auth,
-				parsed.data.email,
-				parsed.data.password,
-			);
-		});
+		void this.#submit(event, (values, session) => signIn(session, values));
 	}
 
 	#onSignUp(event: SubmitEvent): void {
-		void this.#submit(event, async (values, auth) => {
-			const parsed = signUpSchema().safeParse(values);
-			if (!parsed.success) throw parsed.error;
-			const credential = await createUserWithEmailAndPassword(
-				auth,
-				parsed.data.email,
-				parsed.data.password,
-			);
-
-			// Until they verify, this account cannot be published to the
-			// directory and nobody will be able to invite them to an event:
-			// registering with someone else's address is trivial, so the
-			// directory demands a checked email. Google accounts arrive verified
-			// and never come through here.
-			//
-			// A failure here does not invalidate the sign-up, which already
-			// happened; the profile offers to resend.
-			await sendEmailVerification(credential.user).catch(() => {});
-
-			return credential;
-		});
+		void this.#submit(event, (values, session) => signUp(session, values));
 	}
 
 	#onGoogle(): void {
-		const { auth } = this;
-		if (!auth) return;
+		const { session } = this;
+		if (!session) return;
 		this.error = "";
 		this.busy = true;
 
-		// El resolver llega aquí y no en `initializeAuth`, porque arrastra gapi
-		// y el iframe de autenticación: 137 KiB de tres orígenes ajenos. Antes
-		// se descargaban en cada visita; ahora sólo tras este clic. La
-		// contrapartida es que el primer acceso con Google tarda algo más.
-		import("firebase/auth")
-			.then(({ browserPopupRedirectResolver }) =>
-				signInWithPopup(
-					auth,
-					new GoogleAuthProvider(),
-					browserPopupRedirectResolver,
-				),
-			)
+		signInWithGoogle(session)
 			.catch((cause: unknown) => {
 				this.error = authErrorMessage(cause);
 			})

@@ -13,11 +13,15 @@ import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
+import {
+	FirebaseSessionAdapter,
+	toSessionUser,
+} from "../infrastructure/firebase/session-adapter.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
-	authContext,
 	firestoreContext,
+	sessionContext,
 	storageContext,
 	userContext,
 } from "./context.js";
@@ -136,8 +140,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			initialValue: this.#core.app,
 		});
 		new ContextProvider(this, {
-			context: authContext,
-			initialValue: this.#core.auth,
+			context: sessionContext,
+			initialValue: new FirebaseSessionAdapter(this.#core.auth),
 		});
 	}
 
@@ -146,7 +150,9 @@ export class PlanuFirebaseProvider extends LitElement {
 		this.#unsubscribe = onAuthStateChanged(
 			this.#core.auth,
 			(user: User | null) => {
-				this.#user.setValue(user);
+				// El contexto expone el tipo de dominio: quien lo consume no debe
+				// necesitar saber que esto viene de Firebase.
+				this.#user.setValue(user ? toSessionUser(user) : null);
 				// Sólo hay datos que leer cuando hay sesión, así que es el momento
 				// exacto de traer Firestore y Storage.
 				if (user) void this.#provideDataServices(user);

@@ -1,4 +1,4 @@
-import type { User } from "firebase/auth";
+import type { SessionUser } from "../application/ports/session.js";
 
 /**
  * The application lives under /app, leaving the root for the public landing.
@@ -21,7 +21,7 @@ export const HOME_PATH = APP_BASE;
  * que tarda Firebase en restaurar la sesión.
  */
 export function guardRedirect(
-	user: User | null | undefined,
+	user: SessionUser | null | undefined,
 	pathname: string,
 ): string | null {
 	if (user === undefined) return null;

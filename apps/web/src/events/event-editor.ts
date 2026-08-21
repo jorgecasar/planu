@@ -10,7 +10,6 @@ import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
-import type { User } from "firebase/auth";
 import {
 	addDoc,
 	collection,
@@ -23,6 +22,7 @@ import {
 import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
 	describeInferenceSource,
@@ -50,7 +50,11 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
-import { createAiModelSession, type ModelLike } from "./ai-model-session.js";
+import {
+	createAiModelSession,
+	type ModelLike,
+	type TokenClaims,
+} from "./ai-model-session.js";
 import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 import { tagChipStyles } from "./tag-styles.js";
 
@@ -148,7 +152,7 @@ export class PlanuEventEditor extends LitElement {
 	private storage: FirebaseStorage | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private imageUrl = "";
 	@state() private uploading = false;
@@ -660,7 +664,7 @@ export class PlanuEventEditor extends LitElement {
 
 	#save(
 		firestore: Firestore,
-		user: User,
+		user: SessionUser,
 		values: PlanuEvent,
 	): Promise<unknown> {
 		const content = {
@@ -787,10 +791,21 @@ export class PlanuEventEditor extends LitElement {
 		});
 	}
 
+	/**
+	 * `SessionUser.getIdTokenResult` es opcional —no todo adaptador puede
+	 * resolverlo—, y `TokenClaims` lo exige. Sin usuario o sin ese método no
+	 * hay claim que leer: la IA en la nube trata eso igual que "no premium",
+	 * que es el valor seguro por defecto.
+	 */
+	#claims(): TokenClaims | null {
+		const getIdTokenResult = this.user?.getIdTokenResult;
+		return getIdTokenResult ? { getIdTokenResult } : null;
+	}
+
 	/** Perezosa: crearla no descarga nada por sí sola. */
 	#tagSession() {
 		this.#tagSuggestionSession ??= createAiModelSession({
-			getUser: () => this.user,
+			getUser: () => this.#claims(),
 			buildModel: (mode) => this.#buildTagModel(mode),
 		});
 		return this.#tagSuggestionSession;
