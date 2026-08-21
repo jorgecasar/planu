@@ -1121,7 +1121,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     a los ocho ficheros de fixtures que el compilador señaló como
     incompletos.
 
-- [ ] **T45 · format-dates: `toInputTime` y `formatEventDates` con `allDay`** · S · depende de T44
+- [x] **T45 · format-dates: `toInputTime` y `formatEventDates` con `allDay`** · S · depende de T44
   - Acepta: `toInputTime(date)` devuelve `HH:mm` o `""`; `formatEventDates`
     firma `(start, end, allDay, locale?)`; ocho combinaciones cubiertas
     (con/sin hora × con/sin fin × mismo día vs varios días); mismo día con
@@ -1129,6 +1129,16 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/format-dates.test.ts` en 0; `npm run
     localize:extract` genera claves nuevas; `npm run localize:build` pasa.
   - Ficheros: `apps/web/src/domain/format-dates.ts`, `apps/web/xliff/es.xlf`
+  - Evidencia: commit `8f3d3dc`. `TZ=Europe/Madrid npx vitest run
+    src/domain/format-dates.test.ts --browser.enabled=false` → 15/15 en 0
+    (las 3 originales de `toInputDate` + las 4 de fechas sin hora + las 3 de
+    `toInputTime` + las 8 combinaciones nuevas de hora, con la del mismo día
+    verificando que no repite fecha). `npm run typecheck`, `npm run lint` y
+    `npm run lint:lit` en 0. No usa los textos `Starts`/`Ends`/`No specific
+    date` que ya existían en `msg()`: `localize:extract` no generó claves
+    nuevas, sólo actualizó el `equiv-text` de una variable renombrada; se
+    documenta aquí porque el criterio de aceptación asumía claves nuevas y no
+    hizo falta ninguna.
 
 - [ ] **T46 · build-ics: fuera `isStartOfDay`, `calendarWindow` lee `allDay`** · S · depende de T44
   - Acepta: `isStartOfDay()` eliminada; `calendarWindow(event)` usa
