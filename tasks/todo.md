@@ -1140,7 +1140,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     documenta aquí porque el criterio de aceptación asumía claves nuevas y no
     hizo falta ninguna.
 
-- [ ] **T46 · build-ics: fuera `isStartOfDay`, `calendarWindow` lee `allDay`** · S · depende de T44
+- [x] **T46 · build-ics: fuera `isStartOfDay`, `calendarWindow` lee `allDay`** · S · depende de T44
   - Acepta: `isStartOfDay()` eliminada; `calendarWindow(event)` usa
     `event.allDay`; `allDay: true` → `VALUE=DATE` con fin exclusivo (día
     siguiente); `allDay: false` a las 00:00 → `DTSTART` con hora `Z`; evento
@@ -1148,6 +1148,13 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/build-ics.test.ts` en 0; test explícito de
     documento sin `allDay` → `VALUE=DATE`.
   - Ficheros: `apps/web/src/domain/build-ics.ts`
+  - Evidencia: commit `e477b61`. `TZ=America/Santiago npx vitest run
+    src/domain/build-ics.test.ts --browser.enabled=false` → 34/34 en 0,
+    incluidos los dos tests nuevos («allDay: false a medianoche sale con
+    hora» y «sin el campo allDay se lee como día completo»). `google-
+    calendar-url.test.ts` necesitó el mismo ajuste de factory —perdía la
+    detección heurística por hora que antes heredaba— y quedó en 8/8.
+    `npm run typecheck`, `npm run lint` y `npm run lint:lit` en 0.
 
 - [ ] **T47 · sort-events: `activeUntil` respeta día completo** · S · depende de T44
   - Acepta: `activeUntil(event)` devuelve `endDate` a `23:59:59.999` local si
