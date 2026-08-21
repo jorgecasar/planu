@@ -13,28 +13,74 @@ export function toInputDate(date: Date | null | undefined): string {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-const FORMAT: Intl.DateTimeFormatOptions = {
+/**
+ * Formatea para un `<input type="time">`, que espera HH:mm.
+ *
+ * Hermana de `toInputDate` y con el mismo motivo: componentes locales, no
+ * UTC, porque el input vive en la hora del navegador de quien edita.
+ */
+export function toInputTime(date: Date | null | undefined): string {
+	if (!date) return "";
+	const pad = (value: number) => String(value).padStart(2, "0");
+	return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
 	month: "short",
 	day: "numeric",
 	year: "numeric",
 };
 
+const DATE_TIME_FORMAT: Intl.DateTimeFormatOptions = {
+	...DATE_FORMAT,
+	hour: "numeric",
+	minute: "numeric",
+};
+
+const TIME_FORMAT: Intl.DateTimeFormatOptions = {
+	hour: "numeric",
+	minute: "numeric",
+};
+
+/** Mismo día local, para no repetir la fecha en un evento de una tarde. */
+function sameDay(a: Date, b: Date): boolean {
+	return (
+		a.getFullYear() === b.getFullYear() &&
+		a.getMonth() === b.getMonth() &&
+		a.getDate() === b.getDate()
+	);
+}
+
 /**
  * Texto legible del periodo de un evento.
  *
- * Las cuatro combinaciones importan: el modelo permite eventos sin fechas, con
- * sólo inicio o con sólo fin, y cada caso dice algo distinto al usuario.
+ * Las cuatro combinaciones de fechas presentes o ausentes se multiplican por
+ * dos con `allDay`: de día completo se formatea sin hora, como siempre; con
+ * hora, se añade `hour`/`minute` y, si inicio y fin caen el mismo día, el fin
+ * no repite la fecha —una cena de 19:30 a 23:00 no necesita el «4 jul 2026»
+ * dos veces.
  */
 export function formatEventDates(
 	start: Date | null | undefined,
 	end: Date | null | undefined,
+	allDay: boolean,
 	locale?: string,
 ): string {
-	const format = (date: Date) =>
-		new Intl.DateTimeFormat(locale, FORMAT).format(date);
+	const formatFull = (date: Date) =>
+		new Intl.DateTimeFormat(
+			locale,
+			allDay ? DATE_FORMAT : DATE_TIME_FORMAT,
+		).format(date);
+	const formatTime = (date: Date) =>
+		new Intl.DateTimeFormat(locale, TIME_FORMAT).format(date);
 
-	if (start && end) return `${format(start)} – ${format(end)}`;
-	if (start) return msg(str`Starts ${format(start)}`);
-	if (end) return msg(str`Ends ${format(end)}`);
+	if (start && end) {
+		if (!allDay && sameDay(start, end)) {
+			return `${formatFull(start)} – ${formatTime(end)}`;
+		}
+		return `${formatFull(start)} – ${formatFull(end)}`;
+	}
+	if (start) return msg(str`Starts ${formatFull(start)}`);
+	if (end) return msg(str`Ends ${formatFull(end)}`);
 	return msg("No specific date");
 }
