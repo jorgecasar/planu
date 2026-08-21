@@ -992,3 +992,120 @@ garantiza conflictos.
   - Nota: va **sola y en su propio commit**, sin mezclar con cambios de
     comportamiento. Es un diff grande y sin valor propio; mezclarlo haría
     ilegible cualquier revisión.
+
+---
+
+## Horas en eventos
+
+Derivadas de [`docs/spec-horas-en-eventos.md`](docs/spec-horas-en-eventos.md)
+y del plan actualizado en `plan.md`. Orden por dependencia.
+
+- [ ] **T44 · Esquema Zod: campo `allDay`** · XS · sin dependencias
+  - Acepta: `eventSchema()` expone `allDay: z.boolean().default(true)`; un
+    documento sin el campo parsea como `true`; `PlanuEvent` y
+    `PlanuEventDocument` incluyen el campo.
+  - Verifica: `npm test domain/format-dates.test.ts
+    domain/build-ics.test.ts domain/sort-events.test.ts` en 0;
+    `npm run typecheck` en 0.
+  - Ficheros: `apps/web/src/lib/types.ts`
+
+- [ ] **T45 · format-dates: `toInputTime` y `formatEventDates` con `allDay`** · S · depende de T44
+  - Acepta: `toInputTime(date)` devuelve `HH:mm` o `""`; `formatEventDates`
+    firma `(start, end, allDay, locale?)`; ocho combinaciones cubiertas
+    (con/sin hora × con/sin fin × mismo día vs varios días); mismo día con
+    hora no repite la fecha; textos traducibles en `msg()`.
+  - Verifica: `npm test domain/format-dates.test.ts` en 0; `npm run
+    localize:extract` genera claves nuevas; `npm run localize:build` pasa.
+  - Ficheros: `apps/web/src/domain/format-dates.ts`, `apps/web/xliff/es.xlf`
+
+- [ ] **T46 · build-ics: fuera `isStartOfDay`, `calendarWindow` lee `allDay`** · S · depende de T44
+  - Acepta: `isStartOfDay()` eliminada; `calendarWindow(event)` usa
+    `event.allDay`; `allDay: true` → `VALUE=DATE` con fin exclusivo (día
+    siguiente); `allDay: false` a las 00:00 → `DTSTART` con hora `Z`; evento
+    sin `allDay` se lee como día completo (migración implícita).
+  - Verifica: `npm test domain/build-ics.test.ts` en 0; test explícito de
+    documento sin `allDay` → `VALUE=DATE`.
+  - Ficheros: `apps/web/src/domain/build-ics.ts`
+
+- [ ] **T47 · sort-events: `activeUntil` respeta día completo** · S · depende de T44
+  - Acepta: `activeUntil(event)` devuelve `endDate` a `23:59:59.999` local si
+    `allDay` y hay `endDate`; si `allDay` y sólo `startDate`, devuelve
+    `startDate` a `23:59:59.999`; así un evento de día completo de hoy está en
+    «Próximos» a las 23:59. Commit aparte por ser cambio de comportamiento
+    visible.
+  - Verifica: `npm test domain/sort-events.test.ts` en 0; test explícito:
+    evento de día completo hoy → grupo `upcoming` a las 23:59.
+  - Ficheros: `apps/web/src/domain/sort-events.ts`
+
+- [ ] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
+  - Acepta: fila `.dates` con cuatro `wa-input` (date, time, date, time);
+    `toInputTime` para rellenar hora; `enterkeyhint="done"` en hora de fin;
+    escribir hora pone `allDay: false`; borrar las dos horas pone `allDay:
+    true`; si `allDay` al guardar, fechas se normalizan a comienzo de día
+    local (`new Date(año, mes, día)`).
+  - Verifica: `npm test events/event-editor.test.ts` en 0; prueba manual:
+    crear «Cena 4 jul 19:30–23:00», reabrir y ver las horas; crear «Vacaciones
+    1–15 ago» sin horas y no ver ninguna.
+  - Ficheros: `apps/web/src/events/event-editor.ts`
+
+- [ ] **T49 · month-grid: ordena con `sortEvents` y pinta hora en celda** · S · depende de T46, T47
+  - Acepta: `buildMonthGrid` llama a `sortEvents` antes de repartir; cada celda
+    muestra `HH:mm` delante del título cuando el evento tiene hora (`!allDay`);
+    un congreso de tres días no repite la hora en los tres.
+  - Verifica: `npm test calendar/month-grid.test.ts` en 0; test: dos eventos
+    mismo día salen ordenados por hora; con orden inverso salen al revés.
+  - Ficheros: `apps/web/src/calendar/month-grid.ts`
+
+- [ ] **T50 · event-filters: hora en el rango `from`/`to`** · S · depende de T45
+  - Acepta: dos `wa-input type="time"` junto a los `date`; hora vacía = día
+    entero (comportamiento actual sin regresión); `filterEvents` no cambia
+    (compara instantes).
+  - Verifica: `npm test domain/filter-events.test.ts` en 0; prueba manual:
+    rango 19:00–20:00 coge cena 19:30 y no cena 21:00.
+  - Ficheros: `apps/web/src/events/event-filters.ts`
+
+- [ ] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
+  - Acepta: `allDay` en `keys().hasOnly([...])`; `(!('allDay' in d) || d.allDay
+    is bool)`; **no** en `hasAll` (eventos anteriores editables).
+  - Verifica: `npm run test:rules` en 0.
+  - Ficheros: `firestore.rules`
+
+- [ ] **T52 · Tests de reglas: aserciones de `allDay`** · S · depende de T51
+  - Acepta: acepta `true`/`false`; rechaza `'true'`, `1`, `null`; documento
+    **sin** campo sigue siendo editable.
+  - Verifica: `npm run test:rules` → 3 tests nuevos pasan; suite completa en 0.
+  - Ficheros: `apps/web/rules/firestore.test.ts`
+
+- [ ] **T53 · Seed: al menos 3 eventos con hora** · XS · sin dependencias
+  - Acepta: `npm run seed` crea 11 eventos, ≥3 con `allDay: false` y hora
+    distinta de `00:00`.
+  - Verifica: `npm run seed` y comprobar en la UI.
+  - Ficheros: `scripts/seed-emulator.js`
+
+- [ ] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
+  - Acepta: `events.spec.ts` — crear con hora, reabrir y verla; crear sin hora
+    y no verla. `views.spec.ts` — hora visible en agenda y mes. `calendar-
+    export.spec.ts` — `.ics` descargado lleva `DTSTART:` con hora. `ai.spec.ts`
+    — imagen con hora llega al editor con la hora puesta.
+  - Verifica: `npm run test:e2e` en 0.
+  - Ficheros: `apps/web/e2e/events.spec.ts`, `views.spec.ts`,
+    `calendar-export.spec.ts`, `ai.spec.ts`
+
+- [ ] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
+  - Acepta: `docs/adr/0008-all-day-flag-y-zona-horaria.md` cierra la decisión de
+    `allDay` y registra la zona horaria como no decidida (pregunta 1 y 2 del
+    spec).
+  - Verifica: `ls docs/adr/0008-*.md` existe.
+  - Ficheros: `docs/adr/0008-all-day-flag-y-zona-horaria.md`
+
+> **Checkpoint I** — tras T44–T47: tests de dominio en 0; migración implícita
+> probada (evento sin `allDay` → día completo en ICS y en listado).
+>
+> **Checkpoint II** — tras T48: editor crea y reabre con hora; sin hora no
+> muestra ninguna.
+>
+> **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
+> hora funciona.
+>
+> **Checkpoint IV (Final)** — suite completa en 0; tope
+> `arch/boundary.test.ts` en 22.
