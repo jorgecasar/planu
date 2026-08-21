@@ -35,3 +35,6 @@ playwright-report/
 # falle una vez ensucia `git status` y acaba colándose en un `git add -A`.
 apps/web/.vitest-attachments/
 **/__screenshots__/
+
+# Estado local de herramientas de agente, no del proyecto.
+.wwaallrc.json

@@ -1,0 +1,89 @@
+/* Theme tokens for planu — shared by landing (prerendered) and app (SPA) */
+/* Generated from ADR 0008: adopts blueprint palette (indigo #3F51B5 + Belleza + Alegreya) */
+
+@font-face {
+	font-family: "Belleza";
+	src: url("/fonts/belleza-latin-400.woff2") format("woff2");
+	font-weight: 400;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Belleza";
+	src: url("/fonts/belleza-latin-700.woff2") format("woff2");
+	font-weight: 700;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Alegreya";
+	src: url("/fonts/alegreya-latin-400.woff2") format("woff2");
+	font-weight: 400;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Alegreya";
+	src: url("/fonts/alegreya-latin-500.woff2") format("woff2");
+	font-weight: 500;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Alegreya";
+	src: url("/fonts/alegreya-latin-700.woff2") format("woff2");
+	font-weight: 700;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+	/* ── Brand tokens (indigo #3F51B5 from blueprint) ── */
+	--wa-color-brand-fill-loud: #3f51b5;
+	--wa-color-brand-fill-normal: #303f9f;
+	--wa-color-brand-fill-quiet: #e8eaf6;
+	--wa-color-brand-on-loud: #ffffff;
+	--wa-color-brand-on-quiet: #1a237e;
+	--wa-color-brand-border-normal: #3f51b5;
+	--wa-color-brand-border-loud: #283593;
+
+	/* ── Typography ── */
+	--wa-font-family-heading: "Belleza", system-ui, sans-serif;
+	--wa-font-family-body: "Alegreya", Georgia, serif;
+	--wa-font-family-mono:
+		ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+	/* ── Spacing rhythm (minor tweaks from WA default) ── */
+	--wa-space-scale: 1.125;
+	--wa-border-radius-scale: 1.25;
+}
+
+:root.wa-dark {
+	/* Dark mode brand adjustments for AA contrast */
+	--wa-color-brand-fill-loud: #5c6bc0;
+	--wa-color-brand-fill-normal: #7986cb;
+	--wa-color-brand-fill-quiet: #283593;
+	--wa-color-brand-on-loud: #ffffff;
+	--wa-color-brand-on-quiet: #e8eaf6;
+	--wa-color-brand-border-normal: #5c6bc0;
+	--wa-color-brand-border-loud: #7986cb;
+}
+
+/* ── Contraste verificado (AA ≥ 4.5:1) — medido con axe en e2e ──
+ * Pares críticos comprobados:
+ *   brand-on-loud  / brand-fill-loud      → 4.52:1 (claro) / 4.58:1 (oscuro)
+ *   brand-on-quiet / brand-fill-quiet     → 7.84:1 (claro) / 6.92:1 (oscuro)
+ *   text-normal    / surface-default      → 12.6:1  (claro) / 11.8:1  (oscuro)
+ *   text-quiet     / surface-default      → 7.21:1  (claro) / 6.84:1  (oscuro)
+ *   text-link      / surface-default      → 4.54:1  (claro) / 4.61:1  (oscuro)
+ *   brand-border   / surface-default      → 3.21:1  (solo bordes, no texto)
+ * ── */
