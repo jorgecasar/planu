@@ -20,6 +20,12 @@ export interface CalendarEvent {
 	location?: string | undefined;
 	startDate?: Date | null | undefined;
 	endDate?: Date | null | undefined;
+	/**
+	 * Opcional y no `boolean` a secas: un documento guardado antes de esta
+	 * feature no trae el campo, y `calendarWindow` lo trata como día completo
+	 * —la migración implícita que evita reexportar cientos de eventos.
+	 */
+	allDay?: boolean | undefined;
 }
 
 export interface IcsOptions {
@@ -153,23 +159,6 @@ function nextDay(date: Date): Date {
 	return next;
 }
 
-/**
- * Si el instante es el **comienzo de su día local**, que es lo que el editor
- * guarda para una fecha sin hora.
- *
- * Se compara contra `new Date(año, mes, día)` en vez de mirar `getHours() === 0`
- * porque hay zonas donde la medianoche no existe: en Chile, Cuba, Paraguay o
- * Líbano el reloj se adelanta a las 00:00, así que el 6 de septiembre de 2026 en
- * Santiago el día empieza a la 01:00. Con la comprobación ingenua, un evento
- * creado con un `<input type="date">` dejaba de ser de día completo y se
- * exportaba como una cita puntual de duración cero. Ambas expresiones sufren la
- * misma normalización del salto, así que comparadas coinciden.
- */
-function isStartOfDay(date: Date): boolean {
-	const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-	return start.getTime() === date.getTime();
-}
-
 export interface CalendarWindow {
 	start: Date;
 	/**
@@ -189,18 +178,17 @@ export interface CalendarWindow {
  * Dos decisiones que el modelo obliga a tomar:
  * - Un evento con sólo fecha de fin se exporta empezando ese día, porque
  *   RFC 5545 exige `DTSTART` en todo `VEVENT` sin `METHOD`.
- * - Es de día completo si todas las fechas que trae son el comienzo de su día
- *   local, que es lo que produce un `<input type="date">`. Se deduce porque el
- *   modelo no tiene bandera de «todo el día»; si algún día la lleva, este
- *   detector sobra y el dato manda.
+ * - Es de día completo si `event.allDay` lo dice. Sin el campo —un documento
+ *   de antes de esta feature— se trata como día completo: es la migración
+ *   implícita, y evita que abrir un evento antiguo lo reexporte de golpe como
+ *   una cita puntual de duración cero.
  */
 export function calendarWindow(event: CalendarEvent): CalendarWindow | null {
 	const start = event.startDate ?? event.endDate ?? null;
 	if (!start) return null;
 
 	const declaredEnd = event.startDate ? (event.endDate ?? null) : null;
-	const allDay =
-		isStartOfDay(start) && (!declaredEnd || isStartOfDay(declaredEnd));
+	const allDay = event.allDay ?? true;
 
 	if (allDay) return { start, end: nextDay(declaredEnd ?? start), allDay };
 

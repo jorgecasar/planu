@@ -12,6 +12,7 @@ const event = (extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
 	id: "abc123",
 	title: "Feria del libro",
 	startDate: day(2026, 6, 12),
+	allDay: true,
 	...extra,
 });
 
@@ -38,13 +39,16 @@ test("un día completo va con fechas sueltas y fin exclusivo", () => {
 
 test("un evento con hora va en UTC", () => {
 	const url =
-		googleCalendarUrl(event({ startDate: at(9), endDate: at(11) })) ?? "";
+		googleCalendarUrl(
+			event({ startDate: at(9), endDate: at(11), allDay: false }),
+		) ?? "";
 
 	expect(params(url).get("dates")).toBe("20260612T093700Z/20260612T113700Z");
 });
 
 test("sin fin declarado se repite el inicio, que es lo que exige el parámetro", () => {
-	const url = googleCalendarUrl(event({ startDate: at(9) })) ?? "";
+	const url =
+		googleCalendarUrl(event({ startDate: at(9), allDay: false })) ?? "";
 
 	expect(params(url).get("dates")).toBe("20260612T093700Z/20260612T093700Z");
 });
