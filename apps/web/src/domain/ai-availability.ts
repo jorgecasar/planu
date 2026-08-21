@@ -1,12 +1,12 @@
 /**
- * Disponibilidad de la IA integrada del navegador.
+ * Availability of the browser's built-in AI.
  *
- * Lo recomienda la guía de buenas prácticas de Chrome: no ofrezcas la función
- * si el dispositivo no puede darla. Un botón que siempre falla es peor que un
- * botón que no está.
+ * This is what Chrome's best-practices guide recommends: don't offer the
+ * feature if the device can't provide it. A button that always fails is
+ * worse than no button at all.
  */
 
-/** Estados que devuelve `LanguageModel.availability()`. */
+/** States returned by `LanguageModel.availability()`. */
 export type ModelAvailability =
 	| "unavailable"
 	| "downloadable"
@@ -22,17 +22,18 @@ function languageModel(): LanguageModelGlobal | undefined {
 }
 
 /**
- * Si merece la pena ofrecer la generación con IA.
+ * Whether it's worth offering AI generation.
  *
- * `downloadable` cuenta: el modelo no está pero puede traerse, y avisamos de
- * la espera. `downloading` también, porque ya viene de camino. Sólo se oculta
- * con `unavailable` o cuando el navegador ni siquiera tiene la API.
+ * `downloadable` counts: the model isn't there but it can be fetched, and we
+ * warn about the wait. `downloading` counts too, because it's already on its
+ * way. It's only hidden with `unavailable` or when the browser doesn't even
+ * have the API.
  */
 export function canOffer(availability: ModelAvailability | undefined): boolean {
 	return availability !== undefined && availability !== "unavailable";
 }
 
-/** Pregunta al navegador. Devuelve `undefined` si no soporta la API. */
+/** Asks the browser. Returns `undefined` if it doesn't support the API. */
 export async function checkAvailability(): Promise<
 	ModelAvailability | undefined
 > {
@@ -42,13 +43,13 @@ export async function checkAvailability(): Promise<
 	try {
 		return await api.availability();
 	} catch {
-		// Algunos entornos exponen el objeto pero fallan al consultarlo; se
-		// trata igual que no tenerlo.
+		// Some environments expose the object but fail when querying it; it's
+		// treated the same as not having it.
 		return undefined;
 	}
 }
 
-/** Si conviene avisar de que habrá una descarga larga antes de empezar. */
+/** Whether it's worth warning about a long download before starting. */
 export function needsDownload(
 	availability: ModelAvailability | undefined,
 ): boolean {

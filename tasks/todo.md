@@ -1154,7 +1154,7 @@ garantiza conflictos.
     dos lo habría visto: la diferencia de opacidad es sutil y el defecto sólo
     aparece a la segunda.
 
-- [ ] **T42 · Traducir los comentarios de código al inglés** · M · sin dependencias
+- [x] **T42 · Traducir los comentarios de código al inglés** · M · sin dependencias
   - Acepta: los comentarios de `apps/web/src/**` están en inglés; `AGENTS.md`
     recoge la convención nueva y aclara si documentación y ADRs siguen en
     español o cambian también —hoy están en la misma frase que el código y hay
@@ -1165,6 +1165,56 @@ garantiza conflictos.
   - Nota: va **sola y en su propio commit**, sin mezclar con cambios de
     comportamiento. Es un diff grande y sin valor propio; mezclarlo haría
     ilegible cualquier revisión.
+  - Evidencia (21/08/2026): la medida del 16/08 quedó obsoleta —dos tareas de
+    IA (`generate-from-text.ts`, `suggest-tags.ts`, `ai-model-session.ts`)
+    llegaron después—; se remidió antes de tocar nada y el alcance real fue
+    **75 ficheros `.ts` bajo `apps/web/src/**`**, más `apps/web/arch/boundary.test.ts`
+    y `apps/web/arch/locales.test.ts` por su densidad de razonamiento, más
+    `AGENTS.md`. `sharing/**` no se tocó: ya estaba en inglés.
+    - `grep -rlE '//.*[áéíóúñ¿¡]|\*.*[áéíóúñ¿¡]' apps/web/src --include=*.ts` → sin salida (código 1).
+    - `npm run typecheck` → código 0.
+    - `npm run lint` → `Checked 117 files in 110ms. No fixes applied.` (código 0, dos pasadas).
+    - `npm run lint:lit` → `Found 0 problems in 84 files` (código 0).
+    - `npm test` → `Test Files 32 passed (32)` / `Tests 436 passed (436)` (código 0).
+    - `npm run test:arch` → `Test Files 2 passed (2)` / `Tests 11 passed (11)` (código 0).
+    - `npm run test:e2e` → **60 e2e, código 0**, ejecutado de verdad desde la
+      sesión orquestadora (`PORT=3003`, tras copiar el `.env.local` de la
+      raíz): sanidad extra dado el tamaño del diff, aunque no cambia
+      comportamiento.
+  - Evidencia (21/08/2026, rebase): T33 (`empty-state`, `sample-event`) y T36
+    (puerto de sesión) se fusionaron en `main` después de que esta rama se
+    abriera, y GitHub marcó la PR en conflicto. `git rebase origin/main`
+    produjo 9 ficheros en conflicto de contenido —`arch/boundary.test.ts`,
+    `app-shell.ts`, `auth/login-view.ts`, `domain/auth-errors.ts`,
+    `events/ai-event-generator.ts`, `events/event-editor.test.ts`,
+    `events/event-editor.ts`, `firebase/context.ts`,
+    `firebase/firebase-provider.ts`— resueltos a mano conservando el código
+    funcional post-T33/T36 y traduciendo su comentario; más un
+    modify/delete en `auth/auth-errors.test.ts` (movido por T36 a
+    `domain/auth-errors.test.ts`, resuelto con `git rm` de la ruta vieja).
+    Tras `rebase --continue`, un nuevo barrido encontró comentarios en
+    español en **17 ficheros** que T33/T36 introdujeron después del punto de
+    ramificación de T42 y que por tanto nunca vio: `profile-view.ts`,
+    `application/**` (puerto de sesión y casos de uso, con sus tests),
+    `events/empty-state.ts`+test, `events/events-view.ts`,
+    `infrastructure/firebase/session-adapter.ts`+test,
+    `domain/sample-event.ts`+test, `domain/session-error.ts`+test,
+    `domain/auth-errors.test.ts` (en su ubicación nueva),
+    `calendar/calendar-view.test.ts`. Se tradujeron todos y se re-verificó
+    con las cifras de hoy, más altas por lo que T33/T36 añadieron:
+    - Barrido de comentarios en español (diacríticos y sin ellos) sobre
+      `apps/web/src/**` → sin salida.
+    - `npm run typecheck` → código 0.
+    - `npm run lint` → `Checked 134 files in 739ms. No fixes applied.` (código 0).
+    - `npm run lint:lit` → `Found 0 problems in 101 files` (código 0).
+    - `npm test` → `Test Files 40 passed (40)` / `Tests 461 passed (461)` (código 0;
+      un intento intermedio marcó 1/461 en rojo con 60+ procesos de Chrome
+      concurrentes de otras sesiones — pasó aislado y volvió a pasar la
+      suite completa al bajar la carga, mismo patrón que T33/T36/T42
+      documentaron el 21/08).
+    - `npm run test:arch` → `Test Files 2 passed (2)` / `Tests 11 passed (11)` (código 0).
+    - `npm run test:e2e` → **64 e2e, código 0** (`PORT=3005`, emuladores
+      compartidos ya arriba).
 
 ---
 

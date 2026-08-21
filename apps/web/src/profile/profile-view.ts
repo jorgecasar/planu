@@ -15,7 +15,7 @@ import {
 	userContext,
 } from "../firebase/context.js";
 
-/** Datos de la cuenta y cierre de sesión. */
+/** Account details and sign out. */
 @customElement("planu-profile-view")
 export class PlanuProfileView extends LitElement {
 	static override styles = css`
@@ -141,8 +141,8 @@ export class PlanuProfileView extends LitElement {
 			const refreshed = await session.refreshEmailVerification();
 			if (!refreshed?.emailVerified) return;
 
-			// Asignación manual, no una nueva llegada por el contexto: `@consume`
-			// no la intercepta, así que hace falta pedir la actualización a mano.
+			// Manual assignment, not a new arrival via context: `@consume`
+			// doesn't intercept it, so the update has to be requested by hand.
 			this.user = refreshed;
 			const { publishDirectoryEntry } = await import(
 				"../sharing/user-directory.js"

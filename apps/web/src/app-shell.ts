@@ -20,7 +20,7 @@ import {
 } from "./auth/guard.js";
 import { sessionContext, userContext } from "./firebase/context.js";
 
-/** Raíz de la aplicación: enrutado, cabecera y guarda de sesión. */
+/** Application root: routing, header and session guard. */
 @customElement("planu-app")
 export class PlanuApp extends LitElement {
 	static override styles = css`
@@ -64,11 +64,11 @@ export class PlanuApp extends LitElement {
 	private session: SessionPort | undefined;
 
 	/**
-	 * Las rutas privadas se cargan bajo demanda.
+	 * Private routes are loaded on demand.
 	 *
-	 * El listado arrastra Firestore por el controlador de colecciones, así que
-	 * importarlo aquí de forma estática metía el SDK entero en el arranque de
-	 * quien sólo llega al login. `enter()` se resuelve antes de renderizar.
+	 * The listing pulls in Firestore through the collection controller, so
+	 * importing it here statically would put the whole SDK into the startup of
+	 * anyone who only reaches the login. `enter()` resolves before rendering.
 	 */
 	readonly #router = new Router(this, [
 		{
@@ -89,11 +89,12 @@ export class PlanuApp extends LitElement {
 	]);
 
 	/**
-	 * Carga una ruta privada, y sólo si hay sesión.
+	 * Loads a private route, and only if there is a session.
 	 *
-	 * Rechazarla mientras la sesión se comprueba evita dos cosas: descargar el
-	 * SDK de datos a quien sólo va a ver el login, y una carrera entre esta
-	 * importación y el redirect de la guarda que dejaba la página en blanco.
+	 * Rejecting it while the session is being checked avoids two things:
+	 * downloading the data SDK to someone who is only going to see the login,
+	 * and a race between this import and the guard's redirect that left the
+	 * page blank.
 	 */
 	async #enterPrivate(load: () => Promise<unknown>): Promise<boolean> {
 		if (!this.user) return false;
@@ -101,7 +102,7 @@ export class PlanuApp extends LitElement {
 		return true;
 	}
 
-	/** Última sesión vista, para detectar cuándo deja de ser desconocida. */
+	/** Last session seen, to detect when it stops being unknown. */
 	#seenUser: SessionUser | null | undefined;
 
 	override willUpdate(): void {
@@ -111,9 +112,10 @@ export class PlanuApp extends LitElement {
 			return;
 		}
 
-		// La ruta se pudo rechazar por no saber aún si había sesión. Al conocerla,
-		// hay que reevaluarla: nadie navega, así que el router no lo haría solo.
-		// Es el caso de recargar la página ya autenticado, el más común de todos.
+		// The route may have been rejected for not yet knowing whether there was
+		// a session. Once it's known, it has to be re-evaluated: nobody is
+		// navigating, so the router would not do it on its own. This is the case
+		// of reloading the page while already signed in, the most common of all.
 		if (this.user !== this.#seenUser) {
 			this.#seenUser = this.user;
 			if (this.user) void this.#resolveRoute(window.location.pathname);
@@ -121,11 +123,11 @@ export class PlanuApp extends LitElement {
 	}
 
 	/**
-	 * Navega y oculta el contenido mientras la ruta se carga.
+	 * Navigates and hides the content while the route loads.
 	 *
-	 * Sin esto, entre el cambio de URL y la resolución de la importación se
-	 * seguía viendo la vista anterior: tras registrarse aparecía el formulario
-	 * de acceso bajo la cabecera hasta que llegaba el listado.
+	 * Without this, between the URL change and the import resolving, the
+	 * previous view kept showing: after signing up, the login form appeared
+	 * under the header until the listing arrived.
 	 */
 	async #navigate(path: string): Promise<void> {
 		if (window.location.pathname === path) return;
@@ -135,11 +137,11 @@ export class PlanuApp extends LitElement {
 	}
 
 	/**
-	 * Única vía de entrada al router, y siempre con el indicador puesto.
+	 * Single entry point into the router, and always with the indicator set.
 	 *
-	 * Toda resolución de ruta pasa por aquí. Cuando la reevaluación tras conocer
-	 * la sesión llamaba a `goto()` por su cuenta, el `outlet()` seguía pintando
-	 * lo anterior mientras la importación estaba en vuelo.
+	 * Every route resolution goes through here. When the re-evaluation after
+	 * learning the session called `goto()` on its own, `outlet()` kept
+	 * rendering the previous view while the import was in flight.
 	 */
 	async #resolveRoute(path: string): Promise<void> {
 		this.navigating = true;
@@ -155,8 +157,8 @@ export class PlanuApp extends LitElement {
 	}
 
 	override render() {
-		// Tres estados de sesión, tres pantallas distintas. Mostrar el login
-		// mientras se comprueba provocaría un parpadeo en cada recarga.
+		// Three session states, three different screens. Showing the login while
+		// it's being checked would cause a flicker on every reload.
 		if (this.user === undefined) {
 			return html`<div class="checking">
 				<wa-spinner aria-label=${msg("Checking your session")}></wa-spinner>

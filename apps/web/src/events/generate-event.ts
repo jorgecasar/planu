@@ -1,9 +1,9 @@
 /**
- * Extracción de los datos de un evento a partir de una imagen.
+ * Extracting event data from an image.
  *
- * El prototipo hacía esto con un flow de Genkit ejecutado en el servidor de
- * Next. Aquí se resuelve en el cliente con Firebase AI Logic en modo híbrido:
- * Gemini Nano en el dispositivo si está disponible, Gemini en la nube si no.
+ * The prototype did this with a Genkit flow run on the Next.js server. Here
+ * it is resolved on the client with Firebase AI Logic in hybrid mode: Gemini
+ * Nano on the device if it is available, Gemini in the cloud if not.
  */
 
 import { toInputDate } from "../domain/format-dates.js";
@@ -21,31 +21,32 @@ export type EventPart =
 	| { inlineData: { mimeType: string; data: string } };
 
 /**
- * Lo único que este módulo necesita: algo que reciba las partes del mensaje y
- * devuelva texto.
+ * The only thing this module needs: something that receives the message
+ * parts and returns text.
  *
- * Se invierte la dependencia a propósito. Tipar aquí el `GenerativeModel` de
- * Firebase acoplaría la lógica al SDK y obligaría a simularlo entero en los
- * tests; así el adaptador vive en el componente y esto se prueba con una
- * función de tres líneas.
+ * The dependency is inverted on purpose. Typing Firebase's `GenerativeModel`
+ * here would couple the logic to the SDK and force the whole thing to be
+ * mocked in the tests; this way the adapter lives in the component and this
+ * is tested with a three-line function.
  */
 export type GenerateContent = (parts: EventPart[]) => Promise<string>;
 
 /**
- * Las reglas de fecha, que son las mismas para la imagen y para el texto.
+ * The date rules, which are the same for the image and for the text.
  *
- * Tres cosas que el modelo no resuelve solo, y cada una costaba un campo mal
- * puesto:
+ * Three things the model does not resolve on its own, and each used to cost
+ * a badly filled field:
  *
- * 1. **No sabe en qué día vive.** Pedirle que «asuma el año actual» era pedirle
- *    un dato que no tiene; con «el 20 de junio» delante, o se lo inventaba o lo
- *    dejaba sin año.
- * 2. **Escribe la fecha en el idioma del texto** si nadie le dice otra cosa, y
- *    `20 de junio` no lo entiende ningún `Date`.
- * 3. **Inicio y fin no son el mismo caso siempre.** Una cena ocurre en un día
- *    —inicio y fin, el mismo—; un curso que «empieza el 1 de septiembre» no
- *    tiene fin; y «antes del 30 de junio» es un plazo, que es **fin** y no
- *    inicio. Rellenarlos con una regla fija se equivoca en dos de los tres.
+ * 1. **It does not know what day it is.** Asking it to "assume the current
+ *    year" was asking it for data it does not have; faced with "20 June" it
+ *    either made one up or left the year out.
+ * 2. **It writes the date in the language of the text** unless told
+ *    otherwise, and no `Date` understands "20 de junio".
+ * 3. **Start and end are not always the same case.** A dinner happens on one
+ *    day — start and end the same —; a course that "starts on 1 September"
+ *    has no end; and "before 30 June" is a deadline, which is an **end** and
+ *    not a start. Filling them in with a fixed rule gets two out of three
+ *    wrong.
  */
 export function dateRules(today: Date): string {
 	return `- Today is ${toInputDate(today)}. Resolve "next Friday", "in June" or any date without a year against it.
@@ -57,7 +58,7 @@ export function dateRules(today: Date): string {
 - Never write a date the source does not give.`;
 }
 
-/** Reaprovechado casi literalmente del flow de Genkit del prototipo. */
+/** Reused almost verbatim from the prototype's Genkit flow. */
 export function extractionPrompt(today: Date): string {
 	return `You are an expert event planner. Extract event details from the provided image.
 Analyze the image, which could be a poster, a photo of an event in progress, or a flyer.
@@ -71,10 +72,10 @@ ${dateRules(today)}`;
 }
 
 /**
- * Esquema JSON plano para `responseConstraint` de la IA del navegador.
+ * Flat JSON schema for the browser AI's `responseConstraint`.
  *
- * El modelo en el dispositivo no ve la configuración de la nube: sin esta
- * restricción, Gemini Nano contesta en prosa y el parseo falla.
+ * The on-device model does not see the cloud configuration: without this
+ * restriction, Gemini Nano answers in prose and parsing fails.
  */
 export const RESPONSE_JSON_SCHEMA = {
 	type: "object",
@@ -89,12 +90,12 @@ export const RESPONSE_JSON_SCHEMA = {
 } as const;
 
 /**
- * Quita el bloque de código con el que muchos modelos envuelven el JSON.
- * Ocurre incluso pidiendo salida estructurada, sobre todo en modelos pequeños.
+ * Strips the code fence many models wrap the JSON in. It happens even when
+ * structured output is requested, especially in smaller models.
  *
- * Exportada porque `suggest-tags.ts` la necesita igual: el mismo modelo, el
- * mismo tic. Duplicarla sería la clase de deriva que una revisión de T23 pidió
- * evitar.
+ * Exported because `suggest-tags.ts` needs it too: the same model, the same
+ * tic. Duplicating it would be exactly the drift a T23 review asked to
+ * avoid.
  */
 export function stripCodeFence(text: string): string {
 	const trimmed = text.trim();
@@ -105,7 +106,7 @@ export function stripCodeFence(text: string): string {
 		.trim();
 }
 
-/** Codifica el fichero en base64 sin volcarlo entero en la pila de llamadas. */
+/** Encodes the file as base64 without dumping it whole onto the call stack. */
 export async function fileToBase64(file: File): Promise<string> {
 	const bytes = new Uint8Array(await file.arrayBuffer());
 	let binary = "";
@@ -118,17 +119,18 @@ const ISO_INSTANT =
 	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
 
 /**
- * Convierte a Date sólo lo que de verdad lo es, y **sólo en ISO 8601**.
+ * Converts to Date only what really is one, and **only in ISO 8601**.
  *
- * Se dejó de usar `new Date(texto)` a secas porque acepta demasiado y de forma
- * imprevisible: `"June 20"` le sale **2001**, y una fecha así, puesta en el
- * formulario sin avisar, se guarda con un despiste. Un campo vacío que el
- * usuario rellena es mejor que uno relleno con un año equivocado.
+ * Plain `new Date(text)` stopped being used because it accepts too much, and
+ * unpredictably: `"June 20"` comes out as **2001**, and a date like that,
+ * put into the form with no warning, gets saved with a mistake nobody
+ * notices. An empty field the user fills in is better than one filled in
+ * with the wrong year.
  *
- * La fecha de sólo día se construye con componentes locales: `new Date`
- * interpreta `"2026-06-20"` como medianoche **UTC**, que al oeste de Greenwich
- * cae en el día anterior. Es el mismo motivo por el que `toInputDate` no pasa
- * por `toISOString()`.
+ * The date-only case is built with local components: `new Date` interprets
+ * `"2026-06-20"` as midnight **UTC**, which west of Greenwich falls on the
+ * previous day. It is the same reason `toInputDate` does not go through
+ * `toISOString()`.
  */
 function toDate(value: unknown): Date | null {
 	if (typeof value !== "string") return null;
@@ -142,10 +144,10 @@ function toDate(value: unknown): Date | null {
 			Number(day[3]),
 		];
 		const local = new Date(year, month - 1, date);
-		// `new Date(26, …)` es **1926**: el constructor mapea los años de dos
-		// cifras al siglo XX, y la comprobación de abajo lo daría por bueno.
+		// `new Date(26, …)` is **1926**: the constructor maps two-digit years
+		// to the 20th century, and the check below would consider it valid.
 		local.setFullYear(year);
-		// `new Date(2026, 5, 32)` desborda a julio en silencio.
+		// `new Date(2026, 5, 32)` silently overflows into July.
 		return local.getMonth() === month - 1 && local.getDate() === date
 			? local
 			: null;
@@ -159,12 +161,12 @@ function toDate(value: unknown): Date | null {
 export class GenerationError extends Error {}
 
 /**
- * Interpreta la respuesta del modelo.
+ * Interprets the model's response.
  *
- * Aunque se pida salida estructurada, el modelo puede devolver texto que no
- * es JSON válido; y Gemini Nano, bastante más pequeño, falla más. Por eso el
- * parseo es defensivo y el resultado siempre pasa por el editor para que el
- * usuario lo revise antes de guardar.
+ * Even when structured output is requested, the model can return text that
+ * is not valid JSON; and Gemini Nano, being considerably smaller, fails
+ * more often. That is why the parsing is defensive and the result always
+ * goes through the editor for the user to review before saving.
  */
 export function parseGeneratedEvent(text: string): GeneratedEvent {
 	let raw: unknown;
@@ -196,7 +198,7 @@ export function parseGeneratedEvent(text: string): GeneratedEvent {
 	};
 }
 
-/** Pide al modelo los datos del evento que muestra la imagen. */
+/** Asks the model for the event data shown in the image. */
 export async function generateEventFromImage(
 	generate: GenerateContent,
 	file: File,

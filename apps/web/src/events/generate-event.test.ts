@@ -28,7 +28,7 @@ test("interpreta una respuesta completa", () => {
 });
 
 test("las fechas vacías o inválidas quedan en null y no rompen", () => {
-	// Gemini Nano es pequeño y devuelve basura en este campo con frecuencia.
+	// Gemini Nano is small and frequently returns garbage in this field.
 	const result = parseGeneratedEvent(
 		JSON.stringify({
 			title: "Concierto",
@@ -42,8 +42,8 @@ test("las fechas vacías o inválidas quedan en null y no rompen", () => {
 });
 
 test("una fecha de sólo día se queda en ese día, no en el anterior", () => {
-	// `new Date("2026-06-20")` es medianoche UTC: al oeste de Greenwich —y la
-	// suite corre en America/Santiago— eso es el 19.
+	// `new Date("2026-06-20")` is midnight UTC: west of Greenwich — and the
+	// suite runs in America/Santiago — that is the 19th.
 	const result = parseGeneratedEvent(
 		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
 	);
@@ -63,9 +63,9 @@ test("una fecha con hora se respeta tal cual", () => {
 });
 
 test("lo que no es ISO se descarta en vez de adivinarse", () => {
-	// Lo importante no es que sean null, sino **por qué**: `new Date("June 20")`
-	// devuelve el año 2001, y una fecha así se guarda con un despiste. Vacío es
-	// mejor que equivocado.
+	// What matters is not that they are null, but **why**: `new Date("June 20")`
+	// returns the year 2001, and a date like that gets saved with a mistake
+	// nobody notices. Empty is better than wrong.
 	for (const raw of ["June 20", "20 de junio", "20/06/2026", "20-06-2026"]) {
 		const result = parseGeneratedEvent(
 			JSON.stringify({ title: "x", startDate: raw }),
@@ -75,7 +75,7 @@ test("lo que no es ISO se descarta en vez de adivinarse", () => {
 });
 
 test("un día que no existe no desborda al mes siguiente", () => {
-	// `new Date(2026, 5, 32)` es el 2 de julio, sin avisar.
+	// `new Date(2026, 5, 32)` is 2 July, with no warning.
 	const result = parseGeneratedEvent(
 		JSON.stringify({ title: "x", startDate: "2026-06-32" }),
 	);
@@ -97,7 +97,7 @@ test("una respuesta que no es JSON se rechaza con un error propio", () => {
 });
 
 test("una respuesta sin título se rechaza", () => {
-	// Sin título no hay evento que guardar: el esquema lo exige.
+	// With no title there is no event to save: the schema requires it.
 	expect(() =>
 		parseGeneratedEvent(JSON.stringify({ description: "x" })),
 	).toThrow(GenerationError);
@@ -112,8 +112,8 @@ test("un JSON que no es objeto se rechaza", () => {
 });
 
 test("codifica la imagen en base64", async () => {
-	// Los bytes 0x01 0x02 0x03 son "AQID": comparar contra btoa("") dejaría pasar
-	// el test aunque la función devolviese cadena vacía.
+	// Bytes 0x01 0x02 0x03 are "AQID": comparing against btoa("") would let
+	// the test pass even if the function returned an empty string.
 	expect(await fileToBase64(image())).toBe("AQID");
 });
 
@@ -135,8 +135,8 @@ test("envía el prompt y la imagen en línea", async () => {
 	expect(enviado[0]).toMatchObject({
 		text: expect.stringContaining("event planner"),
 	});
-	// La imagen tiene el mismo problema con las fechas que el texto pegado: sin
-	// saber qué día es hoy, un cartel que dice «20 de junio» no tiene año.
+	// The image has the same date problem as pasted text: without knowing
+	// what day it is today, a poster that says "20 June" has no year.
 	expect(enviado[0]).toMatchObject({
 		text: expect.stringContaining("2026-08-17"),
 	});
@@ -156,7 +156,7 @@ test("propaga el fallo del modelo en vez de tragárselo", async () => {
 });
 
 test("acepta JSON envuelto en un bloque de código", () => {
-	// Los modelos pequeños lo añaden incluso cuando se les restringe la salida.
+	// Small models add it even when the output is constrained.
 	const conValla = '```json\n{"title":"Feria del libro"}\n```';
 	expect(parseGeneratedEvent(conValla).title).toBe("Feria del libro");
 
@@ -176,8 +176,8 @@ test("el esquema para la IA del navegador exige los campos con contenido", () =>
 });
 
 test("un año de dos cifras es ese año, no el del siglo XX", () => {
-	// `new Date(26, 5, 20)` es 1926, y la comprobación de desbordamiento lo da
-	// por bueno porque mes y día cuadran.
+	// `new Date(26, 5, 20)` is 1926, and the overflow check considers it
+	// valid because the month and day match.
 	const result = parseGeneratedEvent(
 		JSON.stringify({ title: "x", startDate: "0026-06-20" }),
 	);
@@ -186,9 +186,9 @@ test("un año de dos cifras es ese año, no el del siglo XX", () => {
 });
 
 test("el modelo no puede colar campos que no se le han pedido", () => {
-	// Lo que hace que la inyección de prompt no escale: el objeto se
-	// **reconstruye** con cinco claves, no se filtra. Si alguien lo cambiara por
-	// un spread, `imageUrl` sería una baliza y `memberIds`, una autoinvitación.
+	// What keeps prompt injection from scaling: the object is
+	// **rebuilt** with five keys, not filtered. If someone swapped this for
+	// a spread, `imageUrl` would be a beacon and `memberIds` a self-invite.
 	const result = parseGeneratedEvent(
 		JSON.stringify({
 			title: "Cena",

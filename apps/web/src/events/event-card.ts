@@ -25,7 +25,7 @@ import { formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
 import { tagChipStyles } from "./tag-styles.js";
 
-/** Tarjeta de un evento, con acciones de editar y borrar. */
+/** Card for an event, with edit and delete actions. */
 @customElement("planu-event-card")
 export class PlanuEventCard extends LitElement {
 	static override styles = [
@@ -35,12 +35,12 @@ export class PlanuEventCard extends LitElement {
 			display: block;
 		}
 
-		/* h3 y no h2: desde T19 la tarjeta va siempre dentro de un grupo, y ese
-		   grupo pone un h2 con su nombre. Con h2 aquí el evento quedaba
-		   *hermano* de su grupo (h1 → h2 Próximos → h2 Concierto) y navegar por
-		   encabezados no daba ninguna estructura. Los encabezados cruzan la
-		   frontera del shadow DOM, así que el nivel se cuenta entre componentes
-		   y no dentro de cada uno. */
+		/* h3, not h2: since T19 the card always lives inside a group, and that
+		   group has an h2 with its own name. With h2 here, the event would end
+		   up as a *sibling* of its group (h1 → h2 Upcoming → h2 Concert), and
+		   navigating by headings gave no structure at all. Headings cross the
+		   shadow DOM boundary, so the level is counted across components, not
+		   within each one. */
 		h3 {
 			margin: 0;
 			font-size: var(--wa-font-size-l);
@@ -56,8 +56,8 @@ export class PlanuEventCard extends LitElement {
 			margin: 0 0 var(--wa-space-s);
 		}
 
-		/* No es una lista de definiciones: son dos líneas de metadatos. Un <dl>
-		   con <div> que no contienen dt/dd es inválido y axe lo marca. */
+		/* Not a definition list: it's two lines of metadata. A <dl> with
+		   <div> that don't contain dt/dd is invalid and axe flags it. */
 		.meta {
 			display: grid;
 			gap: var(--wa-space-2xs);
@@ -65,8 +65,8 @@ export class PlanuEventCard extends LitElement {
 			font-size: var(--wa-font-size-s);
 		}
 
-		/* Lista de verdad y no un puñado de <span>: un lector de pantalla
-		   anuncia cuántas hay. */
+		/* An actual list, not a handful of <span>: a screen reader announces
+		   how many there are. */
 		.tags {
 			display: flex;
 			flex-wrap: wrap;
@@ -122,7 +122,7 @@ export class PlanuEventCard extends LitElement {
 		</wa-badge>`;
 	}
 
-	/** Por qué el hash sólo decide el tono, en `tag-styles.ts`. */
+	/** Why the hash only decides the hue, in `tag-styles.ts`. */
 	#renderTags() {
 		const { tags } = this.event;
 		if (tags.length === 0) return nothing;
@@ -352,9 +352,9 @@ export class PlanuEventCard extends LitElement {
 			await deleteDoc(doc(this.firestore, "events", this.event.id));
 			this.confirming = false;
 		} catch {
-			// Sin este catch la promesa se rechazaba sin manejar: el diálogo se
-			// quedaba abierto, el spinner paraba y el usuario no sabía por qué
-			// no pasaba nada.
+			// Without this catch the promise was rejected unhandled: the dialog
+			// stayed open, the spinner stopped, and the user had no idea why
+			// nothing was happening.
 			this.error = msg("The event could not be deleted. Please try again.");
 		} finally {
 			this.deleting = false;

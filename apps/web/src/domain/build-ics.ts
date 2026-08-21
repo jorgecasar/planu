@@ -1,17 +1,18 @@
 /**
- * Generación de iCalendar (RFC 5545) como texto, sin tocar el DOM ni la red.
+ * iCalendar (RFC 5545) generation as text, without touching the DOM or the
+ * network.
  *
- * Todo lo que decide qué sale en el fichero vive aquí, para que lo que se
- * prueba sea la cadena y no el navegador. La parte impura —`Blob`, object URL
- * y `<a download>`— está en `lib/download-file.ts`.
+ * Everything that decides what goes in the file lives here, so that what
+ * gets tested is the string and not the browser. The impure part — `Blob`,
+ * object URL and `<a download>` — is in `lib/download-file.ts`.
  */
 
 /**
- * Lo mínimo que hace falta para exportar un evento.
+ * The minimum needed to export an event.
  *
- * Estructural y no `StoredEvent` a propósito: así `domain/` no depende de
- * `lib/types.ts`, que arrastra Zod y el `Timestamp` de Firestore. Un
- * `StoredEvent` encaja aquí sin conversión.
+ * Structural, not `StoredEvent`, on purpose: this way `domain/` does not
+ * depend on `lib/types.ts`, which drags in Zod and Firestore's `Timestamp`.
+ * A `StoredEvent` fits here with no conversion.
  */
 export interface CalendarEvent {
 	id: string;
@@ -24,16 +25,17 @@ export interface CalendarEvent {
 
 export interface IcsOptions {
 	/**
-	 * Momento de generación, que va en `DTSTAMP`.
+	 * Generation instant, which goes into `DTSTAMP`.
 	 *
-	 * Obligatorio y no `new Date()` por defecto: con el reloj implícito, un test
-	 * del fichero generado no es reproducible y acaba probando la hora del
-	 * sistema en vez del formato.
+	 * Mandatory, not defaulted to `new Date()`: with an implicit clock, a test
+	 * of the generated file is not reproducible and ends up testing the
+	 * system time instead of the format.
 	 */
 	now: Date;
 	/**
-	 * Parte derecha del `UID`, tras la arroba. RFC 5545 pide un identificador
-	 * globalmente único y la convención es un dominio bajo nuestro control.
+	 * Right-hand part of the `UID`, after the at sign. RFC 5545 asks for a
+	 * globally unique identifier, and the convention is a domain under our
+	 * control.
 	 */
 	uidDomain?: string;
 }
@@ -42,40 +44,40 @@ const CRLF = "\r\n";
 const PRODID = "-//planu//planu calendar export//EN";
 const ENCODER = new TextEncoder();
 
-/** Los `.ics` se sirven así; el `charset` importa porque el texto va en UTF-8. */
+/** `.ics` files are served like this; the `charset` matters because the text is UTF-8. */
 export const ICS_MIME_TYPE = "text/calendar;charset=utf-8";
 
 /**
- * Quita los caracteres de control, que RFC 5545 §3.1 no admite en un valor:
- * `VALUE-CHAR = WSP / %x21-7E / NON-US-ASCII`. Sólo el tabulador se salva.
+ * Strips control characters, which RFC 5545 §3.1 does not allow in a value:
+ * `VALUE-CHAR = WSP / %x21-7E / NON-US-ASCII`. Only the tab is spared.
  *
- * Se filtra porque el título, la descripción y la ubicación son texto libre sin
- * saneado, y un carácter de control pegado desde otro sitio hace que varios
- * lectores rechacen el fichero **entero**, no la propiedad.
+ * It is filtered because the title, description and location are free text
+ * with no sanitising, and a control character pasted from somewhere else
+ * makes several readers reject the **whole** file, not just the property.
  *
- * Sin expresión regular: escribir los controles en una clase de caracteres es
- * justo lo que prohíbe `noControlCharactersInRegex`, y recorrer puntos de
- * código se lee igual de bien.
+ * No regular expression: writing the controls in a character class is
+ * exactly what `noControlCharactersInRegex` forbids, and iterating over code
+ * points reads just as well.
  */
 function stripControls(value: string): string {
 	let clean = "";
 	for (const char of value) {
 		const code = char.codePointAt(0) ?? 0;
-		// Tabulador, o cualquier cosa a partir del espacio que no sea DEL.
+		// Tab, or anything from the space character up that is not DEL.
 		if (code === 0x09 || (code >= 0x20 && code !== 0x7f)) clean += char;
 	}
 	return clean;
 }
 
 /**
- * Escapa un valor TEXT.
+ * Escapes a TEXT value.
  *
- * La barra invertida va primero: si se escapase después, duplicaría las barras
- * que acaban de introducir los otros reemplazos y el texto llegaría corrupto al
- * calendario.
+ * The backslash goes first: escaping it later would double the backslashes
+ * that the other replacements just introduced, and the text would arrive at
+ * the calendar corrupted.
  *
- * Los saltos de línea se convierten antes de filtrar controles, para que una
- * descripción multilínea conserve sus líneas en vez de perderlas.
+ * Line breaks are converted before filtering controls, so that a multi-line
+ * description keeps its lines instead of losing them.
  */
 export function escapeText(value: string): string {
 	return stripControls(
@@ -88,15 +90,15 @@ export function escapeText(value: string): string {
 }
 
 /**
- * Pliega una línea a 75 **octetos**, no a 75 caracteres.
+ * Folds a line at 75 **octets**, not 75 characters.
  *
- * Es la diferencia que hace inválido un fichero con acentos o emoji: en UTF-8
- * un carácter ocupa de uno a cuatro octetos, así que 75 caracteres pueden ser
- * 300 octetos. Se itera por puntos de código —`for…of`, no por índice— para no
- * partir un carácter por la mitad ni separar un par suplente.
+ * That is the difference that makes a file with accents or emoji invalid:
+ * in UTF-8 a character takes from one to four octets, so 75 characters can
+ * be 300 octets. It iterates by code point — `for…of`, not by index — so as
+ * not to split a character in half or separate a surrogate pair.
  *
- * Las líneas de continuación empiezan por un espacio, y ese espacio cuenta
- * dentro del límite: de ahí que a partir de la segunda el presupuesto sea 74.
+ * Continuation lines start with a space, and that space counts within the
+ * limit: hence from the second line onward the budget is 74.
  */
 export function foldLine(line: string): string {
 	const segments: string[] = [];
@@ -110,10 +112,10 @@ export function foldLine(line: string): string {
 			segments.push(current);
 			current = "";
 			bytes = 0;
-			// 74 y no 75 a partir del segundo tramo: RFC 5545 §3.1 acota la línea
-			// a 75 octetos **incluido** el espacio con el que empieza una
-			// continuación, así que el contenido dispone de uno menos. Con 75 la
-			// segunda línea salía de 76 y el fichero dejaba de ser válido.
+			// 74, not 75, from the second segment onward: RFC 5545 §3.1 caps the
+			// line at 75 octets **including** the space that opens a
+			// continuation, so the content has one less to work with. With 75
+			// the second line came out at 76 and the file stopped being valid.
 			limit = 74;
 		}
 		current += char;
@@ -128,17 +130,17 @@ function pad(value: number, length = 2): string {
 	return String(value).padStart(length, "0");
 }
 
-/** `YYYYMMDD`, con los componentes locales: es la fecha que eligió el usuario. */
+/** `YYYYMMDD`, with local components: it is the date the user chose. */
 export function toIcsDate(date: Date): string {
 	return `${pad(date.getFullYear(), 4)}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
 }
 
 /**
- * `YYYYMMDDTHHMMSSZ`, en UTC.
+ * `YYYYMMDDTHHMMSSZ`, in UTC.
  *
- * La forma con `Z` evita tener que emitir un `VTIMEZONE` con las reglas de
- * horario de verano de la zona del usuario, que es la otra manera de que una
- * hora local no sea ambigua.
+ * The `Z` form avoids having to emit a `VTIMEZONE` with the user's zone's
+ * daylight-saving rules, which is the other way to make a local time
+ * unambiguous.
  */
 export function toIcsDateTime(date: Date): string {
 	return (
@@ -154,16 +156,17 @@ function nextDay(date: Date): Date {
 }
 
 /**
- * Si el instante es el **comienzo de su día local**, que es lo que el editor
- * guarda para una fecha sin hora.
+ * Whether the instant is the **start of its local day**, which is what the
+ * editor stores for a date with no time.
  *
- * Se compara contra `new Date(año, mes, día)` en vez de mirar `getHours() === 0`
- * porque hay zonas donde la medianoche no existe: en Chile, Cuba, Paraguay o
- * Líbano el reloj se adelanta a las 00:00, así que el 6 de septiembre de 2026 en
- * Santiago el día empieza a la 01:00. Con la comprobación ingenua, un evento
- * creado con un `<input type="date">` dejaba de ser de día completo y se
- * exportaba como una cita puntual de duración cero. Ambas expresiones sufren la
- * misma normalización del salto, así que comparadas coinciden.
+ * Compared against `new Date(year, month, day)` instead of checking
+ * `getHours() === 0` because there are zones where midnight does not exist:
+ * in Chile, Cuba, Paraguay or Lebanon the clock jumps forward from 00:00, so
+ * on 6 September 2026 in Santiago the day starts at 01:00. With the naive
+ * check, an event created with an `<input type="date">` stopped being an
+ * all-day event and was exported as a zero-duration point-in-time
+ * appointment. Both expressions undergo the same jump normalisation, so
+ * compared to each other they agree.
  */
 function isStartOfDay(date: Date): boolean {
 	const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -173,26 +176,27 @@ function isStartOfDay(date: Date): boolean {
 export interface CalendarWindow {
 	start: Date;
 	/**
-	 * Fin del evento, **exclusivo** cuando es de día completo: el día siguiente
-	 * al último. Así lo define RFC 5545 y así lo espera Google, y por eso lo
-	 * calcula esta función una sola vez en lugar de cada consumidor.
+	 * End of the event, **exclusive** when it is all-day: the day after the
+	 * last one. That is how RFC 5545 defines it and how Google expects it,
+	 * which is why this function computes it once instead of leaving it to
+	 * every consumer.
 	 *
-	 * `null` sólo cuando el evento tiene hora y no declara fin.
+	 * `null` only when the event has a time and declares no end.
 	 */
 	end: Date | null;
 	allDay: boolean;
 }
 
 /**
- * Cuándo ocurre el evento, o `null` si no hay forma de saberlo.
+ * When the event happens, or `null` if there is no way to know.
  *
- * Dos decisiones que el modelo obliga a tomar:
- * - Un evento con sólo fecha de fin se exporta empezando ese día, porque
- *   RFC 5545 exige `DTSTART` en todo `VEVENT` sin `METHOD`.
- * - Es de día completo si todas las fechas que trae son el comienzo de su día
- *   local, que es lo que produce un `<input type="date">`. Se deduce porque el
- *   modelo no tiene bandera de «todo el día»; si algún día la lleva, este
- *   detector sobra y el dato manda.
+ * Two decisions the model forces:
+ * - An event with only an end date is exported starting on that same day,
+ *   because RFC 5545 requires `DTSTART` in every `VEVENT` with no `METHOD`.
+ * - It is all-day if every date it carries is the start of its local day,
+ *   which is what an `<input type="date">` produces. It is inferred because
+ *   the model has no "all day" flag; if it ever gets one, this detector
+ *   becomes unnecessary and the field wins.
  */
 export function calendarWindow(event: CalendarEvent): CalendarWindow | null {
 	const start = event.startDate ?? event.endDate ?? null;
@@ -204,10 +208,11 @@ export function calendarWindow(event: CalendarEvent): CalendarWindow | null {
 
 	if (allDay) return { start, end: nextDay(declaredEnd ?? start), allDay };
 
-	// Con hora, un fin que no es posterior al inicio se omite: RFC 5545 §3.8.2.2
-	// exige que `DTEND` sea estrictamente posterior, y el esquema admite inicio
-	// igual a fin. Un `VEVENT` con hora y sin `DTEND` es válido y significa
-	// duración cero, que es exactamente lo que pidió el usuario.
+	// With a time, an end that is not later than the start is omitted:
+	// RFC 5545 §3.8.2.2 requires `DTEND` to be strictly later, and the schema
+	// allows start equal to end. A `VEVENT` with a time and no `DTEND` is
+	// valid and means zero duration, which is exactly what the user asked
+	// for.
 	return {
 		start,
 		end: declaredEnd && declaredEnd > start ? declaredEnd : null,
@@ -215,27 +220,28 @@ export function calendarWindow(event: CalendarEvent): CalendarWindow | null {
 	};
 }
 
-/** Un evento sin ninguna fecha no se puede exportar; se avisa en vez de exportarlo. */
+/** An event with no dates at all cannot be exported; it is flagged instead of exported. */
 export function isExportable(event: CalendarEvent): boolean {
 	return calendarWindow(event) !== null;
 }
 
 /**
- * `UID` del evento.
+ * The event's `UID`.
  *
- * Sale del identificador del documento, que es único dentro de la colección y
- * no cambia nunca. Eso es justo lo que pide RFC 5545: exportar dos veces el
- * mismo evento produce el mismo `UID`, así que el calendario **actualiza** la
- * entrada en lugar de duplicarla, y dos eventos distintos nunca colisionan. Un
- * `UID` aleatorio —o derivado del título, que se edita— llenaría la agenda de
- * copias en cada exportación.
+ * Comes from the document's identifier, which is unique within the
+ * collection and never changes. That is exactly what RFC 5545 asks for:
+ * exporting the same event twice produces the same `UID`, so the calendar
+ * **updates** the entry instead of duplicating it, and two different events
+ * never collide. A random `UID` — or one derived from the title, which gets
+ * edited — would fill the calendar with copies on every export.
  */
 function uid(event: CalendarEvent, domain: string): string {
-	// Sin identificador no hay `UID` estable, y el que saldría —`@planu.app` o
-	// `undefined@planu.app`— sería **el mismo para todos**: el calendario los
-	// tomaría por versiones de un único evento y dejaría uno solo. Mejor parar
-	// aquí que vaciarle la agenda a alguien. Hoy no llega ninguno, pero T20 y
-	// T21 empiezan a pasear borradores sin guardar.
+	// With no identifier there is no stable `UID`, and the one that would
+	// come out — `@planu.app` or `undefined@planu.app` — would be **the same
+	// for everyone**: the calendar would take them for versions of a single
+	// event and keep only one. Better to stop here than to empty out
+	// someone's calendar. Today none arrives without one, but T20 and T21
+	// are starting to walk unsaved drafts around.
 	if (!event.id) {
 		throw new TypeError("Un evento sin identificador no se puede exportar.");
 	}
@@ -276,12 +282,12 @@ function veventLines(
 }
 
 /**
- * Construye el calendario completo.
+ * Builds the whole calendar.
  *
- * Los eventos sin fechas se omiten en lugar de emitir un `VEVENT` sin
- * `DTSTART`, que hace que algunos calendarios rechacen el fichero entero: un
- * evento de menos es mejor que una agenda que no se puede importar. Quien
- * llama comprueba antes con `isExportable()` para poder avisar.
+ * Events with no dates are skipped instead of emitting a `VEVENT` with no
+ * `DTSTART`, which causes some calendars to reject the **whole** file: one
+ * event fewer is better than a calendar that cannot be imported. The caller
+ * checks beforehand with `isExportable()` so it can warn.
  */
 export function buildIcs(
 	events: readonly CalendarEvent[],
@@ -307,23 +313,23 @@ export function buildIcs(
 
 	lines.push("END:VCALENDAR");
 
-	// El plegado se aplica al final y a todas por igual: así ninguna propiedad
-	// nueva puede olvidarse de plegar.
+	// Folding is applied at the end and to all lines alike: this way no new
+	// property can ever be forgotten and left unfolded.
 	return `${lines.map(foldLine).join(CRLF)}${CRLF}`;
 }
 
 /**
- * Nombre de fichero a partir del título.
+ * File name derived from the title.
  *
- * Sin acentos ni signos, porque el nombre viaja por una cabecera de descarga y
- * por sistemas de ficheros con reglas distintas. Si no queda nada utilizable
- * —un título en otro alfabeto— se cae a un nombre genérico antes que a un
- * fichero llamado `.ics`.
+ * No accents or punctuation, because the name travels through a download
+ * header and through file systems with different rules. If nothing usable
+ * is left — a title in another alphabet — it falls back to a generic name
+ * rather than to a file named `.ics`.
  */
 export function icsFileName(title: string): string {
 	const slug = title
 		.normalize("NFD")
-		// Los diacríticos que NFD acaba de separar de su letra.
+		// The diacritics that NFD just split off from their letter.
 		.replace(/[\u0300-\u036f]/gu, "")
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")

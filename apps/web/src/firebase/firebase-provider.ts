@@ -40,24 +40,25 @@ let core: CoreServices | undefined;
 let data: Promise<DataServices> | undefined;
 
 /**
- * Lo imprescindible para decidir a dónde va el usuario: la app y Auth.
+ * The bare minimum to decide where the user goes: the app and Auth.
  *
- * Firestore y Storage quedan fuera a propósito. Se cargaban aquí y entraban en
- * el arranque de todas las sesiones, incluidas las que sólo ven el login: eran
- * la mayor parte de los 180 KiB de JavaScript sin usar que midió Lighthouse.
+ * Firestore and Storage are left out on purpose. They used to be loaded here
+ * and entered the startup of every session, including those that only see
+ * the login: they were the bulk of the 180 KiB of unused JavaScript that
+ * Lighthouse measured.
  */
 export function initializeFirebase(): CoreServices {
 	if (core) return core;
 
 	const app = getApps()[0] ?? initializeApp(firebaseConfig);
 
-	// `initializeAuth` y no `getAuth`: éste último instala por defecto el
-	// `browserPopupRedirectResolver`, que al arrancar Auth comprueba si hay una
-	// redirección pendiente. Esa comprobación descargaba gapi y el iframe de
-	// autenticación —137 KiB de tres orígenes ajenos— en **todas** las visitas,
-	// aunque nadie pulsara el botón de Google. Era la cadena de dependencias
-	// más larga de la página: 4,7 s. El resolver se pasa ahora en el propio
-	// `signInWithPopup`, así que sólo lo paga quien usa ese acceso.
+	// `initializeAuth` and not `getAuth`: the latter installs the
+	// `browserPopupRedirectResolver` by default, which checks for a pending
+	// redirect when Auth starts up. That check downloaded gapi and the
+	// authentication iframe —137 KiB from three third-party origins— on
+	// **every** visit, even if nobody pressed the Google button. It was the
+	// longest dependency chain on the page: 4.7 s. The resolver is now passed
+	// in `signInWithPopup` itself, so only whoever uses that sign-in pays for it.
 	const auth = initializeAuth(app, {
 		persistence: [indexedDBLocalPersistence, browserLocalPersistence],
 	});
@@ -73,23 +74,23 @@ export function initializeFirebase(): CoreServices {
 }
 
 /**
- * Carga Firestore y Storage bajo demanda, una sola vez.
+ * Loads Firestore and Storage on demand, only once.
  *
- * `connectXEmulator` sólo admite una llamada y antes de cualquier operación,
- * de ahí que la promesa se memoice en lugar del resultado.
+ * `connectXEmulator` only allows one call, and before any operation, which is
+ * why the promise is memoized instead of the result.
  */
 export function loadDataServices(app: FirebaseApp): Promise<DataServices> {
 	data ??= (async () => {
-		// Un rechazo se memoiza igual que un éxito: sin limpiar la referencia,
-		// un fallo pasajero del import dinámico dejaría la aplicación sin datos
-		// hasta recargar la página entera.
+		// A rejection is memoized just like a success: without clearing the
+		// reference, a transient failure of the dynamic import would leave the
+		// application without data until the whole page is reloaded.
 		const [{ getFirestore, connectFirestoreEmulator }, storageModule] =
 			await Promise.all([
 				import("firebase/firestore"),
 				import("firebase/storage"),
 			]);
 
-		// La base de este proyecto no es la `(default)`.
+		// This project's database is not the `(default)` one.
 		const firestore = getFirestore(app, DATABASE_ID);
 		const storage = storageModule.getStorage(app);
 
@@ -112,8 +113,8 @@ export function loadDataServices(app: FirebaseApp): Promise<DataServices> {
 }
 
 /**
- * Publica los servicios de Firebase y la sesión actual por contexto.
- * Envuelve al resto de la aplicación.
+ * Publishes the Firebase services and the current session through context.
+ * Wraps the rest of the application.
  */
 @customElement("planu-firebase-provider")
 export class PlanuFirebaseProvider extends LitElement {
@@ -121,7 +122,7 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	readonly #user = new ContextProvider(this, {
 		context: userContext,
-		// undefined = todavía comprobando. No es lo mismo que "sin sesión".
+		// undefined = still checking. Not the same as "no session".
 		initialValue: undefined,
 	});
 
@@ -150,20 +151,20 @@ export class PlanuFirebaseProvider extends LitElement {
 		this.#unsubscribe = onAuthStateChanged(
 			this.#core.auth,
 			(user: User | null) => {
-				// El contexto expone el tipo de dominio: quien lo consume no debe
-				// necesitar saber que esto viene de Firebase.
+				// The context exposes the domain type: whoever consumes it shouldn't
+				// need to know this comes from Firebase.
 				this.#user.setValue(user ? toSessionUser(user) : null);
-				// Sólo hay datos que leer cuando hay sesión, así que es el momento
-				// exacto de traer Firestore y Storage.
+				// There is only data to read when there is a session, so this is the
+				// exact moment to bring in Firestore and Storage.
 				if (user) void this.#provideDataServices(user);
 			},
 		);
 	}
 
 	/**
-	 * Sin este `catch` el fallo era invisible: promesa rechazada sin manejar,
-	 * los contextos nunca se rellenaban y la vista se quedaba esperando datos
-	 * que no iban a llegar, sin decir nada.
+	 * Without this `catch` the failure was invisible: an unhandled rejected
+	 * promise, the contexts never got filled in, and the view kept waiting for
+	 * data that was never going to arrive, without saying anything.
 	 */
 	async #provideDataServices(user: User): Promise<void> {
 		try {

@@ -11,24 +11,25 @@ import {
 } from "../domain/view-mode.js";
 
 /**
- * Prefijo propio para no chocar con nada más en el mismo origen, y sufijo con
- * la vista a la que pertenece: una clave llamada `sort` a secas no diría de qué.
+ * Own prefix to avoid clashing with anything else on the same origin, and a
+ * suffix with the view it belongs to: a key called just `sort` wouldn't say
+ * of what.
  */
 const SORT_KEY = "planu.events.sort";
 
-/** La vista elegida —tarjetas, calendario o agenda—, junto a la del orden. */
+/** The chosen view —cards, calendar or agenda—, alongside the sort order's. */
 const VIEW_KEY = "planu.events.view";
 
 /**
- * Todo lo que decide qué es válido vive en `domain/sort-events.ts`. Aquí sólo
- * queda el acceso al almacenamiento, que es lo único que no se puede probar
- * como función pura.
+ * Everything that decides what is valid lives in `domain/sort-events.ts`.
+ * All that's left here is access to storage, which is the only part that
+ * cannot be tested as a pure function.
  *
- * `storage` es opcional y se resuelve **dentro** del `try`, no como valor por
- * defecto del parámetro: en un iframe con el almacenamiento denegado, el mero
- * hecho de nombrar `localStorage` lanza `SecurityError`, y evaluado en la firma
- * ocurriría antes de entrar al `try`. Así, un navegador restrictivo pierde la
- * preferencia pero no el listado.
+ * `storage` is optional and resolved **inside** the `try`, not as the
+ * parameter's default value: in an iframe with storage denied, the mere act
+ * of naming `localStorage` throws `SecurityError`, and evaluating it in the
+ * signature would happen before entering the `try`. This way, a restrictive
+ * browser loses the preference but not the listing.
  */
 export function readSortPreference(storage?: Storage): SortPreference {
 	try {
@@ -38,7 +39,7 @@ export function readSortPreference(storage?: Storage): SortPreference {
 	}
 }
 
-/** Guardar la preferencia es una comodidad: si falla, no se avisa de nada. */
+/** Saving the preference is a convenience: if it fails, nothing is reported. */
 export function writeSortPreference(
 	preference: SortPreference,
 	storage?: Storage,
@@ -49,17 +50,17 @@ export function writeSortPreference(
 			serializeSortPreference(preference),
 		);
 	} catch {
-		// Cuota llena o almacenamiento denegado. El listado sigue funcionando.
+		// Quota full or storage denied. The listing keeps working.
 	}
 }
 
 /**
- * La vista que el usuario dejó puesta. Lo que decide qué es válido vive en
- * `domain/view-mode.ts`; aquí sólo queda el acceso al almacenamiento.
+ * The view the user left set. What decides what is valid lives in
+ * `domain/view-mode.ts`; all that's left here is access to storage.
  *
- * Mismo `try` que arriba y por el mismo motivo: nombrar `localStorage` puede
- * lanzar `SecurityError` antes de leer nada, y un navegador restrictivo debe
- * perder la preferencia, no la pantalla.
+ * Same `try` as above and for the same reason: naming `localStorage` can
+ * throw `SecurityError` before reading anything, and a restrictive browser
+ * must lose the preference, not the screen.
  */
 export function readViewMode(storage?: Storage): ViewMode {
 	try {
@@ -69,11 +70,11 @@ export function readViewMode(storage?: Storage): ViewMode {
 	}
 }
 
-/** Guardar la vista es una comodidad: si falla, no se avisa de nada. */
+/** Saving the view is a convenience: if it fails, nothing is reported. */
 export function writeViewMode(mode: ViewMode, storage?: Storage): void {
 	try {
 		(storage ?? localStorage).setItem(VIEW_KEY, mode);
 	} catch {
-		// Cuota llena o almacenamiento denegado. La vista sigue funcionando.
+		// Quota full or storage denied. The view keeps working.
 	}
 }

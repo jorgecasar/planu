@@ -12,28 +12,29 @@ import {
 	type MonthCell,
 } from "./month-grid.js";
 
-/** Primer día del mes de una fecha, que es como se identifica un mes aquí. */
+/** First day of the month of a date, which is how a month is identified here. */
 function startOfMonth(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
 /**
- * Rejilla mensual: un mes, sus semanas completas y los eventos de cada día.
+ * Month grid: a month, its complete weeks, and each day's events.
  *
- * Recibe los eventos ya filtrados por propiedad y no habla con nadie más. El
- * conmutador entre vistas es otra tarea; aquí sólo se pinta el mes.
+ * It receives events already filtered by ownership and doesn't talk to
+ * anyone else. The switcher between views is a separate task; here only the
+ * month is painted.
  *
- * **Sin librería de calendario**: CSS grid para la forma e `Intl.DateTimeFormat`
- * para los nombres. El reparto de eventos en celdas vive en `month-grid.ts`,
- * como función pura, que es donde se puede probar el cambio de horario de
- * verano sin montar nada.
+ * **No calendar library**: CSS grid for the shape and `Intl.DateTimeFormat`
+ * for the names. Spreading events across cells lives in `month-grid.ts`, as
+ * a pure function, which is where the daylight saving time change can be
+ * tested without mounting anything.
  *
- * El teclado sigue el patrón `grid` de las APG, y no una invención propia:
- * flechas para moverse por días y semanas, `Inicio` y `Fin` para los extremos de
- * la semana, `Re Pág` y `Av Pág` para cambiar de mes, y **un solo punto de
- * tabulación** con foco itinerante —`tabindex="0"` en la celda activa y `-1` en
- * las demás—. Lo contrario, 42 celdas tabulables, obliga a 42 pulsaciones para
- * cruzar el calendario.
+ * The keyboard follows the APG `grid` pattern, not an invention of our own:
+ * arrows to move by days and weeks, `Home` and `End` for the ends of the
+ * week, `Page Up` and `Page Down` to change month, and **a single tab stop**
+ * with roving focus —`tabindex="0"` on the active cell and `-1` on the
+ * rest—. The alternative, 42 tabbable cells, would force 42 keystrokes to
+ * cross the calendar.
  */
 @customElement("planu-calendar-view")
 export class PlanuCalendarView extends LitElement {
@@ -51,10 +52,11 @@ export class PlanuCalendarView extends LitElement {
 		}
 
 		/*
-		 * El título no es un encabezado a propósito: el nivel que le tocaría
-		 * depende de dónde lo monte el conmutador de vistas, y fijarlo aquí
-		 * rompería el orden de encabezados de la página. La rejilla se nombra
-		 * con aria-labelledby, que es lo que necesita quien navega con lector.
+		 * The title is deliberately not a heading: the level it would deserve
+		 * depends on where the view switcher mounts it, and fixing it here
+		 * would break the page's heading order. The grid is named with
+		 * aria-labelledby, which is what someone navigating with a screen
+		 * reader needs.
 		 */
 		.title {
 			margin: 0;
@@ -71,9 +73,9 @@ export class PlanuCalendarView extends LitElement {
 		}
 
 		/*
-		 * Las filas existen para el árbol de accesibilidad —role="grid" exige
-		 * role="row"— pero no deben generar caja: con display: contents las
-		 * celdas son hijas de la rejilla CSS y las siete columnas se alinean.
+		 * The rows exist for the accessibility tree —role="grid" requires
+		 * role="row"— but must not generate a box: with display: contents the
+		 * cells become children of the CSS grid and the seven columns line up.
 		 */
 		.row {
 			display: contents;
@@ -123,7 +125,7 @@ export class PlanuCalendarView extends LitElement {
 			list-style: none;
 		}
 
-		/* En una celda de mes no cabe una tarjeta: entradas de una línea. */
+		/* A card doesn't fit in a month cell: one-line entries. */
 		li {
 			overflow: hidden;
 			border-radius: var(--wa-border-radius-m);
@@ -141,9 +143,9 @@ export class PlanuCalendarView extends LitElement {
 		}
 
 		/*
-		 * La utilidad wa-visually-hidden es una clase global y no cruza al
-		 * shadow root, así que el texto para lectores se vería. Misma técnica,
-		 * declarada donde aplica.
+		 * The wa-visually-hidden utility is a global class and doesn't cross
+		 * into the shadow root, so the screen-reader text would end up visible.
+		 * Same technique, declared where it applies.
 		 */
 		.undated ul {
 			display: flex;
@@ -167,55 +169,55 @@ export class PlanuCalendarView extends LitElement {
 		}
 	`;
 
-	/** Los eventos a repartir, ya filtrados por quien monta la vista. */
+	/** The events to spread across cells, already filtered by whoever mounts the view. */
 	@property({ attribute: false }) events: readonly StoredEvent[] = [];
 
 	/**
-	 * El mes visible. Es entrada y posición a la vez: navegar lo reasigna, de
-	 * modo que quien monte la vista puede leerlo para saber dónde está.
+	 * The visible month. It's both input and position at once: navigating
+	 * reassigns it, so whoever mounts the view can read it to know where it is.
 	 */
 	@property({ attribute: false }) month: Date = startOfMonth(new Date());
 
-	/** Qué día es hoy. Por parámetro para que los tests no dependan del reloj. */
+	/** What day today is. Passed as a parameter so tests don't depend on the clock. */
 	@property({ attribute: false }) today: Date = new Date();
 
-	/** Locale a usar. Vacío significa el que la interfaz está sirviendo. */
+	/** Locale to use. Empty means whatever the interface is currently serving. */
 	@property() locale = "";
 
 	/**
-	 * Nivel del encabezado del mes. `0` —el valor por defecto— deja un párrafo.
+	 * Level of the month's heading. `0` —the default value— leaves a paragraph.
 	 *
-	 * El nivel no puede fijarse aquí: depende de dónde se monte la rejilla, y en
-	 * el listado el árbol es `h1 planu` → `h2 grupo` → `h3 tarjeta`, así que allí
-	 * el mes es un `h2`. Fijar un `h2` dentro del componente lo rompería en
-	 * cualquier otro sitio, y no ponerlo deja el mes fuera de la navegación por
-	 * encabezados. De ahí que lo diga quien lo monta.
+	 * The level can't be fixed here: it depends on where the grid is mounted,
+	 * and in the listing the tree is `h1 planu` → `h2 group` → `h3 card`, so
+	 * there the month is an `h2`. Fixing an `h2` inside the component would
+	 * break it anywhere else, and not setting one leaves the month out of
+	 * heading navigation. That's why whoever mounts it says so.
 	 */
 	@property({ type: Number, attribute: "heading-level" }) headingLevel = 0;
 
-	/** El día con el foco itinerante. */
+	/** The day with roving focus. */
 	@state() private focused: Date = new Date();
 
-	/** Lo que se anuncia al cambiar de mes. Vacío hasta el primer cambio. */
+	/** What's announced when the month changes. Empty until the first change. */
 	@state() private announcement = "";
 
 	/**
-	 * Sólo se devuelve el foco a la rejilla cuando el propio teclado lo movió.
-	 * Hacerlo en cada render se lo robaría al usuario cada vez que llega un
-	 * evento nuevo por la propiedad.
+	 * Focus is only returned to the grid when the keyboard itself moved it.
+	 * Doing it on every render would steal it from the user every time a new
+	 * event arrives through the property.
 	 */
 	#refocus = false;
 
 	/**
-	 * Reengancha el foco itinerante al mes visible.
+	 * Reattaches the roving focus to the visible month.
 	 *
-	 * Hace falta porque el mes también puede cambiar desde fuera, y un foco
-	 * apuntando a otro mes dejaría la rejilla sin ninguna celda con
-	 * `tabindex="0"`: cuarenta y dos celdas y ni un punto de tabulación, es
-	 * decir, un calendario fuera del recorrido del teclado.
+	 * It's needed because the month can also change from the outside, and a
+	 * focus pointing at another month would leave the grid without a single
+	 * `tabindex="0"` cell: forty-two cells and not one tab stop, that is, a
+	 * calendar outside the keyboard's reach.
 	 *
-	 * Se prefiere hoy cuando cae dentro, que es el día que el usuario espera
-	 * encontrar al abrir un calendario.
+	 * Today is preferred when it falls within range, which is the day the
+	 * user expects to find when opening a calendar.
 	 */
 	override willUpdate(): void {
 		if (this.#sameMonth(this.focused)) return;
@@ -286,13 +288,14 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * El título del mes, con el nivel que le haya dado quien monta la vista.
+	 * The month's title, with whatever level whoever mounts the view has
+	 * given it.
 	 *
-	 * Un `switch` con etiquetas literales y no `unsafeStatic`: sólo hay dos
-	 * niveles que tengan sentido aquí, y una plantilla estática construida desde
-	 * una propiedad es una vía de inyección que no hace falta abrir por dos
-	 * casos. El `id` es el mismo en los tres, porque es lo que nombra la rejilla
-	 * por `aria-labelledby`.
+	 * A `switch` with literal labels and not `unsafeStatic`: there are only
+	 * two levels that make sense here, and a static template built from a
+	 * property is an injection path that doesn't need opening for two cases.
+	 * The `id` is the same in all three, because it's what names the grid via
+	 * `aria-labelledby`.
 	 */
 	#renderTitle(title: string) {
 		switch (this.headingLevel) {
@@ -306,18 +309,19 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * Los eventos sin fecha, alcanzables y no sólo contados.
+	 * Undated events, reachable and not just counted.
 	 *
-	 * Antes esto era un párrafo que decía cuántos había, y con eso un evento sin
-	 * fecha quedaba anunciado pero inalcanzable: el usuario sabía que existía y
-	 * no tenía forma de llegar a él desde aquí. Ahora se listan, cada uno con su
-	 * botón, y elegir uno emite `planu-event-picked` para que quien monte la
-	 * vista decida qué hacer —abrir el editor es lo natural, pero eso es de
-	 * quien la monta, no de la rejilla—.
+	 * This used to be a paragraph saying how many there were, and with that an
+	 * undated event was announced but unreachable: the user knew it existed
+	 * and had no way to get to it from here. Now they're listed, each with
+	 * its own button, and picking one emits `planu-event-picked` so that
+	 * whoever mounts the view decides what to do —opening the editor is the
+	 * natural choice, but that's up to whoever mounts it, not up to the
+	 * grid—.
 	 *
-	 * Van en un `wa-details` plegado: son secundarios respecto al mes, y
-	 * desplegados empujarían la rejilla fuera de la pantalla en cuanto haya unos
-	 * cuantos.
+	 * They go in a collapsed `wa-details`: they're secondary compared to the
+	 * month, and expanded they would push the grid off the screen as soon as
+	 * there are a few of them.
 	 */
 	#renderUndated(undated: readonly StoredEvent[]) {
 		if (undated.length === 0) return nothing;
@@ -337,7 +341,7 @@ export class PlanuCalendarView extends LitElement {
 		</wa-details>`;
 	}
 
-	/** La rejilla no sabe qué hacer con un evento: lo dice y ya. */
+	/** The grid doesn't know what to do with an event: it just says so. */
 	#pick(event: StoredEvent): void {
 		this.dispatchEvent(
 			new CustomEvent<StoredEvent>("planu-event-picked", {
@@ -349,11 +353,11 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * Una celda.
+	 * A cell.
 	 *
-	 * La fecha completa va como primer contenido y oculta a la vista, no como
-	 * `aria-label`: la etiqueta taparía los títulos de los eventos, y entonces el
-	 * lector diría el día pero no lo que pasa en él.
+	 * The full date goes as the first content, hidden from view, not as
+	 * `aria-label`: the label would cover the events' titles, and then the
+	 * reader would say the day but not what happens on it.
 	 */
 	#renderCell(cell: MonthCell<StoredEvent>, focusKey: number) {
 		return html`
@@ -379,11 +383,12 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * El aviso de los eventos sin fecha.
+	 * The notice for undated events.
 	 *
-	 * No caben en el calendario —una celda es una fecha— pero desaparecer sin
-	 * más los daría por perdidos, así que se dice cuántos son. Dos formas y no
-	 * una interpolación: en singular y en plural la frase cambia entera.
+	 * They don't fit in the calendar —a cell is a date— but simply making
+	 * them disappear would write them off as lost, so it says how many there
+	 * are. Two forms and not one interpolation: the whole sentence changes
+	 * between singular and plural.
 	 */
 	#undatedNotice(count: number): string {
 		return count === 1
@@ -392,19 +397,20 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * Pinchar una celda se lleva allí el punto de tabulación.
+	 * Clicking a cell moves the tab stop there.
 	 *
-	 * Y si esa celda era relleno de otro mes, además hay que **devolver el foco
-	 * real**. La plantilla no lleva claves, así que Lit reutiliza los nodos por
-	 * posición: al repintar el mes nuevo, el nodo que el usuario acaba de
-	 * pinchar sigue enfocado y ya contiene otro día. Pinchando el 1 de julio
-	 * desde junio, el `tabindex="0"` iba al 1 de julio pero el foco se quedaba
-	 * en el nodo, que ahora era el 29 de julio: la siguiente flecha saltaba
-	 * veintisiete días, y a un lector de pantalla lo dejaba en una celda de la
-	 * que no le habían dicho nada.
+	 * And if that cell was filler from another month, the **actual focus**
+	 * also needs to be returned. The template doesn't carry keys, so Lit
+	 * reuses nodes by position: when the new month repaints, the node the
+	 * user just clicked stays focused but now holds a different day. Clicking
+	 * July 1 from June, the `tabindex="0"` went to July 1 but the focus
+	 * stayed on the node, which now held July 29: the next arrow key jumped
+	 * twenty-seven days, leaving a screen reader on a cell it had said
+	 * nothing about.
 	 *
-	 * El reenganche va aquí y no dentro de `#focus()` porque por ahí pasan
-	 * también los botones de la barra, y ésos no deben robar el foco.
+	 * The reattachment goes here and not inside `#focus()` because the
+	 * toolbar buttons also go through there, and those shouldn't steal the
+	 * focus.
 	 */
 	#onCellClick(cell: MonthCell<StoredEvent>): void {
 		this.#refocus ||= !this.#sameMonth(cell.date);
@@ -421,11 +427,11 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	#onKeydown(domEvent: KeyboardEvent): void {
-		// Con modificador no es nuestra tecla. `Control+Inicio` es «ir al
-		// principio del documento» y `Mayús`+flecha, selección: entrar por la
-		// rama de `Inicio` o de la flecha se los tragaría con `preventDefault()`.
-		// Las APG reservan además `Mayús`+`Re/Av Pág` para cambiar de año, que
-		// aquí no está: mejor no hacer nada que hacer otra cosa.
+		// With a modifier it isn't our key. `Ctrl+Home` means "go to the start
+		// of the document" and `Shift`+arrow means selection: going through the
+		// `Home` or arrow branch would swallow them with `preventDefault()`. The
+		// APG also reserve `Shift`+`Page Up/Down` for changing year, which isn't
+		// here: better to do nothing than to do something else.
 		if (
 			domEvent.ctrlKey ||
 			domEvent.metaKey ||
@@ -457,23 +463,25 @@ export class PlanuCalendarView extends LitElement {
 			return;
 		}
 
-		// Sólo tras haber reconocido la tecla: las flechas desplazan la página y
-		// `Av Pág` la salta entera, y las dos cosas a la vez marean.
+		// Only after having recognized the key: the arrows scroll the page and
+		// `Page Down` skips it entirely, and both things happening at once is
+		// disorienting.
 		domEvent.preventDefault();
 		this.#refocus = true;
 	}
 
-	/** Días entre el día con foco y el primero de su semana, según el locale. */
+	/** Days between the focused day and the first day of its week, according to the locale. */
 	#offsetInWeek(): number {
 		const first = firstDayOfWeek(this.locale || getLocale());
 		return (this.focused.getDay() - first + 7) % 7;
 	}
 
 	/**
-	 * Avanza o retrocede días.
+	 * Moves forward or backward by days.
 	 *
-	 * Con `setDate()`, nunca sumando milisegundos: un día no siempre dura 24
-	 * horas y el día del cambio de hora dejaría el foco en la celda de al lado.
+	 * With `setDate()`, never by adding milliseconds: a day doesn't always
+	 * last 24 hours, and the day of the time change would leave the focus on
+	 * the neighboring cell.
 	 */
 	#moveBy(days: number): void {
 		const target = new Date(this.focused.getTime());
@@ -482,11 +490,11 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
-	 * Cambia de mes conservando el día.
+	 * Changes month while keeping the day.
 	 *
-	 * Se recorta al último día del mes destino: del 31 de enero, `Av Pág` lleva
-	 * al 28 de febrero. Sin recortar, el desbordamiento de `Date` se saltaría
-	 * febrero entero y aterrizaría en marzo.
+	 * It's clamped to the destination month's last day: from January 31,
+	 * `Page Down` leads to February 28. Without clamping, `Date`'s overflow
+	 * would skip past February entirely and land in March.
 	 */
 	#shiftMonth(delta: number): void {
 		const target = new Date(
@@ -509,7 +517,7 @@ export class PlanuCalendarView extends LitElement {
 		);
 	}
 
-	/** Mueve el foco a un día, cambiando de mes y anunciándolo si hace falta. */
+	/** Moves the focus to a day, changing the month and announcing it if needed. */
 	#focus(date: Date): void {
 		const changed = !this.#sameMonth(date);
 		this.focused = date;
@@ -517,9 +525,9 @@ export class PlanuCalendarView extends LitElement {
 
 		this.month = startOfMonth(date);
 
-		// El mes vive en un `role="status"` aparte y no en el título visible:
-		// marcar el título como región viva lo haría anunciarse también al
-		// pintar por primera vez, cuando nadie ha cambiado nada.
+		// The month lives in a separate `role="status"` and not in the visible
+		// title: marking the title as a live region would also announce it on
+		// the first paint, when nobody has changed anything.
 		const title = new Intl.DateTimeFormat(this.locale || getLocale(), {
 			year: "numeric",
 			month: "long",

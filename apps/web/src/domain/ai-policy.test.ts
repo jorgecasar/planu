@@ -2,15 +2,15 @@ import { expect, test } from "vitest";
 import { describeInferenceSource, resolveInferenceMode } from "./ai-policy.js";
 
 test("el candado de código gana sobre cualquier configuración", () => {
-	// Mientras CLOUD_LOCKED esté puesto, ni la variable de entorno ni el claim
-	// premium abren la nube: hace falta un cambio de código, que es el punto.
+	// While CLOUD_LOCKED is set, neither the environment variable nor the
+	// premium claim opens the cloud: a code change is required, which is the point.
 	expect(resolveInferenceMode({ cloudEnabled: true, premium: true })).toBe(
 		"only_on_device",
 	);
 });
 
 test("sin premium se queda en el dispositivo aunque la nube esté abierta", () => {
-	// Es la diferencia entre "no disponible" y una factura inesperada.
+	// It is the difference between "unavailable" and an unexpected bill.
 	expect(resolveInferenceMode({ cloudEnabled: true, premium: false })).toBe(
 		"only_on_device",
 	);

@@ -9,12 +9,12 @@ import type { StoredEvent } from "../lib/types.js";
 import { type Agenda, type AgendaDay, countEvents } from "./agenda-days.js";
 
 /**
- * Agenda vacía, como **fábrica** y no como constante de módulo.
+ * Empty agenda, as a **factory** and not as a module-level constant.
  *
- * Una sola instancia compartida por todos los componentes es un objeto mutable
- * a nivel de módulo: hoy nadie hace `this.agenda.past.push(...)`, pero el día
- * que alguien lo haga la lista aparece en todas las agendas de la sesión y el
- * fallo no se parece en nada a su causa. Cuesta una llamada evitarlo.
+ * A single instance shared by every component is a module-level mutable
+ * object: today nobody does `this.agenda.past.push(...)`, but the day
+ * somebody does, the list shows up in every agenda of the session and the
+ * failure looks nothing like its cause. Avoiding it costs one function call.
  */
 const emptyAgenda = (): Agenda<StoredEvent> => ({
 	upcoming: [],
@@ -23,18 +23,19 @@ const emptyAgenda = (): Agenda<StoredEvent> => ({
 });
 
 /**
- * Agenda: los eventos en lista, agrupados por día.
+ * Agenda: the events in a list, grouped by day.
  *
- * Recibe la agenda ya construida por `buildAgenda`, no los eventos sueltos, por
- * el mismo motivo que `event-groups` recibe los grupos: el reparto depende de
- * «ahora», y el reloj es una entrada que se lee en el borde. Aquí sólo se
- * pinta, y por eso esta vista se puede montar en un test sin emuladores y sin
- * congelar el tiempo.
+ * It receives the agenda already built by `buildAgenda`, not the loose
+ * events, for the same reason `event-groups` receives the groups: the split
+ * depends on "now", and the clock is an input that's read at the edge. Here
+ * it's only painted, and that's why this view can be mounted in a test
+ * without emulators and without freezing time.
  *
- * **Cada día es un `h2` y cada evento el `h3` de su tarjeta.** No hay un nivel
- * intermedio de «próximos» y «pasados» porque no cabe: la tarjeta fija su `h3`
- * desde T19, así que meter un encabezado más dejaría el evento al mismo nivel
- * que su día. Los pasados se distinguen por el pliegue, no por un encabezado.
+ * **Each day is an `h2` and each event the `h3` of its card.** There's no
+ * intermediate level for "upcoming" and "past" because there's no room for
+ * it: the card has fixed its `h3` since T19, so adding one more heading would
+ * leave the event at the same level as its day. Past events are told apart by
+ * the fold, not by a heading.
  */
 @customElement("planu-agenda-view")
 export class PlanuAgendaView extends LitElement {
@@ -48,7 +49,7 @@ export class PlanuAgendaView extends LitElement {
 			font-size: var(--wa-font-size-l);
 		}
 
-		/* El primero no separa del conmutador más de lo que ya lo hace la lista. */
+		/* The first one doesn't separate from the switcher any more than the list already does. */
 		.day-title:first-of-type {
 			margin-block-start: var(--wa-space-l);
 		}
@@ -65,13 +66,13 @@ export class PlanuAgendaView extends LitElement {
 		}
 	`;
 
-	/** La agenda a pintar, ya ordenada y repartida en días. */
+	/** The agenda to paint, already sorted and spread across days. */
 	@property({ attribute: false }) agenda: Agenda<StoredEvent> = emptyAgenda();
 
 	/**
-	 * Hay búsqueda, rango de fechas o etiquetas puestas. Lo decide quien tiene
-	 * los filtros; aquí sólo se traslada a `shouldRevealPast`, la misma política
-	 * que usa la rejilla de tarjetas.
+	 * There's a search, date range, or tags set. It's decided by whoever holds
+	 * the filters; here it's only passed on to `shouldRevealPast`, the same
+	 * policy the card grid uses.
 	 */
 	@property({ type: Boolean }) narrowed = false;
 
@@ -93,10 +94,11 @@ export class PlanuAgendaView extends LitElement {
 	}
 
 	/**
-	 * Los que no tienen fecha, en su propio grupo y no colados entre los días.
+	 * The ones without a date, in their own group and not slipped in among the
+	 * days.
 	 *
-	 * Es la misma regla que `filterEvents` y `groupEvents` ya fijan: sin ninguno
-	 * de los dos extremos no hay día en el que ponerlos sin inventarlo.
+	 * It's the same rule that `filterEvents` and `groupEvents` already set:
+	 * without either end there's no day to put them on without inventing one.
 	 */
 	#renderUndated() {
 		const { undated } = this.agenda;
@@ -109,14 +111,15 @@ export class PlanuAgendaView extends LitElement {
 	}
 
 	/**
-	 * Los días ya pasados, tras un pliegue.
+	 * The already-past days, behind a fold.
 	 *
-	 * El encabezado de cada día va **dentro** del `wa-details`, y no hay un
-	 * encabezado «Pasado» fuera: aquí el rótulo del pliegue ya nombra el control
-	 * —`wa-details` lo pone en su `<summary role="button">`— y los días de dentro
-	 * conservan sus `h2`, así que la navegación por encabezados llega a ellos en
-	 * cuanto se abre. Es la diferencia con `event-groups`, donde el grupo entero
-	 * era un solo montón y sin encabezado fuera se quedaba sin ninguno.
+	 * Each day's heading goes **inside** the `wa-details`, and there's no
+	 * "Past" heading outside: here the fold's label already names the control
+	 * —`wa-details` puts it in its `<summary role="button">`— and the days
+	 * inside keep their `h2`s, so heading navigation reaches them as soon as
+	 * it opens. That's the difference from `event-groups`, where the whole
+	 * group was a single pile and without a heading outside it was left with
+	 * none.
 	 */
 	#renderPast() {
 		const { past } = this.agenda;
@@ -136,9 +139,9 @@ export class PlanuAgendaView extends LitElement {
 	}
 
 	/**
-	 * El rótulo del pliegue, con singular de verdad. Es el nombre accesible del
-	 * control, no decoración; `@lit/localize` no tiene plurales ICU, de modo que
-	 * la condicional es el patrón.
+	 * The fold's label, with a real singular. It's the control's accessible
+	 * name, not decoration; `@lit/localize` has no ICU plurals, so the
+	 * conditional is the pattern.
 	 */
 	#pastSummary(count: number): string {
 		return count === 1

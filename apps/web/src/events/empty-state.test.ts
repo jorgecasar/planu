@@ -79,7 +79,7 @@ test("probar un ejemplo emite planu-try-sample, y no lo hace por su cuenta", asy
 	const seen: string[] = [];
 	el.addEventListener("planu-try-sample", () => seen.push("sample"));
 
-	// Nadie ha pulsado nada todavía: la invitación no actúa por su cuenta.
+	// Nobody has clicked anything yet: the invitation doesn't act on its own.
 	expect(seen).toEqual([]);
 
 	button(el, "Try a sample event instead").click();

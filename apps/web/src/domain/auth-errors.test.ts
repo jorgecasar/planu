@@ -3,11 +3,12 @@ import { credentialsSchema, signUpSchema } from "../auth/schemas.js";
 import { authErrorMessage } from "./auth-errors.js";
 import { SessionError } from "./session-error.js";
 
-// El colapso de "usuario inexistente", "contraseña errónea" y "credencial
-// inválida" en un único código ya ha ocurrido para cuando `authErrorMessage`
-// se ejecuta: eso lo prueba `infrastructure/firebase/session-adapter.test.ts`,
-// donde vive la traducción de los códigos crudos de Firebase. Aquí sólo
-// importa que ese código de dominio produzca el mensaje correcto.
+// The collapse of "nonexistent user", "wrong password" and "invalid
+// credential" into a single code has already happened by the time
+// `authErrorMessage` runs: that's what
+// `infrastructure/firebase/session-adapter.test.ts` tests, where the
+// translation of Firebase's raw codes lives. Here only whether that domain
+// code produces the right message matters.
 
 test("traduce cada código de dominio conocido", () => {
 	expect(authErrorMessage(new SessionError("invalid-credential"))).toBe(

@@ -7,14 +7,14 @@ import {
 
 test("se ofrece la función salvo que el modelo sea inalcanzable", () => {
 	expect(canOffer("available")).toBe(true);
-	// Descargable cuenta: se puede traer y avisamos de la espera.
+	// Downloadable counts: it can be fetched and we warn about the wait.
 	expect(canOffer("downloadable")).toBe(true);
 	expect(canOffer("downloading")).toBe(true);
 });
 
 test("no se ofrece si no hay modelo ni API", () => {
 	expect(canOffer("unavailable")).toBe(false);
-	// undefined = el navegador no tiene la API en absoluto.
+	// undefined = the browser doesn't have the API at all.
 	expect(canOffer(undefined)).toBe(false);
 });
 
@@ -26,8 +26,8 @@ test("avisa de la descarga sólo cuando toca esperar", () => {
 });
 
 test("sin la API del navegador devuelve undefined, no lanza", async () => {
-	// Se simula la ausencia en vez de darla por hecha: el Chromium con el que
-	// corren estos tests sí trae `LanguageModel` y responde `downloadable`.
+	// The absence is simulated instead of assumed: the Chromium these tests
+	// run on does bring `LanguageModel` and responds `downloadable`.
 	vi.stubGlobal("LanguageModel", undefined);
 	expect(await checkAvailability()).toBeUndefined();
 	vi.unstubAllGlobals();

@@ -1,7 +1,7 @@
 import { msg } from "@lit/localize";
 import type { PlanuEvent } from "../lib/types.js";
 
-/** Los tres criterios por los que se puede ordenar el listado. */
+/** The three criteria the listing can be sorted by. */
 export type SortField = "startDate" | "title" | "createdAt";
 
 export type SortDirection = "asc" | "desc";
@@ -12,12 +12,14 @@ export interface SortPreference {
 }
 
 /**
- * Lo más próximo primero: es la pregunta que trae al usuario al listado —«qué
- * tengo ahora»— y no «qué apunté ayer».
+ * The soonest first: that's the question that brings the user to the
+ * listing — "what do I have coming up" — not "what did I jot down
+ * yesterday".
  *
- * `as const satisfies` y no `Object.freeze`: así `DEFAULT_SORT.field = "title"`
- * no compila, que es donde interesa que falle. Congelar en ejecución sólo
- * defendería de un llamante en JavaScript plano, y aquí no hay ninguno.
+ * `as const satisfies` and not `Object.freeze`: this way
+ * `DEFAULT_SORT.field = "title"` fails to compile, which is where it matters
+ * that it fails. Freezing at runtime would only defend against a caller in
+ * plain JavaScript, and there isn't one here.
  */
 export const DEFAULT_SORT = {
 	field: "startDate",
@@ -25,18 +27,19 @@ export const DEFAULT_SORT = {
 } as const satisfies SortPreference;
 
 /**
- * Los órdenes que el selector ofrece, **y los únicos que se aceptan al leer la
- * preferencia guardada**.
+ * The sort orders the selector offers, **and the only ones accepted when
+ * reading the saved preference**.
  *
- * Que sea una sola lista es deliberado: antes las cadenas del `value` de cada
- * opción estaban escritas a mano en la plantilla y tenían que coincidir con lo
- * que produce `serializeSortPreference`. Nada lo comprobaba, así que cambiar el
- * separador dejaba el selector sin opción marcada —el usuario deja de ver qué
- * orden está aplicado— con los tests y el typecheck en verde.
+ * Having a single list is deliberate: the `value` strings for each option
+ * used to be written by hand in the template and had to match what
+ * `serializeSortPreference` produces. Nothing checked that, so changing the
+ * separator left the selector with no option marked — the user stops seeing
+ * which order is applied — while tests and the typecheck stayed green.
  *
- * Y validar contra esta lista, y no sólo contra los tipos, cierra el otro
- * agujero: `title:desc` es un `SortPreference` legítimo que el selector no sabe
- * pintar, así que llegando desde `localStorage` dejaría la etiqueta en blanco.
+ * And validating against this list, not just against the types, closes the
+ * other hole: `title:desc` is a legitimate `SortPreference` the selector
+ * doesn't know how to render, so arriving from `localStorage` it would leave
+ * the label blank.
  */
 const OFFERED = [
 	{ preference: DEFAULT_SORT, label: () => msg("Date, soonest first") },
@@ -62,27 +65,28 @@ export const OFFERED_SORTS: readonly Readonly<SortPreference>[] = OFFERED.map(
 );
 
 /**
- * Formato de persistencia: `campo:dirección`.
+ * Persistence format: `field:direction`.
  *
- * Un JSON aquí sería ceremonia —dos claves, ambas de un vocabulario cerrado— y
- * además invita a leerlo con `JSON.parse`, que ante un valor corrupto lanza
- * dentro de `render()`. Una cadena plana no puede hacer eso.
+ * JSON here would be ceremony — two keys, both from a closed vocabulary — and
+ * it also invites reading it with `JSON.parse`, which throws inside
+ * `render()` on a corrupt value. A plain string can't do that.
  *
- * **Es un formato persistido**: cambiarlo no rompe nada visible, pero descarta
- * en silencio la preferencia de todo el que ya tenía una. Hay un test que fija
- * las cadenas literales para que sea una decisión y no un descuido.
+ * **It's a persisted format**: changing it doesn't break anything visible,
+ * but it silently discards the preference of everyone who already had one.
+ * There's a test that pins down the literal strings so this is a decision,
+ * not an oversight.
  */
 export function serializeSortPreference(preference: SortPreference): string {
 	return `${preference.field}:${preference.direction}`;
 }
 
 /**
- * Lee lo que se guardó, sin fiarse.
+ * Reads what was saved, without trusting it.
  *
- * Todo lo que no esté en `OFFERED_SORTS` —basura, `null`, un formato de una
- * versión anterior, una combinación que el selector ya no ofrece— cae al valor
- * por defecto. El listado nunca se queda sin orden por culpa de lo que haya en
- * el almacenamiento.
+ * Anything not in `OFFERED_SORTS` — garbage, `null`, an earlier version's
+ * format, a combination the selector no longer offers — falls back to the
+ * default value. The listing never ends up without an order because of
+ * whatever is in storage.
  */
 export function parseSortPreference(
 	raw: string | null | undefined,
@@ -93,20 +97,21 @@ export function parseSortPreference(
 	return { ...(found ?? DEFAULT_SORT) };
 }
 
-/** Una entrada del selector de orden, ya con su etiqueta traducida. */
+/** An entry in the sort selector, already with its translated label. */
 export interface SortOption {
-	/** Lo que viaja en el `value` del control y en `localStorage`. */
+	/** What travels in the control's `value` and in `localStorage`. */
 	value: string;
 	preference: Readonly<SortPreference>;
 	label: string;
 }
 
 /**
- * Fábrica y no constante: `msg()` se evalúa al llamarlo, así que una lista
- * construida al importar el módulo congelaría el idioma de ese instante.
+ * A factory, not a constant: `msg()` is evaluated when it's called, so a
+ * list built at module-import time would freeze the language of that
+ * instant.
  *
- * El orden es el de `OFFERED_SORTS`, y los `value` salen de
- * `serializeSortPreference`, no de literales escritos aparte.
+ * The order is that of `OFFERED_SORTS`, and the `value`s come from
+ * `serializeSortPreference`, not from literals written separately.
  */
 export function sortOptions(): SortOption[] {
 	return OFFERED.map(({ preference, label }) => ({
@@ -116,7 +121,7 @@ export function sortOptions(): SortOption[] {
 	}));
 }
 
-/** Los tres montones en los que se reparte el listado. */
+/** The three piles the listing is split into. */
 export type EventGroupName = "upcoming" | "undated" | "past";
 
 export interface EventGroups<T> {
@@ -126,48 +131,52 @@ export interface EventGroups<T> {
 }
 
 /**
- * Sin fecha es no tener **ninguna** de las dos, exactamente como lo entiende
- * `filterEvents`: allí un evento así pasa siempre el filtro de rango porque no
- * hay nada contra lo que contrastarlo. Aquí, por el mismo motivo, no puede
- * colocarse entre los fechados, así que va a su propio grupo.
+ * Undated means having **neither** of the two, exactly as `filterEvents`
+ * understands it: there, such an event always passes the range filter
+ * because there's nothing to compare it against. Here, for the same reason,
+ * it can't be placed among the dated ones, so it goes to its own group.
  */
 function isUndated(event: PlanuEvent): boolean {
 	return !event.startDate && !event.endDate;
 }
 
 /**
- * El extremo por el que se ordena.
+ * The end that sorting goes by.
  *
- * Un evento puede traer sólo uno de los dos, y `filterEvents` ya resuelve ese
- * caso haciendo que el extremo presente valga por los dos (`rangeEnd = to ??
- * from`). Se repite el criterio en lugar de inventar otro.
+ * An event may carry only one of the two, and `filterEvents` already solves
+ * that case by making the end that's present stand in for both (`rangeEnd =
+ * to ?? from`). The same criterion is repeated here instead of inventing
+ * another one.
  */
 const startOf = (event: PlanuEvent): Date | null =>
 	event.startDate ?? event.endDate ?? null;
 
 /**
- * Cuándo deja de estar en curso un evento. `null` significa «todavía no».
+ * When an event stops being ongoing. `null` means "not yet".
  *
- * Aquí **no** vale el atajo de `startOf` —el extremo presente hace de los dos—,
- * y eso costó una revisión: con `endDate ?? startDate`, unas obras que
- * empezaron el 10 de junio y no tienen fin declarado pasaban a «pasado» el 11,
- * estando en curso. La rejilla mensual las seguía pintando en el día de hoy,
- * porque `eventSpan` decide otra cosa, así que **el mismo evento salía en curso
- * en el calendario y archivado en la agenda y en las tarjetas**. Sólo se ve al
- * juntar las tres vistas, que es para lo que existe la tarea que cierra la fase.
+ * Here the `startOf` shortcut — the end that's present stands in for both —
+ * does **not** apply, and that cost a review: with `endDate ?? startDate`,
+ * roadworks that started on June 10th and have no declared end moved to
+ * "past" on the 11th, while still ongoing. The monthly grid kept painting
+ * them on today's date, because `eventSpan` decides differently, so **the
+ * same event showed up ongoing on the calendar and archived on the agenda
+ * and on the cards**. It's only visible when the three views are put side by
+ * side, which is exactly what the task that closes the phase exists for.
  *
- * Manda la semántica del calendario, que es la que eligió el usuario en T20:
+ * The calendar's semantics rule, and those are the ones the user chose in
+ * T20:
  *
- * - **Sin fin, sigue en curso**: no es un punto en el tiempo, es algo que
- *   empezó y no ha terminado. Nunca es pasado.
- * - **Sin inicio**, el fin es una fecha límite y es él quien lo cierra.
- * - **Con el fin antes del inicio** —dato incoherente que el esquema rechaza
- *   pero que pudo guardarse antes— se colapsa al inicio, igual que hace
- *   `eventSpan`. Si no, el evento caía en el pliegue de pasados bajo un
- *   encabezado de día futuro.
+ * - **With no end, it's still ongoing**: it isn't a point in time, it's
+ *   something that started and hasn't finished. It's never past.
+ * - **With no start**, the end is a deadline and it's the one that closes it.
+ * - **With the end before the start** — inconsistent data the schema rejects
+ *   but that could have been saved before it existed — it collapses to the
+ *   start, the same as `eventSpan` does. Otherwise the event fell into the
+ *   past fold under a future day's heading.
  *
- * Lo que **no** cambia es el orden: `sortKey` sigue mirando `startOf`, así que
- * un evento se coloca en la lista por donde empieza, no por donde acaba.
+ * What does **not** change is the order: `sortKey` still looks at `startOf`,
+ * so an event is placed in the list by where it starts, not by where it
+ * ends.
  */
 function activeUntil(event: PlanuEvent): Date | null {
 	const start = event.startDate ?? null;
@@ -179,12 +188,12 @@ function activeUntil(event: PlanuEvent): Date | null {
 }
 
 /**
- * La clave por la que ordena cada criterio.
+ * The key each criterion sorts by.
  *
- * `null` significa «no se sabe», y eso se resuelve aparte: lo desconocido va al
- * final **se pida el orden que se pida**. Invertir la dirección y encontrarse
- * arriba los eventos de los que no consta nada es exactamente lo contrario de
- * lo que se pidió al ordenar.
+ * `null` means "unknown", and that's resolved separately: the unknown goes
+ * to the end **no matter which order is requested**. Reversing the direction
+ * and finding events with nothing on record at the top is exactly the
+ * opposite of what was asked for when sorting.
  */
 function sortKey(event: PlanuEvent, field: SortField): number | string | null {
 	switch (field) {
@@ -198,22 +207,23 @@ function sortKey(event: PlanuEvent, field: SortField): number | string | null {
 }
 
 /**
- * Ordena sin tocar el array recibido.
+ * Sorts without touching the received array.
  *
- * Genérica para no perder por el camino lo que el llamante haya colgado del
- * evento, como el `id` que trae de Firestore.
+ * Generic so nothing the caller attached to the event is lost on the way,
+ * such as the `id` it carries from Firestore.
  *
- * El desempate es **siempre por título y siempre ascendente**, también cuando
- * se pide orden descendente. Dos eventos del mismo día son un caso corriente
- * —una jornada con varias sesiones— y la lista se lee mejor si ese bloque
- * mantiene el alfabético en lugar de invertirse con el criterio principal, que
- * ahí ya no distingue nada. Si además coinciden los títulos, `Array#sort` es
- * estable y conserva el orden de entrada.
+ * The tiebreaker is **always by title and always ascending**, even when a
+ * descending order is requested. Two events on the same day are a common
+ * case — a single day with several sessions — and the list reads better if
+ * that block keeps the alphabetical order instead of being reversed along
+ * with the primary criterion, which no longer distinguishes anything there.
+ * If the titles also match, `Array#sort` is stable and preserves the input
+ * order.
  *
- * El `locale` es opcional y sirve para probar, igual que en
- * `formatEventDates`: el orden alfabético depende del idioma —en español la
- * «ñ» va entre la «n» y la «o»— y en producción se deja al del navegador, que
- * es el que el usuario espera.
+ * The `locale` is optional and exists for testing, just like in
+ * `formatEventDates`: alphabetical order depends on the language — in
+ * Swedish "å" sorts after "z", not near "a" — and in production it's left
+ * to the browser's, which is what the user expects.
  */
 export function sortEvents<T extends PlanuEvent>(
 	events: readonly T[],
@@ -243,17 +253,17 @@ export function sortEvents<T extends PlanuEvent>(
 }
 
 /**
- * A qué montón pertenece un evento respecto a un instante dado.
+ * Which pile an event belongs to relative to a given instant.
  *
- * Pasado es haber **terminado** antes de `now`, no haber empezado: un congreso
- * de tres días sigue siendo próximo el segundo, y uno sin fin declarado nunca
- * llega a pasado (ver `activeUntil`). El límite es inclusivo, igual que en
- * `filterEvents`, así que lo que acaba justo en `now` todavía cuenta como
- * próximo.
+ * Past means having **finished** before `now`, not having started: a
+ * three-day conference is still upcoming on the second day, and one with no
+ * declared end never becomes past (see `activeUntil`). The boundary is
+ * inclusive, just like in `filterEvents`, so something that ends exactly at
+ * `now` still counts as upcoming.
  *
- * Esta es la **única** definición de «pasado» del proyecto: la usan la rejilla
- * de tarjetas, la agenda y —a través de `eventSpan`, que dice lo mismo con otra
- * forma— la rejilla mensual.
+ * This is the project's **only** definition of "past": it's used by the
+ * card grid, the agenda, and — through `eventSpan`, which says the same
+ * thing in a different shape — the monthly grid.
  */
 export function groupOf(event: PlanuEvent, now: Date): EventGroupName {
 	if (isUndated(event)) return "undated";
@@ -264,9 +274,9 @@ export function groupOf(event: PlanuEvent, now: Date): EventGroupName {
 
 export interface GroupOptions {
 	/**
-	 * El instante que separa próximos de pasados. Se inyecta a propósito: con
-	 * `Date.now()` dentro, esta función no se podría probar sin depender del
-	 * reloj de quien ejecuta los tests.
+	 * The instant that separates upcoming from past. It's injected on
+	 * purpose: with `Date.now()` inside, this function couldn't be tested
+	 * without depending on the clock of whoever runs the tests.
 	 */
 	now: Date;
 	sort?: SortPreference;
@@ -274,9 +284,9 @@ export interface GroupOptions {
 }
 
 /**
- * Ordena primero y reparte después, para que el criterio elegido valga dentro
- * de los tres grupos por igual. Al pasado no se le da la vuelta: el orden es
- * el que pidió el usuario, no uno distinto por grupo.
+ * Sorts first and splits afterward, so the chosen criterion applies equally
+ * within all three groups. The past group isn't reversed: the order is the
+ * one the user asked for, not a different one per group.
  */
 export function groupEvents<T extends PlanuEvent>(
 	events: readonly T[],
@@ -292,37 +302,37 @@ export function groupEvents<T extends PlanuEvent>(
 	return groups;
 }
 
-/** Lo que hace falta saber para decidir si el pliegue de pasados se abre. */
+/** What's needed to decide whether the past fold opens. */
 export interface PastDisclosure {
 	upcoming: number;
 	undated: number;
 	past: number;
 	/**
-	 * El usuario ha acotado el listado a propósito: hay término de búsqueda o
-	 * hay rango de fechas. La bandeja elegida —todos, míos, compartidos— no
-	 * cuenta: es un modo de navegación, no una pregunta concreta, y cuando deja
-	 * sólo pasados ya lo cubre la primera regla.
+	 * The user has narrowed the listing on purpose: there's a search term or
+	 * a date range. The chosen tray — all, mine, shared — doesn't count: it's
+	 * a navigation mode, not a specific question, and when it leaves only
+	 * past events, the first rule already covers it.
 	 */
 	narrowed: boolean;
 }
 
 /**
- * Si el grupo de pasados debe salir abierto.
+ * Whether the past group should come out open.
  *
- * Plegado por defecto sigue siendo lo correcto —lo pasado es consulta, no
- * agenda—, pero plegarlo siempre esconde resultados que el usuario acaba de
- * pedir. Con tres eventos ya terminados titulados «Feria de abril» y una
- * búsqueda por «feria», `filterEvents` devuelve tres, así que no se llega al
- * mensaje de «ningún evento coincide» y la pantalla queda con una franja de
- * acordeón cerrada y **cero tarjetas**. Lo mismo con el rango puesto en un mes
- * ya pasado, donde *todos* los resultados caen dentro del pliegue.
+ * Folded by default is still the right call — the past is something you
+ * look up, not an agenda — but always folding it hides results the user
+ * just asked for. With three already-finished events titled "April fair"
+ * and a search for "fair", `filterEvents` returns three, so the "no event
+ * matches" message is never reached and the screen ends up with a closed
+ * accordion strip and **zero cards**. Same thing with the range set to a
+ * month already past, where *all* the results fall inside the fold.
  *
- * De ahí las dos aperturas:
+ * Hence the two cases that open it:
  *
- * 1. **Es el único grupo con algo.** La alternativa es una página vacía que no
- *    explica nada.
- * 2. **El usuario ha buscado o ha filtrado por fechas.** Responder a una
- *    pregunta explícita con un cajón cerrado es no responderla.
+ * 1. **It's the only group with anything.** The alternative is an empty
+ *    page that explains nothing.
+ * 2. **The user has searched or filtered by dates.** Answering an explicit
+ *    question with a closed drawer is not answering it.
  */
 export function shouldRevealPast(counts: PastDisclosure): boolean {
 	if (counts.past === 0) return false;

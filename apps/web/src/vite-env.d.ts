@@ -8,14 +8,14 @@ interface ImportMetaEnv {
 	readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
 	readonly VITE_FIREBASE_APP_ID: string;
 	/**
-	 * Interruptor global de la inferencia en la nube, que factura por token.
-	 * "true" la habilita para las cuentas con derecho; cualquier otro valor la
-	 * cierra para todas. Ver src/domain/ai-policy.ts.
+	 * Global switch for cloud inference, which bills per token.
+	 * "true" enables it for accounts with the right; any other value closes
+	 * it for everyone. See src/domain/ai-policy.ts.
 	 */
 	readonly VITE_AI_CLOUD_FALLBACK?: string;
-	/** DSN de Sentry. Sin él no se envía nada: la observabilidad es opcional. */
+	/** Sentry DSN. Without it nothing is sent: observability is optional. */
 	readonly VITE_SENTRY_DSN?: string;
-	/** Versión desplegada, para agrupar errores por release. */
+	/** Deployed version, to group errors by release. */
 	readonly VITE_RELEASE?: string;
 }
 

@@ -10,11 +10,11 @@ import type { ReactiveController, ReactiveControllerHost } from "lit";
 export type WithId<T> = T & { id: string };
 
 /**
- * Suscribe al host a una consulta de Firestore en tiempo real.
+ * Subscribes the host to a real-time Firestore query.
  *
- * Equivalente al hook `useCollection` del prototipo. No se usa `@lit/task`
- * porque esto no es una promesa sino un flujo: `onSnapshot` emite tantas veces
- * como cambien los datos.
+ * Equivalent to the prototype's `useCollection` hook. `@lit/task` is not used
+ * because this is not a promise but a stream: `onSnapshot` emits as many
+ * times as the data changes.
  */
 export class CollectionController<T extends DocumentData>
 	implements ReactiveController
@@ -34,8 +34,8 @@ export class CollectionController<T extends DocumentData>
 	}
 
 	/**
-	 * Fija la consulta a observar. Ignora consultas equivalentes a la vigente:
-	 * sin esta comprobación cada render crearía una suscripción nueva.
+	 * Sets the query to watch. Ignores queries equivalent to the current one:
+	 * without this check, every render would create a new subscription.
 	 */
 	setQuery(query: Query<T> | null): void {
 		if (query === null && this.#query === null) return;

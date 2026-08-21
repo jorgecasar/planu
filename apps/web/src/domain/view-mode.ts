@@ -1,28 +1,29 @@
 import { msg } from "@lit/localize";
 
 /**
- * Las tres formas de mirar los mismos eventos.
+ * The three ways of looking at the same events.
  *
- * Son una **presentación**, no un filtro: las tres reciben exactamente la misma
- * lista, la que devuelve `filterEvents`. Si alguna vez una vista tuviera que
- * consultar otra cosa, dejaría de ser un modo de vista y sería otra pantalla.
+ * They're a **presentation**, not a filter: all three receive exactly the
+ * same list, the one `filterEvents` returns. If a view ever had to query
+ * something else, it would stop being a view mode and become a different
+ * screen.
  */
 export type ViewMode = "grid" | "calendar" | "agenda";
 
 /**
- * La rejilla de tarjetas: es la que existía antes del conmutador, así que quien
- * nunca lo toque ve lo mismo que veía.
+ * The card grid: it's the one that existed before the switcher, so anyone
+ * who never touches it sees the same thing they used to see.
  */
 export const DEFAULT_VIEW = "grid" as const satisfies ViewMode;
 
 /**
- * Las vistas que el conmutador ofrece, **y las únicas que se aceptan al leer la
- * preferencia guardada**.
+ * The views the switcher offers, **and the only ones accepted when reading
+ * the saved preference**.
  *
- * Una sola lista, por el mismo motivo que en `sort-events.ts`: los `value` de
- * los controles y lo que se valida al leer de `localStorage` tienen que ser la
- * misma cosa, o cambiar uno deja el conmutador sin opción marcada y nadie se
- * entera.
+ * A single list, for the same reason as in `sort-events.ts`: the controls'
+ * `value`s and what gets validated when reading from `localStorage` have to
+ * be the same thing, or changing one leaves the switcher with no option
+ * marked and nobody notices.
  */
 const OFFERED = [
 	{ value: "grid", label: () => msg("Cards") },
@@ -35,24 +36,26 @@ export const OFFERED_VIEWS: readonly ViewMode[] = OFFERED.map(
 );
 
 /**
- * Lee lo que se guardó, sin fiarse.
+ * Reads what was saved, without trusting it.
  *
- * Basura, `null`, o el nombre de una vista que ya no existe caen a la rejilla.
- * Una preferencia corrupta no puede dejar la pantalla sin ninguna vista.
+ * Garbage, `null`, or the name of a view that no longer exists all fall
+ * back to the grid. A corrupt preference can't leave the screen without any
+ * view at all.
  */
 export function parseViewMode(raw: string | null | undefined): ViewMode {
 	return OFFERED_VIEWS.find((mode) => mode === raw) ?? DEFAULT_VIEW;
 }
 
-/** Una entrada del conmutador, ya con su etiqueta traducida. */
+/** An entry in the switcher, already with its translated label. */
 export interface ViewOption {
 	value: ViewMode;
 	label: string;
 }
 
 /**
- * Fábrica y no constante: `msg()` se evalúa al llamarlo, así que una lista
- * construida al importar el módulo congelaría el idioma de ese instante.
+ * A factory, not a constant: `msg()` is evaluated when it's called, so a
+ * list built at module-import time would freeze the language of that
+ * instant.
  */
 export function viewOptions(): ViewOption[] {
 	return OFFERED.map(({ value, label }) => ({ value, label: label() }));

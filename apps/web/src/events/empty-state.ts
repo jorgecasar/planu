@@ -5,21 +5,23 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 /**
- * Lo que se enseña cuando el usuario no tiene ningún evento todavía (T33).
+ * What's shown when the user has no events yet (T33).
  *
- * Vive aparte de `events-view` por lo mismo que `event-groups`: aquélla
- * consume `Firestore` y `User` por contexto, así que no se puede montar en
- * un test sin emuladores. A diferencia del mensaje de "tu búsqueda no
- * encuentra nada" -una frase suelta sin comportamiento-, esto tiene tres
- * acciones que probar, y por tanto merece su propio fichero y su propio test.
+ * Lives apart from `events-view` for the same reason as `event-groups`:
+ * that one consumes `Firestore` and `User` via context, so it can't be
+ * mounted in a test without emulators. Unlike the "your search finds
+ * nothing" message — a plain sentence with no behavior — this one has
+ * three actions to test, and so earns its own file and its own test.
  *
- * Nada de tour modal: T33 lo descarta explícitamente. Y el evento de ejemplo
- * es sólo una invitación discreta -nunca se guarda solo-: quien lo pide ve el
- * mismo editor que un alta manual, con los campos ya rellenos para revisar.
+ * No modal tour: T33 explicitly rules it out. And the sample event is just
+ * a discreet invitation — never saved on its own —: whoever asks for it sees
+ * the same editor as a manual entry, with the fields already filled in to
+ * review.
  *
- * Como `event-card` con `planu-edit-event`: este componente no decide qué
- * hacer con cada acción, sólo la emite. Es `events-view` quien decide abrir
- * el editor, el generador de IA, o rellenar un borrador de ejemplo.
+ * Like `event-card` with `planu-edit-event`: this component doesn't decide
+ * what to do with each action, it only emits it. It's `events-view` that
+ * decides whether to open the editor, the AI generator, or fill in a sample
+ * draft.
  */
 @customElement("planu-empty-state")
 export class PlanuEmptyState extends LitElement {
@@ -42,9 +44,10 @@ export class PlanuEmptyState extends LitElement {
 	`;
 
 	/**
-	 * Si merece la pena ofrecer la generación con IA. La decide `events-view`
-	 * -es quien consulta `checkAvailability()`-, igual que ya hace con el menú
-	 * de "New event": un botón que siempre fallaría es peor que ninguno.
+	 * Whether it's worth offering AI generation. `events-view` decides it —
+	 * it's the one that consults `checkAvailability()` — same as it already
+	 * does with the "New event" menu: a button that would always fail is
+	 * worse than none.
 	 */
 	@property({ type: Boolean }) aiAvailable = false;
 

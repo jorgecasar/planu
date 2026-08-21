@@ -1,11 +1,12 @@
 /**
- * La sesión actual, en lo mínimo que la aplicación necesita hoy.
+ * The current session, in the minimum shape the application needs today.
  *
- * Ni `Auth` ni el `User` de Firebase: sólo los campos que de verdad leen
- * `app-shell.ts` (cabecera), `profile-view.ts` (ficha y aviso de
- * verificación) y los componentes que ya consumían la sesión —`sharing/` y
- * los de `events/`— (`.uid`, `.email`, `.displayName`, `.photoURL`).
- * Ampliar esta forma es legítimo el día que algo más lo necesite; no antes.
+ * Neither `Auth` nor Firebase's `User`: only the fields that `app-shell.ts`
+ * (header), `profile-view.ts` (card and verification notice) and the
+ * components that already consumed the session — `sharing/` and the ones
+ * under `events/` — actually read (`.uid`, `.email`, `.displayName`,
+ * `.photoURL`). Widening this shape is legitimate the day something else
+ * needs it; not before.
  */
 export interface SessionUser {
 	uid: string;
@@ -14,33 +15,34 @@ export interface SessionUser {
 	photoURL: string | null;
 	emailVerified: boolean;
 	/**
-	 * Claims personalizados del token — hoy sólo el `premium` que resuelve
-	 * `ai-policy.ts` para la IA en la nube (T23; ver `ai-model-session.ts`).
-	 * Opcional porque no todo adaptador puede resolverlos, y porque hacerlo
-	 * obligatorio filtraría la forma de `firebase/auth`'s `User` en esta
-	 * interfaz en vez de sólo lo que un caso de uso puntual necesita.
+	 * Custom token claims — today only the `premium` one that `ai-policy.ts`
+	 * resolves for cloud AI (T23; see `ai-model-session.ts`). Optional
+	 * because not every adapter can resolve them, and because making it
+	 * mandatory would leak the shape of `firebase/auth`'s `User` into this
+	 * interface instead of just what a single use case needs.
 	 */
 	getIdTokenResult?: () => Promise<{ claims: Record<string, unknown> }>;
 }
 
 /**
- * Lo que la aplicación necesita para gestionar la sesión. Firebase es un
- * detalle de `infrastructure/`: nada de `Auth`, `User` ni `FirebaseError`
- * cruza esta frontera.
+ * What the application needs to manage the session. Firebase is an
+ * `infrastructure/` detail: no `Auth`, `User`, or `FirebaseError` crosses
+ * this boundary.
  *
- * Fino y por operación, no un espejo del SDK — no hay `onAuthStateChanged`
- * aquí porque observar la sesión sigue siendo responsabilidad de quien
- * publica el contexto, no de este puerto.
+ * Thin and per-operation, not a mirror of the SDK — there's no
+ * `onAuthStateChanged` here because observing the session is still the
+ * responsibility of whoever publishes the context, not of this port.
  *
- * Todo método que falla lo hace con un `SessionError` de
- * `domain/session-error.ts`, nunca con el error crudo del proveedor.
+ * Every method that fails does so with a `SessionError` from
+ * `domain/session-error.ts`, never with the provider's raw error.
  */
 export interface SessionPort {
 	signIn(email: string, password: string): Promise<void>;
 
 	/**
-	 * Crea la cuenta y, si el proveedor lo permite, envía el correo de
-	 * verificación. Un fallo al enviarlo no invalida el alta, que ya ocurrió.
+	 * Creates the account and, if the provider allows it, sends the
+	 * verification email. A failure to send it doesn't invalidate the
+	 * sign-up, which already happened.
 	 */
 	signUp(email: string, password: string): Promise<void>;
 
@@ -48,16 +50,16 @@ export interface SessionPort {
 
 	signOut(): Promise<void>;
 
-	/** Reenvía el correo de verificación a la cuenta con sesión abierta. */
+	/** Resends the verification email to the currently signed-in account. */
 	sendVerificationEmail(): Promise<void>;
 
 	/**
-	 * Refresca el estado de verificación contra el proveedor y devuelve el
-	 * usuario actualizado, o `null` si ya no hay sesión.
+	 * Refreshes the verification status against the provider and returns
+	 * the updated user, or `null` if there is no longer a session.
 	 *
-	 * No es un simple `reload()`: cuando el correo ya está verificado, también
-	 * renueva el token de identidad, que es lo que hace falta para que las
-	 * reglas de Firestore vean `email_verified` al día.
+	 * Not a plain `reload()`: when the email is already verified, it also
+	 * renews the identity token, which is what's needed for Firestore rules
+	 * to see an up-to-date `email_verified`.
 	 */
 	refreshEmailVerification(): Promise<SessionUser | null>;
 }

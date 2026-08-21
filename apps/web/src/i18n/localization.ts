@@ -12,26 +12,26 @@ const { getLocale, setLocale } = configureLocalization({
 });
 
 /**
- * El idioma que la interfaz está sirviendo ahora mismo.
+ * The language the interface is currently serving.
  *
- * No basta con el del navegador: si éste pide alemán, la interfaz sirve inglés,
- * y un calendario formateado en alemán dentro de una interfaz en inglés sería
- * una mezcla. Lo que manda es lo que el usuario está leyendo.
+ * The browser's is not enough: if it asks for German but the interface serves
+ * English, a calendar formatted in German inside an English interface would
+ * be a mix. What matters is what the user is actually reading.
  */
 export { getLocale };
 
-/** Todos los idiomas que la interfaz sabe servir. */
+/** Every language the interface knows how to serve. */
 export const availableLocales = [sourceLocale, ...targetLocales] as const;
 
 /**
- * Fija el idioma de la interfaz a partir del navegador.
+ * Sets the interface language based on the browser.
  *
- * Se espera a que termine antes del primer render: cargar el idioma después
- * pintaría la aplicación en inglés y la haría saltar al idioma correcto a la
- * vista del usuario.
+ * It is awaited before the first render: loading the language afterward
+ * would paint the application in English and make it jump to the right
+ * language in front of the user.
  *
- * Un fallo al cargar las traducciones no debe dejar la aplicación en blanco;
- * el idioma de origen ya está en el bundle, así que se sigue en inglés.
+ * A failure loading the translations must not leave the application blank;
+ * the source language is already in the bundle, so it just stays in English.
  */
 export async function initLocale(): Promise<string> {
 	const locale = pickLocale(browserLocales(), availableLocales, sourceLocale);

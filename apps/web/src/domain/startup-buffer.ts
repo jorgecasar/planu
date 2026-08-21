@@ -1,18 +1,19 @@
 /**
- * Errores ocurridos antes de que el SDK de Sentry esté cargado.
+ * Errors that occur before the Sentry SDK is loaded.
  *
- * La observabilidad se carga en diferido, después del primer pintado, porque
- * adelantarla cuesta LCP. El precio es una ventana ciega de un par de segundos
- * —y es justo la ventana donde se manifiesta un despliegue roto: un chunk que
- * no baja, Firebase que no inicializa, `initLocale()` que falla—. Esos errores
- * eran invisibles.
+ * Observability is loaded lazily, after the first paint, because loading it
+ * earlier costs LCP. The price is a blind window of a couple of seconds —
+ * and it's exactly the window where a broken deploy shows up: a chunk that
+ * doesn't download, Firebase that fails to initialize, `initLocale()`
+ * throwing. Those errors used to be invisible.
  *
- * Esto los guarda desde la primera línea de `main.ts` y los reenvía cuando el
- * SDK termina de cargar. Sentry recomienda inicializar «lo antes posible»; ésta
- * es la forma de cumplir la intención sin pagar el coste de arranque.
+ * This saves them from the very first line of `main.ts` and replays them
+ * once the SDK finishes loading. Sentry recommends initializing "as early
+ * as possible"; this is how that intent is honored without paying the
+ * startup cost.
  */
 
-/** Tope deliberadamente bajo: un fallo en bucle no debe comerse la memoria. */
+/** Deliberately low cap: a failure in a loop shouldn't eat up memory. */
 const MAX = 10;
 
 const buffered: unknown[] = [];
@@ -31,9 +32,9 @@ function onRejection(event: PromiseRejectionEvent): void {
 }
 
 /**
- * Empieza a escuchar. Debe llamarse antes que cualquier otra cosa, y es
- * síncrono y sin dependencias a propósito: si esto necesitara cargar algo,
- * volvería a existir la ventana ciega que viene a cerrar.
+ * Starts listening. Must be called before anything else, and it's
+ * synchronous and dependency-free on purpose: if this needed to load
+ * something, the blind window it comes to close would exist again.
  */
 export function captureStartupErrors(): void {
 	if (listening) return;
@@ -43,10 +44,10 @@ export function captureStartupErrors(): void {
 }
 
 /**
- * Reenvía lo acumulado y se aparta.
+ * Replays what accumulated and steps aside.
  *
- * Los manejadores propios se retiran: a partir de aquí escucha el SDK, y
- * dejarlos puestos duplicaría cada error.
+ * Its own handlers are removed: from here on the SDK listens, and leaving
+ * them in place would duplicate every error.
  */
 export function flushStartupErrors(sentry: {
 	captureException: (e: unknown) => unknown;
@@ -60,13 +61,13 @@ export function flushStartupErrors(sentry: {
 		try {
 			sentry.captureException(reason);
 		} catch {
-			// Si el propio reenvío falla no hay a dónde reportarlo, y desde
-			// luego no debe tumbar la aplicación.
+			// If the replay itself fails there's nowhere to report it, and it
+			// certainly shouldn't bring down the application.
 		}
 	}
 }
 
-/** Sólo para los tests: vacía el estado del módulo entre casos. */
+/** Only for tests: empties the module's state between cases. */
 export function resetStartupBuffer(): void {
 	globalThis.removeEventListener("error", onError);
 	globalThis.removeEventListener("unhandledrejection", onRejection);

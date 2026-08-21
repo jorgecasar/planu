@@ -3,21 +3,22 @@ import { ZodError } from "zod";
 import { SessionError } from "./session-error.js";
 
 /**
- * Traduce a texto para el usuario cualquier fallo de validación o de sesión.
+ * Translates any validation or session failure into text for the user.
  *
- * Los mensajes se resuelven dentro de la función y no en un mapa a nivel de
- * módulo: `msg()` se evalúa al llamarlo, y un mapa creado al importar
- * congelaría el idioma que hubiera en ese instante.
+ * The messages are resolved inside the function and not in a module-level
+ * map: `msg()` is evaluated when called, and a map created at import time
+ * would freeze the language in effect at that instant.
  *
- * Ya no conoce `FirebaseError`: quien traduce el código real del proveedor es
- * `infrastructure/firebase/session-adapter.ts`, antes de que el fallo llegue
- * aquí. Esto sólo sabe de `SessionError`, que es el vocabulario del dominio.
+ * It no longer knows about `FirebaseError`: the one that translates the
+ * provider's real code is `infrastructure/firebase/session-adapter.ts`,
+ * before the failure reaches here. This only knows about `SessionError`,
+ * which is the domain's own vocabulary.
  *
- * Credenciales incorrectas, usuario inexistente y contraseña errónea
- * comparten mensaje a propósito: distinguirlos permitiría averiguar qué
- * correos están registrados. El colapso a un único código —
- * `invalid-credential`— ya ha ocurrido para cuando este código se ejecuta;
- * ver `infrastructure/firebase/session-adapter.test.ts`.
+ * Wrong credentials, nonexistent user and wrong password share a message on
+ * purpose: distinguishing them would let someone find out which emails are
+ * registered. The collapse into a single code — `invalid-credential` — has
+ * already happened by the time this code runs; see
+ * `infrastructure/firebase/session-adapter.test.ts`.
  */
 export function authErrorMessage(cause: unknown): string {
 	const fallback = msg("Something went wrong. Please try again.");

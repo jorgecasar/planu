@@ -6,26 +6,26 @@ import {
 import type { PlanuEvent } from "../lib/types.js";
 import { dayKey, safeLocale } from "./month-grid.js";
 
-/** Un día de la agenda: la fecha, cómo se escribe, y lo que hay ese día. */
+/** A day in the agenda: the date, how it's written, and what's on it that day. */
 export interface AgendaDay<T> {
-	/** El día como entero comparable. Ver `dayKey`. */
+	/** The day as a comparable integer. See `dayKey`. */
 	key: number;
 	/**
-	 * El día que representa, **a las 12:00 locales**, por el mismo motivo que en
-	 * `MonthCell`: hay husos donde la medianoche no existe un día al año y el
-	 * motor devuelve la 01:00. El mediodía existe siempre.
+	 * The day it represents, **at 12:00 local time**, for the same reason as in
+	 * `MonthCell`: there are timezones where midnight doesn't exist one day a
+	 * year and the engine returns 01:00 instead. Noon always exists.
 	 */
 	date: Date;
-	/** Fecha completa según el locale, para encabezar el día. */
+	/** Full date according to the locale, to head the day. */
 	label: string;
 	events: T[];
 }
 
 /**
- * La agenda: días con contenido, más los eventos que no tienen fecha.
+ * The agenda: days with content, plus the events that have no date.
  *
- * Los tres montones son los de `groupEvents`, y eso es deliberado: no se
- * inventa una semántica nueva de «pasado» ni de «sin fecha» para esta vista.
+ * The three piles are the ones from `groupEvents`, and that's deliberate: no
+ * new semantics for "past" or "undated" are invented for this view.
  */
 export interface Agenda<T> {
 	upcoming: AgendaDay<T>[];
@@ -33,30 +33,31 @@ export interface Agenda<T> {
 	past: AgendaDay<T>[];
 }
 
-/** Cuántos eventos hay repartidos en una lista de días. */
+/** How many events are spread across a list of days. */
 export function countEvents<T>(days: readonly AgendaDay<T>[]): number {
 	return days.reduce((total, day) => total + day.events.length, 0);
 }
 
 /**
- * El día por el que un evento entra en la agenda.
+ * The day by which an event enters the agenda.
  *
- * Es **el mismo extremo por el que `sortEvents` lo ordena** (`startDate ??
- * endDate`), y no por casualidad: si la agenda agrupara por un día distinto del
- * que decide la posición, la lista dejaría de ser monótona en su propia clave y
- * el mismo día aparecería dos veces separado por otro.
+ * It's **the same end that `sortEvents` uses to order it** (`startDate ??
+ * endDate`), and not by coincidence: if the agenda grouped by a day different
+ * from the one that decides the position, the list would stop being monotonic
+ * in its own key and the same day would appear twice, separated by another.
  *
- * Es también una semántica **distinta** de la de `eventSpan`, que reparte el
- * evento por todos los días que ocupa. Allí tiene sentido —una celda del mes
- * enseña una línea por evento y así se ve el tramo—; aquí un congreso de tres
- * días repetiría su tarjeta entera tres veces en una lista que se recorre
- * hacia abajo. En la agenda cada evento sale **una vez**, el día que empieza.
+ * It's also a **different** semantics from `eventSpan`'s, which spreads the
+ * event across every day it occupies. That makes sense there —a month cell
+ * shows one line per event, so the span is visible—; here a three-day
+ * conference would repeat its whole card three times in a list you scroll
+ * through top to bottom. In the agenda each event shows up **once**, on the
+ * day it starts.
  */
 function anchorOf(event: PlanuEvent): Date | null {
 	return event.startDate ?? event.endDate ?? null;
 }
 
-/** El mediodía local del día al que pertenece una fecha. */
+/** The local noon of the day a date belongs to. */
 function noonOf(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
 }
@@ -64,16 +65,16 @@ function noonOf(date: Date): Date {
 export type AgendaOptions = GroupOptions;
 
 /**
- * Reparte los eventos en días.
+ * Spreads the events across days.
  *
- * Ordena primero con la preferencia del usuario y reparte después, igual que
- * `groupEvents`: así **el orden elegido manda también sobre la secuencia de
- * días**. Con «fecha, lo más próximo primero» —el valor por defecto— los días
- * salen en orden cronológico ascendente, que es la agenda que pide F5; con
- * «fecha, lo más lejano primero» salen al revés, que es lo que el usuario acaba
- * de pedir. El día se coloca donde aparece su primer evento, de modo que la
- * secuencia de días es siempre la del propio orden y no una segunda ordenación
- * que pudiera contradecirlo.
+ * It sorts first with the user's preference and spreads afterward, just like
+ * `groupEvents`: this way **the chosen order also governs the sequence of
+ * days**. With "date, soonest first" —the default value— the days come out
+ * in ascending chronological order, which is the agenda F5 asks for; with
+ * "date, farthest first" they come out reversed, which is what the user just
+ * asked for. The day is placed where its first event appears, so the
+ * sequence of days always follows the order itself and not a second
+ * ordering that could contradict it.
  */
 export function buildAgenda<T extends PlanuEvent>(
 	events: readonly T[],
@@ -81,11 +82,11 @@ export function buildAgenda<T extends PlanuEvent>(
 ): Agenda<T> {
 	const { now, sort } = options;
 
-	// Se sanea **una vez y para los dos usos**. `Intl.Collator` lanza
-	// `RangeError` con una etiqueta inválida exactamente igual que
-	// `Intl.DateTimeFormat`, así que proteger sólo el formateador dejaba la
-	// agenda entera reventando dentro de `sortEvents` con la misma entrada que
-	// aquí ya se daba por controlada.
+	// It's sanitized **once, for both uses**. `Intl.Collator` throws
+	// `RangeError` with an invalid tag exactly the same way as
+	// `Intl.DateTimeFormat`, so protecting only the formatter left the whole
+	// agenda blowing up inside `sortEvents` with the same input that here was
+	// already taken as handled.
 	const locale = safeLocale(options.locale);
 
 	const format = new Intl.DateTimeFormat(locale, {
@@ -102,16 +103,16 @@ export function buildAgenda<T extends PlanuEvent>(
 	for (const event of sortEvents(events, sort, locale)) {
 		const anchor = anchorOf(event);
 
-		// Sin ninguno de los dos extremos, que es exactamente lo que `groupEvents`
-		// entiende por «sin fecha». No hay día en el que ponerlo sin inventarlo.
+		// Without either end, which is exactly what `groupEvents` understands as
+		// "undated". There's no day to put it on without inventing one.
 		if (anchor === null) {
 			undated.push(event);
 			continue;
 		}
 
-		// Próximo o pasado lo decide el dominio, no esta función: pasado es haber
-		// **terminado**, y un congreso de tres días sigue siendo próximo el
-		// segundo aunque su día de entrada ya quedara atrás.
+		// Upcoming or past is decided by the domain, not by this function: past
+		// means having **ended**, and a three-day conference is still upcoming
+		// on its second day even if its entry day is already behind.
 		const days = groupOf(event, now) === "past" ? past : upcoming;
 		const key = dayKey(anchor);
 		const day = days.get(key);

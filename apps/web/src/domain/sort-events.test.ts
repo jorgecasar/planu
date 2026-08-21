@@ -31,7 +31,7 @@ const event = (overrides: Partial<PlanuEvent> = {}): PlanuEvent => ({
 
 const titles = (events: readonly PlanuEvent[]) => events.map((e) => e.title);
 
-// ── Orden por fecha de inicio ────────────────────────────────────────────────
+// ── Sort by start date ───────────────────────────────────────────────────────
 
 test("por fecha de inicio, ascendente: lo más próximo primero", () => {
 	const events = [
@@ -68,8 +68,8 @@ test("no toca el array que recibe", () => {
 });
 
 test("un evento sólo con fin se ordena por ese fin", () => {
-	// Misma semántica que `filterEvents`: con un solo extremo, ese extremo vale
-	// por los dos.
+	// Same semantics as `filterEvents`: with only one end, that end stands
+	// in for both.
 	const events = [
 		event({ title: "Con inicio", startDate: day("2026-09-05") }),
 		event({ title: "Sólo fin", endDate: day("2026-09-01") }),
@@ -78,7 +78,7 @@ test("un evento sólo con fin se ordena por ese fin", () => {
 	expect(titles(sortEvents(events))).toEqual(["Sólo fin", "Con inicio"]);
 });
 
-// ── Empates ─────────────────────────────────────────────────────────────────
+// ── Ties ──────────────────────────────────────────────────────────────────────
 
 test("con la misma fecha desempata por título", () => {
 	const events = [
@@ -91,8 +91,8 @@ test("con la misma fecha desempata por título", () => {
 });
 
 test("el desempate por título no se invierte con la dirección", () => {
-	// Decisión: la dirección manda sobre el criterio principal, no sobre el
-	// desempate. Un bloque de eventos del mismo día se lee mejor alfabético.
+	// Decision: the direction rules the primary criterion, not the
+	// tiebreaker. A block of events on the same day reads better alphabetical.
 	const events = [
 		event({ title: "Taller", startDate: day("2026-09-01") }),
 		event({ title: "Apertura", startDate: day("2026-09-01") }),
@@ -104,11 +104,11 @@ test("el desempate por título no se invierte con la dirección", () => {
 	).toEqual(["Cierre", "Apertura", "Taller"]);
 });
 
-// ── Orden por título ────────────────────────────────────────────────────────
+// ── Sort by title ────────────────────────────────────────────────────────────
 
 test("por título usa el orden alfabético del idioma activo", () => {
-	// En español la «ñ» va entre la «n» y la «o»; con una comparación por
-	// unidades de código iría detrás de la «z».
+	// In Spanish collation, n with a tilde sorts between "n" and "o"; a plain
+	// code-unit comparison would put it after "z".
 	const events = [
 		event({ title: "ñandú" }),
 		event({ title: "orden" }),
@@ -121,8 +121,8 @@ test("por título usa el orden alfabético del idioma activo", () => {
 });
 
 test("por título, las mayúsculas no dominan el orden", () => {
-	// Con `<` sobre cadenas, "Zapato" iría antes que "arroz" porque las
-	// mayúsculas ocupan puntos de código más bajos. El collator no.
+	// With `<` on strings, "Zapato" would come before "arroz" because
+	// uppercase letters occupy lower code points. The collator doesn't.
 	const events = [
 		event({ title: "Zapato" }),
 		event({ title: "arroz" }),
@@ -146,7 +146,7 @@ test("por título, descendente", () => {
 	).toEqual(["Zapato", "Melón", "arroz"]);
 });
 
-// ── Orden por fecha de creación ─────────────────────────────────────────────
+// ── Sort by creation date ────────────────────────────────────────────────────
 
 test("por fecha de creación, lo más reciente primero", () => {
 	const events = [
@@ -160,8 +160,9 @@ test("por fecha de creación, lo más reciente primero", () => {
 });
 
 test("sin fecha de creación va al final en las dos direcciones", () => {
-	// Lo desconocido no encabeza una lista sólo por invertirla: los documentos
-	// heredados del prototipo no traen `createdAt` y saldrían todos arriba.
+	// The unknown doesn't head a list just because it's reversed: documents
+	// inherited from the prototype don't carry `createdAt` and would all end
+	// up on top.
 	const events = [
 		event({ title: "Sin dato", createdAt: null }),
 		event({ title: "Antiguo", createdAt: day("2026-01-01") }),
@@ -187,7 +188,7 @@ test("varios sin fecha de creación quedan alfabéticos entre ellos", () => {
 	).toEqual(["Alfa", "Zeta"]);
 });
 
-// ── Grupos ──────────────────────────────────────────────────────────────────
+// ── Groups ────────────────────────────────────────────────────────────────────
 
 const NOW = day("2026-06-15");
 
@@ -208,7 +209,7 @@ test("pasado es haber terminado, no haber empezado", () => {
 });
 
 test("lo que acaba justo en el instante de corte todavía es próximo", () => {
-	// Límite inclusivo, igual que el del rango en `filterEvents`.
+	// Inclusive boundary, same as the range one in `filterEvents`.
 	const justo = event({ startDate: day("2026-06-01"), endDate: NOW });
 	expect(groupOf(justo, NOW)).toBe("upcoming");
 
@@ -226,8 +227,8 @@ test("sin ninguna de las dos fechas, grupo propio", () => {
 });
 
 test("tener una sola de las dos fechas ya es tener fecha", () => {
-	// La misma regla que `filterEvents`: sólo se libra del rango el que no
-	// tiene ninguna. Con una basta para situarlo en el tiempo.
+	// The same rule as `filterEvents`: only the one with neither date is
+	// exempt from the range. With one, it's enough to place it in time.
 	expect(groupOf(event({ startDate: day("2026-07-01") }), NOW)).toBe(
 		"upcoming",
 	);
@@ -236,21 +237,21 @@ test("tener una sola de las dos fechas ya es tener fecha", () => {
 });
 
 test("sin fin declarado, un evento que ya empezó sigue en curso", () => {
-	// Lo encontró una revisión juntando las tres vistas, y era una
-	// contradicción de producto: la rejilla mensual pinta estas obras en la
-	// celda de hoy —`eventSpan` las considera abiertas hacia adelante— mientras
-	// que aquí caían en «pasado» al día siguiente de empezar. El mismo evento,
-	// en curso en el calendario y archivado en la agenda.
+	// A review found this by putting the three views side by side, and it was
+	// a product contradiction: the monthly grid paints these roadworks on
+	// today's cell —`eventSpan` considers them open-ended going forward—
+	// while here they fell into "past" the day after they started. The same
+	// event, ongoing on the calendar and archived on the agenda.
 	//
-	// Manda el calendario, que es la semántica que se eligió en T20.
+	// The calendar rules; that's the semantics chosen in T20.
 	const obras = event({
 		title: "Obras en la calle",
 		startDate: day("2026-06-10"),
 	});
 
 	expect(groupOf(obras, NOW)).toBe("upcoming");
-	// Y no es que «todo lo que empezó» siga en curso: con fin declarado y
-	// pasado, es pasado.
+	// And it's not that "everything that started" stays ongoing: with a
+	// declared end that's past, it's past.
 	expect(
 		groupOf(
 			event({ startDate: day("2026-06-10"), endDate: day("2026-06-12") }),
@@ -260,10 +261,10 @@ test("sin fin declarado, un evento que ya empezó sigue en curso", () => {
 });
 
 test("con el fin antes del inicio manda el inicio", () => {
-	// Dato incoherente que el esquema ya rechaza, pero que pudo guardarse antes.
-	// Con `endDate` mandando, este evento aparecía **dentro del pliegue de
-	// pasados bajo un encabezado de día futuro**, que es una pantalla que se
-	// contradice a sí misma. `eventSpan` colapsa al inicio; aquí, lo mismo.
+	// Inconsistent data that the schema now rejects, but that could have been
+	// saved before it did. With `endDate` ruling, this event appeared **inside
+	// the past fold under a future day's heading**, which is a screen that
+	// contradicts itself. `eventSpan` collapses to the start; here, likewise.
 	const incoherente = event({
 		startDate: day("2026-06-20"),
 		endDate: day("2026-06-10"),
@@ -276,9 +277,9 @@ test("los eventos sin fecha no se cuelan entre los fechados", () => {
 	const events = [
 		event({ title: "Sin fecha" }),
 		event({ title: "Futuro", startDate: day("2026-07-01") }),
-		// Con fin declarado: desde que `groupOf` respeta la semántica del
-		// calendario, un evento con sólo inicio no ha terminado nunca, así que
-		// «pasado» hay que decirlo poniendo cuándo acabó.
+		// With a declared end: since `groupOf` respects the calendar's
+		// semantics, an event with only a start never has a finish, so
+		// "past" has to be said by giving when it ended.
 		event({
 			title: "Pasado",
 			startDate: day("2026-05-01"),
@@ -332,7 +333,7 @@ test("agrupar con el orden por defecto no pierde ningún evento", () => {
 	expect(total).toBe(events.length);
 });
 
-// ── Preferencia ─────────────────────────────────────────────────────────────
+// ── Preference ────────────────────────────────────────────────────────────────
 
 test("el valor por defecto es la fecha de inicio ascendente", () => {
 	expect(DEFAULT_SORT).toEqual({ field: "startDate", direction: "asc" });
@@ -362,27 +363,28 @@ test("un valor corrupto cae al orden por defecto", () => {
 });
 
 test("un orden válido que el selector no ofrece también cae al por defecto", () => {
-	// `title:desc` es un `SortPreference` legítimo y `sortEvents` lo sabe
-	// ordenar, pero no hay opción que pintarlo: aceptarlo desde `localStorage`
-	// dejaría el selector con la etiqueta en blanco.
+	// `title:desc` is a legitimate `SortPreference` and `sortEvents` knows how
+	// to sort by it, but there's no option to render it: accepting it from
+	// `localStorage` would leave the selector with a blank label.
 	expect(parseSortPreference("title:desc")).toEqual(DEFAULT_SORT);
 	expect(parseSortPreference("createdAt:asc")).toEqual(DEFAULT_SORT);
 });
 
 test("el objeto devuelto no es el propio DEFAULT_SORT", () => {
-	// El tipo de retorno es mutable, así que devolver la constante compartida
-	// dejaría al llamante cambiándola a través del alias. `as const` protege la
-	// referencia directa, no una blanqueada por un retorno mutable.
+	// The return type is mutable, so returning the shared constant would leave
+	// the caller changing it through the alias. `as const` protects the
+	// direct reference, not one laundered through a mutable return.
 	expect(parseSortPreference("basura")).not.toBe(DEFAULT_SORT);
 	expect(parseSortPreference("title:asc")).not.toBe(OFFERED_SORTS[2]);
 });
 
-// ── El formato de cable y lo que ofrece el selector ─────────────────────────
+// ── The wire format and what the selector offers ────────────────────────────
 
 test("las cadenas guardadas son exactamente éstas", () => {
-	// Formato persistido: cambiarlo descarta en silencio la preferencia de todo
-	// el que ya tuviera una. Aserción literal y no sólo de ida y vuelta, que es
-	// invariante ante un cambio de separador hecho en los dos lados a la vez.
+	// Persisted format: changing it silently discards the preference of
+	// everyone who already had one. A literal assertion, not just a
+	// round-trip one, which stays invariant under a separator change made on
+	// both sides at once.
 	expect(
 		serializeSortPreference({ field: "startDate", direction: "asc" }),
 	).toBe("startDate:asc");
@@ -415,13 +417,14 @@ test("cada opción trae etiqueta y se puede volver a leer", () => {
 });
 
 test("el orden por defecto es uno de los que el selector ofrece", () => {
-	// Si no, el primer arranque dejaría el control sin opción marcada.
+	// Otherwise, the first launch would leave the control with no option
+	// marked.
 	expect(OFFERED_SORTS.map(serializeSortPreference)).toContain(
 		serializeSortPreference(DEFAULT_SORT),
 	);
 });
 
-// ── Apertura del grupo de pasados ───────────────────────────────────────────
+// ── Opening the past group ──────────────────────────────────────────────────
 
 const disclosure = (
 	counts: Partial<Parameters<typeof shouldRevealPast>[0]> = {},
@@ -437,15 +440,15 @@ test("plegado cuando hay otros grupos y nadie ha pedido nada", () => {
 });
 
 test("abierto si los pasados son lo único que hay", () => {
-	// Si no, la página queda con una franja de acordeón cerrada y cero
-	// tarjetas, sin llegar siquiera al mensaje de lista vacía.
+	// Otherwise the page ends up with a closed accordion strip and zero
+	// cards, without even reaching the empty-list message.
 	expect(shouldRevealPast(disclosure({ past: 3 }))).toBe(true);
 });
 
 test("abierto si el usuario ha buscado o ha filtrado por fechas", () => {
-	// Tres eventos ya terminados que casan con la búsqueda no pueden quedar
-	// escondidos: responder a una pregunta explícita con un cajón cerrado es no
-	// responderla.
+	// Three already-finished events that match the search can't be left
+	// hidden: answering an explicit question with a closed drawer is not
+	// answering it.
 	expect(
 		shouldRevealPast(disclosure({ upcoming: 2, past: 3, narrowed: true })),
 	).toBe(true);

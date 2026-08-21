@@ -5,7 +5,7 @@ import { googleCalendarUrl } from "./google-calendar-url.js";
 const day = (year: number, month: number, date: number) =>
 	new Date(year, month - 1, date);
 
-/** Minuto 37: no es medianoche en ninguna zona horaria. Ver `build-ics.test.ts`. */
+/** Minute 37: it's not midnight in any time zone. See `build-ics.test.ts`. */
 const at = (hourUtc: number) => new Date(Date.UTC(2026, 5, 12, hourUtc, 37, 0));
 
 const event = (extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
@@ -67,7 +67,7 @@ test("omite los parámetros vacíos en vez de mandarlos en blanco", () => {
 });
 
 test("escapa lo que rompería la propia URL", () => {
-	// Un `&` sin escapar convertiría el resto del título en otro parámetro.
+	// An unescaped `&` would turn the rest of the title into another parameter.
 	const url = googleCalendarUrl(event({ title: "Pan & vino, café" })) ?? "";
 
 	expect(params(url).get("text")).toBe("Pan & vino, café");

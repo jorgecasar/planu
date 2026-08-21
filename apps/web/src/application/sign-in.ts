@@ -2,9 +2,9 @@ import { credentialsSchema } from "../auth/schemas.js";
 import type { SessionPort } from "./ports/session.js";
 
 /**
- * Valida las credenciales y entra. La validación vive aquí y no en el
- * componente para que sea comprobable sin montar un formulario: un `ZodError`
- * sale sin llegar a tocar el puerto.
+ * Validates the credentials and signs in. The validation lives here and
+ * not in the component so it can be tested without mounting a form: a
+ * `ZodError` comes out without ever touching the port.
  */
 export async function signIn(
 	session: SessionPort,

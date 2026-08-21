@@ -13,12 +13,12 @@ export const LOGIN_PATH = `${APP_BASE}/login`;
 export const HOME_PATH = APP_BASE;
 
 /**
- * Decide a dónde reencaminar según la sesión y la ruta actual.
- * Devuelve `null` cuando no hay que moverse.
+ * Decides where to redirect to based on the session and the current route.
+ * Returns `null` when there is nothing to move.
  *
- * El estado `undefined` —todavía comprobando— es el que importa: tratarlo como
- * "sin sesión" mandaría al login a un usuario ya autenticado durante el instante
- * que tarda Firebase en restaurar la sesión.
+ * The `undefined` state —still checking— is the one that matters: treating it
+ * as "no session" would send an already-authenticated user to the login
+ * during the instant it takes Firebase to restore the session.
  */
 export function guardRedirect(
 	user: SessionUser | null | undefined,
