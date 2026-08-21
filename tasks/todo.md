@@ -947,18 +947,88 @@ garantiza conflictos.
     segunda mitad la regla no está probada.**
   - Ficheros: `biome.json`, movimientos con `git mv` bajo `src/domain/`
 
-- [ ] **T36 · Puerto de sesión** · M · depende de T35
+- [x] **T36 · Puerto de sesión** · M · depende de T35
   - Acepta: `SessionPort` con `signIn`, `signUp`, `signInWithGoogle` y
-    `signOut`; adaptador de Firebase en `infrastructure/`; `app-shell.ts`,
-    `login-view.ts` y `profile-view.ts` no importan de `firebase/auth`;
-    `auth-errors.ts` deja de importar `FirebaseError` y el adaptador traduce a
-    un error de dominio, conservando los mensajes que ya valida su test.
-  - Verifica: `npx vitest run application/` **sin emuladores levantados**; e2e
-    de acceso; **comprobación manual del acceso con Google**, que no tiene e2e
-    y cambia de camino en esta tarea
-  - Ficheros: `src/application/ports/session.ts`, `src/application/sign-in.ts`
-    y hermanos, `src/infrastructure/firebase/session-adapter.ts`, los tres
-    componentes, `src/domain/auth-errors.ts`
+    `signOut` —más `sendVerificationEmail` y `refreshEmailVerification`, que
+    hicieron falta para que `profile-view.ts` también dejara `firebase/auth`—;
+    adaptador de Firebase en `infrastructure/firebase/session-adapter.ts`;
+    `app-shell.ts`, `login-view.ts` y `profile-view.ts` no importan de
+    `firebase/auth`; `auth-errors.ts` (movido a `domain/`) deja de importar
+    `FirebaseError` y el adaptador traduce a un error de dominio
+    (`SessionError`, en `domain/session-error.ts`), conservando los mensajes
+    que ya validaba su test.
+  - Verifica: `npm run typecheck` → **0**; `npm run lint` → **0**;
+    `npm run lint:lit` → **0**; `npx vitest run --root apps/web application/`
+    **sin emuladores levantados** → **0**, 6 tests en 4 ficheros;
+    `npm run test:arch` → **0**, 11 aserciones, `TOPE_ACOPLADOS` bajó de 23 a
+    19; `npm test` → 448/449 — el único fallo (`event-editor.test.ts`, ajeno a
+    esta tarea: no toca sesión ni Firebase) pasa solo en aislamiento
+    (`npx vitest run --root apps/web src/events/event-editor.test.ts` → **0**,
+    verificado antes y después del arreglo de abajo).
+    **e2e no se ha ejecutado en esta tarea** —recurso compartido, corre
+    centralizadamente después, por instrucción explícita de quien la encargó—.
+    **Comprobación manual del acceso con Google: pendiente.** No tiene e2e y
+    ningún agente puede cerrarla; depende de una persona con navegador real
+    pulsando el botón. Checkpoint H en `plan.md` ya la deja sin marcar y no se
+    toca aquí.
+  - Ficheros: `src/application/ports/session.ts`, `src/application/sign-in.ts`,
+    `sign-up.ts`, `sign-in-with-google.ts`, `sign-out.ts` (y sus tests, con un
+    puerto en memoria); `src/infrastructure/firebase/session-adapter.ts` (y su
+    test, puro: construye `FirebaseError` a mano, sin emulador);
+    `src/domain/auth-errors.ts` y su test (movidos desde `auth/`),
+    `src/domain/session-error.ts` (y su test); `app-shell.ts`,
+    `auth/login-view.ts`, `profile/profile-view.ts`; `auth/guard.ts` y su test
+    —migrados por el mismo motivo: `app-shell.ts` ya no tenía un `User` de
+    Firebase que pasarles—; `firebase/context.ts` (nuevo `sessionContext`,
+    `userContext` pasa de `User` a `SessionUser`) y `firebase/firebase-provider.ts`;
+    `sharing/user-directory.ts` (sólo el tipo de `publishDirectoryEntry`, de
+    `User` a `SessionUser`, para que `profile-view.ts` pudiera seguir
+    llamándola); `biome.json`; `arch/boundary.test.ts`.
+  - Nota: `profile-view.ts` sigue en la lista de exenciones de `biome.json` —
+    ya no por `firebase/auth`, sino porque conserva `firebase/firestore` para
+    publicar en el directorio de usuarios. Ese acoplamiento pertenece al
+    puerto de Firestore (T37), no al de sesión; por eso `TOPE_ACOPLADOS` bajó
+    a 19 y no a 18.
+  - Arreglo tras revisión: `userContext` ya entregaba `SessionUser`, pero seis
+    ficheros que esta tarea no tocó seguían tipando `this.user` como el `User`
+    de Firebase —`experimentalDecorators` hace que `@lit/context` no aplique
+    su comprobación de tipo, así que `npm run typecheck` lo dejaba pasar en
+    silencio—. Cuatro eran mecánicos —sólo leían `.uid`, `.email`,
+    `.displayName`, `.photoURL`, que `SessionUser` ya tenía—: cambiado el
+    import y la anotación de `User` a `SessionUser` en
+    `sharing/invitations-inbox.ts`, `sharing/share-dialog.ts`,
+    `events/events-view.ts` y `events/event-card.ts`, sin cambio de
+    comportamiento. Los otros dos, `events/event-editor.ts` y
+    `events/ai-event-generator.ts`, pasaban `this.user` a
+    `createAiModelSession()` como `getUser`, que exige
+    `getIdTokenResult(): Promise<{ claims }>` —el claim `premium` de T23— y
+    que `SessionUser` no tenía: cambiar el tipo a secas rompía el build de
+    verdad, delatando el hueco que el `@consume` sin comprobar escondía.
+    Resuelto añadiendo `getIdTokenResult` **opcional** a `SessionUser` —sin
+    filtrar ningún tipo de Firebase en la firma—, que `FirebaseSessionAdapter`
+    rellena delegando en el método real; cada componente añadió un `#claims()`
+    privado que devuelve `null` si el método no está, así que sin él la IA en
+    la nube trata la sesión como no-premium en vez de romper. `ai-model-session.ts`
+    no se tocó. Re-verificado completo: `typecheck` → **0**, `lint` → **0**
+    (tras `biome check --write` en los seis ficheros, sólo orden de imports),
+    `lint:lit` → **0**, `test:arch` → **0** (11, sin cambios en
+    `TOPE_ACOPLADOS`: ninguno de los seis estaba exento por `firebase/auth`),
+    `npx vitest run --root apps/web application/` → **0**; `npm test` →
+    448/449 con el mismo fallo ajeno de siempre. `grep -rn "private user:
+    User\b" apps/web/src` → vacío; `grep -rln 'from "firebase/auth"'
+    apps/web/src` → sólo `firebase/firebase-provider.ts` e
+    `infrastructure/firebase/session-adapter.ts`. Ficheros añadidos a esta
+    tarea: los seis de arriba, y `src/infrastructure/firebase/session-adapter.test.ts`
+    (un test nuevo para el `getIdTokenResult` delegado).
+  - **e2e ejecutado de verdad**, centralizado desde la sesión orquestadora
+    (`PORT=3002 npm run test:e2e` desde este worktree, tras copiar el
+    `.env.local` de la raíz): `npm run test:e2e` → **0**, **60 e2e**,
+    incluidos `auth.spec.ts` y todos los que dependen de `userContext`. El
+    448/449 de arriba se reprodujo también al correr `npm test` con las otras
+    tres tareas en paralelo saturando la máquina (57 procesos de Chrome
+    concurrentes); en aislamiento y con la carga normalizada sale 449/449 dos
+    veces seguidas —confirma que es la inestabilidad por carga que ya
+    describía el informe, no una regresión de esta tarea.
 
 - [ ] **T37 · Puerto de repositorio de eventos** · M · depende de T35, T14
   - Acepta: `EventRepository` con `save`, `delete` y `listFor`; el mapeo

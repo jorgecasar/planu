@@ -3,10 +3,10 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { User } from "firebase/auth";
 import type { DocumentData, Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { SessionUser } from "../application/ports/session.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole } from "../lib/types.js";
@@ -45,7 +45,7 @@ export class PlanuInvitationsInbox extends LitElement {
 	private firestore: Firestore | undefined;
 
 	@consume({ context: userContext, subscribe: true })
-	private user: User | null | undefined;
+	private user: SessionUser | null | undefined;
 
 	@state() private busyWith = "";
 	@state() private error = "";
