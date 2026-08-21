@@ -16,6 +16,7 @@
 			{
 				"name": "ts-lit-plugin",
 				"strict": true,
+				"globalAttributes": ["property"],
 				"rules": {
 					"no-unknown-tag-name": "error",
 					"no-unclosed-tag": "error",

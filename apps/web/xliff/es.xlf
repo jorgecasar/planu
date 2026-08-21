@@ -718,6 +718,98 @@
   <source>Suggest tags with AI</source>
         <target>Sugerir etiquetas con IA</target>
 </trans-unit>
+<trans-unit id="s94e24004492265e1">
+  <source>Your events. Private. Shareable. Yours.</source>
+        <target>Tus eventos. Privados. Compartibles. Tuyos.</target>
+  </trans-unit>
+<trans-unit id="s204a33363a72d45f">
+  <source>Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.</source>
+        <target>Crea eventos desde una foto o texto pegado. Mantenlos privados, o invita a personas concretas como espectadores o editores. Expórtalos a tu calendario con un clic.</target>
+  </trans-unit>
+<trans-unit id="s691204c181f37bdc">
+  <source>Start planning</source>
+        <target>Empezar a planificar</target>
+  </trans-unit>
+<trans-unit id="sab75e65a2cfa2841">
+  <source>Free. No ads. Your data stays yours.</source>
+        <target>Gratis. Sin anuncios. Tus datos son tuyos.</target>
+  </trans-unit>
+<trans-unit id="s61042097e512fd52">
+  <source>Screenshot of planu showing event cards with title, date, location and cover image</source>
+        <target>Captura de planu mostrando tarjetas de eventos con título, fecha, ubicación e imagen de portada</target>
+  </trans-unit>
+<trans-unit id="s060297aed1f61104">
+  <source>Why planu?</source>
+        <target>¿Por qué planu?</target>
+  </trans-unit>
+<trans-unit id="s2b007dfb2c580793">
+  <source>Three things we do differently:</source>
+        <target>Tres cosas que hacemos diferente:</target>
+  </trans-unit>
+<trans-unit id="s705bcc6d46cf8634">
+  <source>Private by default</source>
+        <target>Privado por defecto</target>
+  </trans-unit>
+<trans-unit id="se94303bde777815d">
+  <source>Your events are yours. Nobody else sees them unless you explicitly invite them — and you choose their role: viewer or editor.</source>
+        <target>Tus eventos son tuyos. Nadie más los ve a menos que los invites explícitamente — y tú eliges su rol: espectador o editor.</target>
+  </trans-unit>
+<trans-unit id="sac22317700f6803c">
+  <source>Share with who you choose</source>
+        <target>Comparte con quien tú elijas</target>
+  </trans-unit>
+<trans-unit id="sd2e91214ca249fb5">
+  <source>Invite by email. They get access instantly if they have an account, or a signup link if they don't. No pending invitations, no spam.</source>
+        <target>Invita por correo. Acceden al instante si tienen cuenta, o reciben un enlace de registro si no. Sin invitaciones pendientes, sin spam.</target>
+  </trans-unit>
+<trans-unit id="s7acffe2e8548f2ec">
+  <source>Integrates with your calendar</source>
+        <target>Se integra con tu calendario</target>
+  </trans-unit>
+<trans-unit id="s4a0e9a5e2af05a7b">
+  <source>Export any event or your whole filtered list as .ics. Opens in Apple Calendar, Google Calendar, Outlook — wherever you already plan your life.</source>
+        <target>Exporta cualquier evento o tu lista filtrada completa como .ics. Se abre en Apple Calendar, Google Calendar, Outlook — donde ya organizas tu vida.</target>
+  </trans-unit>
+<trans-unit id="sfc541a8beb293b6d">
+  <source>Photo → event in seconds</source>
+        <target>Foto → evento en segundos</target>
+  </trans-unit>
+<trans-unit id="seaad776112c86909">
+  <source>Upload a poster, flyer or screenshot. The AI extracts title, date, location and description. You review, edit if needed, and save.</source>
+        <target>Sube un cartel, folleto o captura. La IA extrae título, fecha, ubicación y descripción. Revisas, editas si hace falta y guardas.</target>
+  </trans-unit>
+<trans-unit id="s234a246de7cedf95">
+  <source>Paste text → event</source>
+        <target>Pega texto → evento</target>
+  </trans-unit>
+<trans-unit id="s9b3ad570015cc16e">
+  <source>Copy an email, a message or an announcement. Paste it and the same AI pulls out the event details. No typing required.</source>
+        <target>Copia un correo, un mensaje o un anuncio. Pégalo y la misma IA saca los detalles del evento. No hace falta escribir.</target>
+  </trans-unit>
+<trans-unit id="s20676330144ca93d">
+  <source>Organize with tags</source>
+        <target>Organiza con etiquetas</target>
+  </trans-unit>
+<trans-unit id="sac8101aced95b968">
+  <source>Add up to 10 tags per event. Filter by multiple tags combined with AND. Colors are stable and derived from the tag name.</source>
+        <target>Añade hasta 10 etiquetas por evento. Filtra por varias etiquetas combinadas con Y. Los colores son estables y derivan del nombre.</target>
+  </trans-unit>
+<trans-unit id="se78c02e9a98a0f47">
+  <source>Privacy</source>
+        <target>Privacidad</target>
+  </trans-unit>
+<trans-unit id="sd4647caeb94889ec">
+  <source>Terms</source>
+        <target>Términos</target>
+  </trans-unit>
+<trans-unit id="s87bae2710b2492c3">
+  <source>Contact</source>
+        <target>Contacto</target>
+  </trans-unit>
+<trans-unit id="s4cdbd72d927e6373">
+  <source>© 2025 planu. Built with Lit, Web Awesome and Firebase.</source>
+        <target>© 2025 planu. Construido con Lit, Web Awesome y Firebase.</target>
+  </trans-unit>
 </body>
 </file>
 </xliff>
