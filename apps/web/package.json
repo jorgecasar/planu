@@ -10,6 +10,7 @@
 		"test": "TZ=America/Santiago vitest run",
 		"test:watch": "TZ=America/Santiago vitest",
 		"test:e2e": "playwright test",
+		"test:e2e:landing": "playwright test --config playwright.landing.config.ts",
 		"typecheck": "tsc --noEmit",
 		"lint:lit": "lit-analyzer src",
 		"localize:extract": "lit-localize extract",

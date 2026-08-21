@@ -17,6 +17,7 @@
 		"preview": "npm run preview --workspace @planu/web",
 		"test": "npm run test --workspace @planu/web",
 		"test:e2e": "npm run test:e2e --workspace @planu/web",
+		"test:e2e:landing": "npm run test:e2e:landing --workspace @planu/web",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"lint:lit": "npm run lint:lit --workspace @planu/web",
