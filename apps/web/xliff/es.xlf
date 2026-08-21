@@ -718,6 +718,34 @@
   <source>Suggest tags with AI</source>
         <target>Sugerir etiquetas con IA</target>
 </trans-unit>
+<trans-unit id="s02253dffcabdc0e2">
+  <source>Dinner with friends</source>
+        <target>Cena con amigos</target>
+</trans-unit>
+<trans-unit id="sbe9f6a90f1e03c13">
+  <source>A sample event, so you can see how it looks. Change anything you like, then save it — or delete it once you are done.</source>
+        <target>Un evento de ejemplo, para que veas cómo queda. Cambia lo que quieras y guárdalo, o bórralo cuando termines.</target>
+</trans-unit>
+<trans-unit id="s7d7bb27ef81957df">
+  <source>At home</source>
+        <target>En casa</target>
+</trans-unit>
+<trans-unit id="sfa2b9d5a72c481dd">
+  <source>Add it by hand, or let AI fill in the details from a photo of a poster or some pasted text.</source>
+        <target>Añádelo a mano, o deja que la IA rellene los detalles a partir de la foto de un cartel o de un texto pegado.</target>
+</trans-unit>
+<trans-unit id="s42e8b326fcbd98d0">
+  <source>Add the details yourself to get started.</source>
+        <target>Añade los detalles a mano para empezar.</target>
+</trans-unit>
+<trans-unit id="s77344ec4f0be787b">
+  <source>Try a sample event instead</source>
+        <target>O prueba con un evento de ejemplo</target>
+</trans-unit>
+<trans-unit id="s463d35ac0b6745c5">
+  <source>This is a sample event. Change anything you like, then save it.</source>
+        <target>Esto es un evento de ejemplo. Cambia lo que quieras y guárdalo.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
