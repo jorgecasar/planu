@@ -5,14 +5,15 @@ import {
 	resetStartupBuffer,
 } from "./startup-buffer.js";
 
-/** Un doble de Sentry que sólo necesita saber capturar. */
+/** A Sentry double that only needs to know how to capture. */
 function fakeSentry() {
 	return { captureException: vi.fn() };
 }
 
 /**
- * Los errores llegan por evento y no lanzando de verdad: `dispatchEvent` deja
- * el test determinista y no ensucia la consola del navegador.
+ * Errors arrive via event rather than actually being thrown:
+ * `dispatchEvent` keeps the test deterministic and doesn't clutter the
+ * browser console.
  */
 function emitError(message: string): void {
 	globalThis.dispatchEvent(
@@ -21,17 +22,17 @@ function emitError(message: string): void {
 }
 
 function emitRejection(reason: unknown): void {
-	// Se construye a mano en lugar de con `Promise.reject`: así el test no
-	// depende de cuándo decide el navegador que un rechazo quedó sin manejar.
+	// Built by hand instead of with `Promise.reject`: this way the test
+	// doesn't depend on when the browser decides a rejection went unhandled.
 	const event = new Event("unhandledrejection") as Event & { reason?: unknown };
 	event.reason = reason;
 	globalThis.dispatchEvent(event);
 }
 
 /**
- * Un evento `error` sin `error` ni `message`, para comprobar que **nadie**
- * escucha. Con un `ErrorEvent` completo, el detector de errores no manejados
- * de Vitest lo recogería y haría fallar el test por un motivo ajeno.
+ * An `error` event with neither `error` nor `message`, to check that
+ * **nobody** is listening. With a full `ErrorEvent`, Vitest's unhandled-error
+ * detector would pick it up and fail the test for an unrelated reason.
  */
 function emitBareError(): void {
 	globalThis.dispatchEvent(new Event("error"));

@@ -4,9 +4,9 @@ import type { SessionPort } from "./ports/session.js";
 import { signIn } from "./sign-in.js";
 
 /**
- * Puerto en memoria, sin Firebase ni emuladores: es la medida del éxito de
- * `docs/spec-arquitectura-hexagonal.md` — si esto necesitara un emulador, el
- * puerto estaría mal diseñado.
+ * In-memory port, no Firebase or emulators: that's the measure of success
+ * for `docs/spec-arquitectura-hexagonal.md` — if this needed an emulator,
+ * the port would be badly designed.
  */
 function fakePort(): SessionPort {
 	return {

@@ -5,7 +5,7 @@ export interface DateRange {
 	to?: Date | null | undefined;
 }
 
-/** Coincide si el término aparece en el título o en la descripción. */
+/** Matches if the term appears in the title or in the description. */
 function matchesSearch(event: PlanuEvent, term: string): boolean {
 	if (term === "") return true;
 	if (event.title.toLowerCase().includes(term)) return true;
@@ -13,13 +13,14 @@ function matchesSearch(event: PlanuEvent, term: string): boolean {
 }
 
 /**
- * Solape entre el evento y el rango, con criterio inclusivo.
+ * Overlap between the event and the range, with inclusive criteria.
  *
- * Dos reglas heredadas del prototipo que no son obvias:
- * - Un evento **sin fechas** pasa siempre el filtro. La alternativa —ocultarlo—
- *   haría desaparecer eventos que el usuario sí quiere ver.
- * - Con un solo extremo del rango, ese extremo hace de los dos, así que filtrar
- *   por un único día busca los eventos activos ese día, no los que empiezan.
+ * Two rules inherited from the prototype that aren't obvious:
+ * - An event **without dates** always passes the filter. The alternative —
+ *   hiding it — would make events the user does want to see disappear.
+ * - With only one end of the range, that end stands in for both, so
+ *   filtering by a single day looks for events active on that day, not ones
+ *   that start on it.
  */
 function matchesRange(event: PlanuEvent, range: DateRange): boolean {
 	const { from, to } = range;
@@ -66,15 +67,15 @@ function matchesOwnership(
 }
 
 /**
- * Todas las etiquetas seleccionadas deben estar en el evento: se combinan con
- * **Y**, no con **O** (F6).
+ * All the selected tags must be on the event: they're combined with **AND**,
+ * not **OR** (F6).
  *
- * Con **O**, añadir una etiqueta al filtro amplía el resultado, y eso hace
- * inútil el filtro en cuanto el usuario tiene unas cuantas. Con **Y** cada
- * etiqueta que se añade acota, que es lo que se espera de un filtro.
+ * With **OR**, adding a tag to the filter widens the result, which makes the
+ * filter useless as soon as the user has a handful. With **AND**, each tag
+ * added narrows it down, which is what's expected of a filter.
  *
- * Las seleccionadas se dan por normalizadas: salen de las que ya usa el
- * usuario, no de texto tecleado.
+ * The selected ones are assumed to be normalized: they come from the ones the
+ * user already uses, not from typed text.
  */
 function matchesTags(event: PlanuEvent, selected: readonly string[]): boolean {
 	if (selected.length === 0) return true;
@@ -116,15 +117,16 @@ export function filterEvents<T extends PlanuEvent>(
 }
 
 /**
- * Si el usuario ha pedido algo concreto, frente a estar simplemente mirando.
+ * Whether the user has asked for something specific, as opposed to just
+ * browsing.
  *
- * Vivía duplicada en la vista, y las dos copias **discrepaban**: una contaba las
- * etiquetas y la otra no, así que filtrar por la etiqueta «música» y buscar
- * «música» —misma intención, mismos resultados— se comportaban distinto. Vive
- * aquí porque es una regla, no marcado, y aquí se puede probar.
+ * It used to live duplicated in the view, and the two copies **disagreed**:
+ * one counted tags and the other didn't, so filtering by the tag "music" and
+ * searching for "music" — same intent, same results — behaved differently.
+ * It lives here because it's a rule, not markup, and here it can be tested.
  *
- * La bandeja elegida (todos / míos / compartidos) queda fuera a propósito: es
- * un modo de navegar, no una consulta.
+ * The chosen tray (all / mine / shared) is left out on purpose: it's a way of
+ * navigating, not a query.
  */
 export function isNarrowed(filters: EventFilters): boolean {
 	return (

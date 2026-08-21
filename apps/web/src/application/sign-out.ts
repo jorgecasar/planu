@@ -1,9 +1,9 @@
 import type { SessionPort } from "./ports/session.js";
 
 /**
- * Cierra la sesión. Tan fino que es casi el puerto desnudo, y aun así es lo
- * que evita que `app-shell.ts` y `profile-view.ts` importen `signOut` de
- * `firebase/auth` cada uno por su lado.
+ * Signs the session out. So thin it's almost the bare port, and it still
+ * keeps `app-shell.ts` and `profile-view.ts` from each importing `signOut`
+ * from `firebase/auth` on their own.
  */
 export function signOut(session: SessionPort): Promise<void> {
 	return session.signOut();

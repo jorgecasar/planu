@@ -10,13 +10,14 @@ import type { StoredEvent } from "../lib/types.js";
 const EMPTY: EventGroups<StoredEvent> = { upcoming: [], undated: [], past: [] };
 
 /**
- * Pinta los tres grupos del listado.
+ * Paints the listing's three groups.
  *
- * Vive aparte de `events-view` a propósito: aquélla consume `Firestore` y
- * `User` por contexto, así que no se puede montar en un test sin emuladores, y
- * el fallo que trajo esta revisión —el pliegue de pasados escondiendo todos los
- * resultados de una búsqueda— se coló justo por ahí. Aquí sólo entran datos ya
- * resueltos, y eso convierte la agrupación en algo con oráculo.
+ * Lives apart from `events-view` on purpose: that one consumes `Firestore`
+ * and `User` through context, so it can't be mounted in a test without
+ * emulators, and the bug that prompted this review —the past-events fold
+ * hiding every search result— slipped in exactly through that gap. Here
+ * only already-resolved data comes in, and that's what turns grouping
+ * into something with an oracle.
  */
 @customElement("planu-event-groups")
 export class PlanuEventGroups extends LitElement {
@@ -37,7 +38,7 @@ export class PlanuEventGroups extends LitElement {
 			font-size: var(--wa-font-size-l);
 		}
 
-		/* El primero no separa del filtro más de lo que ya lo hace la rejilla. */
+		/* The first one doesn't separate from the filter any more than the grid already does. */
 		.group-title:first-of-type {
 			margin-block-start: var(--wa-space-l);
 		}
@@ -50,18 +51,18 @@ export class PlanuEventGroups extends LitElement {
 	@property({ attribute: false }) groups: EventGroups<StoredEvent> = EMPTY;
 
 	/**
-	 * Hay búsqueda o rango de fechas puestos. Lo decide quien tiene los filtros;
-	 * aquí sólo se traslada a `shouldRevealPast`.
+	 * Whether a search or date range is set. Whoever holds the filters
+	 * decides this; here it's only passed along to `shouldRevealPast`.
 	 */
 	@property({ type: Boolean }) narrowed = false;
 
 	/**
-	 * El rótulo del pliegue, con singular de verdad.
+	 * The fold's label, with an actual singular.
 	 *
-	 * Decía «Show 1 past events» en el caso más común de todos, y no es
-	 * decoración: `wa-details` lo pone en su `<summary role="button">`, así que
-	 * es el **nombre accesible** del control. `@lit/localize` no tiene plurales
-	 * ICU, de modo que la condicional es el patrón.
+	 * It used to say "Show 1 past events" in the most common case of all,
+	 * and that isn't decoration: `wa-details` puts it in its
+	 * `<summary role="button">`, so it's the control's **accessible name**.
+	 * `@lit/localize` has no ICU plurals, so the conditional is the pattern.
 	 */
 	#pastSummary(count: number): string {
 		return count === 1
@@ -72,8 +73,8 @@ export class PlanuEventGroups extends LitElement {
 	override render() {
 		const { groups } = this;
 
-		// Los pasados van al final: lo plegado es lo último de la página, y los
-		// que no tienen fecha quedan en medio para que siga siéndolo.
+		// Past events go last: the folded section is the last thing on the
+		// page, and the undated ones stay in the middle so it stays that way.
 		return html`
 			${this.#renderGroup(msg("Upcoming"), groups.upcoming)}
 			${this.#renderGroup(msg("Without a date"), groups.undated)}
@@ -91,14 +92,15 @@ export class PlanuEventGroups extends LitElement {
 	}
 
 	/**
-	 * El encabezado va **fuera** del `wa-details`, no en su slot `summary`.
+	 * The heading goes **outside** the `wa-details`, not in its `summary`
+	 * slot.
 	 *
-	 * Parece más limpio meterlo dentro, y en un `<details>` nativo lo sería,
-	 * pero `wa-details` marca su `<summary>` con `role="button"` y ARIA declara
-	 * presentacionales a los hijos de un botón: un `<h2>` ahí existe en el DOM y
-	 * **no** en el árbol de accesibilidad, así que la navegación por encabezados
-	 * seguiría sin llegar a los pasados. Fuera, los tres grupos tienen la misma
-	 * forma. Axe no detecta ninguna de las dos cosas.
+	 * Putting it inside seems cleaner, and in a native `<details>` it would
+	 * be, but `wa-details` marks its `<summary>` with `role="button"` and
+	 * ARIA declares a button's children presentational: an `<h2>` there
+	 * exists in the DOM and **not** in the accessibility tree, so heading
+	 * navigation would still never reach the past events. Outside, the
+	 * three groups have the same shape. Axe catches neither issue.
 	 */
 	#renderPast() {
 		const { past } = this.groups;

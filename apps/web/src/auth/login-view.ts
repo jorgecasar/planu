@@ -18,8 +18,8 @@ import { authErrorMessage } from "../domain/auth-errors.js";
 import { sessionContext } from "../firebase/context.js";
 
 /**
- * Acceso y registro. La redirección al entrar no se hace aquí: el cambio de
- * sesión lo observa el shell, que reencamina.
+ * Sign in and sign up. The redirect on entry does not happen here: the shell
+ * observes the session change and redirects.
  */
 @customElement("planu-login-view")
 export class PlanuLoginView extends LitElement {
@@ -144,7 +144,7 @@ export class PlanuLoginView extends LitElement {
 		`;
 	}
 
-	/** Recoge el formulario y ejecuta la acción, unificando errores y estado. */
+	/** Collects the form and runs the action, unifying errors and state. */
 	async #submit(
 		event: SubmitEvent,
 		action: (
@@ -153,7 +153,7 @@ export class PlanuLoginView extends LitElement {
 		) => Promise<unknown>,
 	): Promise<void> {
 		event.preventDefault();
-		// Se captura aquí para que las acciones lo reciban ya estrechado.
+		// Captured here so the actions receive it already narrowed.
 		const session = this.session;
 		if (!session) return;
 

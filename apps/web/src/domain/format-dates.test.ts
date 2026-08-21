@@ -31,9 +31,9 @@ test("sin fechas lo dice explícitamente en vez de quedar en blanco", () => {
 // ── toInputDate ──────────────────────────────────────────────────────────────
 
 test("formatea para el input usando la fecha local, no UTC", () => {
-	// Con toISOString(), al este de Greenwich esto devolvía el día anterior:
-	// un evento del 4 de julio se reabría como el 3, y cada edición lo retrasaba
-	// otro día.
+	// With toISOString(), east of Greenwich this returned the previous day:
+	// an event on the 4th of July reopened as the 3rd, and every edit pushed
+	// it back another day.
 	const local = new Date(2026, 6, 4, 0, 0, 0);
 	expect(toInputDate(local)).toBe("2026-07-04");
 });

@@ -1,7 +1,7 @@
-// El tema de Web Awesome, igual que lo carga `main.ts`. Sin él ningún token
-// `--wa-*` resuelve, los fondos quedan transparentes y axe no puede calcular el
-// contraste: devuelve nodos en `incomplete` y «cero violaciones» significa en
-// realidad «no he podido mirar».
+// The Web Awesome theme, same as `main.ts` loads it. Without it no `--wa-*`
+// token resolves, backgrounds stay transparent and axe can't compute
+// contrast: it returns nodes in `incomplete`, and "zero violations" actually
+// means "I couldn't check".
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "@awesome.me/webawesome/dist/styles/themes/default.css";
 import axe from "axe-core";
@@ -41,11 +41,11 @@ function event(
 const NOW = local("2026-06-15T10:00");
 
 /**
- * Un evento **terminado**, con su fin declarado.
+ * An event that has **ended**, with its end declared.
  *
- * No basta con ponerle un inicio en el pasado: desde que `groupOf` respeta la
- * semántica del calendario, un evento sin fin declarado sigue en curso para
- * siempre. Decir «pasado» exige decir cuándo acabó.
+ * Giving it a start in the past isn't enough: since `groupOf` respects the
+ * calendar's semantics, an event with no declared end stays ongoing forever.
+ * Saying "past" requires saying when it ended.
  */
 function past(id: string, title: string, day: string): StoredEvent {
 	return event(id, title, day, day);
@@ -53,7 +53,7 @@ function past(id: string, title: string, day: string): StoredEvent {
 
 const EMPTY: Agenda<StoredEvent> = { upcoming: [], undated: [], past: [] };
 
-/** La agenda tal y como la construye la vista de eventos, sin atajos. */
+/** The agenda exactly as the events view builds it, no shortcuts. */
 function agenda(events: StoredEvent[]): Agenda<StoredEvent> {
 	return buildAgenda(events, { now: NOW, locale: "es" });
 }
@@ -70,11 +70,11 @@ async function mount(
 }
 
 /**
- * Los encabezados que **de verdad** llegan al árbol de accesibilidad.
+ * The headings that **actually** reach the accessibility tree.
  *
- * `querySelectorAll("h2")` los encuentra aunque estén `aria-hidden` o sin caja,
- * y con eso un mutante que los saca del árbol deja el test en verde. Encontrar
- * un nodo no prueba que se anuncie.
+ * `querySelectorAll("h2")` finds them even if they're `aria-hidden` or have no
+ * box, and with that a mutant that removes them from the tree leaves the test
+ * green. Finding a node doesn't prove it's announced.
  */
 const headings = (el: PlanuAgendaView) =>
 	[...(el.shadowRoot?.querySelectorAll('h2:not([aria-hidden="true"])') ?? [])]
@@ -107,8 +107,9 @@ test("cada día con contenido trae su encabezado, y en orden", async () => {
 });
 
 test("los eventos de un día cuelgan de su encabezado, no son sus hermanos", async () => {
-	// h1 planu → h2 día → h3 tarjeta. Con h2 en la tarjeta el evento quedaría al
-	// mismo nivel que su día y navegar por encabezados no daría estructura.
+	// h1 planu → h2 day → h3 card. With h2 in the card the event would end up
+	// at the same level as its day, and navigating by headings wouldn't give
+	// any structure.
 	const el = await mount((view) => {
 		view.agenda = agenda([event("1", "Concierto", "2026-06-20")]);
 	});
@@ -125,9 +126,9 @@ test("los eventos de un día cuelgan de su encabezado, no son sus hermanos", asy
 });
 
 test("las tarjetas se pintan, no sólo existen en el DOM", async () => {
-	// `querySelectorAll` las encuentra aunque la lista esté oculta: un mutante
-	// que pone `display: none` a `.day-events` dejaría verde un test que sólo
-	// las contara.
+	// `querySelectorAll` finds them even if the list is hidden: a mutant that
+	// sets `display: none` on `.day-events` would leave a test that only
+	// counts them green.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			event("1", "Taller", "2026-06-20"),
@@ -176,15 +177,16 @@ test("los días pasados salen plegados cuando hay algo más que mirar", async ()
 	});
 
 	expect(details(el)?.open).toBe(false);
-	// Plegado, sus encabezados no están en el árbol: es lo que se espera de un
-	// pliegue cerrado, y la razón de mirar `checkVisibility` y no el DOM.
+	// Folded, its headings aren't in the tree: that's what's expected of a
+	// closed fold, and the reason for checking `checkVisibility` rather than
+	// the DOM.
 	expect(headings(el)).toEqual(["sábado, 20 de junio de 2026"]);
 	el.remove();
 });
 
 test("los días pasados salen abiertos si son lo único que hay", async () => {
-	// Con el pliegue cerrado esta pantalla no enseña ni una tarjeta ni un
-	// mensaje: sólo una franja de acordeón.
+	// With the fold closed this screen shows neither a card nor a message:
+	// just an accordion strip.
 	const el = await mount((view) => {
 		view.agenda = agenda([past("1", "Feria", "2026-06-01")]);
 	});
@@ -195,14 +197,15 @@ test("los días pasados salen abiertos si son lo único que hay", async () => {
 });
 
 test("el pliegue se abre por el atributo, que es como lo usa la vista", async () => {
-	// La vista de eventos lo pasa con `?narrowed=${...}`, es decir por
-	// **atributo**, y el atributo llega vacío. Sin `type: Boolean` la propiedad
-	// vale `""` —falsy— y el pliegue no se abre nunca. Asignar la propiedad, que
-	// es lo cómodo en un test, recorre el único camino que producción no usa.
+	// The events view passes it with `?narrowed=${...}`, that is, by
+	// **attribute**, and the attribute arrives empty. Without `type: Boolean`
+	// the property would be `""` —falsy— and the fold would never open.
+	// Assigning the property, which is the convenient thing in a test, takes
+	// the one path production doesn't use.
 	//
-	// Y el escenario está construido para que **sólo** esta regla explique el
-	// resultado: hay un día próximo, así que la otra apertura —«es lo único que
-	// hay»— no puede abrirlo.
+	// And the scenario is built so that **only** this rule explains the
+	// result: there's an upcoming day, so the other opening trigger —"it's
+	// the only thing there is"— can't open it.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			event("1", "Taller", "2026-06-20"),
@@ -223,7 +226,7 @@ test("el pliegue se abre por el atributo, que es como lo usa la vista", async ()
 });
 
 test("acotar el listado no abre el pliegue si no hay nada pasado", async () => {
-	// El caso contrario del anterior: `narrowed` no puede inventar un pliegue.
+	// The opposite case from the one above: `narrowed` can't invent a fold.
 	const el = await mount((view) => {
 		view.agenda = agenda([event("1", "Taller", "2026-06-20")]);
 		view.narrowed = true;
@@ -234,8 +237,8 @@ test("acotar el listado no abre el pliegue si no hay nada pasado", async () => {
 });
 
 /**
- * Lo que se ve de arriba abajo: encabezados y el pliegue, en orden de
- * documento. El pliegue se nombra aparte para que la aserción se lea.
+ * What's visible from top to bottom: headings and the fold, in document
+ * order. The fold is named separately so the assertion reads well.
  */
 const outline = (el: PlanuAgendaView) =>
 	[...(el.shadowRoot?.querySelectorAll("h2, wa-details") ?? [])].map((node) =>
@@ -243,9 +246,9 @@ const outline = (el: PlanuAgendaView) =>
 	);
 
 test("lo plegado va al final y los sin fecha en medio", async () => {
-	// El invariante está escrito en `event-groups.ts`: los que no tienen fecha
-	// quedan en medio **para que lo plegado siga siendo lo último de la
-	// página**. Intercambiar los dos bloques dejaba la suite verde.
+	// The invariant is written in `event-groups.ts`: the ones without a date
+	// stay in the middle **so that the folded part remains the last thing on
+	// the page**. Swapping the two blocks left the suite green.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			event("1", "Taller", "2026-06-20"),
@@ -264,10 +267,11 @@ test("lo plegado va al final y los sin fecha en medio", async () => {
 });
 
 test("con eventos sin fecha, el pasado no es «lo único que hay»", async () => {
-	// Sin ningún próximo pero con eventos sin fecha, la pantalla ya enseña algo,
-	// así que el pliegue se queda cerrado — es lo que hace `event-groups` y lo
-	// que dice `shouldRevealPast`. Pasarle `undated: 0` lo abría, y ningún test
-	// construía esta forma: hace falta que `upcoming` esté vacío y `undated` no.
+	// With no upcoming events but with undated events, the screen already
+	// shows something, so the fold stays closed — that's what `event-groups`
+	// does and what `shouldRevealPast` says. Passing it `undated: 0` used to
+	// open it, and no test built this shape: it takes `upcoming` being empty
+	// and `undated` not being empty.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			event("1", "Algún día", null),
@@ -281,8 +285,9 @@ test("con eventos sin fecha, el pasado no es «lo único que hay»", async () =>
 });
 
 test("el rótulo del pliegue cuenta eventos, no días, y tiene singular", async () => {
-	// Es el nombre accesible del `<summary role="button">`, no decoración. Y
-	// contar días diría «Show 1 past events» con dos ferias del mismo día.
+	// It's the accessible name of the `<summary role="button">`, not
+	// decoration. And counting days would say "Show 1 past events" with two
+	// fairs on the same day.
 	const uno = await mount((view) => {
 		view.agenda = agenda([past("1", "Feria", "2026-06-01")]);
 	});
@@ -300,8 +305,9 @@ test("el rótulo del pliegue cuenta eventos, no días, y tiene singular", async 
 });
 
 test("los días pasados siguen teniendo encabezado dentro del pliegue", async () => {
-	// El pliegue nombra al control, no al día. Sin encabezados dentro, abrirlo
-	// dejaría una tira de tarjetas sin ninguna estructura por la que navegar.
+	// The fold names the control, not the day. Without headings inside,
+	// opening it would leave a strip of cards with no structure to navigate
+	// by.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			past("1", "Feria", "2026-06-01"),
@@ -318,8 +324,8 @@ test("los días pasados siguen teniendo encabezado dentro del pliegue", async ()
 });
 
 test("axe no encuentra ninguna violación en la agenda", async () => {
-	// La aceptación de F5 pide axe en cada una de las tres vistas. Aquí y no
-	// sólo en el e2e: así el oráculo corre en cada `npm test`.
+	// F5's acceptance criteria asks for axe on each of the three views. Here
+	// and not only in the e2e: this way the oracle runs on every `npm test`.
 	const el = await mount((view) => {
 		view.agenda = agenda([
 			event("1", "Taller", "2026-06-20"),
@@ -341,11 +347,11 @@ test("axe no encuentra ninguna violación en la agenda", async () => {
 });
 
 test("el contraste de la agenda se mide, no se da por bueno", async () => {
-	// `incomplete` es «no he podido mirar». Sin el tema cargado los fondos son
-	// `rgba(0,0,0,0)` y axe devuelve «background color could not be determined»:
-	// justo la regla que más papeletas tiene de romperse aquí quedaría sin
-	// comprobar. Se acota a los encabezados de día, que es lo que esta vista
-	// añade: las tarjetas ya las mide `events.spec.ts`.
+	// `incomplete` means "I couldn't check". Without the theme loaded the
+	// backgrounds are `rgba(0,0,0,0)` and axe returns "background color could
+	// not be determined": exactly the rule most likely to break here would go
+	// unchecked. It's scoped to the day headings, which is what this view
+	// adds: the cards are already measured by `events.spec.ts`.
 	const el = await mount((view) => {
 		view.agenda = agenda([event("1", "Taller", "2026-06-20")]);
 	});
@@ -361,8 +367,8 @@ test("el contraste de la agenda se mide, no se da por bueno", async () => {
 			issue.nodes.map((node) => node.target.join(" ")),
 		),
 	).toEqual([]);
-	// Sin esto, acotar a un selector que no encuentra nada daría las dos listas
-	// vacías: «no hay violaciones» y «no se ha mirado» se escriben igual.
+	// Without this, scoping to a selector that finds nothing would give both
+	// lists empty: "no violations" and "not checked" look the same.
 	expect(results.passes.length).toBeGreaterThan(0);
 
 	el.remove();

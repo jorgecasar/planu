@@ -11,15 +11,15 @@ const signedIn: SessionUser = {
 };
 
 test("la aplicación vive bajo /app, no en la raíz", () => {
-	// La raíz queda libre para la landing pública, que no arranca la aplicación
-	// ni el SDK de Firebase.
+	// The root stays free for the public landing, which does not start the
+	// application or the Firebase SDK.
 	expect(HOME_PATH).toBe("/app");
 	expect(LOGIN_PATH).toBe("/app/login");
 });
 
 test("mientras se comprueba la sesión no reencamina a ningún sitio", () => {
-	// Si esto devolviera el login, un usuario con sesión válida vería el
-	// formulario de acceso durante el arranque.
+	// If this returned the login, a user with a valid session would see the
+	// sign-in form during startup.
 	expect(guardRedirect(undefined, "/app")).toBeNull();
 	expect(guardRedirect(undefined, "/app/login")).toBeNull();
 	expect(guardRedirect(undefined, "/app/profile")).toBeNull();

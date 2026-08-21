@@ -6,37 +6,37 @@ import {
 } from "./build-ics.js";
 
 /**
- * Enlace a la plantilla de creación de eventos de Google Calendar.
+ * Link to Google Calendar's event-creation template.
  *
- * Es una URL, no una integración: no hay red, ni credenciales, ni permiso que
- * pedir. El usuario llega al formulario de Google con los campos rellenos y
- * decide si guarda.
+ * It's a URL, not an integration: there's no network call, no credentials,
+ * no permission to ask for. The user lands on Google's form with the fields
+ * filled in and decides whether to save it.
  *
- * La plantilla admite **un** evento, así que la agenda completa sólo se
- * exporta como `.ics`.
+ * The template only accepts **one** event, so the full agenda is only
+ * exported as `.ics`.
  */
 const TEMPLATE = "https://calendar.google.com/calendar/render";
 
 /**
- * `null` cuando el evento no tiene fechas: sin `dates` la plantilla se abre
- * vacía de horario y el usuario cree que el enlace ha fallado. Quien llama
- * avisa en su lugar.
+ * `null` when the event has no dates: without `dates` the template opens
+ * with an empty schedule and the user thinks the link failed. The caller
+ * warns instead.
  */
 export function googleCalendarUrl(event: CalendarEvent): string | null {
 	const window = calendarWindow(event);
 	if (!window) return null;
 
 	const { start, end, allDay } = window;
-	// Google usa el mismo criterio que RFC 5545: fechas sueltas para el día
-	// completo —con fin exclusivo, que ya viene calculado— y marca de tiempo
-	// UTC en el resto. Sin fin declarado se repite el inicio, porque el
-	// parámetro exige los dos extremos.
+	// Google uses the same criterion as RFC 5545: bare dates for the all-day
+	// case —with an exclusive end, already computed— and a UTC timestamp for
+	// the rest. With no end declared, the start is repeated, because the
+	// parameter requires both ends.
 	const dates = allDay
 		? `${toIcsDate(start)}/${toIcsDate(end ?? start)}`
 		: `${toIcsDateTime(start)}/${toIcsDateTime(end ?? start)}`;
 
-	// `URLSearchParams` se encarga del escape; construir la cadena a mano es
-	// donde un título con `&` rompe el resto de parámetros.
+	// `URLSearchParams` takes care of escaping; building the string by hand is
+	// where a title with `&` would break the rest of the parameters.
 	const params = new URLSearchParams({
 		action: "TEMPLATE",
 		text: event.title,

@@ -34,8 +34,8 @@ test("extrae el evento del texto pegado", async () => {
 });
 
 test("manda las instrucciones y el texto en partes separadas", async () => {
-	// El texto pegado es dato, no instrucción: va en su propia parte para que el
-	// modelo no lo lea como continuación del prompt.
+	// The pasted text is data, not instruction: it goes in its own part so
+	// the model does not read it as a continuation of the prompt.
 	let enviado: unknown[] = [];
 	const generate: GenerateContent = async (parts) => {
 		enviado = parts;
@@ -46,28 +46,29 @@ test("manda las instrucciones y el texto en partes separadas", async () => {
 
 	expect(enviado).toHaveLength(2);
 	expect(enviado[0]).toEqual({ text: textExtractionPrompt(HOY) });
-	// Exacto y no `stringContaining`: con el segundo, quitar el `.trim()` no se
-	// notaría.
+	// Exact, not `stringContaining`: with the latter, removing the `.trim()`
+	// would go unnoticed.
 	expect(enviado[1]).toEqual({ text: "Cena el jueves" });
 });
 
 test("el prompt le dice al modelo qué día es hoy", async () => {
-	// Sin esto no puede resolver «el 20 de junio»: no tiene de dónde sacar el
-	// año, y lo dejaba vacío o se lo inventaba.
+	// Without this it cannot resolve "20 June": it has nowhere to get the
+	// year from, and it either left it blank or made one up.
 	expect(textExtractionPrompt(HOY)).toContain("2026-08-17");
 });
 
 test("el texto hereda las reglas de fecha compartidas, sin copiarlas", () => {
-	// Antes esto comprobaba subcadenas sueltas —"ISO 8601", "single day"— y una
-	// revisión demostró que un prompt con las reglas **invertidas** las conservaba
-	// todas y pasaba igual. Lo que de verdad hay que impedir es que este prompt
-	// se quede con una copia divergente de `dateRules`.
+	// This used to check loose substrings — "ISO 8601", "single day" — and a
+	// review showed that a prompt with the rules **inverted** kept all of
+	// them and passed just the same. What really needs to be prevented is
+	// this prompt ending up with a diverging copy of `dateRules`.
 	expect(textExtractionPrompt(HOY)).toContain(dateRules(HOY));
 });
 
 test("el prompt pide título vacío cuando no hay evento", () => {
-	// De esto depende el test de «un texto sin ningún evento se rechaza»: sin la
-	// instrucción, el modelo se inventaría un título y el rechazo no ocurriría.
+	// The "a text with no event at all is rejected" test depends on this:
+	// without the instruction, the model would make up a title and the
+	// rejection would never happen.
 	expect(textExtractionPrompt(HOY)).toContain("empty title");
 });
 
@@ -76,44 +77,45 @@ test("el prompt declara el texto pegado como dato, no como instrucción", () => 
 });
 
 test("los ejemplos salen de hoy, no de un año escrito a mano", () => {
-	// Con `2027` fijo en los ejemplos, Gemini Nano devolvía 2027 para todo,
-	// incluida una fecha de este año que aún no había llegado: copiaba el año
-	// en vez de calcularlo. Se midió contra el modelo real.
+	// With `2027` fixed in the examples, Gemini Nano returned 2027 for
+	// everything, including a date this year that had not even arrived yet:
+	// it copied the year instead of computing it. Measured against the real
+	// model.
 	const prompt = textExtractionPrompt(HOY);
 
-	// HOY es 2026-08-17: la cena cae 20 días después y el plazo, 90.
+	// HOY is 2026-08-17: the dinner falls 20 days later and the deadline, 90.
 	expect(prompt).toContain('"startDate":"2026-09-06T21:00"');
 	expect(prompt).toContain('"startDate":"","endDate":"2026-11-15"');
 
-	// Y con otro «hoy» cambian: si algún año quedara escrito a mano, este
-	// prompt seguiría enseñándolo cuando ya no toca.
+	// And with a different "today" they change: if any year were left
+	// written by hand, this prompt would keep showing it after its time.
 	const otro = textExtractionPrompt(new Date(2030, 0, 15));
 	expect(otro).not.toContain("2026-");
 	expect(otro).toContain("2030-02-04");
 });
 
 test("un ejemplo enseña que lo que ya pasó cae en el año siguiente", () => {
-	// Es la única regla que no se ve en el formato, y con palabras sola no la
-	// aplicaba.
+	// It is the only rule that is not visible in the format, and stated in
+	// words alone it was not being applied.
 	const prompt = textExtractionPrompt(HOY);
 
-	// 60 días antes de 2026-08-17 es el 18 de junio, que ya pasó: 2027.
+	// 60 days before 2026-08-17 is 18 June, which has already passed: 2027.
 	expect(prompt).toContain("18 de junio");
 	expect(prompt).toContain('"startDate":"2027-06-18","endDate":"2027-06-18"');
 });
 
 test("hay un ejemplo de evento de un día sin hora", () => {
-	// Con un único ejemplo de día completo y con hora, el modelo ataba
-	// «repetir el fin» a que hubiera hora: el concierto se quedaba sin fin.
+	// With only one all-day example and one timed example, the model tied
+	// "repeat the end" to having a time: the concert was left with no end.
 	const prompt = textExtractionPrompt(HOY);
 	const sinHora = /"startDate":"(\d{4}-\d{2}-\d{2})","endDate":"\1"/;
 
 	expect(prompt).toMatch(sinHora);
 });
 
-// Los tres casos, tal y como el modelo debería contestarlos. Esto prueba el
-// **parseo**, no que el modelo obedezca: eso sólo lo comprueba una persona con
-// IA integrada delante.
+// The three cases, exactly as the model should answer them. This tests the
+// **parsing**, not that the model obeys: that can only be checked by a
+// person with built-in AI in front of them.
 
 test("un evento de un día llega con inicio y fin", async () => {
 	const result = await generateEventFromText(
@@ -144,8 +146,9 @@ test("algo que empieza y no dice cuándo acaba llega sin fin", async () => {
 });
 
 test("un plazo llega como fin, sin inicio inventado", async () => {
-	// `calendarWindow` ya sabe exportar un evento que sólo tiene fin: arranca
-	// ese día. Poner el inicio a hoy sería inventarse un dato que nadie dio.
+	// `calendarWindow` already knows how to export an event that only has an
+	// end: it starts on that day. Setting the start to today would be
+	// inventing data nobody gave.
 	const result = await generateEventFromText(
 		answering(
 			JSON.stringify({
@@ -162,8 +165,9 @@ test("un plazo llega como fin, sin inicio inventado", async () => {
 });
 
 test("un texto sin ningún evento se rechaza en vez de inventarlo", async () => {
-	// El prompt pide título vacío cuando no hay evento; el parseo lo convierte en
-	// error y el editor no llega a abrirse con basura dentro.
+	// The prompt asks for an empty title when there is no event; the
+	// parsing turns that into an error, and the editor never opens with
+	// garbage inside.
 	await expect(
 		generateEventFromText(
 			answering(JSON.stringify({ title: "", description: "", location: "" })),
@@ -207,8 +211,8 @@ test("un texto por encima del tope se rechaza antes de gastar tokens", async () 
 	).rejects.toBeInstanceOf(TextInputError);
 	expect(llamado).toBe(false);
 
-	// Justo en el tope sí pasa: el límite es inclusivo y un error de una unidad
-	// aquí rechazaría textos válidos.
+	// Right at the cap it does pass: the limit is inclusive, and an
+	// off-by-one error here would reject valid texts.
 	await expect(
 		generateEventFromText(
 			answering(JSON.stringify({ title: "Cena" })),
@@ -218,9 +222,9 @@ test("un texto por encima del tope se rechaza antes de gastar tokens", async () 
 });
 
 test("el error de entrada no se confunde con el del modelo", async () => {
-	// La interfaz da mensajes distintos: «pega algo» no es lo mismo que «no he
-	// podido leerlo». Si TextInputError heredase de GenerationError, el
-	// componente los mezclaría.
+	// The interface gives different messages: "paste something" is not the
+	// same as "I could not read it". If TextInputError inherited from
+	// GenerationError, the component would mix them up.
 	const error = await generateEventFromText(answering("{}"), "").catch(
 		(cause: unknown) => cause,
 	);

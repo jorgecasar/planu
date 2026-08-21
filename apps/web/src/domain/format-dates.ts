@@ -1,11 +1,11 @@
 import { msg, str } from "@lit/localize";
 
 /**
- * Formatea para un `<input type="date">`, que espera YYYY-MM-DD.
+ * Formats for an `<input type="date">`, which expects YYYY-MM-DD.
  *
- * Con componentes locales y no con `toISOString()`: este último pasa por UTC,
- * así que al este de Greenwich devolvía el día anterior. Un evento del 4 de
- * julio se reabría como el 3, y cada edición lo retrasaba un día más.
+ * Using local components, not `toISOString()`: the latter goes through UTC,
+ * so east of Greenwich it returned the previous day. An event on the 4th of
+ * July reopened as the 3rd, and every edit pushed it back one more day.
  */
 export function toInputDate(date: Date | null | undefined): string {
 	if (!date) return "";
@@ -20,10 +20,11 @@ const FORMAT: Intl.DateTimeFormatOptions = {
 };
 
 /**
- * Texto legible del periodo de un evento.
+ * Readable text for an event's period.
  *
- * Las cuatro combinaciones importan: el modelo permite eventos sin fechas, con
- * sólo inicio o con sólo fin, y cada caso dice algo distinto al usuario.
+ * The four combinations matter: the model allows events with no dates, with
+ * only a start, or with only an end, and each case tells the user something
+ * different.
  */
 export function formatEventDates(
 	start: Date | null | undefined,

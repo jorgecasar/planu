@@ -47,12 +47,12 @@ test("una descripción ausente no rompe la búsqueda", () => {
 	expect(filterEvents(events, "cena")).toHaveLength(1);
 });
 
-// ── Rango de fechas ──────────────────────────────────────────────────────────
+// ── Date range ───────────────────────────────────────────────────────────────
 
 const range = { from: day("2026-06-10"), to: day("2026-06-20") };
 
 test("un evento sin fechas siempre pasa el filtro de rango", () => {
-	// Deliberado: ocultarlos escondería eventos que el usuario quiere ver.
+	// Deliberate: hiding them would hide events the user wants to see.
 	const events = [event({ startDate: null, endDate: null })];
 	expect(filterEvents(events, "", range)).toHaveLength(1);
 });
@@ -107,7 +107,7 @@ test("los límites del rango son inclusivos", () => {
 
 test("con un solo extremo, busca lo activo ese día y no lo que empieza", () => {
 	const soloDesde = { from: day("2026-06-15") };
-	// Empezó antes pero sigue en curso ese día: debe aparecer.
+	// It started earlier but is still ongoing that day: it must appear.
 	const enCurso = event({
 		startDate: day("2026-06-01"),
 		endDate: day("2026-06-30"),
@@ -191,7 +191,7 @@ test("ownership adds to text and dates, it does not replace them", () => {
 	expect(visible[0]?.userId).toBe(ME);
 });
 
-// --- filtrado por etiqueta (F6) -------------------------------------------
+// --- tag filtering (F6) ----------------------------------------------------
 
 test("sin etiquetas seleccionadas no filtra por etiqueta", () => {
 	const events = [event({ tags: ["cine"] }), event({ tags: [] })];
@@ -199,8 +199,8 @@ test("sin etiquetas seleccionadas no filtra por etiqueta", () => {
 });
 
 test("varias etiquetas se combinan con Y, no con O", () => {
-	// Con O este filtro devolvería los tres; con Y, sólo el que las tiene
-	// ambas. Es la diferencia que F6 fija de forma explícita.
+	// With OR this filter would return all three; with AND, only the one that
+	// has both. This is the difference that F6 fixes explicitly.
 	const events = [
 		event({ title: "ambas", tags: ["cine", "teatro"] }),
 		event({ title: "sólo cine", tags: ["cine"] }),
@@ -216,8 +216,8 @@ test("un evento con etiquetas de más sigue encajando", () => {
 });
 
 test("un evento sin etiquetas no encaja con ninguna", () => {
-	// Al revés que el filtro por fechas, donde no tener fecha pasa siempre:
-	// pedir una etiqueta es pedirla, y un evento sin ninguna no la tiene.
+	// Unlike the date filter, where having no date always passes: asking for a
+	// tag means asking for it, and an event with none doesn't have it.
 	const events = [event({ tags: [] })];
 	expect(filterEvents(events, "", {}, "all", "", ["cine"])).toHaveLength(0);
 });
@@ -231,7 +231,7 @@ test("la etiqueta se suma al resto de criterios, no los sustituye", () => {
 	expect(visible.map((e) => e.title)).toEqual(["Concierto"]);
 });
 
-// --- isNarrowed -----------------------------------------------------------
+// --- isNarrowed ------------------------------------------------------------
 
 test("sin nada puesto, el usuario sólo está mirando", () => {
 	expect(isNarrowed({})).toBe(false);
@@ -248,12 +248,12 @@ test("filtrar por fechas también", () => {
 });
 
 test("y filtrar por etiqueta también, que es lo que se olvidaba", () => {
-	// Éste es el caso que tenía la vista duplicado y discrepante: pulsar la
-	// etiqueta «música» y escribir «música» son la misma intención.
+	// This is the case the view had duplicated and disagreeing on: clicking the
+	// "music" tag and typing "music" are the same intent.
 	expect(isNarrowed({ tags: ["música"] })).toBe(true);
 });
 
 test("la bandeja elegida no es una consulta", () => {
-	// Todos / míos / compartidos es un modo de navegar, no algo que se pida.
+	// All / mine / shared is a way of navigating, not something you request.
 	expect(isNarrowed({ ownership: "shared", uid: "u1" })).toBe(false);
 });

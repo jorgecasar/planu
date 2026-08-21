@@ -3,14 +3,14 @@ import { expect, test } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
 import { toSessionError, toSessionUser } from "./session-adapter.js";
 
-// Pura y síncrona: construye los errores a mano, sin tocar el emulador de
-// Auth. Es la mitad de lo que antes probaba `auth-errors.test.ts` — la que
-// depende de conocer los códigos de Firebase, y por eso vive aquí y no en
-// `domain/`.
+// Pure and synchronous: builds the errors by hand, without touching the
+// Auth emulator. It's half of what `auth-errors.test.ts` used to test — the
+// half that depends on knowing Firebase's codes, and that's why it lives
+// here and not in `domain/`.
 
 test("no distingue entre usuario inexistente y contraseña errónea", () => {
-	// Mensajes distintos permitirían enumerar qué correos están registrados;
-	// el colapso a un único código de dominio es lo que lo impide.
+	// Distinct messages would let someone enumerate which emails are
+	// registered; collapsing to a single domain code is what prevents it.
 	const notFound = toSessionError(new FirebaseError("auth/user-not-found", ""));
 	const wrongPassword = toSessionError(
 		new FirebaseError("auth/wrong-password", ""),
@@ -66,9 +66,9 @@ test("cae a 'unknown' si la causa ni siquiera es un FirebaseError", () => {
 });
 
 test("un SessionError construido a mano no cambia de forma", () => {
-	// No hay ruta especial para reenviar un SessionError ya traducido: no la
-	// necesita, porque quien llama a `toSessionError` siempre parte de la
-	// causa cruda del SDK.
+	// There's no special path for passing through an already-translated
+	// SessionError: it doesn't need one, because whoever calls
+	// `toSessionError` always starts from the SDK's raw cause.
 	expect(toSessionError(new SessionError("weak-password")).code).toBe(
 		"unknown",
 	);
@@ -108,7 +108,7 @@ test("toSessionUser delega getIdTokenResult en el user real, sin reimplementarlo
 
 	const sessionUser = toSessionUser(user as never);
 
-	// Es el propio método de Firebase, no una copia: si el SDK cambiara de
-	// idea sobre cómo resolverlo, esto lo seguiría reflejando.
+	// It's Firebase's own method, not a copy: if the SDK changed its mind
+	// about how to resolve it, this would keep reflecting that.
 	await expect(sessionUser.getIdTokenResult?.()).resolves.toEqual({ claims });
 });

@@ -22,12 +22,12 @@ const box = (el: PlanuEventFilters, tag: string): CheckboxHost | null =>
 	null;
 
 /**
- * Deja que la interacción termine de propagarse.
+ * Lets the interaction finish propagating.
  *
- * El `change` nativo del `input` no cruza el shadow root —no es `composed`—, así
- * que `wa-checkbox` emite el suyo propio después de su ciclo de actualización.
- * Esperar sólo a `updateComplete` del filtro llegaba antes que el evento: el
- * test pasaba o no según el reloj.
+ * The native `change` on the `input` doesn't cross the shadow root —it isn't
+ * `composed`—, so `wa-checkbox` fires its own after its update cycle.
+ * Waiting only on the filter's `updateComplete` arrived before the event:
+ * the test passed or not depending on the clock.
  */
 const settle = (): Promise<void> =>
 	new Promise((resolve) => {
@@ -35,12 +35,13 @@ const settle = (): Promise<void> =>
 	});
 
 /**
- * Pulsa la casilla como lo haría una persona: sobre el `input` nativo que
- * `wa-checkbox` esconde en su shadow root.
+ * Clicks the checkbox the way a person would: on the native `input` that
+ * `wa-checkbox` hides in its shadow root.
  *
- * Despachar un `change` sintético sobre el host no vale para lo que estos tests
- * vigilan: lo que `live()` arregla es justo la divergencia entre el DOM que deja
- * el usuario y lo último que Lit escribió, y sólo un clic de verdad la produce.
+ * Dispatching a synthetic `change` on the host doesn't work for what these
+ * tests watch: what `live()` fixes is exactly the divergence between the
+ * DOM the user leaves and the last thing Lit wrote, and only a real click
+ * produces it.
  */
 async function click(el: PlanuEventFilters, tag: string): Promise<void> {
 	const host = box(el, tag);
@@ -81,10 +82,10 @@ test("marcar una etiqueta la emite en el filtro", async () => {
 });
 
 test("limpiar deja las casillas desmarcadas, no sólo el filtro", async () => {
-	// Es exactamente lo que `?checked` no conseguía: su atributo mapea a
-	// `defaultChecked`, así que el componente lo ignora tras la primera
-	// interacción y la casilla se quedaba pintada como marcada mientras el
-	// listado ya salía sin filtrar.
+	// This is exactly what `?checked` couldn't achieve: its attribute maps
+	// to `defaultChecked`, so the component ignores it after the first
+	// interaction and the checkbox stayed painted as checked while the
+	// listing already came out unfiltered.
 	const el = await mount(["arte", "cine"]);
 	const emitted = listen(el);
 
@@ -101,10 +102,10 @@ test("limpiar deja las casillas desmarcadas, no sólo el filtro", async () => {
 });
 
 test("una etiqueta seleccionada sigue visible aunque deje de existir", async () => {
-	// Filtro por «cine», edito ese evento y le quito la etiqueta: `knownTags`
-	// la pierde. Pintando sólo `availableTags`, la casilla desaparecía del DOM
-	// con el filtro todavía puesto y el listado se quedaba vacío para siempre,
-	// sin nada marcado que lo explicase.
+	// Filter by "cine", I edit that event and remove the tag: `knownTags`
+	// loses it. Painting only `availableTags`, the checkbox would
+	// disappear from the DOM with the filter still on and the listing
+	// would stay empty forever, with nothing checked to explain it.
 	const el = await mount(["arte", "cine"]);
 	await click(el, "cine");
 
@@ -117,8 +118,9 @@ test("una etiqueta seleccionada sigue visible aunque deje de existir", async () 
 });
 
 test("la última etiqueta seleccionada mantiene el grupo en pie", async () => {
-	// Si era la única del usuario, `availableTags` se queda vacío y el grupo
-	// entero desaparecía: no quedaba ni una casilla que desmarcar.
+	// If it was the user's only one, `availableTags` ends up empty and the
+	// whole group would disappear: there wasn't even one checkbox left to
+	// uncheck.
 	const el = await mount(["cine"]);
 	await click(el, "cine");
 
@@ -142,18 +144,18 @@ test("una etiqueta no se pinta dos veces por estar seleccionada", async () => {
 });
 
 test("reordenar no le mueve el foco a quien navega con el teclado", async () => {
-	// Lo que compra la clave de `repeat()`. Sin ella Lit reutiliza los nodos por
-	// posición: el foco se queda en el nodo de la primera casilla, al que le
-	// acaban de reescribir el valor, y el usuario se encuentra sobre «arte» sin
-	// haber pulsado nada. El marcado y el rótulo sí los reaplican `live()` y los
-	// bindings, así que no son prueba de nada aquí.
+	// What `repeat()`'s key buys. Without it Lit reuses nodes by position:
+	// the focus stays on the first checkbox's node, which just had its
+	// value rewritten, and the user ends up on "arte" without having
+	// clicked anything. The checked state and the label do get reapplied
+	// by `live()` and the bindings, so they don't prove anything here.
 	const el = await mount(["cine", "teatro"]);
 	const host = box(el, "cine");
 	await host?.updateComplete;
 	host?.shadowRoot?.querySelector("input")?.focus();
 
-	// Al crear un evento con «arte», `knownTags` se reordena y «cine» deja de
-	// ser la primera.
+	// When an event with "arte" is created, `knownTags` reorders and
+	// "cine" is no longer first.
 	el.availableTags = ["arte", "cine", "teatro"];
 	await el.updateComplete;
 

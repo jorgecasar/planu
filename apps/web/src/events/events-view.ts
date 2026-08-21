@@ -71,14 +71,15 @@ import {
 import type { FiltersChange } from "./event-filters.js";
 
 /**
- * Convierte un documento de Firestore en un evento, validándolo.
+ * Converts a Firestore document into an event, validating it.
  *
- * Las reglas ya exigen tipos, pero el cliente no debe confiar en que un
- * documento cumpla: los heredados del prototipo no pasaron por ellas. Sin
- * validar, un `description` numérico hacía estallar `.toLowerCase()` dentro de
- * `render()`, y Lit no captura eso: rompía el listado entero, no una tarjeta.
+ * The rules already enforce types, but the client shouldn't trust that a
+ * document complies: the ones inherited from the prototype never went
+ * through them. Without validation, a numeric `description` would blow
+ * up `.toLowerCase()` inside `render()`, and Lit doesn't catch that: it
+ * broke the whole listing, not a single card.
  *
- * Devuelve `null` para lo que no encaje, que se descarta.
+ * Returns `null` for whatever doesn't fit, which gets discarded.
  */
 function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 	const asDate = (value: unknown) =>
@@ -106,7 +107,7 @@ function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 	return { ...parsed.data, id: document["id"] };
 }
 
-/** Listado de los eventos del usuario, con búsqueda y filtro por fechas. */
+/** Listing of the user's events, with search and date filtering. */
 @customElement("planu-events-view")
 export class PlanuEventsView extends LitElement {
 	static override styles = css`
@@ -162,30 +163,32 @@ export class PlanuEventsView extends LitElement {
 	@state() private draftSource: InferenceSourceName | undefined;
 
 	/**
-	 * Si `draft` es el evento de ejemplo de T33. Va aparte de `draftSource`
-	 * porque ese campo ya significa "se generó, pero no se sabe dónde"; el
-	 * ejemplo no se generó en absoluto, así que reutilizarlo lo anunciaría
-	 * como obra de la IA.
+	 * Whether `draft` is T33's sample event. Kept apart from `draftSource`
+	 * because that field already means "it was generated, but where isn't
+	 * known"; the sample wasn't generated at all, so reusing it would
+	 * announce it as AI's work.
 	 */
 	@state() private draftIsSample = false;
 	@state() private aiAvailable = false;
 
 	/**
-	 * El orden elegido, recuperado de la sesión anterior. Se lee al construir y
-	 * no en `connectedCallback`, para que el primer render ya salga ordenado
-	 * como el usuario lo dejó y no salte a la vista.
+	 * The chosen order, recovered from the previous session. It's read at
+	 * construction, not in `connectedCallback`, so the first render
+	 * already comes out sorted the way the user left it and doesn't jump
+	 * in front of their eyes.
 	 */
 	@state() private sort: SortPreference = readSortPreference();
 
 	/**
-	 * La vista elegida, recuperada de la sesión anterior.
+	 * The chosen view, recovered from the previous session.
 	 *
-	 * Se lee en el inicializador del campo, igual que el orden, con la intención
-	 * de que el primer render ya salga como el usuario lo dejó. **Esa intención
-	 * no tiene oráculo**: moverla a `connectedCallback` no rompe ningún test, y
-	 * un salto de un fotograma no es algo que la suite sepa mirar. Se deja donde
-	 * está por coherencia con `sort` y porque no cuesta nada, no porque esté
-	 * demostrado que haga falta.
+	 * It's read in the field initializer, just like the order, with the
+	 * intention that the first render already comes out the way the user
+	 * left it. **That intention has no oracle**: moving it to
+	 * `connectedCallback` doesn't break any test, and a one-frame jump
+	 * isn't something the suite knows how to check. It's left where it is
+	 * for consistency with `sort` and because it costs nothing, not
+	 * because it's been proven necessary.
 	 */
 	@state() private view: ViewMode = readViewMode();
 
@@ -193,43 +196,44 @@ export class PlanuEventsView extends LitElement {
 
 	override async connectedCallback(): Promise<void> {
 		super.connectedCallback();
-		// Un botón que siempre falla es peor que un botón que no está.
+		// A button that always fails is worse than a button that isn't there.
 		this.aiAvailable = canOffer(await checkAvailability());
 	}
 
 	constructor() {
 		super();
-		// La tarjeta no conoce al editor: emite y esta vista decide.
+		// The card doesn't know about the editor: it emits and this view decides.
 		this.addEventListener("planu-edit-event", (domEvent) => {
 			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
 			this.editorOpen = true;
 		});
 
-		// La rejilla mensual emite `planu-event-picked` cuando el usuario elige
-		// uno de los eventos sin fecha que no caben en ninguna celda, y no decide
-		// qué hacer con él a propósito. Aquí se decide: **abrir el editor**, que
-		// es lo mismo que hace pulsar la tarjeta en la rejilla de tarjetas. La
-		// alternativa —llevar el calendario al mes del evento— no existe: un
-		// evento sin fecha no tiene mes al que ir, y ponerle uno es justo lo que
-		// el usuario tendría que decidir en el editor.
+		// The monthly grid emits `planu-event-picked` when the user picks one
+		// of the undated events that don't fit any cell, and it deliberately
+		// doesn't decide what to do with it. Here it's decided: **open the
+		// editor**, which is the same thing clicking the card does in the
+		// card grid. The alternative —taking the calendar to the event's
+		// month— doesn't exist: an undated event has no month to go to, and
+		// giving it one is exactly what the user would have to decide in the
+		// editor.
 		this.addEventListener("planu-event-picked", (domEvent) => {
 			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
 			this.editorOpen = true;
 		});
 	}
 
-	/** Entradas de las que depende la consulta; sólo se rehace si cambian. */
+	/** Inputs the query depends on; it's only rebuilt if they change. */
 	#queryKey: string | undefined;
 
 	override willUpdate(): void {
 		const { firestore, user } = this;
-		// Firestore llega después que el usuario, porque se carga bajo demanda:
-		// si la clave sólo mirase el uid, la consulta no se crearía nunca.
+		// Firestore arrives after the user, because it loads on demand: if
+		// the key only looked at the uid, the query would never get created.
 		const key = firestore && user ? `${user.uid}:ready` : "";
 
-		// Reconstruir la consulta en cada actualización dispara una
-		// resuscripción, que provoca un snapshot, que provoca otra
-		// actualización: un bucle que reescribe el DOM varias veces por segundo.
+		// Rebuilding the query on every update triggers a re-subscription,
+		// which triggers a snapshot, which triggers another update: a loop
+		// that rewrites the DOM several times per second.
 		if (key === this.#queryKey) return;
 		this.#queryKey = key;
 
@@ -259,9 +263,9 @@ export class PlanuEventsView extends LitElement {
 			this.tags,
 		);
 
-		// Las etiquetas que se ofrecen salen de los eventos que el usuario ya
-		// tiene, no de una colección aparte: así no hay nada que mantener
-		// sincronizado ni una consulta más que pagar.
+		// The tags on offer come from the events the user already has, not
+		// from a separate collection: that way there's nothing to keep in
+		// sync and no extra query to pay for.
 		const knownTags = [...new Set(all.flatMap((event) => event.tags))].sort(
 			(a, b) => a.localeCompare(b),
 		);
@@ -301,12 +305,13 @@ export class PlanuEventsView extends LitElement {
 					)}
 				</wa-select>
 
-				<!-- La agenda que se exporta es la que se está viendo: los mismos
-				     eventos que ya han pasado por los filtros, **antes** de agrupar.
-				     Si alguien le pasa aquí \`groups\` en vez de \`visible\`, el .ics se
-				     queda con un solo grupo y no lo detecta nada: los unitarios usan
-				     sus propios datos y el e2e sólo comprueba que un filtro reduce a
-				     un VEVENT. -->
+				<!-- The agenda that gets exported is the one being viewed: the
+				     same events that already went through the filters, **before**
+				     grouping. If someone passes \`groups\` here instead of
+				     \`visible\`, the .ics ends up with a single group and
+				     nothing catches it: the unit tests use their own data and the
+				     e2e only checks that a filter reduces things down to one
+				     VEVENT. -->
 				<planu-calendar-export
 					mode="agenda"
 					.events=${visible}
@@ -356,7 +361,7 @@ export class PlanuEventsView extends LitElement {
 		this.#onNew();
 	}
 
-	/** Lo extraído por la IA no se guarda: prerrellena el editor para revisarlo. */
+	/** What the AI extracts isn't saved: it prefills the editor for review. */
 	#onGenerated(domEvent: Event): void {
 		const { event, source } = (domEvent as CustomEvent<GeneratedDraft>).detail;
 		this.draft = event;
@@ -377,11 +382,12 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * El estado vacío no conoce al editor ni al generador: emite y esta vista
-	 * decide, igual que `event-card` con `planu-edit-event`. Los tres caminos
-	 * que ofrece son los mismos que el menú "New event" —a mano o con IA—, y
-	 * no algo nuevo: T33 pide hacerlos evidentes desde el vacío, no inventar
-	 * una cuarta vía.
+	 * The empty state doesn't know about the editor or the generator: it
+	 * emits and this view decides, same as `event-card` with
+	 * `planu-edit-event`. The three paths it offers are the same as the
+	 * "New event" menu — by hand or with AI — and not something new: T33
+	 * asks for them to be made obvious from the empty state, not for a
+	 * fourth path to be invented.
 	 */
 	#onEmptyCreate(): void {
 		this.#onNew();
@@ -392,9 +398,10 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * "Probar con un ejemplo" (T33): el borrador se prerrellena con datos de
-	 * muestra y se abre el mismo editor que un alta manual o una IA — el
-	 * usuario lo revisa y decide si lo guarda, nunca se escribe solo.
+	 * "Try a sample event" (T33): the draft is pre-filled with sample data
+	 * and the same editor opens as for a manual entry or an AI one — the
+	 * user reviews it and decides whether to save it, it never writes
+	 * itself.
 	 */
 	#onEmptySample(): void {
 		this.editing = undefined;
@@ -405,56 +412,59 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	#renderList(total: number, visible: StoredEvent[]) {
-		// Antes de nada el error: sin esto, un fallo de permisos o de cuota
-		// dejaba `data` vacío y el usuario leía "todavía no tienes eventos",
-		// que es exactamente la conclusión equivocada.
+		// The error comes before anything else: without this, a permissions
+		// or quota failure left `data` empty and the user read "you don't
+		// have any events yet", which is exactly the wrong conclusion.
 		if (this.#events.error) {
 			return html`<wa-callout variant="danger" role="alert">
 				${msg("Your events could not be loaded. Check your connection and reload.")}
 			</wa-callout>`;
 		}
 
-		// Hay sesión pero Firestore aún viaja por su import dinámico. Sin esta
-		// comprobación el controller no llega a suscribirse —su `loading` sigue
-		// en false— y la vista concluía "todavía no tienes eventos" en cada
-		// arranque en frío, indistinguible de una lista vacía de verdad.
+		// There's a session but Firestore is still traveling through its
+		// dynamic import. Without this check the controller never gets to
+		// subscribe —its `loading` stays false— and the view would conclude
+		// "you don't have any events yet" on every cold start,
+		// indistinguishable from a genuinely empty list.
 		if (this.user && !this.firestore) return this.#renderSkeletons();
 
 		if (this.#events.loading) return this.#renderSkeletons();
 		if (visible.length === 0) return this.#renderEmpty(total);
 
-		// `visible` y no `all`: **el filtro es de la pantalla, no de la rejilla de
-		// tarjetas**. Las tres vistas cuelgan de esta misma línea y reciben lo
-		// mismo, que es lo que hace imposible que una se quede sin filtrar. Y el
-		// mensaje de «nada coincide» sale antes del reparto, también para las
-		// tres: un calendario vacío no explica por qué está vacío.
+		// `visible`, not `all`: **the filter belongs to the screen, not to
+		// the card grid**. All three views hang off this same line and
+		// receive the same thing, which is what makes it impossible for one
+		// of them to end up unfiltered. And the "nothing matches" message
+		// comes out before the split, for all three too: an empty calendar
+		// doesn't explain why it's empty.
 		//
-		// `new Date()` aquí y no dentro del dominio: el reloj es una entrada, y
-		// esta vista es el borde donde se lee. `groupEvents` y `buildAgenda`
-		// reciben el instante y así se pueden probar sin depender de cuándo se
-		// ejecuten los tests.
+		// `new Date()` here and not inside the domain: the clock is an
+		// input, and this view is the boundary where it's read. `groupEvents`
+		// and `buildAgenda` receive the instant, and that's how they can be
+		// tested without depending on when the tests happen to run.
 		//
-		// Se lee en cada repintado y no hay temporizador, así que un evento que
-		// termina con la página abierta no salta de «próximos» a «pasados» hasta
-		// el siguiente render —un filtro, un cambio de orden, un snapshot—.
-		// Deliberado: un `setInterval` para reordenar la pantalla bajo el cursor
-		// molesta más de lo que corrige.
+		// It's read on every repaint and there's no timer, so an event that
+		// ends while the page is open doesn't jump from "upcoming" to "past"
+		// until the next render —a filter, a sort change, a snapshot—.
+		// Deliberate: a `setInterval` to reorder the screen under the cursor
+		// is more annoying than it is correct.
 		const now = new Date();
 
-		// El idioma **de la interfaz**, no el del navegador.
+		// The **interface's** language, not the browser's.
 		//
-		// `src/i18n/localization.ts` avisa de este peligro por su nombre y
-		// `calendar-view` ya lo obedece: si el navegador pide alemán, la interfaz
-		// sirve inglés, y sin pasar el locale `Intl` formateaba los encabezados de
-		// día de la agenda en alemán dentro de una pantalla en inglés. Va también
-		// a `groupEvents` porque el mismo valor gobierna la colación del orden
-		// alfabético, y que las dos vistas ordenen distinto sería la misma clase
-		// de divergencia que esta revisión vino a cerrar.
+		// `src/i18n/localization.ts` warns about this danger by its very
+		// name, and `calendar-view` already obeys it: if the browser asks
+		// for German, the interface serves English, and without passing the
+		// locale, `Intl` would format the agenda's day headings in German
+		// inside an English screen. It also goes to `groupEvents` because
+		// the same value governs the collation of alphabetical order, and
+		// having the two views sort differently would be the same kind of
+		// divergence this review came to close.
 		const locale = getLocale();
 
 		if (this.view === "calendar") {
-			// `heading-level="2"` porque el árbol de la página es h1 planu → h2
-			// grupo → h3 tarjeta, y el mes ocupa el sitio del grupo.
+			// `heading-level="2"` because the page's tree is h1 planu → h2
+			// group → h3 card, and the month takes the group's place.
 			return html`<planu-calendar-view
 				heading-level="2"
 				.events=${visible}
@@ -475,14 +485,14 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * El usuario ha pedido algo concreto. Decide si el grupo de pasados sale
-	 * abierto (ver `shouldRevealPast`) y también qué mensaje de «sin resultados»
-	 * se enseña.
+	 * Whether the user has asked for something specific. Decides whether
+	 * the past-events group comes out open (see `shouldRevealPast`) and
+	 * also which "no results" message gets shown.
 	 *
-	 * Una sola fuente para las dos preguntas, y en `domain/`: estaban duplicadas
-	 * y discrepaban justo en las etiquetas, así que pulsar la etiqueta «música»
-	 * y escribir «música» —misma intención, mismos resultados— abrían o no el
-	 * pliegue según cuál usaras.
+	 * A single source for both questions, and in `domain/`: they used to
+	 * be duplicated and disagreed exactly on tags, so clicking the "music"
+	 * tag and typing "music" —same intent, same results— would open the
+	 * fold or not depending on which one you used.
 	 */
 	get #narrowed(): boolean {
 		return isNarrowed({
@@ -503,8 +513,8 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * "No tienes eventos" y "tu búsqueda no encuentra nada" son problemas
-	 * distintos y la salida de cada uno también.
+	 * "You don't have any events" and "your search finds nothing" are
+	 * different problems, and so is the way out of each one.
 	 */
 	#renderEmpty(total: number) {
 		return html`<div class="empty">
@@ -549,10 +559,10 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * Reasignar `.value` en cada render hace que el `wa-select` responda con
-	 * `change`; sin la guarda, esto reasignaría el estado, provocaría otro
-	 * render y volvería a empezar. Es el mismo bucle que ya documenta el grupo
-	 * de radios de `event-filters.ts`.
+	 * Reassigning `.value` on every render makes `wa-select` respond with
+	 * `change`; without the guard, this would reassign the state, trigger
+	 * another render and start all over again. It's the same loop already
+	 * documented by the radio group in `event-filters.ts`.
 	 */
 	#onSort(domEvent: Event): void {
 		const select = domEvent.target as HTMLElement & { value?: string };
@@ -568,14 +578,15 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * Igual que el orden, y con la misma guarda: reasignar `.value` en cada
-	 * render hace que el `wa-radio-group` responda con `change`, y sin comparar
-	 * antes esto reasignaría el estado, provocaría otro render y volvería a
-	 * empezar.
+	 * Same as the order, and with the same guard: reassigning `.value` on
+	 * every render makes `wa-radio-group` respond with `change`, and
+	 * without comparing beforehand this would reassign the state, trigger
+	 * another render and start all over again.
 	 *
-	 * El valor pasa por `parseViewMode` aunque venga de nuestros propios radios:
-	 * es el mismo saneado que se aplica a lo que llega de `localStorage`, y así
-	 * no hay dos caminos por los que el estado pueda tomar valores distintos.
+	 * The value goes through `parseViewMode` even though it comes from our
+	 * own radios: it's the same sanitization applied to whatever arrives
+	 * from `localStorage`, so there aren't two paths by which the state
+	 * could end up with different values.
 	 */
 	#onView(domEvent: Event): void {
 		const group = domEvent.target as HTMLElement & { value?: string };
@@ -587,11 +598,11 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	/**
-	 * Limpia también el borrador. Sin esto, un ejemplo o una generación con IA
-	 * cancelados sin guardar se quedaban en `this.draft` —el editor es una
-	 * única instancia que se reutiliza (ver la nota de `#tagGeneration` en
-	 * `event-editor.ts`)— y un alta manual posterior reabría con esos mismos
-	 * datos, sin ningún aviso de por qué.
+	 * Also clears the draft. Without this, a sample or an AI generation
+	 * cancelled without saving would stay in `this.draft` — the editor is a
+	 * single instance that gets reused (see the `#tagGeneration` note in
+	 * `event-editor.ts`) — and a later manual entry would reopen with that
+	 * same data, with no warning as to why.
 	 */
 	#onNew(): void {
 		this.editing = undefined;

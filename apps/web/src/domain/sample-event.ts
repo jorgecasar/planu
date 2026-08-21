@@ -2,23 +2,24 @@ import { msg } from "@lit/localize";
 import type { PlanuEvent } from "../lib/types.js";
 
 /**
- * Un evento de ejemplo, para quien pulsa "probar con un evento de ejemplo" en
- * el estado vacío (T33). Se entrega como borrador -el mismo mecanismo que ya
- * usa el editor para lo que propone la IA (T24/T27)-, así que el usuario lo
- * revisa y decide si lo guarda: nunca se escribe solo.
+ * A sample event, for whoever clicks "try a sample event" from the empty
+ * state (T33). It's delivered as a draft — the same mechanism the editor
+ * already uses for what the AI proposes (T24/T27) — so the user reviews it
+ * and decides whether to save it: it never writes itself.
  *
- * Fábrica y no una constante de módulo: `msg()` se evalúa al llamarla, y un
- * valor calculado al importar congelaría el idioma del primer render, igual
- * que ya advierte `eventSchema()` en `lib/types.ts`.
+ * A factory and not a module-level constant: `msg()` is evaluated when
+ * called, and a value computed at import time would freeze the language of
+ * the first render, same as `eventSchema()` already warns in
+ * `lib/types.ts`.
  *
- * `now` entra como parámetro y no se lee con `new Date()` dentro: es una
- * entrada, no un detalle de implementación, y así el resultado se puede
- * comprobar sin depender de cuándo corran los tests.
+ * `now` comes in as a parameter and isn't read with `new Date()` inside:
+ * it's an input, not an implementation detail, so the result can be
+ * checked without depending on when the tests happen to run.
  */
 export function sampleEventDraft(now: Date = new Date()): Partial<PlanuEvent> {
-	// Una semana vista y no una fecha fija: la vista separa próximos de pasados
-	// por el instante actual, así que un dato fijo dejaría de "verse" próximo
-	// con el paso del tiempo. Mismo razonamiento que `scripts/seed-emulator.js`.
+	// A week from now and not a fixed date: the view separates upcoming from
+	// past by the current instant, so a fixed value would stop "looking"
+	// upcoming as time passes. Same reasoning as `scripts/seed-emulator.js`.
 	const startDate = new Date(now);
 	startDate.setDate(startDate.getDate() + 7);
 	startDate.setHours(19, 0, 0, 0);

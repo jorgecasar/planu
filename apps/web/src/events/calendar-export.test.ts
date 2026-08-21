@@ -24,7 +24,7 @@ async function mount(
 	return el;
 }
 
-/** Lo que emite `wa-dropdown` al elegir una opción. */
+/** What `wa-dropdown` emits when an option is chosen. */
 async function select(el: PlanuCalendarExport, value: string): Promise<void> {
 	el.shadowRoot
 		?.querySelector("wa-dropdown")
@@ -35,10 +35,11 @@ async function select(el: PlanuCalendarExport, value: string): Promise<void> {
 }
 
 /**
- * Intercepta la descarga.
+ * Intercepts the download.
  *
- * El fichero no llega a salir del navegador —eso lo mira el e2e—; aquí interesa
- * qué contenido y qué nombre se le entregan al enlace.
+ * The file never actually leaves the browser —that's what the e2e checks—;
+ * what matters here is what content and what name get handed to the
+ * link.
  */
 function interceptDownload() {
 	const capturado: { blob?: Blob; name?: string } = {};
@@ -59,7 +60,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ── Camino feliz ─────────────────────────────────────────────────────────────
+// ── Happy path ──────────────────────────────────────────────────────────────
 
 test("descarga el evento como .ics con su nombre y su contenido", async () => {
 	const descarga = interceptDownload();
@@ -107,7 +108,7 @@ test("abre Google Calendar con el evento en la URL", async () => {
 	expect(String(url)).toContain("calendar.google.com");
 	expect(String(url)).toContain("dates=20260612%2F20260613");
 	expect(target).toBe("_blank");
-	// Sin esto, la pestaña de Google podría manipular la nuestra.
+	// Without this, the Google tab could manipulate ours.
 	expect(features).toContain("noopener");
 	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
 
@@ -132,7 +133,7 @@ test("exporta lo que puede y dice qué se ha quedado fuera", async () => {
 	el.remove();
 });
 
-// ── Avisos ───────────────────────────────────────────────────────────────────
+// ── Warnings ─────────────────────────────────────────────────────────────────
 
 test("un evento sin fechas avisa en vez de descargar un fichero roto", async () => {
 	const descarga = interceptDownload();
@@ -164,8 +165,9 @@ test("una agenda sin ninguna fecha también avisa", async () => {
 });
 
 test("sin eventos no dice que les falten fechas: dice que no hay eventos", async () => {
-	// Es el caso de una búsqueda sin resultados. «Ninguno tiene fechas» sería
-	// mentira y mandaría al usuario a mirar donde no es.
+	// This is the case of a search with no results. "None of them have
+	// dates" would be a lie and would send the user looking in the wrong
+	// place.
 	const el = await mount([]);
 
 	await select(el, "ics");
@@ -201,8 +203,8 @@ test("sin haber pulsado nada no hay aviso", async () => {
 });
 
 test("el enlace a Google Calendar sólo se ofrece con un evento", async () => {
-	// Su plantilla admite uno solo: ofrecerlo para la agenda entera prometería
-	// algo que no puede cumplir.
+	// Its template supports only one: offering it for the whole agenda
+	// would promise something it can't deliver.
 	const uno = await mount([event()]);
 	const varios = await mount([event(), event({ id: "def456" })]);
 
@@ -251,11 +253,12 @@ test("el aviso se retira solo en vez de quedarse tapando la interfaz", async () 
 });
 
 test("la agenda no se convierte en un evento suelto al quedar uno visible", async () => {
-	// El componente vive en dos sitios con dos papeles. Deducir el papel de
-	// `events.length === 1` hacía que un filtro que dejase una sola tarjeta
-	// convirtiese la barra de la agenda en un exportador de evento: cambiaba el
-	// rótulo, ofrecía Google Calendar y el fichero pasaba a llamarse como el
-	// evento. Lo destapó un e2e; esto lo fija sin levantar un navegador entero.
+	// The component lives in two places with two roles. Inferring the role
+	// from `events.length === 1` meant a filter that left just one card
+	// would turn the agenda toolbar into an event exporter: the label
+	// changed, it offered Google Calendar, and the file got named after
+	// the event. An e2e uncovered it; this pins it down without spinning
+	// up a whole browser.
 	const el = await mount([event()], "agenda");
 	const trigger = el.shadowRoot?.querySelector("wa-button");
 
@@ -270,8 +273,9 @@ test("la agenda no se convierte en un evento suelto al quedar uno visible", asyn
 });
 
 test("una tarjeta sí exporta como evento suelto", async () => {
-	// El control del test de arriba: sin él, «Export calendar» podría estar
-	// saliendo siempre y la aserción pasaría por la razón equivocada.
+	// The control for the test above: without it, "Export calendar" could
+	// be showing up always and the assertion would pass for the wrong
+	// reason.
 	const el = await mount([event()], "event");
 	const trigger = el.shadowRoot?.querySelector("wa-button");
 

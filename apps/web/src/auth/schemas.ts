@@ -2,10 +2,12 @@ import { msg } from "@lit/localize";
 import { z } from "zod";
 
 /**
- * Fábricas y no constantes: los mensajes son interfaz, y un esquema creado al
- * importar el módulo se quedaría con el idioma de ese instante.
+ * Factories and not constants: the messages are interface, and a schema
+ * created at module import time would be stuck with the language of that
+ * instant.
  *
- * Firebase exige 6 caracteres como mínimo; validamos antes para no ir y volver.
+ * Firebase requires at least 6 characters; we validate beforehand to avoid a
+ * round trip.
  */
 export const credentialsSchema = () =>
 	z.object({

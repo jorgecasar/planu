@@ -9,12 +9,13 @@ import {
 } from "./month-grid.js";
 
 /**
- * Fecha local a partir de «2026-06-30» o «2026-06-30T18:30».
+ * Local date from "2026-06-30" or "2026-06-30T18:30".
  *
- * Sin `Z` ni desfase, el parser la interpreta en la zona del entorno, que es
- * justo lo que queremos: el calendario habla de días locales. La zona la fija
- * el script `test` de `package.json` —no `vite.config.ts`, donde el pin de
- * Playwright resultó ser inerte— para que en CI se ejercite lo mismo que aquí.
+ * With no `Z` and no offset, the parser interprets it in the environment's
+ * timezone, which is exactly what we want: the calendar speaks in local days.
+ * The timezone is fixed by the `test` script in `package.json` —not
+ * `vite.config.ts`, where Playwright's pin turned out to be inert— so that
+ * CI exercises the same thing as here.
  */
 function local(text: string): Date {
 	return new Date(text.includes("T") ? text : `${text}T12:00`);
@@ -36,12 +37,12 @@ function event(
 	};
 }
 
-/** Todas las celdas de la rejilla, de la primera a la última. */
+/** All the grid's cells, from the first to the last. */
 function cells(grid: ReturnType<typeof buildMonthGrid>) {
 	return grid.weeks.flat();
 }
 
-/** Los títulos de los eventos de la celda de un día concreto. */
+/** The titles of the events in a given day's cell. */
 function titlesOn(
 	grid: ReturnType<typeof buildMonthGrid>,
 	key: number,
@@ -66,15 +67,16 @@ test("la semana empieza el lunes en español y el domingo en inglés de EE. UU."
 	expect(spanish.weekdays[0]?.long).toBe("lunes");
 	expect(american.weekdays[0]?.long).toBe("Sunday");
 
-	// El 1 de junio de 2026 es lunes: en español no hay relleno inicial y en
-	// inglés de EE. UU. la rejilla arranca el domingo 31 de mayo.
+	// June 1, 2026 is a Monday: in Spanish there's no leading filler, and in
+	// US English the grid starts on Sunday, May 31.
 	expect(cells(spanish)[0]?.key).toBe(20260601);
 	expect(cells(american)[0]?.key).toBe(20260531);
 });
 
 test("el respaldo del primer día coincide con getWeekInfo cuando no lo hay", () => {
-	// Se prueba aparte porque en Chromium `getWeekInfo()` existe siempre y este
-	// camino no se ejercitaría nunca: un respaldo roto viajaría sin enterarnos.
+	// It's tested separately because in Chromium `getWeekInfo()` always
+	// exists and this path would never get exercised: a broken fallback would
+	// ship without us noticing.
 	expect(fallbackFirstDayOfWeek("es")).toBe(1);
 	expect(fallbackFirstDayOfWeek("es-MX")).toBe(0);
 	expect(fallbackFirstDayOfWeek("en")).toBe(0);
@@ -87,18 +89,18 @@ test("el respaldo del primer día coincide con getWeekInfo cuando no lo hay", ()
 });
 
 test("una extensión de dos letras no se confunde con una región", () => {
-	// En `de-u-ca-gregory` el primer trozo de dos letras es `ca`. Partir la
-	// etiqueta por guiones lo daba por Canadá y dejaba el alemán empezando la
-	// semana en domingo. La región sale de `maximize()`.
+	// In `de-u-ca-gregory` the first two-letter chunk is `ca`. Splitting the
+	// tag on hyphens mistook it for Canada and left German starting the week
+	// on Sunday. The region comes from `maximize()`.
 	expect(fallbackFirstDayOfWeek("de-u-ca-gregory")).toBe(1);
 	expect(firstDayOfWeek("de-u-ca-gregory")).toBe(1);
 	expect(fallbackFirstDayOfWeek("es-u-nu-latn")).toBe(1);
 });
 
 test("el respaldo es una réplica del ICU en las 676 regiones, no una aproximación", () => {
-	// El comentario del código promete que las dos rutas coinciden; esto lo
-	// convierte en oráculo. Una tabla escrita a ojo daba sábado por lunes en
-	// catorce regiones árabes y no podía ni representar el viernes de Maldivas.
+	// The code comment promises that the two paths agree; this turns it into
+	// an oracle. A hand-written table mistook Saturday for Monday in fourteen
+	// Arabic regions and couldn't even represent the Maldives' Friday.
 	const discrepancies: string[] = [];
 
 	for (let a = 65; a <= 90; a++) {
@@ -114,9 +116,9 @@ test("el respaldo es una réplica del ICU en las 676 regiones, no una aproximaci
 });
 
 test("una etiqueta de locale inválida no revienta la rejilla", () => {
-	// Y «la rejilla» es la rejilla entera, no sólo `firstDayOfWeek()`: son
-	// cuatro `Intl.DateTimeFormat` los que se construyen aquí, y cualquiera de
-	// ellos lanzaba `RangeError` con una etiqueta mal formada.
+	// And "the grid" is the whole grid, not just `firstDayOfWeek()`: there
+	// are four `Intl.DateTimeFormat`s constructed here, and any of them would
+	// throw `RangeError` with a malformed tag.
 	const bad = "no-es-un-locale-!!";
 
 	expect(() => firstDayOfWeek(bad)).not.toThrow();
@@ -135,10 +137,10 @@ test("una etiqueta de locale inválida no revienta la rejilla", () => {
 });
 
 test("la fecha de la celda va al mediodía y no arrastra el cambio de hora", () => {
-	// `setDate()` conserva la hora del cursor, así que un desfase heredado de un
-	// cambio de hora se quedaría el resto de la rejilla. `date` es campo público
-	// —el `.ics` de T22 es su siguiente consumidor— y tiene que valer por sí
-	// solo, no sólo comparado con otro de la misma rejilla.
+	// `setDate()` keeps the cursor's time, so an offset inherited from a time
+	// change would stay for the rest of the grid. `date` is a public field
+	// —T22's `.ics` is its next consumer— and has to hold up on its own, not
+	// just compared to another one in the same grid.
 	const grid = buildMonthGrid([], local("2026-10-05"), "es");
 
 	expect(cells(grid).every((cell) => cell.date.getHours() === 12)).toBe(true);
@@ -157,8 +159,8 @@ test("el título y las etiquetas de celda salen del locale", () => {
 });
 
 test("un mes de 28 días que empieza en el primer día de la semana ocupa cuatro", () => {
-	// Febrero de 2027: 28 días y arranca en lunes, así que en español encaja
-	// exacto y no arrastra ningún día ajeno.
+	// February 2027: 28 days and it starts on a Monday, so in Spanish it fits
+	// exactly and drags in no foreign day.
 	const grid = buildMonthGrid([], local("2027-02-10"), "es");
 
 	expect(grid.weeks).toHaveLength(4);
@@ -167,8 +169,8 @@ test("un mes de 28 días que empieza en el primer día de la semana ocupa cuatro
 });
 
 test("el mismo mes de 28 días necesita cinco semanas en inglés de EE. UU.", () => {
-	// El primer día de la semana cambia la forma de la rejilla, no sólo la
-	// cabecera: con domingo por delante hace falta una semana más.
+	// The first day of the week changes the grid's shape, not just the
+	// header: with Sunday leading, one more week is needed.
 	const grid = buildMonthGrid([], local("2027-02-10"), "en-US");
 
 	expect(grid.weeks).toHaveLength(5);
@@ -176,8 +178,8 @@ test("el mismo mes de 28 días necesita cinco semanas en inglés de EE. UU.", ()
 });
 
 test("un mes de 31 días arrastra días del anterior y del siguiente", () => {
-	// Marzo de 2026 empieza en domingo: en español hace falta toda la semana
-	// anterior por delante, y son seis semanas.
+	// March 2026 starts on a Sunday: in Spanish the whole previous week is
+	// needed up front, making six weeks.
 	const grid = buildMonthGrid([], local("2026-03-15"), "es");
 	const all = cells(grid);
 
@@ -193,13 +195,14 @@ test("un mes de 31 días arrastra días del anterior y del siguiente", () => {
 });
 
 /**
- * Los meses de 2026 en los que la **zona activa** cambia de horario.
+ * The months in 2026 in which the **active zone** changes its time offset.
  *
- * No se codifica una zona ni un mes: el pin de `vite.config.ts` resultó ser
- * inerte —`contextOptions.timezoneId` no llega al navegador, manda la variable
- * del proceso— así que un test atado a Madrid pasaba a probar otra cosa en
- * cuanto alguien exportaba `TZ`. Buscando la transición donde de verdad esté,
- * el test vale en Madrid, en Santiago o en Auckland.
+ * Neither a zone nor a month is hardcoded: `vite.config.ts`'s pin turned out
+ * to be inert —`contextOptions.timezoneId` doesn't reach the browser, the
+ * process's environment variable wins— so a test tied to Madrid started
+ * testing something else as soon as somebody exported `TZ`. By looking for
+ * the transition wherever it actually is, the test holds in Madrid, in
+ * Santiago, or in Auckland.
  */
 function transitionMonths(year: number): number[] {
 	const months: number[] = [];
@@ -212,17 +215,18 @@ function transitionMonths(year: number): number[] {
 }
 
 test("la suite corre en una zona que tiene cambio de horario", () => {
-	// Sin esto, en UTC —que es lo que usan los runners de GitHub, porque
-	// `ci.yml` no fija `TZ`— el test de abajo no encontraría ningún mes que
-	// probar y pasaría sin ejercitar nada. Un test que no puede fallar es peor
-	// que ninguno, así que esto lo dice en voz alta en vez de callarse.
+	// Without this, in UTC —which is what GitHub's runners use, because
+	// `ci.yml` doesn't fix `TZ`— the test below would find no month to test
+	// and would pass without exercising anything. A test that can't fail is
+	// worse than none, so this says so out loud instead of staying quiet.
 	expect(transitionMonths(2026).length).toBeGreaterThan(0);
 });
 
 test("un mes con cambio de horario no repite ni pierde días", () => {
-	// Avanzar el cursor sumando 86 400 000 ms deja el día del cambio a las
-	// 23:00 o a la 01:00 de sí mismo, lo vuelve a pintar y desplaza la rejilla
-	// entera un día. `setDate()` opera sobre campos locales y no se entera.
+	// Advancing the cursor by adding 86,400,000 ms leaves the day of the
+	// change at 23:00 or 01:00 of itself, repaints it, and shifts the whole
+	// grid by one day. `setDate()` operates on local fields and doesn't
+	// notice.
 	for (const month of transitionMonths(2026)) {
 		const grid = buildMonthGrid(
 			[],
@@ -232,11 +236,12 @@ test("un mes con cambio de horario no repite ni pierde días", () => {
 		const all = cells(grid);
 		const inMonth = all.filter((cell) => cell.inMonth).map((cell) => cell.key);
 
-		// Ni un día repetido en toda la rejilla, ni uno perdido en el mes.
+		// Not a single day repeated in the whole grid, and none lost in the
+		// month.
 		expect(new Set(all.map((cell) => cell.key)).size).toBe(all.length);
 		expect(inMonth).toHaveLength(new Date(2026, month + 1, 0).getDate());
 
-		// Y consecutivos, que es lo que rompe el desfase acumulado.
+		// And consecutive, which is what an accumulated offset would break.
 		const dias = inMonth.map((key) => key % 100);
 		expect(dias).toEqual(dias.map((_, i) => i + 1));
 	}
@@ -252,16 +257,16 @@ test("un evento de varios días aparece en todas sus celdas", () => {
 	expect(titlesOn(grid, 20260628)).toEqual([]);
 	expect(titlesOn(grid, 20260629)).toEqual(["Feria"]);
 	expect(titlesOn(grid, 20260630)).toEqual(["Feria"]);
-	// El 1 y el 2 de julio son celdas de relleno y también lo llevan: si no, el
-	// evento se cortaría al llegar al borde del mes.
+	// July 1 and 2 are filler cells and they carry it too: otherwise the
+	// event would be cut off at the month's edge.
 	expect(titlesOn(grid, 20260701)).toEqual(["Feria"]);
 	expect(titlesOn(grid, 20260702)).toEqual(["Feria"]);
 	expect(titlesOn(grid, 20260703)).toEqual([]);
 });
 
 test("un evento que empieza el mes anterior se ve en la parte que cae dentro", () => {
-	// Julio de 2026 empieza en miércoles: la rejilla arrastra el 29 y el 30 de
-	// junio. El evento entra por ahí y sigue dentro del mes.
+	// July 2026 starts on a Wednesday: the grid drags in June 29 and 30. The
+	// event enters through there and stays within the month.
 	const grid = buildMonthGrid(
 		[event("Congreso", "2026-06-28", "2026-07-02")],
 		local("2026-07-15"),
@@ -277,8 +282,8 @@ test("un evento que empieza el mes anterior se ve en la parte que cae dentro", (
 });
 
 test("la hora del evento no cambia el día en que se pinta", () => {
-	// A las 23:30 sigue siendo el mismo día local. Restar fechas en vez de
-	// comparar campos lo llevaría a la celda de al lado.
+	// At 23:30 it's still the same local day. Subtracting dates instead of
+	// comparing fields would send it to the neighboring cell.
 	const grid = buildMonthGrid(
 		[event("Verbena", "2026-06-23T23:30", "2026-06-24T00:30")],
 		local("2026-06-15"),
@@ -300,8 +305,9 @@ test("un evento sin fechas no ocupa ninguna celda y sale aparte", () => {
 });
 
 test("sin fecha de fin, el evento sigue en curso hasta el final de la rejilla", () => {
-	// Un inicio sin fin no es un punto en el tiempo: es algo que empezó y no ha
-	// terminado. Se pinta hasta donde llega la rejilla, relleno incluido.
+	// A start with no end isn't a point in time: it's something that started
+	// and hasn't finished. It's painted as far as the grid reaches, filler
+	// included.
 	const grid = buildMonthGrid(
 		[event("Obras en la calle", "2026-06-10")],
 		local("2026-06-15"),
@@ -313,13 +319,14 @@ test("sin fecha de fin, el evento sigue en curso hasta el final de la rejilla", 
 	expect(titlesOn(grid, 20260625)).toEqual(["Obras en la calle"]);
 	expect(titlesOn(grid, 20260630)).toEqual(["Obras en la calle"]);
 
-	// Y hasta la última celda pintada, que ya es del mes siguiente.
+	// And through the last cell painted, which already belongs to the next
+	// month.
 	const ultima = cells(grid).at(-1);
 	expect(ultima?.events.map((e) => e.title)).toEqual(["Obras en la calle"]);
 });
 
 test("sin fecha de fin, sigue apareciendo en los meses siguientes", () => {
-	// Lo que lo distingue de un evento de un día: no se queda atrás.
+	// What sets it apart from a one-day event: it doesn't get left behind.
 	const grid = buildMonthGrid(
 		[event("Obras en la calle", "2026-06-10")],
 		local("2026-09-15"),
@@ -331,7 +338,8 @@ test("sin fecha de fin, sigue apareciendo en los meses siguientes", () => {
 });
 
 test("sin fecha de inicio, va desde hoy hasta el fin", () => {
-	// Un fin sin inicio es una fecha límite, y lo útil es ver cuánto queda.
+	// An end with no start is a deadline, and what's useful is seeing how
+	// much is left.
 	const grid = buildMonthGrid(
 		[event("Entregar la declaración", undefined, "2026-06-20")],
 		local("2026-06-01"),
@@ -346,9 +354,9 @@ test("sin fecha de inicio, va desde hoy hasta el fin", () => {
 });
 
 test("un plazo ya vencido ocupa sólo su día, no todo el pasado", () => {
-	// Si el fin ya pasó, extenderlo «desde hoy» lo pintaría al revés, y
-	// extenderlo hacia atrás llenaría el mes entero de algo que ya no está en
-	// curso.
+	// If the end has already passed, extending it "from today" would paint
+	// it backward, and extending it into the past would fill the whole month
+	// with something no longer ongoing.
 	const grid = buildMonthGrid(
 		[event("Plazo vencido", undefined, "2026-06-05")],
 		local("2026-06-01"),
@@ -362,8 +370,8 @@ test("un plazo ya vencido ocupa sólo su día, no todo el pasado", () => {
 });
 
 test("un evento con el fin antes del inicio se colapsa al día de inicio", () => {
-	// El esquema lo rechaza, pero un documento guardado antes podría traerlo y
-	// no hacer nada lo dejaría invisible.
+	// The schema rejects it, but a document saved before could still carry
+	// it, and doing nothing would leave it invisible.
 	const grid = buildMonthGrid(
 		[event("Al revés", "2026-06-10", "2026-06-05")],
 		local("2026-06-15"),

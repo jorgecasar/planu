@@ -123,40 +123,44 @@ export class PlanuEventFilters extends LitElement {
 	}
 
 	/**
-	 * Las etiquetas se ofrecen como casillas y no como botones que conmutan.
+	 * Tags are offered as checkboxes and not as toggle buttons.
 	 *
-	 * Un botón que a veces está «pulsado» exige `aria-pressed` y explicarle al
-	 * usuario que se acumulan; una casilla ya significa eso, y el grupo le pone
-	 * nombre accesible sin inventarse nada. Se combinan con **Y**, y el texto
-	 * del grupo lo dice, porque no es lo que la gente espera por defecto.
+	 * A button that's sometimes "pressed" requires `aria-pressed` and
+	 * explaining to the user that they accumulate; a checkbox already means
+	 * that, and the group gives it an accessible name without inventing
+	 * anything. They combine with **AND**, and the group's text says so,
+	 * because that isn't what people expect by default.
 	 *
-	 * Dos detalles que no son estilo, son corrección:
+	 * Two details that aren't style, they're correctness:
 	 *
-	 * `.checked` con `live()` y no `?checked`. En `wa-checkbox` el **atributo**
-	 * `checked` mapea a `defaultChecked`, así que `?checked` escribe el valor
-	 * inicial y no el vigente — y en cuanto el usuario pulsa una vez, el
-	 * componente ignora el inicial para siempre. Con eso, «Borrar filtros»
-	 * desfiltraba el listado y dejaba las casillas pintadas como marcadas. Y
-	 * `live()` además de `.checked` porque Lit compara contra lo último que
-	 * *él* pintó, no contra lo que el usuario dejó en el DOM.
+	 * `.checked` with `live()` and not `?checked`. In `wa-checkbox` the
+	 * **attribute** `checked` maps to `defaultChecked`, so `?checked` writes
+	 * the initial value and not the current one — and as soon as the user
+	 * clicks once, the component ignores the initial value forever. With
+	 * that, "Clear filters" unfiltered the listing and left the checkboxes
+	 * painted as checked. And `live()` on top of `.checked` because Lit
+	 * compares against the last thing *it* painted, not against what the
+	 * user left in the DOM.
 	 *
-	 * `repeat()` con clave por etiqueta. `availableTags` sale de los eventos y
-	 * se reordena sola al crear uno. Con clave, Lit **mueve** el nodo de cada
-	 * etiqueta en vez de reescribir el de esa posición, y quien esté navegando
-	 * con el teclado sigue sobre la casilla que tenía enfocada en lugar de
-	 * encontrarse sobre otra etiqueta. Lo demás —el marcado y el rótulo— lo
-	 * reaplican `live()` y los *bindings* aunque no haya clave: un comentario
-	 * anterior atribuía a la clave un fallo de rotulación que nadie ha
-	 * conseguido reproducir. Lo que sí se rompe sin ella está en el test
-	 * «reordenar no le mueve el foco a quien navega con el teclado».
+	 * `repeat()` keyed by tag. `availableTags` comes from the events and
+	 * reorders itself when one is created. With a key, Lit **moves** each
+	 * tag's node instead of rewriting whatever's at that position, and
+	 * whoever is navigating by keyboard stays on the checkbox they had
+	 * focused instead of ending up on a different tag. Everything else
+	 * —the checked state and the label— gets reapplied by `live()` and the
+	 * *bindings* even without a key: an earlier comment blamed the key for
+	 * a labeling bug that nobody has managed to reproduce. What does break
+	 * without it is covered by the test "reordering doesn't move the focus
+	 * of someone navigating by keyboard".
 	 *
-	 * Se pintan las disponibles **más las seleccionadas**. Editar un evento
-	 * puede dejar sin uso la última etiqueta por la que se estaba filtrando:
-	 * `availableTags` la pierde, su casilla desaparece del DOM y el filtro sigue
-	 * activo e invisible, con el listado vacío y nada marcado que lo explique.
-	 * Se pinta en vez de podar `this.tags` porque podar cambia el filtro sin que
-	 * el usuario lo pida —y ensancha el resultado en silencio—; mostrarla marcada
-	 * deja la decisión donde estaba, a un clic de deshacerse.
+	 * The available ones **plus the selected ones** get painted. Editing
+	 * an event can leave the last tag being filtered by unused:
+	 * `availableTags` loses it, its checkbox disappears from the DOM and
+	 * the filter stays active and invisible, with an empty listing and
+	 * nothing checked to explain it. It's painted instead of pruning
+	 * `this.tags` because pruning changes the filter without the user
+	 * asking for it —and silently widens the result—; showing it checked
+	 * leaves the decision where it was, one click away from being undone.
 	 */
 	#renderTags() {
 		const shown = [...new Set([...this.availableTags, ...this.tags])];

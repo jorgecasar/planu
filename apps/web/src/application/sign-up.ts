@@ -2,9 +2,9 @@ import { signUpSchema } from "../auth/schemas.js";
 import type { SessionPort } from "./ports/session.js";
 
 /**
- * Valida el alta —incluida la confirmación de contraseña— y crea la cuenta.
- * El envío del correo de verificación es cosa del adaptador: aquí sólo
- * importa que las credenciales sean válidas antes de tocar el puerto.
+ * Validates the sign-up — including the password confirmation — and creates
+ * the account. Sending the verification email is the adapter's job: here
+ * only the credentials need to be valid before touching the port.
  */
 export async function signUp(
 	session: SessionPort,

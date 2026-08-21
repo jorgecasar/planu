@@ -47,11 +47,12 @@ const cards = (el: PlanuEventGroups) =>
 	el.shadowRoot?.querySelectorAll("planu-event-card") ?? [];
 
 /**
- * Los encabezados que **de verdad** llegan al árbol de accesibilidad.
+ * The headings that **actually** reach the accessibility tree.
  *
- * `querySelectorAll("h2")` los encuentra aunque estén `aria-hidden`, y con eso
- * un mutante que los sacaba del árbol dejaba el test en verde. Es el mismo
- * pecado que `textContent`: encontrar un nodo no prueba que se anuncie.
+ * `querySelectorAll("h2")` finds them even if they're `aria-hidden`, and
+ * with that a mutant that removed them from the tree left the test
+ * green. It's the same sin as `textContent`: finding a node doesn't
+ * prove it gets announced.
  */
 const headings = (el: PlanuEventGroups) =>
 	[...(el.shadowRoot?.querySelectorAll('h2:not([aria-hidden="true"])') ?? [])]
@@ -94,8 +95,8 @@ test("el pasado sale plegado cuando hay algo más que mirar", async () => {
 });
 
 test("el pasado sale abierto si es lo único que hay", async () => {
-	// Con el pliegue cerrado, esta pantalla no enseña ni una tarjeta ni el
-	// mensaje de lista vacía: sólo una franja de acordeón.
+	// With the fold closed, this screen shows neither a single card nor
+	// the empty-list message: just an accordion strip.
 	const el = await mount((groupsEl) => {
 		groupsEl.groups = groups({ past: [event("Pasado")] });
 	});
@@ -131,9 +132,9 @@ test("todos los eventos se pintan, también los del pliegue", async () => {
 });
 
 test("el encabezado del pasado no va dentro del summary del wa-details", async () => {
-	// `wa-details` marca su `<summary>` con `role="button"`, y ARIA declara
-	// presentacionales a los hijos de un botón: un encabezado ahí no existiría
-	// para la navegación por encabezados. Axe no lo detecta.
+	// `wa-details` marks its `<summary>` with `role="button"`, and ARIA
+	// declares a button's children presentational: a heading there
+	// wouldn't exist for heading navigation. Axe doesn't catch it.
 	const el = await mount((groupsEl) => {
 		groupsEl.groups = groups({ past: [event("Pasado")] });
 	});
@@ -146,9 +147,9 @@ test("el encabezado del pasado no va dentro del summary del wa-details", async (
 });
 
 test("la tarjeta cuelga del grupo y no es su hermana", async () => {
-	// h1 → h2 del grupo → h3 del evento. Con h2 en la tarjeta, el evento
-	// quedaba al mismo nivel que el grupo y la navegación por encabezados no
-	// daba ninguna estructura.
+	// h1 → h2 of the group → h3 of the event. With h2 on the card, the
+	// event ended up at the same level as the group and heading navigation
+	// gave no structure at all.
 	const el = await mount((groupsEl) => {
 		groupsEl.groups = groups({ upcoming: [event("Concierto")] });
 	});
@@ -165,9 +166,9 @@ test("la tarjeta cuelga del grupo y no es su hermana", async () => {
 });
 
 test("las tarjetas se pintan, no sólo existen en el DOM", async () => {
-	// `querySelectorAll` las encuentra aunque la rejilla esté oculta: un mutante
-	// que ponía `display: none` a `.grid` dejaba verde el test que dice que
-	// «todos los eventos se pintan».
+	// `querySelectorAll` finds them even if the grid is hidden: a mutant
+	// that set `display: none` on `.grid` left green the test that claims
+	// "all events get painted".
 	const el = await mount((groupsEl) => {
 		groupsEl.groups = groups({
 			upcoming: [event("Futuro")],
@@ -183,10 +184,11 @@ test("las tarjetas se pintan, no sólo existen en el DOM", async () => {
 });
 
 test("el pliegue se abre por el atributo, que es como lo usa la vista", async () => {
-	// La vista lo pasa con `?narrowed=${...}`, es decir por **atributo**, y el
-	// atributo llega vacío. Sin `type: Boolean` la propiedad vale `""` —falsy—
-	// y el pliegue no se abre nunca. Los demás tests asignan la propiedad, que
-	// es el único camino que producción no usa.
+	// The view passes it with `?narrowed=${...}`, that is, by
+	// **attribute**, and the attribute arrives empty. Without
+	// `type: Boolean` the property is `""` —falsy— and the fold never
+	// opens. The other tests assign the property, which is the one path
+	// production doesn't use.
 	const el = await mount((groupsEl) => {
 		groupsEl.groups = groups({
 			past: [event("Pasado")],
@@ -203,8 +205,8 @@ test("el pliegue se abre por el atributo, que es como lo usa la vista", async ()
 });
 
 test("el rótulo del pliegue tiene singular de verdad", async () => {
-	// «Show 1 past events» era el caso más común, y no es decoración: es el
-	// nombre accesible del `<summary role="button">`.
+	// "Show 1 past events" was the most common case, and it isn't
+	// decoration: it's the accessible name of the `<summary role="button">`.
 	const uno = await mount((groupsEl) => {
 		groupsEl.groups = groups({ past: [event("Pasado")] });
 	});

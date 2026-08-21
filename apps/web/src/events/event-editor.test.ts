@@ -4,11 +4,11 @@ import "./event-editor.js";
 import type { PlanuEventEditor } from "./event-editor.js";
 
 /**
- * El único punto donde este fichero toca Firebase de verdad: el SDK de IA que
- * `#buildTagModel` importa dinámicamente. `vi.hoisted` porque la factoría de
- * `vi.mock` se sube por encima de este `const` y necesita que ya exista.
- * `generateContent` es el que cada test reconfigura con `mockResolvedValueOnce`
- * para simular una respuesta concreta del modelo.
+ * The only point where this file touches Firebase for real: the AI SDK
+ * that `#buildTagModel` dynamically imports. `vi.hoisted` because
+ * `vi.mock`'s factory gets hoisted above this `const` and needs it to
+ * already exist. `generateContent` is what each test reconfigures with
+ * `mockResolvedValueOnce` to simulate a specific model response.
  */
 interface FakeModelResponse {
 	response: { text: () => string; inferenceSource: string };
@@ -42,12 +42,12 @@ async function mount(
 	return el;
 }
 
-// --- El campo de etiquetas -------------------------------------------------
+// --- The tags field ---------------------------------------------------------
 //
-// Se maneja el `input` nativo que `wa-input` esconde en su shadow root, que es
-// lo que toca una persona: los manejadores del editor leen
-// `composedPath()[0]`, así que un evento lanzado sobre el host no traería el
-// valor tecleado.
+// The native `input` that `wa-input` hides in its shadow root is what gets
+// operated on, because that's what a person touches: the editor's
+// handlers read `composedPath()[0]`, so an event dispatched on the host
+// wouldn't carry the typed value.
 
 type InputHost = HTMLElement & { updateComplete?: Promise<unknown> };
 
@@ -100,8 +100,8 @@ const errorText = (el: PlanuEventEditor): string =>
 		?.textContent?.trim() ?? "";
 
 test("el borrador de la IA aporta la portada del evento", async () => {
-	// Es el contrato entre el generador y el editor: el cartel del que se
-	// extrajo el evento se convierte en su imagen.
+	// This is the contract between the generator and the editor: the
+	// poster the event was extracted from becomes its image.
 	const el = await mount((editor) => {
 		editor.draft = { title: "Feria del libro", imageUrl: IMAGEN };
 		editor.open = true;
@@ -188,12 +188,13 @@ test("el ejemplo también prerrellena el formulario, como cualquier borrador", a
 	el.remove();
 });
 
-// --- Etiquetas -------------------------------------------------------------
+// --- Tags --------------------------------------------------------------------
 
 test("al abrir, las etiquetas llegan normalizadas", async () => {
-	// Lo que propone la IA no ha pasado por `normalizeTag`, y un evento
-	// heredado tampoco: si el editor las pintase tal cual, guardar reescribiría
-	// «Música» sobre «música» y el filtro vería dos etiquetas donde hay una.
+	// What the AI proposes hasn't gone through `normalizeTag`, and neither
+	// has a legacy event: if the editor painted them as-is, saving would
+	// overwrite "Music" over "music" and the filter would see two tags
+	// where there's one.
 	const el = await mount((editor) => {
 		editor.draft = {
 			tags: ["  MÚSICA  ", "música", "  ", "x".repeat(MAX_TAG_LENGTH + 1)],
@@ -220,8 +221,8 @@ test("Intro añade la etiqueta ya normalizada", async () => {
 });
 
 test("repetir una etiqueta no la duplica y limpia el campo", async () => {
-	// Sin limpiar el campo, el usuario se queda con lo que acaba de teclear
-	// delante y sin señal de que ya estaba puesta.
+	// Without clearing the field, the user is left with what they just
+	// typed still there, with no sign that it was already added.
 	const el = await mount((editor) => {
 		editor.draft = { tags: ["cine"] };
 		editor.open = true;
@@ -249,15 +250,15 @@ test("pasarse de longitud avisa en vez de recortar en silencio", async () => {
 });
 
 test("añadir una etiqueta no borra un aviso ajeno", async () => {
-	// `error` es el canal de todo el diálogo. Limpiarlo a ciegas al añadir una
-	// etiqueta se llevaba por delante el aviso de que la portada no se había
-	// subido, sin que el usuario hubiese hecho nada al respecto.
+	// `error` is the channel for the whole dialog. Clearing it blindly when
+	// adding a tag used to wipe out the warning that the cover hadn't been
+	// uploaded, without the user having done anything about it.
 	const el = await mount((editor) => {
 		editor.open = true;
 	});
 
 	await addTag(el, "a".repeat(MAX_TAG_LENGTH + 1));
-	// Se sustituye por un aviso que no es del campo de etiquetas.
+	// It gets replaced by a warning that isn't about the tags field.
 	const callout = el.shadowRoot?.querySelector('wa-callout[variant="danger"]');
 	expect(callout).not.toBeNull();
 	(el as unknown as { error: string }).error =
@@ -273,8 +274,8 @@ test("añadir una etiqueta no borra un aviso ajeno", async () => {
 });
 
 test("con el cupo lleno el campo se deshabilita y no se sugiere nada", async () => {
-	// Ofrecer lo que no se puede añadir es ruido, y un campo vivo que ignora
-	// cada Intro es peor: no explica por qué.
+	// Offering what can't be added is noise, and a live field that ignores
+	// every Enter is worse: it doesn't explain why.
 	const el = await mount((editor) => {
 		editor.knownTags = ["cine", "teatro"];
 		editor.draft = {
@@ -305,9 +306,9 @@ test("las sugerencias excluyen las etiquetas ya puestas", async () => {
 });
 
 test("el botón de quitar una etiqueta es alcanzable con Tab y la quita", async () => {
-	// El que trae `wa-tag` sale con `tabindex="-1"`, así que quien navega con
-	// teclado no podía retirar una etiqueta puesta por error. De ahí el control
-	// propio al lado.
+	// The one that `wa-tag` ships with comes out with `tabindex="-1"`, so
+	// someone navigating by keyboard couldn't remove a tag added by
+	// mistake. Hence the control of our own next to it.
 	const el = await mount((editor) => {
 		editor.draft = { tags: ["cine", "teatro"] };
 		editor.open = true;
@@ -330,9 +331,9 @@ test("el botón de quitar una etiqueta es alcanzable con Tab y la quita", async 
 });
 
 test("cambiar de evento con el editor abierto renueva las etiquetas", async () => {
-	// Hoy no hay ruta que lo provoque, pero la había de sobra para que la
-	// hubiese: reaccionar sólo a `open` dejaba el editor mostrando las
-	// etiquetas del evento anterior sin ningún aviso.
+	// Today there's no path that triggers this, but there was more than
+	// enough reason for there to be one: reacting only to `open` left the
+	// editor showing the previous event's tags with no warning at all.
 	const el = await mount((editor) => {
 		editor.draft = { tags: ["cine"] };
 		editor.open = true;
@@ -347,17 +348,19 @@ test("cambiar de evento con el editor abierto renueva las etiquetas", async () =
 	el.remove();
 });
 
-// --- Sugerencia de etiquetas con IA (T24) -----------------------------------
+// --- AI tag suggestion (T24) ------------------------------------------------
 //
-// La calidad de lo que sugiere el modelo se prueba aparte, sin componente, en
-// `suggest-tags.test.ts`. Aquí sólo el cableado: cómo se pintan, cómo se
-// añaden, y cuándo el editor decide siquiera intentarlo.
+// The quality of what the model suggests is tested separately, without the
+// component, in `suggest-tags.test.ts`. Here it's only the wiring: how
+// they get painted, how they get added, and when the editor even decides
+// to try.
 
 /**
- * Los campos de estado son `private` en TypeScript pero públicos en tiempo de
- * ejecución: Lit no sabe de visibilidad de TS, y asignarlos dispara la misma
- * reactividad que si fueran públicos. Ya se usa el mismo principio más arriba
- * al fijar `draft` para probar el resultado del generador sin invocarlo.
+ * State fields are `private` in TypeScript but public at runtime: Lit
+ * doesn't know about TS visibility, and assigning to them triggers the
+ * same reactivity as if they were public. The same principle is already
+ * used above when setting `draft` to test the generator's result without
+ * invoking it.
  */
 function setState(el: PlanuEventEditor, key: string, value: unknown): void {
 	(el as unknown as Record<string, unknown>)[key] = value;
@@ -394,7 +397,7 @@ test("una sugerencia de la IA se pinta con etiqueta propia, distinta del autocom
 	await el.updateComplete;
 
 	expect(aiSuggested(el)).toEqual(["música", "verano"]);
-	// Y no se confunde con la lista de "Suggested tags" del autocompletado.
+	// And it doesn't get confused with the autocomplete's "Suggested tags" list.
 	expect(suggested(el)).toEqual([]);
 
 	el.remove();
@@ -429,7 +432,8 @@ test("reabrir el editor olvida las sugerencias de la vez anterior", async () => 
 	await el.updateComplete;
 	expect(aiSuggested(el)).toEqual(["música"]);
 
-	// Cerrar y reabrir es lo que dispara el `willUpdate` que resetea el estado.
+	// Closing and reopening is what triggers the `willUpdate` that resets
+	// the state.
 	el.open = false;
 	await el.updateComplete;
 	el.open = true;
@@ -441,15 +445,15 @@ test("reabrir el editor olvida las sugerencias de la vez anterior", async () => 
 });
 
 test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ella", async () => {
-	// El diseño anterior interceptaba el primer envío sin etiquetas para
-	// ofrecer sugerencias, y una revisión encontró ahí un fallo real: el
-	// editor es una única instancia reutilizada entre eventos
-	// (`events-view.ts` alterna `.open`/`.event` sobre el mismo elemento), así
-	// que el hueco asíncrono antes de guardar podía dejar que una sugerencia
-	// —o el propio guardado— se aplicase sobre el evento equivocado si el
-	// usuario reabría el editor mientras tanto. La sugerencia es ahora un
-	// botón aparte: guardar es exactamente el mismo camino síncrono de antes
-	// de T24, y este test lo fija para que no vuelva a acoplarse.
+	// The earlier design intercepted the first submission with no tags to
+	// offer suggestions, and a review found a real bug there: the editor is
+	// a single instance reused across events (`events-view.ts` toggles
+	// `.open`/`.event` on the same element), so the async gap before
+	// saving could let a suggestion —or the save itself— apply to the
+	// wrong event if the user reopened the editor in the meantime. The
+	// suggestion is now a separate button: saving is exactly the same
+	// synchronous path as before T24, and this test pins that down so it
+	// doesn't get coupled again.
 	const el = await mount((editor) => {
 		setState(editor, "firestore", {});
 		setState(editor, "user", { uid: "abc" });
@@ -460,15 +464,16 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 	submit(el);
 	await el.updateComplete;
 
-	// Firestore falso: el SDK real rechaza rápido y sin red, así que este
-	// mensaje demuestra que se llegó a intentar guardar de inmediato.
+	// Fake Firestore: the real SDK rejects quickly and without a network,
+	// so this message proves that saving was actually attempted right
+	// away.
 	expect(errorText(el)).toBe("The event could not be saved. Please try again.");
 	expect(aiSuggested(el)).toEqual([]);
 
 	el.remove();
 });
 
-// --- El botón de sugerir --------------------------------------------------
+// --- The suggest button ------------------------------------------------------
 
 test("sin IA disponible, no se ofrece el botón: un botón que siempre falla es peor que ninguno", async () => {
 	const el = await mount((editor) => {
@@ -498,9 +503,9 @@ test("con la IA disponible, el botón aparece", async () => {
 });
 
 test("pulsarlo sin Firebase configurado no hace nada, y no deja el botón colgado", async () => {
-	// Sin `appContext`, `this.app` es `undefined`: el editor ni siquiera lo
-	// intenta. Es el mismo silencio que pide T24 para cuando la IA no está,
-	// aplicado también a esta rama.
+	// Without `appContext`, `this.app` is `undefined`: the editor doesn't
+	// even try. It's the same silence T24 asks for when the AI isn't
+	// available, applied to this branch too.
 	const el = await mount((editor) => {
 		setState(editor, "aiAvailable", true);
 		editor.open = true;
@@ -521,11 +526,11 @@ test("pulsarlo sin Firebase configurado no hace nada, y no deja el botón colgad
 });
 
 test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", async () => {
-	// El único test que atraviesa el camino completo: botón → #onSuggestTags
-	// → suggestTagsWithAi → ai-model-session → el SDK de IA, simulado en la
-	// frontera real y no en un punto intermedio. Sirve además para comprobar
-	// de extremo a extremo la exclusión de etiquetas ya puestas, no sólo a
-	// nivel de `suggest-tags.test.ts`.
+	// The only test that goes through the whole path: button →
+	// #onSuggestTags → suggestTagsWithAi → ai-model-session → the AI SDK,
+	// mocked at the real boundary and not at some point in between. It
+	// also serves to check end-to-end the exclusion of already-added
+	// tags, not only at the level of `suggest-tags.test.ts`.
 	generateContent.mockResolvedValueOnce({
 		response: {
 			text: () => JSON.stringify({ tags: ["cena", "trabajo", "equipo"] }),
@@ -553,19 +558,20 @@ test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", a
 		await el.updateComplete;
 	}
 
-	// "cena" no aparece: ya estaba puesta en el evento.
+	// "cena" doesn't appear: it was already added to the event.
 	expect(aiSuggested(el)).toEqual(["trabajo", "equipo"]);
 
 	el.remove();
 });
 
 test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada", async () => {
-	// El mismo patrón de `#generation` que ya usa `ai-event-generator.ts`: el
-	// editor no se desmonta entre eventos, así que una respuesta que llega
-	// tarde no puede aplicarse sobre lo que se esté editando para entonces.
-	// La descarga resuelve enseguida (el mock por defecto); lo que se deja
-	// pendiente es la propia generación, para reabrir justo después de
-	// calentar el modelo y antes de que el modelo conteste.
+	// The same pattern as `#generation` already used by
+	// `ai-event-generator.ts`: the editor doesn't unmount between events,
+	// so a response that arrives late must not apply to whatever is being
+	// edited by then. The download resolves right away (the default
+	// mock); what's left pending is the generation itself, so as to
+	// reopen right after warming up the model and before the model
+	// answers.
 	let resuelveGeneracion: ((value: FakeModelResponse) => void) | undefined;
 	generateContent.mockImplementationOnce(
 		() =>
@@ -586,21 +592,22 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 		(b) => b.textContent?.includes("Suggest tags with AI"),
 	) as HTMLElement;
 	boton.click();
-	// Espera a que la descarga (rápida) termine y la generación quede en
-	// vuelo, antes de reabrir.
+	// Waits for the (fast) download to finish and the generation to be
+	// left in flight, before reopening.
 	await new Promise((resolve) => setTimeout(resolve, 20));
 	await el.updateComplete;
 	expect(el.shadowRoot?.textContent).toContain("Suggesting tags");
 
-	// Se cierra y se reabre para otro evento mientras el modelo sigue
-	// pensando: es justo el escenario que invalida la respuesta cuando llegue.
+	// It closes and reopens for another event while the model keeps
+	// thinking: this is exactly the scenario that invalidates the response
+	// when it arrives.
 	el.open = false;
 	await el.updateComplete;
 	el.draft = { tags: ["nuevo"] };
 	el.open = true;
 	await el.updateComplete;
 
-	// Ahora se deja resolver la generación de la petición vieja.
+	// Now the old request's generation is allowed to resolve.
 	resuelveGeneracion?.({
 		response: {
 			text: () => JSON.stringify({ tags: ["tarde"] }),

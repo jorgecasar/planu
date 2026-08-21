@@ -1,20 +1,20 @@
 import type { FirebaseOptions } from "firebase/app";
 
 /**
- * La base de Firestore de este proyecto NO es la `(default)`.
- * Sin este identificador el SDK lee de una base que no existe.
+ * This project's Firestore database is NOT the `(default)` one.
+ * Without this identifier the SDK reads from a database that does not exist.
  */
 export const DATABASE_ID = "planu";
 
 /**
- * Configuración del cliente, leída de .env.local (no versionado).
+ * Client configuration, read from .env.local (not versioned).
  *
- * Los valores se obtienen con:
+ * The values are obtained with:
  *   firebase apps:sdkconfig WEB 1:854295039681:web:1181b841906dba24160e40 \
  *     --project planu-app
  *
- * No son secretos —viajan en el bundle del cliente— pero no se versionan para
- * que cada entorno apunte a su propio proyecto.
+ * They are not secrets —they travel in the client bundle— but they are not
+ * versioned so that each environment points to its own project.
  */
 export const firebaseConfig: FirebaseOptions = {
 	apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,10 +26,11 @@ export const firebaseConfig: FirebaseOptions = {
 };
 
 /**
- * Puertos de los emuladores. Deben coincidir con firebase.json.
+ * Emulator ports. Must match firebase.json.
  *
- * Firestore no usa el 8080 por defecto ni Hosting el 5000: en macOS el 5000 lo
- * ocupa el receptor AirPlay del sistema, y el 8080 suele estar cogido.
+ * Firestore does not use the default 8080, nor Hosting the default 5000: on
+ * macOS 5000 is taken by the system's AirPlay receiver, and 8080 is usually
+ * taken too.
  */
 export const EMULATORS = {
 	auth: 9099,

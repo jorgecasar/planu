@@ -23,7 +23,7 @@ const input = (
 	...over,
 });
 
-// --- El parseo -------------------------------------------------------------
+// --- Parsing -----------------------------------------------------------------
 
 test("interpreta hasta tres etiquetas propuestas", () => {
 	const result = parseSuggestedTags(
@@ -36,8 +36,9 @@ test("interpreta hasta tres etiquetas propuestas", () => {
 });
 
 test("las que ya usa el usuario van primero", () => {
-	// La prioridad no depende de que el modelo las ordene bien: se reordena
-	// aquí de forma determinista, así que es comprobable sin un modelo real.
+	// The priority does not depend on the model ordering them correctly: it
+	// is deterministically reordered here, so it can be checked without a
+	// real model.
 	const result = parseSuggestedTags(
 		JSON.stringify({ tags: ["verano", "música", "concierto"] }),
 		["música"],
@@ -58,8 +59,8 @@ test("recorta a un máximo de tres aunque el modelo proponga más", () => {
 });
 
 test("una etiqueta que incumple la normalización de T18 se descarta", () => {
-	// «demasiado larga…» se recorta a null por MAX_TAG_LENGTH; los espacios se
-	// colapsan; las vacías desaparecen.
+	// A tag that is "too long..." gets trimmed to null by MAX_TAG_LENGTH;
+	// spaces are collapsed; empty ones disappear.
 	const result = parseSuggestedTags(
 		JSON.stringify({
 			tags: ["a".repeat(30), "  música   clásica  ", "", "   ", "Verano"],
@@ -110,9 +111,10 @@ test("acepta JSON envuelto en un bloque de código", () => {
 	expect(result).toEqual(["música"]);
 });
 
-// --- Las ya puestas en este evento se excluyen, no sólo se piden con menos
-//     ganas: confiar en que el modelo no repita lo que ya ve puesto es
-//     exactamente la clase de instrucción que T23 enseñó a comprobar. -------
+// --- The ones already applied to this event are excluded, not merely
+//     requested with less enthusiasm: trusting the model not to repeat
+//     what it already sees applied is exactly the kind of instruction T23
+//     taught us to check. ----------------------------------------------------
 
 test("una etiqueta ya puesta en este evento no se vuelve a sugerir", () => {
 	const result = parseSuggestedTags(
@@ -135,8 +137,8 @@ test("la exclusión normaliza antes de comparar: mayúsculas y espacios no cuela
 });
 
 test("excluir no reduce el resultado por debajo de lo que el modelo sí propuso de nuevo", () => {
-	// Si el modelo respeta la instrucción y no repite ninguna, la exclusión no
-	// debe recortar nada de lo demás.
+	// If the model follows the instruction and does not repeat any, the
+	// exclusion must not trim anything else.
 	const result = parseSuggestedTags(
 		JSON.stringify({ tags: ["trabajo", "equipo"] }),
 		[],
@@ -146,7 +148,7 @@ test("excluir no reduce el resultado por debajo de lo que el modelo sí propuso 
 	expect(result).toEqual(["trabajo", "equipo"]);
 });
 
-// --- El prompt --------------------------------------------------------------
+// --- The prompt ---------------------------------------------------------------
 
 test("el prompt incluye el contenido del evento y el vocabulario conocido", () => {
 	const prompt = suggestTagsPrompt(input());
@@ -162,8 +164,8 @@ test("el prompt pide priorizar las etiquetas ya usadas", () => {
 });
 
 test("sin vocabulario previo, el prompt no promete un vocabulario vacío", () => {
-	// Con `knownTags: []`, listar "Existing tags: " sin nada detrás confundiría
-	// al modelo más que omitir la sección entera.
+	// With `knownTags: []`, listing "Existing tags: " with nothing behind it
+	// would confuse the model more than omitting the whole section.
 	const prompt = suggestTagsPrompt(input({ knownTags: [] }));
 
 	expect(prompt).not.toContain("Existing tags:");
@@ -178,7 +180,7 @@ test("el prompt le dice al modelo qué etiquetas no repetir, sólo si hay alguna
 	);
 });
 
-// --- suggestTagsWithAi(), el camino completo -------------------------------------
+// --- suggestTagsWithAi(), the full path ---------------------------------------
 
 test("propone etiquetas a partir del contenido del evento", async () => {
 	const result = await suggestTagsWithAi(
@@ -199,9 +201,9 @@ test("el camino completo también excluye las ya puestas en el evento", async ()
 });
 
 test("un fallo del modelo no se propaga: silencio, lista vacía", async () => {
-	// «Si la IA no está disponible, silencio y ningún error»: a diferencia de
-	// generate-event.ts, esto es una sugerencia de fondo y nunca debe
-	// interrumpir el guardado con un mensaje.
+	// "If the AI is not available, silence and no error": unlike
+	// generate-event.ts, this is a background suggestion and must never
+	// interrupt saving with a message.
 	const generate: GenerateContent = async () => {
 		throw new Error("model unavailable");
 	};

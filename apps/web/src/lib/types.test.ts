@@ -3,11 +3,11 @@ import { MAX_TAGS } from "../domain/tags.js";
 import { eventSchema } from "./types.js";
 
 /**
- * Lo mínimo que el esquema exige, sin `tags`.
+ * The bare minimum the schema requires, without `tags`.
  *
- * A propósito **sin** enumerar la clave: el defecto que estos tests fijan sólo
- * se veía así. `toEvent` la enumeraba a mano y por eso el listado funcionaba;
- * el esquema, por su cuenta, rechazaba el documento entero.
+ * Deliberately **without** listing that key: the default these tests pin
+ * down only showed up this way. `toEvent` used to list it by hand, which is
+ * why the listing worked; the schema on its own rejected the whole document.
  */
 const base = {
 	title: "Concierto de verano",
@@ -22,10 +22,10 @@ const parse = (extra: Record<string, unknown> = {}) =>
 	eventSchema().safeParse({ ...base, ...extra });
 
 test("un evento sin la clave tags valida y se queda sin etiquetas", () => {
-	// Es el caso de todo lo escrito antes de F6, y el que las reglas contemplan
-	// dejando `tags` fuera de `hasAll`. Sin el `.optional()`, Zod 4 lo tiraba
-	// con `invalid_type` y el evento desaparecía del listado con un aviso en la
-	// consola.
+	// This is the case for everything written before F6, and the one the
+	// rules account for by leaving `tags` out of `hasAll`. Without the
+	// `.optional()`, Zod 4 rejected it with `invalid_type` and the event
+	// disappeared from the listing with a warning in the console.
 	const result = parse();
 	expect(result.success).toBe(true);
 	expect(result.data?.tags).toEqual([]);
@@ -44,8 +44,8 @@ test("un tags a null no tira el evento", () => {
 });
 
 test("un tags que no es lista se descarta, no invalida el evento", () => {
-	// Las reglas ya lo denegarían al escribir, pero los documentos del prototipo
-	// nunca pasaron por ellas.
+	// The rules would already deny this on write, but the prototype's
+	// documents never went through them.
 	for (const basura of ["concierto", 42, { a: true }, true]) {
 		const result = parse({ tags: basura });
 		expect(result.success).toBe(true);
@@ -60,15 +60,15 @@ test("de una lista mixta sobreviven sólo las cadenas válidas", () => {
 });
 
 test("el esquema aplica el tope por evento a lo que lee", () => {
-	// Aquí sí manda `MAX_TAGS`: son las etiquetas de un evento, no el
-	// vocabulario del usuario.
+	// Here `MAX_TAGS` is what rules: these are one event's tags, not the
+	// user's whole vocabulary.
 	const muchas = Array.from({ length: MAX_TAGS + 3 }, (_, i) => `t${i}`);
 	const result = parse({ tags: muchas });
 	expect(result.data?.tags).toHaveLength(MAX_TAGS);
 });
 
 test("un título corto sigue invalidando el evento entero", () => {
-	// Control: el saneado de `tags` es una excepción deliberada, no una licencia
-	// para que el esquema deje pasar cualquier cosa.
+	// Control: sanitizing `tags` is a deliberate exception, not a license for
+	// the schema to let anything through.
 	expect(parse({ title: "ab" }).success).toBe(false);
 });

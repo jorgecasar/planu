@@ -1,45 +1,46 @@
 /**
- * Quién puede recurrir a la IA en la nube.
+ * Who can fall back to AI in the cloud.
  *
- * La ejecución en el dispositivo es gratis: el modelo ya está en el navegador y
- * la imagen no sale de la máquina. La de la nube factura por token, así que no
- * se abre a todo el mundo por defecto.
+ * On-device inference is free: the model is already in the browser and the
+ * image never leaves the machine. Cloud inference bills per token, so it is
+ * not open to everyone by default.
  *
- * No hay polyfill de por medio. Se evaluó el de la Prompt API y se descartó
- * porque obliga a llevar una clave de Gemini u OpenAI en el cliente; ver
- * docs/adr/0003-generacion-con-ia-hibrida.md.
+ * There is no polyfill involved. The Prompt API's polyfill was evaluated and
+ * discarded because it requires carrying a Gemini or OpenAI key on the
+ * client; see docs/adr/0003-generacion-con-ia-hibrida.md.
  */
 
 import { msg } from "@lit/localize";
 
-/** Valores de `InferenceMode` del SDK, sin importar el SDK aquí. */
+/** `InferenceMode` values from the SDK, without importing the SDK here. */
 export type InferenceModeName = "only_on_device" | "prefer_on_device";
 
-/** Dónde acabó ejecutándose, tal y como lo reporta el SDK. */
+/** Where it ended up running, as reported by the SDK. */
 export type InferenceSourceName = "on_device" | "in_cloud";
 
 export interface AiPolicyInput {
-	/** Interruptor global: si está apagado, nadie usa la nube. */
+	/** Global switch: if it is off, nobody uses the cloud. */
 	cloudEnabled: boolean;
-	/** Si la cuenta tiene derecho a la nube. */
+	/** Whether the account has the right to the cloud. */
 	premium: boolean;
 }
 
 /**
- * Candado de código sobre la nube.
+ * Code-level lock over the cloud.
  *
- * Omitir `inCloudParams` **no** cierra nada: el SDK lo rellena solo con
- * `gemini-2.5-flash-lite`. Así que la única forma de que reabrir la nube sea un
- * diff revisable, y no una variable de entorno cambiada en el pipeline, es esta
- * constante. Quitarla exige además configurar App Check: sin él, cualquiera con
- * la configuración pública de Firebase puede llamar al modelo directamente.
+ * Omitting `inCloudParams` does **not** close anything: the SDK fills it in
+ * on its own with `gemini-2.5-flash-lite`. So the only way to make reopening
+ * the cloud a reviewable diff, rather than an environment variable changed
+ * in the pipeline, is this constant. Removing it also requires configuring
+ * App Check: without it, anyone with Firebase's public configuration can
+ * call the model directly.
  */
 const CLOUD_LOCKED = true;
 
 /**
- * `only_on_device` falla cuando no hay IA integrada, y eso es lo correcto para
- * una cuenta sin derecho a la nube: mejor decir que la función no está
- * disponible que generar una factura a su espalda.
+ * `only_on_device` fails when there is no built-in AI, and that is the
+ * correct behaviour for an account with no right to the cloud: better to say
+ * the feature is unavailable than to generate a bill behind its back.
  */
 export function resolveInferenceMode(input: AiPolicyInput): InferenceModeName {
 	if (CLOUD_LOCKED) return "only_on_device";
@@ -49,7 +50,7 @@ export function resolveInferenceMode(input: AiPolicyInput): InferenceModeName {
 		: "only_on_device";
 }
 
-/** Texto para el usuario sobre dónde se ha resuelto la generación. */
+/** Text for the user about where the generation was resolved. */
 export function describeInferenceSource(
 	source: InferenceSourceName | undefined,
 ): string {

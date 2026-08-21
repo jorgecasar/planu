@@ -8,17 +8,17 @@ import {
 	isExportable,
 } from "./build-ics.js";
 
-/** Inyectado: con `Date.now()` implícito el test probaría el reloj. */
+/** Injected: with an implicit `Date.now()` the test would be testing the clock. */
 const NOW = new Date(Date.UTC(2026, 7, 16, 10, 30, 0));
 
-/** Medianoche local, que es lo que produce un `<input type="date">`. */
+/** Local midnight, which is what an `<input type="date">` produces. */
 const day = (year: number, month: number, date: number) =>
 	new Date(year, month - 1, date);
 
 /**
- * Una hora que no es medianoche en ninguna zona horaria: todos los desfases son
- * múltiplos de quince minutos, así que con el minuto 37 nunca cae en :00 y el
- * test no depende de la zona de la máquina.
+ * An hour that is not midnight in any time zone: every offset is a multiple
+ * of fifteen minutes, so with minute 37 it never lands on :00, and the test
+ * does not depend on the machine's zone.
  */
 const at = (hourUtc: number) => new Date(Date.UTC(2026, 5, 12, hourUtc, 37, 0));
 
@@ -31,29 +31,29 @@ const event = (extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
 
 const bytes = (value: string) => new TextEncoder().encode(value).length;
 const lines = (ics: string) => ics.split("\r\n").filter((line) => line !== "");
-/** Deshace el plegado, que es como lo lee un cliente de calendario. */
+/** Undoes the folding, which is how a calendar client reads it. */
 const unfold = (ics: string) => ics.replace(/\r\n /g, "");
 
 const ics = (events: CalendarEvent[]) => buildIcs(events, { now: NOW });
 
-// ── La zona horaria de la suite ──────────────────────────────────────────────
+// ── The suite's time zone ─────────────────────────────────────────────────────
 
 test("la suite corre donde los fallos de zona horaria se ven", () => {
-	// Sin esto, media docena de tests de aquí abajo no pueden fallar. En UTC la
-	// hora local y la UTC coinciden, así que «esto sale en UTC» se cumple solo
-	// aunque el código use los getters locales — y los runners de GitHub son
-	// UTC. La zona la fija `vite.config.ts`; esta comprobación es la que avisa
-	// si alguien la quita.
+	// Without this, half a dozen tests below cannot fail. In UTC the local
+	// and UTC hours coincide, so "this comes out in UTC" holds on its own
+	// even if the code uses the local getters — and GitHub's runners are
+	// UTC. The zone is fixed in `vite.config.ts`; this check is what warns
+	// if someone removes it.
 	expect(new Date(2026, 5, 12).getTimezoneOffset()).not.toBe(0);
 
-	// Y que siga siendo una zona donde la medianoche a veces no existe: es el
-	// caso que se le atragantaba al detector de día completo. Si el tzdata del
-	// navegador cambiase las reglas de Chile, esto lo dice en vez de dejar el
-	// test de más abajo pasando por la razón equivocada.
+	// And that it is still a zone where midnight sometimes does not exist:
+	// that is the case that used to choke the all-day detector. If the
+	// browser's tzdata changed Chile's rules, this says so instead of
+	// leaving the test further down passing for the wrong reason.
 	expect(new Date(2026, 8, 6).getHours()).not.toBe(0);
 });
 
-// ── Estructura ───────────────────────────────────────────────────────────────
+// ── Structure ──────────────────────────────────────────────────────────────
 
 test("envuelve los eventos en un VCALENDAR con versión y PRODID", () => {
 	const salida = lines(ics([event()]));
@@ -65,7 +65,7 @@ test("envuelve los eventos en un VCALENDAR con versión y PRODID", () => {
 });
 
 test("separa las líneas con CRLF, nunca con un salto suelto", () => {
-	// Un cliente estricto rechaza el fichero entero si encuentra un LF solo.
+	// A strict client rejects the whole file if it finds a lone LF.
 	const salida = ics([event({ description: "Dos\nlíneas" })]);
 
 	expect(salida.endsWith("\r\n")).toBe(true);
@@ -79,15 +79,15 @@ test("exporta varios eventos en un solo fichero", () => {
 	expect(salida.match(/BEGIN:VCALENDAR/g)).toHaveLength(1);
 });
 
-// ── UID y DTSTAMP ────────────────────────────────────────────────────────────
+// ── UID and DTSTAMP ────────────────────────────────────────────────────────────
 
 test("el UID sale del identificador del evento y no cambia entre exportaciones", () => {
 	const uno = ics([event()]);
 	const otro = ics([event()]);
 
 	expect(lines(uno)).toContain("UID:abc123@planu.app");
-	// Estable: si cambiase, el calendario duplicaría el evento en vez de
-	// actualizarlo.
+	// Stable: if it changed, the calendar would duplicate the event instead
+	// of updating it.
 	expect(lines(otro)).toContain("UID:abc123@planu.app");
 });
 
@@ -99,9 +99,10 @@ test("dos eventos distintos no comparten UID", () => {
 });
 
 test("un evento sin identificador para la exportación en vez de colisionar", () => {
-	// Sin id, el UID sería `@planu.app` o `undefined@planu.app` para todos: el
-	// calendario los trataría como versiones de un mismo evento y se quedaría
-	// con uno. Vale más un error ruidoso que una agenda de un solo evento.
+	// With no id, the UID would be `@planu.app` or `undefined@planu.app` for
+	// everyone: the calendar would treat them as versions of the same event
+	// and keep just one. A loud error is worth more than a calendar with a
+	// single event left in it.
 	expect(() => ics([event({ id: "" })])).toThrow(TypeError);
 	expect(() => ics([event({ id: undefined as unknown as string })])).toThrow(
 		TypeError,
@@ -112,7 +113,7 @@ test("el DTSTAMP es el momento inyectado, en UTC", () => {
 	expect(lines(ics([event()]))).toContain("DTSTAMP:20260816T103000Z");
 });
 
-// ── Fechas ───────────────────────────────────────────────────────────────────
+// ── Dates ──────────────────────────────────────────────────────────────────────
 
 test("un evento de día completo usa VALUE=DATE y fin exclusivo", () => {
 	const salida = lines(
@@ -120,8 +121,8 @@ test("un evento de día completo usa VALUE=DATE y fin exclusivo", () => {
 	);
 
 	expect(salida).toContain("DTSTART;VALUE=DATE:20260612");
-	// El 15 y no el 14: en RFC 5545 el DTEND de un día completo es exclusivo,
-	// así que con el 14 el último día se perdería.
+	// The 15th and not the 14th: in RFC 5545 an all-day event's DTEND is
+	// exclusive, so with the 14th the last day would be lost.
 	expect(salida).toContain("DTEND;VALUE=DATE:20260615");
 	expect(salida.some((line) => line.startsWith("DTSTART:"))).toBe(false);
 });
@@ -142,10 +143,10 @@ test("un evento con hora sale en UTC y sin VALUE=DATE", () => {
 });
 
 test("la hora se convierte a UTC, aunque cambie el día", () => {
-	// A las 02:37 UTC del 12 de junio en Santiago son las 22:37 del 11. Si la
-	// conversión se hiciera con los getters locales saldría `20260611T223700Z`:
-	// el evento aparecería el día anterior y cuatro horas antes en la agenda de
-	// cualquiera que lo importe.
+	// 02:37 UTC on the 12th of June is 22:37 on the 11th in Santiago. If the
+	// conversion were done with the local getters it would come out as
+	// `20260611T223700Z`: the event would show up on the previous day and
+	// four hours earlier on the calendar of anyone who imports it.
 	const salida = lines(
 		ics([event({ startDate: new Date(Date.UTC(2026, 5, 12, 2, 37, 0)) })]),
 	);
@@ -161,10 +162,11 @@ test("un evento con hora y sin fin no emite DTEND", () => {
 });
 
 test("sigue siendo de día completo el día en que la medianoche no existe", () => {
-	// El 6 de septiembre de 2026 Chile adelanta el reloj a las 00:00, así que
-	// ese día empieza a la 01:00 y `getHours()` no vale para detectar el día
-	// completo. Con el detector ingenuo esto salía como una cita puntual, sin
-	// DTEND y con hora: el usuario había elegido un día entero en el editor.
+	// On 6 September 2026 Chile moves the clock forward from 00:00, so that
+	// day starts at 01:00 and `getHours()` is useless for detecting an
+	// all-day event. With the naive detector this used to come out as a
+	// point-in-time appointment, with no DTEND and with a time: the user had
+	// picked a whole day in the editor.
 	const salida = lines(ics([event({ startDate: day(2026, 9, 6) })]));
 
 	expect(salida).toContain("DTSTART;VALUE=DATE:20260906");
@@ -172,8 +174,8 @@ test("sigue siendo de día completo el día en que la medianoche no existe", () 
 });
 
 test("un rango de dos días es el mismo con y sin salto de horario", () => {
-	// El 5 y el 6 de septiembre en Santiago: el segundo día empieza a la 01:00.
-	// La semántica no puede depender de eso.
+	// The 5th and 6th of September in Santiago: the second day starts at
+	// 01:00. The semantics cannot depend on that.
 	const salida = lines(
 		ics([event({ startDate: day(2026, 9, 5), endDate: day(2026, 9, 6) })]),
 	);
@@ -183,8 +185,9 @@ test("un rango de dos días es el mismo con y sin salto de horario", () => {
 });
 
 test("no emite DTEND si no es posterior al inicio", () => {
-	// RFC 5545 §3.8.2.2 lo exige posterior, y el esquema permite inicio igual a
-	// fin. Sin DTEND el evento tiene duración cero, que es lo que se pidió.
+	// RFC 5545 §3.8.2.2 requires it to be later, and the schema allows start
+	// equal to end. With no DTEND the event has zero duration, which is what
+	// was asked for.
 	const salida = lines(ics([event({ startDate: at(9), endDate: at(9) })]));
 
 	expect(salida).toContain("DTSTART:20260612T093700Z");
@@ -192,8 +195,8 @@ test("no emite DTEND si no es posterior al inicio", () => {
 });
 
 test("con sólo fecha de fin, esa fecha hace de DTSTART", () => {
-	// RFC 5545 exige DTSTART en todo VEVENT sin METHOD: un VEVENT sin él es
-	// justo el fichero roto que esta tarea evita.
+	// RFC 5545 requires DTSTART in every VEVENT with no METHOD: a VEVENT
+	// without it is exactly the broken file this task avoids.
 	const salida = lines(
 		ics([event({ startDate: null, endDate: day(2026, 6, 14) })]),
 	);
@@ -215,7 +218,7 @@ test("un evento sin fechas no arrastra a los que sí las tienen", () => {
 	expect(lines(salida)).toContain("UID:def456@planu.app");
 });
 
-// ── Escape ───────────────────────────────────────────────────────────────────
+// ── Escaping ───────────────────────────────────────────────────────────────────
 
 test("escapa las comas del título", () => {
 	const salida = unfold(ics([event({ title: "Cena, baile y sorteo" })]));
@@ -236,14 +239,15 @@ test("la descripción multilínea viaja como \\n y no parte la propiedad", () =>
 	const salida = ics([event({ description: "Primera\nSegunda\r\nTercera" })]);
 
 	expect(unfold(salida)).toContain("DESCRIPTION:Primera\\nSegunda\\nTercera");
-	// Ninguna línea del fichero puede empezar por el texto de la segunda: eso
-	// significaría un salto real dentro de la propiedad.
+	// No line in the file can start with the second line's text: that would
+	// mean a real line break inside the property.
 	expect(lines(salida).some((line) => line.startsWith("Segunda"))).toBe(false);
 });
 
 test("tira los caracteres de control, que RFC 5545 no admite", () => {
-	// Un control pegado desde otro programa hace que varios lectores rechacen el
-	// fichero entero, no la propiedad. El tabulador sí es válido y se queda.
+	// A control character pasted from another program makes several readers
+	// reject the whole file, not just the property. The tab is valid and
+	// stays.
 	const ctrl = (code: number) => String.fromCharCode(code);
 	const sucio = `Feria${ctrl(0x07)} del libro${ctrl(0x09)}infantil${ctrl(0x7f)}`;
 	const salida = ics([event({ description: sucio })]);
@@ -252,7 +256,8 @@ test("tira los caracteres de control, que RFC 5545 no admite", () => {
 		`DESCRIPTION:Feria del libro${ctrl(0x09)}infantil`,
 	);
 
-	// Y que no quede ninguno en todo el fichero. CR y LF sí, que son las líneas.
+	// And that none is left anywhere in the whole file. CR and LF are fine,
+	// those are the lines.
 	const controles = [...salida].filter((char) => {
 		const code = char.codePointAt(0) ?? 0;
 		if (code === 0x09 || code === 0x0a || code === 0x0d) return false;
@@ -262,11 +267,12 @@ test("tira los caracteres de control, que RFC 5545 no admite", () => {
 });
 
 test("la barra invertida se escapa antes que el resto", () => {
-	// Al revés, `\,` se convertiría en `\\,` y el calendario mostraría la barra.
+	// The other way around, `\,` would become `\\,` and the calendar would
+	// show the backslash.
 	expect(escapeText("a\\,b")).toBe("a\\\\\\,b");
 });
 
-// ── Plegado ──────────────────────────────────────────────────────────────────
+// ── Folding ────────────────────────────────────────────────────────────────────
 
 test("pliega las líneas largas a 75 octetos con continuación indentada", () => {
 	const largo =
@@ -276,15 +282,16 @@ test("pliega las líneas largas a 75 octetos con continuación indentada", () =>
 	const summary = partidas.findIndex((line) => line.startsWith("SUMMARY:"));
 
 	for (const line of partidas) expect(bytes(line)).toBeLessThanOrEqual(75);
-	// La línea siguiente a SUMMARY es su continuación, indentada con un espacio.
+	// The line after SUMMARY is its continuation, indented with a space.
 	expect(partidas[summary + 1]?.startsWith(" ")).toBe(true);
-	// Desplegado vuelve a ser el texto original.
+	// Unfolded, it is the original text again.
 	expect(unfold(salida)).toContain(`SUMMARY:${largo}`);
 });
 
 test("cuenta octetos y no caracteres al plegar texto acentuado", () => {
-	// Cada «á» ocupa dos octetos: plegar por caracteres daría líneas de hasta
-	// 150 octetos y un fichero inválido que aun así parecería correcto.
+	// Each accented character takes up two octets: folding by character
+	// would give lines of up to 150 octets and an invalid file that would
+	// still look correct.
 	const title = "á".repeat(50);
 	const plegada = foldLine(`SUMMARY:${title}`);
 
@@ -296,13 +303,13 @@ test("cuenta octetos y no caracteres al plegar texto acentuado", () => {
 });
 
 test("no parte un carácter multiocteto por la mitad", () => {
-	// Un suplente suelto: la señal de que el corte cayó dentro de un carácter.
+	// A lone surrogate: the sign that the cut landed inside a character.
 	const suelto =
 		/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
-	// Con varios desplazamientos, porque dónde cae el corte depende de cuántos
-	// octetos lo preceden: con uno solo el límite puede caer justo entre dos
-	// caracteres por casualidad y el test no probaría nada.
+	// With several offsets, because where the cut lands depends on how many
+	// octets precede it: with just one, the limit could land right between
+	// two characters by chance, and the test would not prove anything.
 	for (const relleno of ["", "A", "AB", "ABC"]) {
 		const title = `${relleno}${"🎪".repeat(40)}`;
 		const plegada = foldLine(`SUMMARY:${title}`);
@@ -323,10 +330,10 @@ test("una línea que cabe justo no se pliega", () => {
 });
 
 test("a partir del segundo tramo el espacio de continuación descuenta", () => {
-	// Con tres tramos se ve el presupuesto de las continuaciones: 75 octetos el
-	// primero y 74 los demás, porque el espacio que los abre cuenta. Con dos
-	// tramos nada lo fija, y un 75 en lugar del 74 pasa desapercibido dejando
-	// líneas de 76 octetos.
+	// With three segments the continuation budget is visible: 75 octets for
+	// the first and 74 for the rest, because the space that opens them
+	// counts. With two segments nothing pins it down, and a 75 instead of
+	// 74 slips through unnoticed, leaving 76-octet lines.
 	const plegada = foldLine("X".repeat(200));
 	const tramos = plegada.split("\r\n");
 
@@ -338,7 +345,7 @@ test("a partir del segundo tramo el espacio de continuación descuenta", () => {
 	for (const tramo of tramos) expect(bytes(tramo)).toBeLessThanOrEqual(75);
 });
 
-// ── Nombre de fichero ────────────────────────────────────────────────────────
+// ── File name ────────────────────────────────────────────────────────────────
 
 test("el nombre del fichero sale del título, sin acentos ni signos", () => {
 	expect(icsFileName("Feria del libro, 2026")).toBe("feria-del-libro-2026.ics");
@@ -349,8 +356,8 @@ test("un título sin caracteres utilizables cae a un nombre genérico", () => {
 });
 
 test("el título no puede sacar el fichero de su carpeta", () => {
-	// El nombre lo elige quien escribe el título y acaba en una cabecera de
-	// descarga: ni barras, ni puntos, ni nada que se lea como una ruta.
+	// The name is chosen by whoever writes the title and ends up in a
+	// download header: no slashes, no dots, nothing that reads as a path.
 	const nombre = icsFileName("../../etc/passwd");
 
 	expect(nombre).toBe("etc-passwd.ics");
