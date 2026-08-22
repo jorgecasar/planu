@@ -1408,3 +1408,28 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
 > `arch/boundary.test.ts` en 22.
+>
+> - [x] Suite completa en 0, comprobado por código de salida: `npm run
+>   typecheck` (0), `npm run lint` (0), `npm run lint:lit` (0), `npm run
+>   build` (0, `tsc --noEmit && vite build`), `npm run test:rules`
+>   (150/150, 0) y `npm run test:arch` (11/11, 0). `npm run test:e2e`
+>   completo, con reintento único (el mismo patrón de intermitencia del
+>   emulador de Auth documentado en T54): 76/77 a la primera, 1/1 al
+>   reintentar, **código de salida final 0**.
+> - [ ] `npm test` (Vitest en modo navegador) sin ejecutar: el modo
+>   navegador de esta sesión se cuelga en cualquier fichero —problema de
+>   entorno ya documentado en `AGENTS.md` (bucle de reintentos del
+>   optimizador de dependencias de Vite), distinto del que bloqueaba
+>   `test:e2e` y que sí se resolvió—. La cobertura equivalente de la capa
+>   de componentes la da `test:e2e`, que sí corrió contra el código real.
+> - [x] Tope de `arch/boundary.test.ts` en **21, no 22**: mejor que lo
+>   previsto, aunque por un motivo distinto al que el spec asumía. El plan
+>   original esperaba bajar de 23 a 22 sacando a `event-editor.ts` de la
+>   lista de exenciones tras su migración a puertos (T48). En la práctica
+>   el punto de partida de esta rama ya estaba en 19 (T36 lo había bajado
+>   antes), y `event-editor.ts` **no sale de la lista**: sigue acoplado
+>   por `firebase/app` + el import dinámico de `firebase/ai` de T24,
+>   ajeno a esta feature. T48 sube el tope a 21 al añadir dos adaptadores
+>   nuevos bajo `infrastructure/firebase/**`, documentado como excepción
+>   en el propio comentario de `TOPE_ACOPLADOS`. Sacar a `event-editor.ts`
+>   del todo queda para T37/T38, de mayor alcance.
