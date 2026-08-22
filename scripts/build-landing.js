@@ -10,6 +10,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	cpSync,
 	existsSync,
@@ -103,6 +104,73 @@ async function buildLanding() {
 		throw new Error("Web app build failed");
 	}
 
+	// La hoja de Web Awesome, resuelta y minificada por esbuild.
+	//
+	// Es imprescindible y se olvidó en la primera versión: la landing usa
+	// `wa-stack`, `wa-cluster`, `wa-grid` y `a.wa-button`, y sin esta hoja el
+	// HTML sale con las clases puestas y **ningún estilo detrás**. Se publicó así.
+	//
+	// No se puede leer con `readFileSync`: `utilities.css` son catorce
+	// `@import url(...)` y un `@import` dentro de un `<style>` en línea no
+	// resuelve. esbuild los aplana. `--loader:.woff2=empty` porque las fuentes
+	// las sirve `theme.css` desde el propio dominio.
+	console.log("  → Compilando la hoja de Web Awesome...");
+	const waStyles = resolve(
+		ROOT,
+		"node_modules/@awesome.me/webawesome/dist/styles",
+	);
+	const waEntry = resolve(waStyles, "_planu-entry.css");
+	mkdirSync(DIST, { recursive: true });
+	writeFileSync(
+		waEntry,
+		[
+			"@import url('native.css');",
+			"@import url('themes/default.css');",
+			"@import url('utilities.css');",
+		].join("\n"),
+		"utf-8",
+	);
+	const waOut = resolve(DIST, "_wa.css");
+	const waResult = spawnSync(
+		"npx",
+		[
+			"esbuild",
+			waEntry,
+			"--bundle",
+			"--minify",
+			"--loader:.woff2=empty",
+			`--outfile=${waOut}`,
+		],
+		{
+			cwd: waStyles,
+			stdio: "inherit",
+			shell: true,
+		},
+	);
+	// El temporal se borra pase lo que pase: vive dentro de `node_modules` y
+	// dejarlo ahí ensuciaría el paquete para el resto del build.
+	rmSync(waEntry, { force: true });
+	if (waResult.status !== 0) {
+		throw new Error("esbuild falló compilando la hoja de Web Awesome");
+	}
+	const webawesomeCss = readFileSync(waOut, "utf-8");
+	rmSync(waOut, { force: true });
+
+	// Con hash en el nombre: `/assets/**` se cachea un año como `immutable`, así
+	// que un cambio de contenido tiene que cambiar la URL o nadie lo vería.
+	const waHash = createHash("sha256")
+		.update(webawesomeCss)
+		.digest("hex")
+		.slice(0, 8);
+	const waHref = `/assets/webawesome-${waHash}.css`;
+	mkdirSync(resolve(DIST, "assets"), { recursive: true });
+	writeFileSync(
+		resolve(DIST, `assets/webawesome-${waHash}.css`),
+		webawesomeCss,
+		"utf-8",
+	);
+	console.log(`  ✓ ${waHref} (${webawesomeCss.length} B)`);
+
 	// Read CSS files
 	const themeCss = readFileSync(
 		resolve(ROOT, "apps/web/src/styles/theme.css"),
@@ -112,8 +180,15 @@ async function buildLanding() {
 		resolve(ROOT, "apps/web/src/landing/landing.css"),
 		"utf-8",
 	);
-	const combinedCss = `${themeCss}\n${landingCss}`;
-	const minifiedCss = minifyCss(combinedCss);
+	// Nuestros tokens y reglas van en línea —son 3,5 KB y evitan un viaje extra
+	// en el camino crítico—; la hoja del framework, 92 KB, va como fichero.
+	// Inlinearla reventaba el presupuesto de bytes por cuatro, y con razón: se
+	// descargaría entera en cada página en vez de una vez. `/assets/**` lo
+	// cachea `firebase.json` un año como immutable.
+	//
+	// Orden: el framework primero, para que theme.css pueda sobreescribirlo sin
+	// `!important`. Por eso el `<link>` va antes del `<style>` en la plantilla.
+	const minifiedCss = minifyCss(`${themeCss}\n${landingCss}`);
 
 	// Compile landing.ts to JS using esbuild (bundles dependencies for Node)
 	console.log("  → Compiling landing template...");
@@ -212,6 +287,7 @@ async function buildLanding() {
 			.replace("<!--OG_DESC_PLACEHOLDER-->", description)
 			.replace("<!--JSON_LD_PLACEHOLDER-->", jsonLdContent)
 			.replace("<!--INLINE_CSS_PLACEHOLDER-->", minifiedCss)
+			.replace("__WA_STYLESHEET__", waHref)
 			// Prefijo de idioma de los enlaces internos: el de origen vive en la
 			// raíz, los demás bajo /{locale}. Centinela plano y no comentario
 			// HTML, porque va dentro de atributos y ahí se escaparía.
