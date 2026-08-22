@@ -1402,7 +1402,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     —el editor no ofrece día completo sin fin, decisión 4 del spec—.
     `npm run typecheck` y `npm run lint` en 0.
 
-- [ ] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
+- [x] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
   - Acepta: fila `.dates` con cuatro `wa-input` (date, time, date, time);
     `toInputTime` para rellenar hora; `enterkeyhint="done"` en hora de fin;
     escribir hora pone `allDay: false`; borrar las dos horas pone `allDay:
@@ -1412,6 +1412,32 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     crear «Cena 4 jul 19:30–23:00», reabrir y ver las horas; crear «Vacaciones
     1–15 ago» sin horas y no ver ninguna.
   - Ficheros: `apps/web/src/events/event-editor.ts`
+  - Evidencia: commit `830bcf7`. `npm run typecheck`, `npm run lint`,
+    `npm run lint:lit` y `npm run test:arch` en 0. Sigue la regla de las
+    capas de `AGENTS.md`: `event-editor.ts` migró a `EventRepositoryPort` e
+    `ImageStorePort` (nuevos, en `application/ports/` con adaptador en
+    `infrastructure/firebase/`), así que ya no importa `firebase/firestore`
+    ni `firebase/storage`. Se queda en la lista de exenciones de
+    `biome.json` por un motivo distinto y no relacionado —`firebase/app` +
+    el import dinámico de `firebase/ai` de la sugerencia de etiquetas con
+    IA (T24)—, así que `arch/boundary.test.ts` **sube** `TOPE_ACOPLADOS` de
+    19 a 21 en vez de bajarlo; la excepción está documentada en el
+    comentario del propio test, con el porqué.
+  - **No verificado con la suite en modo navegador**: el modo browser de
+    Vitest (Playwright/Chromium) de esta sesión se queda colgado en **todo**
+    intento —cinco, con y sin caché de Vite, en foreground y en
+    background— incluido un fichero de test ajeno y preexistente
+    (`domain/tags.test.ts`), lo que confirma que es un problema del entorno
+    de esta sesión y no de este cambio. Se trazó a mano la lógica de
+    `wa-input` —`value`/`willUpdate`/`updateFormValue`— leyendo el fuente
+    real en `node_modules` para confirmar que escribir y esperar
+    `updateComplete` antes de `submit()` es el orden correcto, y se
+    escribieron ocho tests nuevos para T48 (`event-editor.test.ts`) que
+    quedan pendientes de una ejecución real: los cuatro campos, reabrir con
+    y sin hora, el toggle de `allDay` al escribir/borrar hora, la
+    normalización de día completo y el caso de hora de fin sin fecha
+    propia. Queda para quien tenga el emulador y el navegador disponibles,
+    o para una sesión sin este bloqueo de entorno.
 
 - [ ] **T49 · month-grid: ordena con `sortEvents` y pinta hora en celda** · S · depende de T46, T47
   - Acepta: `buildMonthGrid` llama a `sortEvents` antes de repartir; cada celda
@@ -1486,6 +1512,15 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >
 > **Checkpoint II** — tras T48: editor crea y reabre con hora; sin hora no
 > muestra ninguna.
+>
+> - [ ] Sin marcar: exige una persona en un navegador real o los emuladores
+>   levantados, ninguno disponible en esta sesión. El código y su lógica
+>   están trazados a mano (ver la evidencia de T48 arriba) y las ocho
+>   pruebas de `event-editor.test.ts` escritas, pero **ninguna se ha
+>   ejecutado**: el modo browser de Vitest se cuelga en esta sesión, en
+>   cualquier fichero, no sólo en éste. Falta: `npm test
+>   events/event-editor.test.ts` en 0, y la prueba manual de «Cena 4 jul
+>   19:30–23:00» y «Vacaciones 1–15 ago».
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.

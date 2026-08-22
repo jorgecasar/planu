@@ -1002,6 +1002,14 @@
   <source>Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.</source>
   <target>Crea, busca y filtra eventos con título, descripción, ubicación, fechas e imagen de portada. Privados por defecto — sólo tú puedes verlos.</target>
 </trans-unit>
+<trans-unit id="sef5852ec91873a6c">
+  <source>Start time</source>
+        <target>Hora de inicio</target>
+</trans-unit>
+<trans-unit id="s2e33731c2ead8d57">
+  <source>End time</source>
+        <target>Hora de fin</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

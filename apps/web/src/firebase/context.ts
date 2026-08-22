@@ -2,6 +2,8 @@ import { createContext } from "@lit/context";
 import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
+import type { EventRepositoryPort } from "../application/ports/event-repository.js";
+import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
 
 /** The app itself; needed by Firebase AI Logic, which does not hang off Firestore. */
@@ -23,6 +25,19 @@ export const firestoreContext = createContext<Firestore | undefined>(
 
 export const storageContext = createContext<FirebaseStorage | undefined>(
 	Symbol("planu-storage"),
+);
+
+/**
+ * The event repository port, not `Firestore`: what lets `event-editor.ts`
+ * stop importing `firebase/firestore` (T48 of the hours-in-events spec).
+ */
+export const eventRepositoryContext = createContext<
+	EventRepositoryPort | undefined
+>(Symbol("planu-event-repository"));
+
+/** The image store port, not `FirebaseStorage`. Same reason. */
+export const imageStoreContext = createContext<ImageStorePort | undefined>(
+	Symbol("planu-image-store"),
 );
 
 /**
