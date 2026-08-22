@@ -1212,13 +1212,31 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     propia. Queda para quien tenga el emulador y el navegador disponibles,
     o para una sesión sin este bloqueo de entorno.
 
-- [ ] **T49 · month-grid: ordena con `sortEvents` y pinta hora en celda** · S · depende de T46, T47
+- [x] **T49 · month-grid: ordena con `sortEvents` y pinta hora en celda** · S · depende de T46, T47
   - Acepta: `buildMonthGrid` llama a `sortEvents` antes de repartir; cada celda
     muestra `HH:mm` delante del título cuando el evento tiene hora (`!allDay`);
     un congreso de tres días no repite la hora en los tres.
   - Verifica: `npm test calendar/month-grid.test.ts` en 0; test: dos eventos
     mismo día salen ordenados por hora; con orden inverso salen al revés.
   - Ficheros: `apps/web/src/calendar/month-grid.ts`
+  - Evidencia: commit `34237f7`. `TZ=America/Santiago npx vitest run
+    src/calendar/month-grid.test.ts src/domain/sort-events.test.ts
+    src/calendar/agenda-days.test.ts src/domain/format-dates.test.ts
+    --browser.enabled=false` → 121/122 en 0, único fallo el preexistente
+    de `und-IS` (ICU, ajeno a esta tarea, ver evidencia de T47). `npm run
+    typecheck`, `npm run lint`, `npm run lint:lit` y `npm run test:arch`
+    en 0. `calendar-view.ts` gana `.sort` —cableado desde `events-view.ts`
+    junto a `.locale`, que ya existía— y pinta la hora sólo el día en que
+    el evento empieza.
+  - **No verificado con la suite en modo navegador**, mismo bloqueo de
+    entorno que T48 (ver su evidencia): `calendar-view.test.ts` depende de
+    `document`/axe y no corre en modo Node; se probó de nuevo el modo
+    browser en este fichero ajeno y volvió a colgarse. Los cuatro tests
+    nuevos de `calendar-view.test.ts` (orden por hora, orden invertido, día
+    completo sin hora, congreso de varios días sólo con hora el primer día)
+    se trazaron a mano contra `Intl.DateTimeFormat` real en locale `es`
+    (`9:00`, `18:00`, confirmado con Node) y la lógica de `dayKey`, pero
+    quedan pendientes de una ejecución real.
 
 - [ ] **T50 · event-filters: hora en el rango `from`/`to`** · S · depende de T45
   - Acepta: dos `wa-input type="time"` junto a los `date`; hora vacía = día
