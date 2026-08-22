@@ -223,11 +223,11 @@
         <target>Crea tu primer evento</target>
 </trans-unit>
 <trans-unit id="sf6794e7e16be8116">
-  <source>Starts <x id="0" equiv-text="${format(start)}"/></source>
+  <source>Starts <x id="0" equiv-text="${formatFull(start)}"/></source>
         <target>Comienza el <x id="0" equiv-text="${format(start)}"/></target>
 </trans-unit>
 <trans-unit id="sb5d98c99a3d5208d">
-  <source>Ends <x id="0" equiv-text="${format(end)}"/></source>
+  <source>Ends <x id="0" equiv-text="${formatFull(end)}"/></source>
         <target>Termina el <x id="0" equiv-text="${format(end)}"/></target>
 </trans-unit>
 <trans-unit id="s2fa53585f4adb3b6">

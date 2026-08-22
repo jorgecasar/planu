@@ -155,7 +155,7 @@ export class PlanuEventCard extends LitElement {
 
 				<div class="meta">
 					${event.location ? html`<span>${event.location}</span>` : nothing}
-					<span>${formatEventDates(event.startDate, event.endDate)}</span>
+					<span>${formatEventDates(event.startDate, event.endDate, event.allDay)}</span>
 				</div>
 
 				${this.#renderTags()}
