@@ -21,6 +21,12 @@ export interface CalendarEvent {
 	location?: string | undefined;
 	startDate?: Date | null | undefined;
 	endDate?: Date | null | undefined;
+	/**
+	 * Optional, not a bare `boolean`: a document saved before this feature
+	 * carries no such field, and `calendarWindow` treats that as all-day —
+	 * the implicit migration that avoids re-exporting hundreds of events.
+	 */
+	allDay?: boolean | undefined;
 }
 
 export interface IcsOptions {
@@ -155,24 +161,6 @@ function nextDay(date: Date): Date {
 	return next;
 }
 
-/**
- * Whether the instant is the **start of its local day**, which is what the
- * editor stores for a date with no time.
- *
- * Compared against `new Date(year, month, day)` instead of checking
- * `getHours() === 0` because there are zones where midnight does not exist:
- * in Chile, Cuba, Paraguay or Lebanon the clock jumps forward from 00:00, so
- * on 6 September 2026 in Santiago the day starts at 01:00. With the naive
- * check, an event created with an `<input type="date">` stopped being an
- * all-day event and was exported as a zero-duration point-in-time
- * appointment. Both expressions undergo the same jump normalisation, so
- * compared to each other they agree.
- */
-function isStartOfDay(date: Date): boolean {
-	const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-	return start.getTime() === date.getTime();
-}
-
 export interface CalendarWindow {
 	start: Date;
 	/**
@@ -193,18 +181,17 @@ export interface CalendarWindow {
  * Two decisions the model forces:
  * - An event with only an end date is exported starting on that same day,
  *   because RFC 5545 requires `DTSTART` in every `VEVENT` with no `METHOD`.
- * - It is all-day if every date it carries is the start of its local day,
- *   which is what an `<input type="date">` produces. It is inferred because
- *   the model has no "all day" flag; if it ever gets one, this detector
- *   becomes unnecessary and the field wins.
+ * - It is all-day if `event.allDay` says so. Without the field — a document
+ *   from before this feature — it is treated as all-day: the implicit
+ *   migration, which stops opening an old event from suddenly re-exporting
+ *   it as a zero-duration point-in-time appointment.
  */
 export function calendarWindow(event: CalendarEvent): CalendarWindow | null {
 	const start = event.startDate ?? event.endDate ?? null;
 	if (!start) return null;
 
 	const declaredEnd = event.startDate ? (event.endDate ?? null) : null;
-	const allDay =
-		isStartOfDay(start) && (!declaredEnd || isStartOfDay(declaredEnd));
+	const allDay = event.allDay ?? true;
 
 	if (allDay) return { start, end: nextDay(declaredEnd ?? start), allDay };
 
