@@ -14,6 +14,11 @@ import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import {
+	analyticsContext,
+	noopAnalytics,
+} from "../application/ports/analytics.js";
+import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
+import {
 	FirebaseSessionAdapter,
 	toSessionUser,
 } from "../infrastructure/firebase/session-adapter.js";
@@ -132,6 +137,13 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	readonly #storage = new ContextProvider(this, { context: storageContext });
 
+	// `noopAnalytics` de partida: la analítica no depende de la sesión, así
+	// que no hay un estado "aún comprobando" que distinguir como en `#user`.
+	readonly #analytics = new ContextProvider(this, {
+		context: analyticsContext,
+		initialValue: noopAnalytics,
+	});
+
 	#unsubscribe: (() => void) | undefined;
 
 	constructor() {
@@ -148,6 +160,12 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback();
+		// No espera a que haya sesión: T31 mide activación desde la visita, no
+		// sólo tras registrarse. `isSupported()` es asíncrono —de ahí la
+		// promesa— y nunca lanza; ver createAnalyticsAdapter.
+		void createAnalyticsAdapter(this.#core.app).then((adapter) => {
+			this.#analytics.setValue(adapter);
+		});
 		this.#unsubscribe = onAuthStateChanged(
 			this.#core.auth,
 			(user: User | null) => {

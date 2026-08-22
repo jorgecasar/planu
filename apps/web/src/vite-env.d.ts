@@ -15,6 +15,11 @@ interface ImportMetaEnv {
 	readonly VITE_AI_CLOUD_FALLBACK?: string;
 	/** Sentry DSN. Without it nothing is sent: observability is optional. */
 	readonly VITE_SENTRY_DSN?: string;
+	/**
+	 * GA4 measurement ID. Without it, `initAnalytics()` (T31, ADR 0009) does
+	 * nothing: the repo works with no Analytics account configured.
+	 */
+	readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
 	/** Deployed version, to group errors by release. */
 	readonly VITE_RELEASE?: string;
 }

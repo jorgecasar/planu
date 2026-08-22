@@ -27,6 +27,36 @@ test("registrarse deja al usuario dentro de la aplicación", async ({
 	).toBeVisible();
 });
 
+test("registrarse funciona igual con la analítica bloqueada (T31)", async ({
+	page,
+}) => {
+	// Simula un bloqueador de verdad, no sólo la ausencia de measurementId en
+	// .env.local: intercepta los dominios que Firebase Analytics contactaría y
+	// los corta, igual que haría uBlock o el propio navegador con Enhanced
+	// Tracking Protection. Si `createAnalyticsAdapter` no tragara el fallo, el
+	// registro se rompería aquí.
+	await page.route(/google-analytics\.com|googletagmanager\.com/, (route) =>
+		route.abort(),
+	);
+
+	await page.goto("/app/login");
+
+	await page.getByRole("tab", { name: "Create account" }).click();
+	const panel = page
+		.getByRole("tabpanel")
+		.filter({ hasText: "Confirm password" });
+
+	await panel.getByLabel("Email").fill(newEmail());
+	await panel.getByLabel("Password", { exact: true }).fill("secret123");
+	await panel.getByLabel("Confirm password").fill("secret123");
+	await panel.getByRole("button", { name: "Create account" }).click();
+
+	await expect(page).toHaveURL(/\/app$/);
+	await expect(
+		page.getByRole("banner").getByRole("heading", { name: "planu" }),
+	).toBeVisible();
+});
+
 test("las contraseñas que no coinciden no crean cuenta", async ({ page }) => {
 	await page.goto("/app/login");
 

@@ -15,13 +15,21 @@ import {
 	collection,
 	doc,
 	type Firestore,
+	getCountFromServer,
+	query,
 	serverTimestamp,
 	setDoc,
 	Timestamp,
+	where,
 } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import {
+	type AnalyticsPort,
+	analyticsContext,
+	noopAnalytics,
+} from "../application/ports/analytics.js";
 import type { SessionUser } from "../application/ports/session.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
@@ -154,6 +162,9 @@ export class PlanuEventEditor extends LitElement {
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
+
+	@consume({ context: analyticsContext, subscribe: true })
+	private analytics: AnalyticsPort = noopAnalytics;
 
 	@state() private imageUrl = "";
 	@state() private uploading = false;
@@ -668,7 +679,7 @@ export class PlanuEventEditor extends LitElement {
 		}
 	}
 
-	#save(
+	async #save(
 		firestore: Firestore,
 		user: SessionUser,
 		values: PlanuEvent,
@@ -695,13 +706,35 @@ export class PlanuEventEditor extends LitElement {
 
 		// An event is born with its creator as sole member and no guests: the
 		// rules reject any other way of starting.
-		return addDoc(collection(firestore, "events"), {
+		//
+		// The count runs *before* the write, not after: `first_event_created`
+		// (T31) needs to know whether this account had zero events, and asking
+		// afterward would always see at least one — the one just created. A
+		// count, not a listing: it stays a lightweight aggregation query
+		// regardless of how many events the account already has.
+		//
+		// `memberIds array-contains`, not `userId ==`: the rules deny every
+		// other shape for this collection (see the same filter in
+		// events-view.ts), so this counts events the account can see — its own
+		// plus anything shared with it — not strictly ones it created. Close
+		// enough for an activation metric, and the only shape the rules allow.
+		const before = await getCountFromServer(
+			query(
+				collection(firestore, "events"),
+				where("memberIds", "array-contains", user.uid),
+			),
+		);
+		const created = await addDoc(collection(firestore, "events"), {
 			...content,
 			userId: user.uid,
 			memberIds: [user.uid],
 			roles: {},
 			createdAt: serverTimestamp(),
 		});
+		if (before.data().count === 0) {
+			this.analytics.trackFirstEventCreated();
+		}
+		return created;
 	}
 
 	/**

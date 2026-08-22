@@ -92,8 +92,17 @@ const importaFirebase = (fichero: string): boolean =>
  * `profile-view.ts` stays on the list: it no longer imports `firebase/auth`,
  * but it still keeps `firebase/firestore` to publish to the user directory,
  * and that's Firestore — T37's port, not the session one.
+ *
+ * T31 raised it from 19 to 21, with nothing freed this time: `analytics/`
+ * had no `firebase/*` import to begin with —the whole point was giving it
+ * `AnalyticsPort` and never a Firebase type— so the two new files are
+ * `infrastructure/firebase/analytics-adapter.ts` and its test, the
+ * migration's second adapter. Same shape as T36's raise, and the same
+ * reason it is not a workaround: the count only ever grows here on purpose,
+ * inside the one place `firebase/*` is meant to live, never by adding an
+ * exemption elsewhere to dodge the count.
  */
-const TOPE_ACOPLADOS = 19;
+const TOPE_ACOPLADOS = 21;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

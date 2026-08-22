@@ -462,6 +462,11 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 
 	await fillTitle(el, "Cena de prueba");
 	submit(el);
+	// Two awaits deep now, not one: T31 added a getCountFromServer() before
+	// addDoc() to know whether this is the account's first event, so the
+	// rejection this fake Firestore produces needs one more microtask turn
+	// to reach the catch and re-render than a single `updateComplete` covers.
+	await new Promise((resolve) => setTimeout(resolve, 10));
 	await el.updateComplete;
 
 	// Fake Firestore: the real SDK rejects quickly and without a network,

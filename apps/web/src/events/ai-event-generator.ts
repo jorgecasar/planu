@@ -13,6 +13,11 @@ import type { FirebaseApp } from "firebase/app";
 import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import {
+	type AnalyticsPort,
+	analyticsContext,
+	noopAnalytics,
+} from "../application/ports/analytics.js";
 import type { SessionUser } from "../application/ports/session.js";
 import {
 	checkAvailability,
@@ -220,6 +225,9 @@ export class PlanuAiEventGenerator extends LitElement {
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
+
+	@consume({ context: analyticsContext, subscribe: true })
+	private analytics: AnalyticsPort = noopAnalytics;
 
 	@state() private preview = "";
 	@state() private text = "";
@@ -583,6 +591,7 @@ export class PlanuAiEventGenerator extends LitElement {
 				event: imageUrl ? { ...generated, imageUrl } : generated,
 				source,
 			});
+			this.analytics.trackAiUsed({ fromImage: on === "image" });
 			this.#close();
 		} catch (cause) {
 			if (token !== this.#generation) return;

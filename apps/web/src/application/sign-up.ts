@@ -1,17 +1,23 @@
 import { signUpSchema } from "../auth/schemas.js";
+import type { AnalyticsPort } from "./ports/analytics.js";
 import type { SessionPort } from "./ports/session.js";
 
 /**
  * Validates the sign-up — including the password confirmation — and creates
  * the account. Sending the verification email is the adapter's job: here
  * only the credentials need to be valid before touching the port.
+ *
+ * `analytics.trackSignUp()` va después del `await`, no antes: si el puerto de
+ * sesión lanza, no hubo alta y no hay nada que contar (T31).
  */
 export async function signUp(
 	session: SessionPort,
+	analytics: AnalyticsPort,
 	values: Record<string, string>,
 ): Promise<void> {
 	const parsed = signUpSchema().safeParse(values);
 	if (!parsed.success) throw parsed.error;
 
 	await session.signUp(parsed.data.email, parsed.data.password);
+	analytics.trackSignUp();
 }

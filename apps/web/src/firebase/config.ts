@@ -23,6 +23,14 @@ export const firebaseConfig: FirebaseOptions = {
 	storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
 	messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
 	appId: import.meta.env.VITE_FIREBASE_APP_ID,
+	// Spread and not a plain key: with `exactOptionalPropertyTypes`, assigning
+	// `undefined` to an optional property is a different (rejected) thing from
+	// omitting the key entirely. Without an env value the key doesn't exist at
+	// all, same as `initAnalytics()` (T31, ADR 0009) skipping itself — the repo
+	// works with no Analytics account configured, same as `VITE_SENTRY_DSN`.
+	...(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+		? { measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID }
+		: {}),
 };
 
 /**
