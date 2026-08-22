@@ -112,6 +112,14 @@ inaccesible).
 
 **No se avanza de fase con la anterior en rojo.**
 
+Dos bloques de trabajo posteriores a este plan viven **sólo en
+[`todo.md`](todo.md)**, igual que ya pasaba con la arquitectura hexagonal
+(Checkpoint H): la **arquitectura hexagonal** (T35–T39) y **horas en eventos**
+(T44–T55, de [`docs/spec-horas-en-eventos.md`](../docs/spec-horas-en-eventos.md),
+con sus propios checkpoints I–IV, ya cerrados a 22/08/2026). Se enumeran aquí
+para que la tabla de fases no dé la impresión de que el trabajo se detiene en
+T34.
+
 ### Cómo se marcan estas casillas
 
 Una casilla se marca **sólo con la evidencia al lado**: el comando y su código
@@ -228,10 +236,15 @@ dos aplicaciones reales no lo puede hacer un agente.
 
 ### Checkpoint F — tras T29
 
-- [ ] El HTML de la landing no contiene ni una etiqueta `<script>`
-- [ ] Se ve y se navega con JavaScript desactivado
-- [ ] LCP < 1,5 s en 4G simulada; presupuesto de bytes respetado
-- [ ] Los textos salen del mismo XLIFF que la app, en los dos idiomas
+**No se marca entero: el LCP no llega.** Evaluado el 22/08/2026 contra
+producción, mediana de 5 pasadas de Lighthouse.
+
+- [x] El HTML de la landing no contiene ni una etiqueta `<script>`
+- [x] Se ve y se navega con JavaScript desactivado
+- [ ] LCP < 1,5 s en 4G simulada — mediana real: **1,9 s** (rango 1,4–2,5 s en
+      5 pasadas). Presupuesto de bytes sí respetado: cada página bajo 16 KiB
+      de HTML+CSS en línea, tope 24 KiB.
+- [x] Los textos salen del mismo XLIFF que la app, en los dos idiomas
 
 ### Checkpoint H — tras T39 · arquitectura hexagonal
 
@@ -249,7 +262,14 @@ Se enumera para que la lista de checkpoints esté completa.
 - [ ] Los dieciséis criterios de éxito del spec
 - [ ] `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:rules` y
       `npm run lint` limpios
-- [ ] ADRs 0004 a 0009 escritos
+- [ ] ADRs 0004 a 0009 escritos — **no se marca, y no por faltar ninguno.**
+      `main` tiene hoy (22/08/2026) **diez** ficheros de ADR, no nueve:
+      T55 añadió `docs/adr/0008-all-day-flag-y-zona-horaria.md` sin darse
+      cuenta de que `0008` ya lo ocupaba `0008-identidad-visual.md` (T26/T27,
+      desde el 21/08). Dos ADR con el mismo número conviven en el repo ahora
+      mismo. Este ítem se marca cuando alguno de los dos se renombre al
+      siguiente número libre, **0010**, no antes — ver la entrada de T55 en
+      `todo.md`.
 - [ ] `AGENTS.md`, `SPEC.md` y `docs/backend.json` al día
 
 ## Paralelización

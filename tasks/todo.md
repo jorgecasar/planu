@@ -1300,6 +1300,14 @@ garantiza conflictos.
   - Ficheros: `src/application/ports/event-repository.ts`, casos de uso,
     `src/infrastructure/firebase/event-repository.ts`, los tres componentes,
     `src/domain/event.ts`
+  - **Llegó la mitad por T48 (spec de horas en eventos), fusionada el
+    22/08/2026, no por esta tarea.** `event-editor.ts` migró a
+    `EventRepositoryPort` e `ImageStorePort` —los nombres que crea son casi
+    los de esta entrada, con adaptadores ya en `infrastructure/firebase/`—
+    y sólo conserva un `import type { FirebaseApp } from "firebase/app"`.
+    **No completa T37**: `events-view.ts`, `event-card.ts` y `lib/types.ts`
+    siguen importando de `firebase/firestore` en `main` a 22/08/2026, sin
+    tocar por esa tarea. Lo que queda de T37 es sólo migrar esos tres.
 
 - [ ] **T38 · Puerto de almacén de imágenes** · S · depende de T37
   - Acepta: `ImageStore.upload` con progreso; `firebase/storage.ts` pasa a ser
@@ -1309,6 +1317,9 @@ garantiza conflictos.
     uso con un almacén en memoria
   - Ficheros: `src/application/ports/image-store.ts`,
     `src/infrastructure/firebase/image-store.ts`, los dos componentes
+  - **Mismo aviso que T37**: T48 creó `ImageStorePort` y su adaptador y migró
+    `event-editor.ts`, pero **no** tocó `ai-event-generator.ts`, que sigue
+    importando `firebase/storage` en `main` a 22/08/2026.
 
 - [ ] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
   - Acepta: el `override` de Biome se extiende a `ui/**`; el andamiaje de
@@ -1731,6 +1742,16 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     pospuesta, no olvidada, con lo mínimo que exigirá su propio ADR el
     día que haya invitados en zonas distintas. Documenta también el bug
     real de `toEvent()` que encontró T54.
+  - **Choque de numeración, sin corregir a 22/08/2026.** `main` tiene hoy
+    **dos** ficheros `0008-*.md`: éste y `0008-identidad-visual.md`
+    (T26/T27, en `main` desde el 21/08). El criterio de aceptación de esta
+    tarea se escribió antes de que existiera el segundo, y nadie lo ajustó
+    al fusionarla. `ls docs/adr/0008-*.md` de la propia entrada ya delataba
+    el problema —debería devolver un único fichero y devuelve dos—, pero el
+    comando pasa igual porque `ls` con glob no falla por tener más de un
+    resultado. Pendiente: renombrar este fichero. `0009` ya lo ocupa
+    `0009-analitica-de-activacion.md`, así que el siguiente número libre es
+    **0010**.
 
 > **Checkpoint I** — tras T44–T47:
 >
@@ -1782,7 +1803,9 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >   real; ningún agente la cierra.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
-> ~~`arch/boundary.test.ts` en 22~~ en 26 (ver más abajo por qué cambió).
+> ~~`arch/boundary.test.ts` en 22~~ en **27** a 22/08/2026 (ver más abajo por
+> qué cambió; el último salto, de 26 a 27, lo trae T32 —borrado de cuenta—,
+> ajena a esta fase pero fusionada el mismo día).
 >
 > - [ ] El tope real terminó en 26, no en 22: la estimación inicial no
 >   contaba con las dos subidas documentadas de T48 (21→23 por la
