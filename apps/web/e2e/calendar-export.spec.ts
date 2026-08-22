@@ -22,7 +22,12 @@ async function signUp(page: Page): Promise<void> {
 async function createEvent(
 	page: Page,
 	title: string,
-	dates?: { start: string; end?: string },
+	dates?: {
+		start: string;
+		end?: string;
+		startTime?: string;
+		endTime?: string;
+	},
 ): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
 	await page.getByRole("menuitem", { name: "Create manually" }).click();
@@ -33,7 +38,10 @@ async function createEvent(
 	await page.getByLabel("Location").fill("Madrid");
 	if (dates) {
 		await page.getByLabel("Start date").fill(dates.start);
+		if (dates.startTime)
+			await page.getByLabel("Start time").fill(dates.startTime);
 		if (dates.end) await page.getByLabel("End date").fill(dates.end);
+		if (dates.endTime) await page.getByLabel("End time").fill(dates.endTime);
 	}
 	await page.getByRole("button", { name: "Save event" }).click();
 
@@ -137,4 +145,82 @@ test("el aviso de exportación no tiene violaciones de accesibilidad", async ({
 
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
+});
+
+// --- Hour in the export (T46, T54) -------------------------------------------
+
+/**
+ * `YYYYMMDDTHHMMSSZ` of a local date, computed with the same UTC getters
+ * `toIcsDateTime` uses. No timezone offset is hardcoded: the runner can
+ * execute in any timezone.
+ */
+function icsDateTime(local: Date): string {
+	const pad = (value: number, length = 2) =>
+		String(value).padStart(length, "0");
+	return (
+		`${pad(local.getUTCFullYear(), 4)}${pad(local.getUTCMonth() + 1)}${pad(local.getUTCDate())}` +
+		`T${pad(local.getUTCHours())}${pad(local.getUTCMinutes())}${pad(local.getUTCSeconds())}Z`
+	);
+}
+
+test("un evento con hora exporta DTSTART con hora, no VALUE=DATE", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEvent(page, "Cena de fin de curso", {
+		start: "2026-06-12",
+		startTime: "19:30",
+		end: "2026-06-12",
+		endTime: "23:00",
+	});
+
+	const { contenido } = await exportar(page, "Add to calendar");
+
+	expect(contenido).toContain(
+		`DTSTART:${icsDateTime(new Date(2026, 5, 12, 19, 30))}`,
+	);
+	expect(contenido).toContain(
+		`DTEND:${icsDateTime(new Date(2026, 5, 12, 23, 0))}`,
+	);
+	expect(contenido).not.toContain("VALUE=DATE");
+});
+
+test("un evento de día completo sigue exportando VALUE=DATE", async ({
+	page,
+}) => {
+	// The contrast with the previous test: with no hour, T44–T46's acceptance
+	// criterion still holds with no regression.
+	await signUp(page);
+	await createEvent(page, "Vacaciones", {
+		start: "2026-08-01",
+		end: "2026-08-15",
+	});
+
+	const { contenido } = await exportar(page, "Add to calendar");
+
+	expect(contenido).toContain("DTSTART;VALUE=DATE:20260801");
+	expect(contenido).toContain("DTEND;VALUE=DATE:20260816");
+});
+
+test("un evento a las 00:00 con hora explícita exporta DTSTART con hora, no VALUE=DATE", async ({
+	page,
+}) => {
+	// The spec's own flagship example (decision 1): the exact case
+	// `isStartOfDay()` used to get wrong, by guessing "allDay" from the date
+	// landing on local midnight instead of reading an explicit flag. Typing
+	// "00:00" produces the same Date as leaving the field empty — the only
+	// thing that tells them apart is allDay, which this test pins to false
+	// by filling the time field instead of leaving it blank.
+	await signUp(page);
+	await createEvent(page, "Entrega a medianoche", {
+		start: "2026-06-20",
+		startTime: "00:00",
+	});
+
+	const { contenido } = await exportar(page, "Add to calendar");
+
+	expect(contenido).toContain(
+		`DTSTART:${icsDateTime(new Date(2026, 5, 20, 0, 0))}`,
+	);
+	expect(contenido).not.toContain("VALUE=DATE");
 });

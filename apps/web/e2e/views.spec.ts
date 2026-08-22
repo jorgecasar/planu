@@ -62,6 +62,23 @@ async function createDatedEvent(
 	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
 }
 
+/** Same as `createEventToday`, but with times: for T49's views. */
+async function createEventTodayWithTime(
+	page: Page,
+	title: string,
+	startTime: string,
+	endTime: string,
+): Promise<void> {
+	await openEditor(page);
+	await page.getByLabel("Title").fill(title);
+	await page.getByLabel("Start date").fill(dayFromToday(0));
+	await page.getByLabel("Start time").fill(startTime);
+	await page.getByLabel("End date").fill(dayFromToday(0));
+	await page.getByLabel("End time").fill(endTime);
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+}
+
 async function createUndatedEvent(page: Page, title: string): Promise<void> {
 	await openEditor(page);
 	await page.getByLabel("Title").fill(title);
@@ -347,4 +364,82 @@ test.describe("navegador en alemán, interfaz en inglés", () => {
 		await expect(dia).toContainText(enIngles);
 		await expect(dia).not.toContainText(enAleman);
 	});
+});
+
+// --- Hour in the agenda and the month (T49) ----------------------------------
+
+test("la hora se ve en la celda del mes cuando el evento la tiene", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEventTodayWithTime(page, "Cena de hoy", "19:30", "23:00");
+	await switchTo(page, "Calendar");
+
+	const grid = page.locator("planu-calendar-view li");
+	await expect(grid.filter({ hasText: "7:30 PM Cena de hoy" })).toHaveCount(1);
+});
+
+test("un evento de día completo no muestra hora en la celda del mes", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEventToday(page, "Feria del libro");
+	await switchTo(page, "Calendar");
+
+	const grid = page.locator("planu-calendar-view li");
+	await expect(grid.filter({ hasText: "Feria del libro" })).toHaveText(
+		"Feria del libro",
+	);
+});
+
+test("dos eventos de hoy salen ordenados por hora en la celda del mes", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEventTodayWithTime(page, "Tarde", "18:00", "19:00");
+	await createEventTodayWithTime(page, "Temprano", "09:00", "10:00");
+	await switchTo(page, "Calendar");
+
+	// Today's cell is found by its `aria-current="date"` mark, and within it
+	// the order of the `<li>`s: that's where the two events live.
+	const items = page
+		.locator('planu-calendar-view [aria-current="date"] li')
+		.allTextContents();
+	await expect.poll(() => items).toEqual(["9:00 AM Temprano", "6:00 PM Tarde"]);
+});
+
+test("la hora se ve en la agenda, heredada de la tarjeta", async ({ page }) => {
+	// The agenda doesn't paint the hour on its own: it inherits
+	// `planu-event-card`, so it's enough for the card to say it, with no
+	// changes to the view.
+	await signUp(page);
+	await createEventTodayWithTime(page, "Cena de hoy", "19:30", "23:00");
+	await switchTo(page, "Agenda");
+
+	await expect(
+		page.locator("planu-agenda-view").getByText(/7:30 PM.*11:00 PM/),
+	).toBeVisible();
+});
+
+// --- Hour-aware range filter (T50) -------------------------------------------
+
+test("el rango con hora coge la cena de las 19:30 y no la de las 21:00", async ({
+	page,
+}) => {
+	// The hours spec's literal acceptance criterion: 19:00–20:00 catches the
+	// 19:30 dinner and not the 21:00 one.
+	await signUp(page);
+	await createEventTodayWithTime(page, "Cena temprana", "19:30", "20:30");
+	await createEventTodayWithTime(page, "Cena tardía", "21:00", "22:00");
+
+	const hoy = dayFromToday(0);
+	await page.getByLabel("From", { exact: true }).fill(hoy);
+	await page.getByLabel("From time").fill("19:00");
+	await page.getByLabel("To", { exact: true }).fill(hoy);
+	await page.getByLabel("To time").fill("20:00");
+
+	await expect(
+		page.getByRole("heading", { name: "Cena temprana" }),
+	).toBeVisible();
+	await expect(page.getByRole("heading", { name: "Cena tardía" })).toBeHidden();
 });

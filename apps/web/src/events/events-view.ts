@@ -97,6 +97,13 @@ function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 		endDate: asDate(document["endDate"]),
 		createdAt: asDate(document["createdAt"]),
 		tags: document["tags"],
+		// Without listing the key, an event saved with an hour always read
+		// back as all-day: `allDay` was missing from the object reaching
+		// `safeParse`, and `z.boolean().default(true)` filled the gap. The
+		// implicit migration — documents predating this feature, with no
+		// field — keeps working the same way: `document["allDay"]` is
+		// `undefined` for them, and the same `default(true)` decides all-day.
+		allDay: document["allDay"],
 	});
 
 	if (!parsed.success) {

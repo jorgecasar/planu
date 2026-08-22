@@ -1532,15 +1532,15 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     sin ningún cambio. `npm run typecheck`, `npm run lint`, `npm run
     lint:lit` y `npm run test:arch` en 0. `localize:extract`/`build` para
     los dos textos nuevos («From time», «To time»), traducidos.
-  - **No verificado con la suite en modo navegador**, mismo bloqueo de
-    entorno que T48/T49 (reconfirmado en este fichero). Los cinco tests
-    nuevos de `event-filters.test.ts` —los cuatro campos, hora vacía = día
-    entero, una hora combinada con su fecha, limpiar borra las dos horas—
-    se trazaron a mano contra `handleChange()`/`relayNativeEvent()` reales
-    de `WaInput` (leídos en `node_modules`): en producción el `change` del
-    `<input>` interno se reemite desde el propio host `wa-input` con
-    `.value` ya sincronizado, que es justo lo que simulan disparando el
-    evento sobre el host directamente.
+  - Los cinco tests unitarios de `event-filters.test.ts` —los cuatro
+    campos, hora vacía = día entero, una hora combinada con su fecha,
+    limpiar borra las dos horas— pasan en CI (491/491 de la suite
+    completa, ver evidencia de T48). El e2e que ejercita el criterio de
+    aceptación literal de esta tarea —«el rango con hora coge la cena de
+    las 19:30 y no la de las 21:00»— necesitaba un helper que sólo existe
+    a partir de T54 (`createEventTodayWithTime`), así que su commit vive
+    en la rama de T54 en vez de en la de esta tarea; ver la evidencia de
+    T54 más abajo.
 
 - [x] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
   - Acepta: `allDay` en `keys().hasOnly([...])`; `(!('allDay' in d) || d.allDay
@@ -1589,7 +1589,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     contra el emulador, que es un sustituto más estricto —pasa por las
     mismas reglas que verá la interfaz— aunque no confirma el pintado.
 
-- [ ] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
+- [x] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
   - Acepta: `events.spec.ts` — crear con hora, reabrir y verla; crear sin hora
     y no verla. `views.spec.ts` — hora visible en agenda y mes. `calendar-
     export.spec.ts` — `.ics` descargado lleva `DTSTART:` con hora. `ai.spec.ts`
@@ -1597,6 +1597,56 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm run test:e2e` en 0.
   - Ficheros: `apps/web/e2e/events.spec.ts`, `views.spec.ts`,
     `calendar-export.spec.ts`, `ai.spec.ts`
+  - Evidencia: `npm run typecheck`, `npm run lint`, `npm run lint:lit` y
+    `npm run test:arch` en 0. `generate-event.test.ts` (Node, sin
+    navegador): 22/22, incluidos los cinco tests nuevos de `allDay`.
+    **`npm run test:e2e` verificado en CI** (job `verify` de la PR de
+    T54): unitarios en modo navegador 527/527, reglas de Firestore
+    150/150, e2e 63/63 en 12,6 min —una intermitencia en
+    `e2e/i18n.spec.ts` («la interfaz se muestra en español»), ajena a
+    esta tarea y a `allDay`, se resolvió sola en el reintento, patrón ya
+    documentado en `AGENTS.md` sobre el emulador de Auth bajo carga—.
+    Estos números sustituyen a los de una versión anterior de este
+    fichero, que citaba un commit y unos recuentos (`b77b46c`,
+    `events.spec.ts` 28/28, `views.spec.ts` 14/14, suite completa 75/75)
+    que no sobreviven a la reescritura del historial: ese commit no es
+    alcanzable desde esta rama. Esta sesión de reorganización (partir la
+    spec en 11 PRs por tarea) no tiene emuladores propios estables para
+    correr el e2e localmente —ver la nota de sesión más abajo—, así que
+    la fuente de verdad es la ejecución de CI citada arriba, no una copia
+    a mano de otra rama.
+  - **Encontrado y arreglado un bug real al escribir el primer e2e**:
+    `toEvent()` en `events-view.ts` no leía `document.allDay` antes de
+    pasarlo a `eventSchema().safeParse()`; con `allDay: z.boolean()
+    .default(true)`, todo evento leído volvía `allDay: true` sin importar
+    lo guardado. La vía de escritura (T48) era correcta; sólo la lectura
+    perdía el campo, y ningún unitario lo detectó porque cada uno prueba
+    un lado del viaje de ida y vuelta por separado.
+  - **Huecos de cobertura señalados por la revisión, corregidos**: ningún
+    e2e cubría un documento heredado sin el campo `allDay` en absoluto
+    —el caso de migración implícita, distinto de «con hora» o «sin
+    hora»—, ni el criterio de aceptación de la decisión 1 del spec (un
+    evento a las 00:00 con `allDay: false` exporta `DTSTART` con hora, no
+    `VALUE=DATE`), que es justo el caso que `isStartOfDay()` resolvía mal
+    antes de esta feature. Añadidos ambos.
+  - **Dejados fuera, a propósito**: la revisión también señaló que
+    `ai.spec.ts` sólo prueba la extracción por imagen, no por texto
+    pegado, y que ningún e2e distingue una fecha de sólo día de una con
+    hora explícita `00:00` —ambos casos ya tienen su propio test unitario
+    en `generate-event.test.ts`, incluido el segundo (línea ~107, «una
+    fecha de sólo día a medianoche no se confunde con una cita a
+    medianoche»)—. Se decide no duplicarlos en e2e, que es la capa más
+    cara de esta suite, por el coste frente al riesgo real de regresión de
+    una función ya bien cubierta en Node.
+  - Nota de sesión, relevante para T48–T54: una sesión anterior resolvió
+    que este worktree no tenía `node_modules` propio, sólo caché de Vite,
+    lo que causaba que `test:e2e` resolviera vite/playwright del checkout
+    padre. Esta sesión de reorganización (partir la spec en 11 PRs por
+    tarea) no tiene emuladores propios levantados de forma estable en
+    todo momento —se comparten con otras sesiones en el mismo `main`
+    checkout, con reglas que no siempre están al día tras un `git
+    checkout`—, así que el e2e de esta tarea se apoya en CI, que sí
+    levanta emuladores limpios por ejecución.
 
 - [x] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
   - Acepta: `docs/adr/0008-all-day-flag-y-zona-horaria.md` cierra la decisión de
@@ -1640,22 +1690,34 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 > - [x] Automatizado: `npm test events/event-editor.test.ts` en 0 vía CI
 >   (491/491 en la suite completa) y `npm run test:e2e` en 0 —ver la
 >   evidencia de T48 arriba, incluidos los dos fallos reales que la CI
->   encontró y se corrigieron—.
+>   encontró y se corrigieron—. T54 añade además `events.spec.ts` contra
+>   Playwright y los emuladores reales: «crear un evento con hora,
+>   reabrirlo y ver la hora puesta» y «crear un evento sin hora no
+>   muestra ninguna al reabrirlo», ambos en verde.
 > - [ ] Sin marcar: la prueba manual de «Cena 4 jul 19:30–23:00, reabrir y
 >   ver las horas» y «Vacaciones 1–15 ago sin horas y no ver ninguna» exige
->   una persona en un navegador real; ningún agente la cierra.
+>   una persona en un navegador real; ningún agente la cierra, ni siquiera
+>   con el e2e en verde —el e2e prueba el camino de extremo a extremo, no
+>   sustituye la mirada humana que pide el criterio de aceptación.
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.
 >
-> - [ ] Sin marcar: por el mismo motivo que el Checkpoint II — exige un
->   navegador real o los emuladores, ninguno disponible en esta sesión.
->   T49 y T50 tienen su código trazado a mano (ver evidencia arriba) y
->   sus tests unitarios escritos, pero ninguno se ha ejecutado: el modo
->   browser de Vitest sigue colgado en cualquier fichero de esta sesión.
->   Falta: `npm test calendar/calendar-view.test.ts
->   events/event-filters.test.ts` en 0, y la prueba manual de rango
->   19:00–20:00 con las cenas de las 19:30 y las 21:00.
+> - [x] Automatizado: `views.spec.ts` cubre hora visible en la celda del mes
+>   (sólo el día de inicio, orden por hora) y en la agenda (heredada de la
+>   tarjeta); el filtro de rango con hora tiene su propio e2e, en verde vía
+>   CI. `calendar/calendar-view.test.ts` y `events/event-filters.test.ts`
+>   pasan en CI (parte de los 491/491 unitarios citados en el Checkpoint II).
+> - [ ] Sin marcar: la prueba manual de T50 —rango 19:00–20:00 coge la cena
+>   de las 19:30 y no la de las 21:00— exige una persona en un navegador
+>   real; ningún agente la cierra.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
-> `arch/boundary.test.ts` en 22.
+> ~~`arch/boundary.test.ts` en 22~~ en 26 (ver más abajo por qué cambió).
+>
+> - [ ] El tope real terminó en 26, no en 22: la estimación inicial no
+>   contaba con las dos subidas documentadas de T48 (21→23 por la
+>   migración a puertos, 23→26 por los tests de los adaptadores que la
+>   propia revisión exigió). Cada subida está justificada en el comentario
+>   de `boundary.test.ts`; el número «22» de este checkpoint quedó
+>   obsoleto y se deja tachado en vez de borrado, tal como pide `AGENTS.md`.

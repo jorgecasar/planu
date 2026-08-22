@@ -62,6 +62,67 @@ test("una fecha con hora se respeta tal cual", () => {
 	expect(result.startDate?.getHours()).toBe(21);
 });
 
+// ── allDay: the hour the AI already extracted and the editor was losing ─────
+
+test("una fecha con hora pone allDay en false", () => {
+	// Without this, the editor showed empty time fields even when `startDate`
+	// carried a real hour — decision 4 of the spec: it's the flag, not the
+	// data itself, that decides whether they're shown — so the AI's
+	// extraction lost it the instant it had gotten it.
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Cena", startDate: "2026-06-20T21:00" }),
+	);
+
+	expect(result.allDay).toBe(false);
+});
+
+test("una fecha de sólo día deja allDay en true", () => {
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
+	);
+
+	expect(result.allDay).toBe(true);
+});
+
+test("sin ninguna fecha, allDay se queda en true", () => {
+	const result = parseGeneratedEvent(JSON.stringify({ title: "Concierto" }));
+
+	expect(result.allDay).toBe(true);
+});
+
+test("con inicio de sólo día y fin con hora, basta que uno de los dos la tenga", () => {
+	// Not common, but the model isn't always consistent between the two
+	// fields: if either one carries an hour, the event is timed.
+	const result = parseGeneratedEvent(
+		JSON.stringify({
+			title: "Congreso",
+			startDate: "2026-06-20",
+			endDate: "2026-06-22T18:00",
+		}),
+	);
+
+	expect(result.allDay).toBe(false);
+});
+
+test("una fecha de sólo día a medianoche no se confunde con una cita a medianoche", () => {
+	// The reason allDay is computed at parse time instead of guessed
+	// afterward from the resulting Date's own components: a date-only ISO
+	// string and one with an explicit 00:00 time produce the same local
+	// instant, but mean different things.
+	const soloDia = parseGeneratedEvent(
+		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
+	);
+	const conHoraCero = parseGeneratedEvent(
+		JSON.stringify({
+			title: "Entrega a medianoche",
+			startDate: "2026-06-20T00:00",
+		}),
+	);
+
+	expect(soloDia.allDay).toBe(true);
+	expect(conHoraCero.allDay).toBe(false);
+});
+
 test("lo que no es ISO se descarta en vez de adivinarse", () => {
 	// What matters is not that they are null, but **why**: `new Date("June 20")`
 	// returns the year 2001, and a date like that gets saved with a mistake
@@ -187,7 +248,7 @@ test("un año de dos cifras es ese año, no el del siglo XX", () => {
 
 test("el modelo no puede colar campos que no se le han pedido", () => {
 	// What keeps prompt injection from scaling: the object is
-	// **rebuilt** with five keys, not filtered. If someone swapped this for
+	// **rebuilt** with six keys, not filtered. If someone swapped this for
 	// a spread, `imageUrl` would be a beacon and `memberIds` a self-invite.
 	const result = parseGeneratedEvent(
 		JSON.stringify({
@@ -200,6 +261,7 @@ test("el modelo no puede colar campos que no se le han pedido", () => {
 	) as unknown as Record<string, unknown>;
 
 	expect(Object.keys(result).sort()).toEqual([
+		"allDay",
 		"description",
 		"endDate",
 		"location",

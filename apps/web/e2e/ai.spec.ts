@@ -154,3 +154,79 @@ test("si la IA no está lista lo dice y no bloquea el alta manual", async ({
 	await page.getByRole("button", { name: "Cancel" }).click();
 	await expect(page.getByRole("button", { name: "New event" })).toBeEnabled();
 });
+
+// --- Hour extracted by the AI (T44–T54) --------------------------------------
+//
+// Firebase AI Logic, in `only_on_device` mode, resolves the model through
+// `window.LanguageModel.create()` and then calls `session.prompt(...)` — see
+// `@firebase/ai`'s `ChromeAdapterImpl`. Mocking those two calls, not just
+// `availability` as in the tests above, exercises the full path — image →
+// extraction → editor — without depending on a real model, which is exactly
+// what this environment doesn't have.
+
+async function mockLanguageModelResponse(
+	page: Page,
+	json: Record<string, unknown>,
+): Promise<void> {
+	await page.addInitScript((text: string) => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: {
+				availability: async () => "available",
+				create: async () => ({ prompt: async () => text }),
+			},
+			configurable: true,
+		});
+	}, JSON.stringify(json));
+}
+
+test("una imagen con hora llega al editor con la hora puesta", async ({
+	page,
+}) => {
+	await mockLanguageModelResponse(page, {
+		title: "Cena de fin de curso",
+		description: "Con el equipo",
+		location: "Madrid",
+		startDate: "2026-07-04T21:00",
+		endDate: "2026-07-04T23:30",
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
+
+	await page.getByLabel("Event image").setInputFiles({
+		name: "cartel.png",
+		mimeType: "image/png",
+		buffer: PIXEL,
+	});
+
+	await expect(page.getByLabel("Title")).toHaveValue("Cena de fin de curso");
+	// What this test guards: the hour arrives already set, not empty. Without
+	// `allDay`'s computation in `parseGeneratedEvent`, `draft.allDay` arrived
+	// `undefined` and the template treated it as all-day — the time fields
+	// looked empty even though `startDate` carried the real hour.
+	await expect(page.getByLabel("Start time")).toHaveValue("21:00");
+	await expect(page.getByLabel("End time")).toHaveValue("23:30");
+});
+
+test("una imagen sin hora deja los campos de hora vacíos, no en 00:00", async ({
+	page,
+}) => {
+	await mockLanguageModelResponse(page, {
+		title: "Feria del libro",
+		startDate: "2026-06-20",
+		endDate: "2026-06-22",
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
+
+	await page.getByLabel("Event image").setInputFiles({
+		name: "cartel.png",
+		mimeType: "image/png",
+		buffer: PIXEL,
+	});
+
+	await expect(page.getByLabel("Title")).toHaveValue("Feria del libro");
+	await expect(page.getByLabel("Start time")).toHaveValue("");
+	await expect(page.getByLabel("End time")).toHaveValue("");
+});
