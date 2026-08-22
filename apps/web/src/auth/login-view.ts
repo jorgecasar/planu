@@ -10,6 +10,11 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { AnalyticsPort } from "../application/ports/analytics.js";
+import {
+	analyticsContext,
+	noopAnalytics,
+} from "../application/ports/analytics.js";
 import type { SessionPort } from "../application/ports/session.js";
 import { signIn } from "../application/sign-in.js";
 import { signInWithGoogle } from "../application/sign-in-with-google.js";
@@ -55,6 +60,9 @@ export class PlanuLoginView extends LitElement {
 
 	@consume({ context: sessionContext, subscribe: true })
 	private session: SessionPort | undefined;
+
+	@consume({ context: analyticsContext, subscribe: true })
+	private analytics: AnalyticsPort = noopAnalytics;
 
 	@state() private error = "";
 	@state() private busy = false;
@@ -181,7 +189,9 @@ export class PlanuLoginView extends LitElement {
 	}
 
 	#onSignUp(event: SubmitEvent): void {
-		void this.#submit(event, (values, session) => signUp(session, values));
+		void this.#submit(event, (values, session) =>
+			signUp(session, this.analytics, values),
+		);
 	}
 
 	#onGoogle(): void {

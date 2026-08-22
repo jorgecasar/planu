@@ -884,7 +884,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `src/landing/terms.ts`, `src/profile/profile-view.ts`
   - Nota: son textos honestos, no asesoramiento legal, y así se dice.
 
-- [ ] **T31 · Analítica de activación (F16)** · M · depende de T25
+- [x] **T31 · Analítica de activación (F16)** · M · depende de T25
   - Acepta: ADR 0009 con el proveedor elegido y qué se mide; cinco eventos y no
     más — visita, registro, **primer evento creado**, evento compartido, uso de
     la IA; **nunca contenido del usuario**; carga diferida, errores tragados, y
@@ -895,6 +895,48 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `src/main.ts`
   - Nota: **bloqueada por la decisión de proveedor**, que además determina si T30
     lleva banner.
+  - **Hecho.** ADR 0009: **Firebase Analytics (GA4)**, elegido explícitamente
+    por encima de Umami Cloud —que sí cumplía «sin cookies» sin coste—, así que
+    **T30 lleva aviso de cookies**. Cinco eventos: `page_view` (automático del
+    SDK), `sign_up`, `first_event_created`, `share`, `ai_used`. Nunca contenido
+    del usuario: cada método del puerto sólo acepta `number`/`boolean`.
+  - Los ficheros no son los previstos: el envoltorio se llama
+    `application/ports/analytics.ts` + `infrastructure/firebase/analytics-adapter.ts`
+    + test, no `src/analytics/track.ts`. Motivo: `track.ts` importaba
+    `firebase/analytics` directamente, y `biome.json` prohíbe `firebase/**` en
+    `apps/web/src/**` salvo la lista de exenciones que `test:arch` topa. Se
+    diseñó como puerto para no tocar esa lista con un fichero fuera de
+    `infrastructure/firebase/`.
+  - `TOPE_ACOPLADOS` sube de 19 a 21 en `apps/web/arch/boundary.test.ts`, **sin
+    liberar nada esta vez**: el puerto en sí no importa Firebase —comprobado,
+    0 menciones—, y los dos ficheros nuevos son
+    `infrastructure/firebase/analytics-adapter.ts` + test, la segunda pieza de
+    la migración tras T36. Documentado en el propio comentario del tope, mismo
+    patrón que T36.
+  - Carga diferida: `firebase/analytics` queda en su **propio chunk de
+    28,3 KB**, separado del bundle principal — comprobado en `dist/assets/`
+    tras el build, no supuesto. `firebase-provider-*.js` sube 0,82 KB (134,72 →
+    135,54 KB), el resto es deuda preexistente de `firebase/auth` sin migrar.
+  - `first_event_created` cuenta por `memberIds array-contains`, no por
+    `userId ==`: las reglas de Firestore deniegan cualquier otra forma de
+    consultar `events` (mismo filtro que ya usa `events-view.ts`). Cuenta
+    eventos que la cuenta puede ver, no estrictamente los que creó — la única
+    forma consultable con las reglas actuales.
+  - `npm run lint`, `lint:lit`, `typecheck`, `test:arch`, `build` → **0**.
+    `npm test` → **0**, 467 tests en 41 ficheros (6 más que antes: el
+    adaptador y el `sign-up.test.ts` ampliado).
+  - E2E con la analítica bloqueada: `apps/web/e2e/auth.spec.ts` —«registrarse
+    funciona igual con la analítica bloqueada (T31)»— intercepta con
+    `page.route()` los dominios de `google-analytics.com` y
+    `googletagmanager.com` y los aborta, simulando un bloqueador real. Pasa
+    junto con el resto de la suite de auth, sharing, ai y events —65 e2e en
+    total sobre lo tocado, todos en verde—.
+  - Encontrado de paso: un test unitario de `event-editor.ts` pasaba por
+    esperar sólo un `updateComplete` tras el envío, y el `getCountFromServer`
+    nuevo añadió un turno de microtareas antes del `catch`. Se detectó porque
+    el test falló, no porque se revisara a mano; corregido con la misma
+    espera de `setTimeout` que ya usan otros tests del fichero para cadenas
+    asíncronas más largas.
 
 - [ ] **T32 · Borrado de cuenta y de datos (F14)** · M · depende de T13, T15, T18
   - Acepta: confirmación escribiendo el email, no un «¿seguro?»; borra en orden

@@ -25,6 +25,11 @@ import {
 } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import {
+	type AnalyticsPort,
+	analyticsContext,
+	noopAnalytics,
+} from "../application/ports/analytics.js";
 import type { SessionUser } from "../application/ports/session.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
@@ -167,6 +172,9 @@ export class PlanuShareDialog extends LitElement {
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
+
+	@consume({ context: analyticsContext, subscribe: true })
+	private analytics: AnalyticsPort = noopAnalytics;
 
 	@state() private people: Person[] = [];
 	@state() private loading = false;
@@ -527,6 +535,7 @@ export class PlanuShareDialog extends LitElement {
 		// was not. Reporting failure for something that did happen invites the
 		// obvious reaction — doing it again.
 		this.notice = msg("Invitation sent. They join once they accept it.");
+		this.analytics.trackShare({ editable: role === "editor" });
 		form.reset();
 		await this.#load().catch(() => {});
 	}
