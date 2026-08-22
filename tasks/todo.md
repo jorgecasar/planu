@@ -1141,12 +1141,72 @@ Numeración continuada: la fase 1 llegó hasta T10.
       `npm run localize:build`: `apps/web/xliff/es.xlf` y
       `apps/web/src/generated/locales/es.js` al día.
 
-- [ ] **T34 · Documentación y cierre** · S · depende de todas
+- [x] **T34 · Documentación y cierre** · S · depende de todas
   - Acepta: `AGENTS.md`, `SPEC.md` y `docs/backend.json` reflejan el modelo y las
     rutas nuevas; ADRs 0004 a 0009 escritos y enlazados; `docs/spec-fase-2.md`
     marcado como entregado.
   - Verifica: revisión de enlaces y coherencia; `npm run lint`
   - Ficheros: `AGENTS.md`, `SPEC.md`, `docs/backend.json`, `docs/adr/README.md`
+  - **Corrección del criterio de aceptación:** decía «0004 a 0009»; hoy son
+    **0004 a 0010** — el choque de numeración entre `0008-identidad-visual.md`
+    y el `0008` de horas en eventos ya se había resuelto renombrando este
+    último a `0010` (commit `eca962b`, anterior a esta tarea; ver la entrada
+    de T55 más abajo). `docs/adr/README.md` lo indexa ya con el número final.
+  - Evidencia, cada afirmación verificada contra el código real, no copiada de
+    este fichero sin comprobar:
+    - `SPEC.md` reescrito: rutas reales (`/app`, `/app/login`, `/app/profile`,
+      confirmadas en `src/auth/guard.ts` y `src/app-shell.ts`), modelo de
+      datos con `memberIds`/`roles`/`tags`/`allDay` (confirmado en
+      `src/lib/types.ts`), estructura de capas real
+      (`domain/`/`application/`/`infrastructure/firebase/`, confirmado con
+      `ls` y con qué ficheros importan `firebase/*` todavía), landing y
+      arquitectura hexagonal parcial. Criterios de éxito y preguntas abiertas
+      actualizados a lo verificable hoy, incluido el LCP de la landing
+      (1,9 s medido, no 1,5 s) tomado tal cual de `tasks/plan.md`, sin
+      suavizarlo.
+    - `AGENTS.md` revisado entero: `TOPE_ACOPLADOS` corregido de 23/18 a
+      **27 ficheros / 13 entradas** (confirmado ejecutando `npm run
+      test:arch` y contando el `biome.json` real); el recuento de campos
+      `@consume` corregido de 14 a **26** (`grep -rn "@consume(" src`); la
+      tabla de capas corregida —`application/` e `infrastructure/` ya
+      existen, T37/T38 sólo migraron `event-editor.ts`—; «Decisiones
+      pendientes» reescrita: tres puntos resueltos marcados como tales con su
+      ADR, la arquitectura hexagonal descrita como en marcha y no como
+      decisión por tomar, y dos pendientes reales añadidos (backfill de
+      `memberIds`, zona horaria entre invitados); la introducción del
+      documento ya no dice que los eventos son exclusivos de su creador ni
+      que `docs/backend.json` sigue sin revisar.
+    - `docs/backend.json` reescrito de cero: estaba literalmente roto
+      (`llaves sin cerrar, placeholders vacíos`) y describía sólo `events` de
+      la fase 1. Ahora describe `events`, `eventInvites`, `userDirectory` y
+      `userProfiles` con los campos reales, verificados contra
+      `src/lib/types.ts`, `src/sharing/*.ts` y `firestore.rules` línea a
+      línea (tipos, límites, `hasOnly`/`hasAll`). JSON validado con
+      `python3 -c "import json; json.load(...)"`.
+    - `docs/spec-fase-2.md` marcado con cabecera de estado —«entregada, con
+      tres excepciones explícitas»—, no un «entregado» ciego: el LCP de F11,
+      el cierre de la arquitectura hexagonal (T37–T39) y el registro de
+      invitaciones (T40–T41, fase 13) quedan enumerados con su evidencia,
+      sacada de `tasks/todo.md` y `tasks/plan.md`, no asumida.
+    - `docs/adr/README.md` creado: índice de los diez ADR existentes
+      (`ls docs/adr/*.md`), con una frase por decisión y la columna de
+      relación (supersede/superseído/complementa) leída de la cabecera de
+      cada ADR.
+    - `npm run lint` → **0** (`Checked 159 files… No fixes applied.`,
+      verificado con `$?` real: la primera vez que se invoca sin redirección
+      esta sesión el propio harness intercepta la salida y reporta un
+      «ESLint output (JSON parse failed)» que no viene de Biome —reproducido
+      y descartado redirigiendo a fichero, donde el código real es 0—.
+      `npm run typecheck` → **0**. `npm run test:arch` → **0**, 11 tests, sin
+      tocar código de `apps/web/src/`.
+    - No verificado en esta tarea, y dicho así en vez de asumido: `npm run
+      build`, `npm run test:e2e` y `npm run test:rules` completos —no hacía
+      falta para un cambio de sólo documentación, y levantar emuladores
+      compartidos en un worktree con otras sesiones activas es justo el
+      riesgo que `AGENTS.md` ya documenta. Los dieciséis criterios de éxito
+      del spec y el Checkpoint G no los cierra esta tarea por sí sola: el LCP,
+      T37–T39 y T40–T41 siguen abiertos, y así queda anotado en
+      `docs/spec-fase-2.md` y en el propio Checkpoint G de `tasks/plan.md`.
 
 > **Checkpoint G** — los dieciséis criterios de éxito del spec, con `build`,
 > `test`, `test:e2e`, `test:rules` y `lint` limpios.

@@ -259,15 +259,30 @@ Se enumera para que la lista de checkpoints esté completa.
 
 ### Checkpoint G — final
 
-- [ ] Los dieciséis criterios de éxito del spec
+- [ ] Los dieciséis criterios de éxito del spec — **no se marca entero**: el
+      LCP de F11 (1,9 s medido, no 1,5 s), el cierre de la arquitectura
+      hexagonal (T37–T39, sesión migrada pero repositorio de eventos y
+      almacén de imágenes sólo en `event-editor.ts`) y el registro de
+      invitaciones (T40–T41, fase 13, sin empezar) siguen abiertos. Ver la
+      cabecera de estado de `docs/spec-fase-2.md`, añadida en T34.
 - [ ] `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:rules` y
-      `npm run lint` limpios
+      `npm run lint` limpios — **parcial.** T34 verificó `npm run lint`
+      (→ 0), `npm run typecheck` (→ 0) y `npm run test:arch` (→ 0, 11 tests)
+      porque es un cambio sólo de documentación; no re-ejecutó `build`,
+      `test`, `test:e2e` ni `test:rules` completos, que no dependen de esta
+      tarea y exigen emuladores que un worktree comparte con otras sesiones.
+      La última ejecución completa registrada de cada uno está en las
+      entradas de T32/T54 en `todo.md`.
 - [x] ADRs 0004 a 0010 escritos —diez ficheros, no nueve: T55 añadió
       `docs/adr/0008-all-day-flag-y-zona-horaria.md` sin darse cuenta de que
       `0008` ya lo ocupaba `0008-identidad-visual.md` (T26/T27, desde el
-      21/08). Renombrado a `0010` en T34 — ver la entrada de T55 en
-      `todo.md`. El objetivo pasa de «0004 a 0009» a «0004 a 0010».
-- [ ] `AGENTS.md`, `SPEC.md` y `docs/backend.json` al día
+      21/08). Renombrado a `0010` antes de T34 (commit `eca962b`) — ver la
+      entrada de T55 en `todo.md`. El objetivo pasa de «0004 a 0009» a «0004
+      a 0010». `docs/adr/README.md` (T34) los indexa los diez, en orden.
+- [x] `AGENTS.md`, `SPEC.md` y `docs/backend.json` al día — T34: los tres
+      reescritos y verificados contra el código real (rutas, modelo de
+      datos, capas, `TOPE_ACOPLADOS`), no copiados de `tasks/todo.md` sin
+      comprobar. Ver la evidencia de T34 en `todo.md`.
 
 ## Paralelización
 
