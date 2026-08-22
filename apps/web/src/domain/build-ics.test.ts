@@ -6,6 +6,7 @@ import {
 	foldLine,
 	icsFileName,
 	isExportable,
+	toIcsDateTime,
 } from "./build-ics.js";
 
 /** Injected: with an implicit `Date.now()` the test would be testing the clock. */
@@ -26,6 +27,7 @@ const event = (extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
 	id: "abc123",
 	title: "Feria del libro",
 	startDate: day(2026, 6, 12),
+	allDay: true,
 	...extra,
 });
 
@@ -135,7 +137,9 @@ test("un día completo sin fin dura un día", () => {
 });
 
 test("un evento con hora sale en UTC y sin VALUE=DATE", () => {
-	const salida = lines(ics([event({ startDate: at(9), endDate: at(11) })]));
+	const salida = lines(
+		ics([event({ startDate: at(9), endDate: at(11), allDay: false })]),
+	);
 
 	expect(salida).toContain("DTSTART:20260612T093700Z");
 	expect(salida).toContain("DTEND:20260612T113700Z");
@@ -148,26 +152,31 @@ test("la hora se convierte a UTC, aunque cambie el día", () => {
 	// `20260611T223700Z`: the event would show up on the previous day and
 	// four hours earlier on the calendar of anyone who imports it.
 	const salida = lines(
-		ics([event({ startDate: new Date(Date.UTC(2026, 5, 12, 2, 37, 0)) })]),
+		ics([
+			event({
+				startDate: new Date(Date.UTC(2026, 5, 12, 2, 37, 0)),
+				allDay: false,
+			}),
+		]),
 	);
 
 	expect(salida).toContain("DTSTART:20260612T023700Z");
 });
 
 test("un evento con hora y sin fin no emite DTEND", () => {
-	const salida = lines(ics([event({ startDate: at(9) })]));
+	const salida = lines(ics([event({ startDate: at(9), allDay: false })]));
 
 	expect(salida).toContain("DTSTART:20260612T093700Z");
 	expect(salida.some((line) => line.startsWith("DTEND"))).toBe(false);
 });
 
-test("sigue siendo de día completo el día en que la medianoche no existe", () => {
+test("un día completo sigue siéndolo el día en que la medianoche no existe", () => {
 	// On 6 September 2026 Chile moves the clock forward from 00:00, so that
-	// day starts at 01:00 and `getHours()` is useless for detecting an
-	// all-day event. With the naive detector this used to come out as a
-	// point-in-time appointment, with no DTEND and with a time: the user had
-	// picked a whole day in the editor.
-	const salida = lines(ics([event({ startDate: day(2026, 9, 6) })]));
+	// day starts at 01:00. `toIcsDate` reads local components, not
+	// `getHours() === 0`, so the daylight-saving jump doesn't affect it.
+	const salida = lines(
+		ics([event({ startDate: day(2026, 9, 6), allDay: true })]),
+	);
 
 	expect(salida).toContain("DTSTART;VALUE=DATE:20260906");
 	expect(salida).toContain("DTEND;VALUE=DATE:20260907");
@@ -177,7 +186,13 @@ test("un rango de dos días es el mismo con y sin salto de horario", () => {
 	// The 5th and 6th of September in Santiago: the second day starts at
 	// 01:00. The semantics cannot depend on that.
 	const salida = lines(
-		ics([event({ startDate: day(2026, 9, 5), endDate: day(2026, 9, 6) })]),
+		ics([
+			event({
+				startDate: day(2026, 9, 5),
+				endDate: day(2026, 9, 6),
+				allDay: true,
+			}),
+		]),
 	);
 
 	expect(salida).toContain("DTSTART;VALUE=DATE:20260905");
@@ -188,10 +203,39 @@ test("no emite DTEND si no es posterior al inicio", () => {
 	// RFC 5545 §3.8.2.2 requires it to be later, and the schema allows start
 	// equal to end. With no DTEND the event has zero duration, which is what
 	// was asked for.
-	const salida = lines(ics([event({ startDate: at(9), endDate: at(9) })]));
+	const salida = lines(
+		ics([event({ startDate: at(9), endDate: at(9), allDay: false })]),
+	);
 
 	expect(salida).toContain("DTSTART:20260612T093700Z");
 	expect(salida.some((line) => line.startsWith("DTEND"))).toBe(false);
+});
+
+// ── allDay field ─────────────────────────────────────────────────────────────
+
+test("allDay: false a medianoche sale con hora, no como día completo", () => {
+	// Full-day used to be detected from the hour: midnight was the signal.
+	// Now the field decides, and an event with a real hour at 00:00 — which
+	// exists in most zones — is still a point-in-time appointment if it says
+	// so.
+	const salida = lines(
+		ics([event({ startDate: day(2026, 6, 12), allDay: false })]),
+	);
+
+	expect(salida).toContain(`DTSTART:${toIcsDateTime(day(2026, 6, 12))}`);
+	expect(salida.some((line) => line.includes("VALUE=DATE"))).toBe(false);
+});
+
+test("un evento sin el campo allDay se lee como día completo (migración implícita)", () => {
+	// Documents saved before this feature carry no such field. The Zod
+	// schema already supplies it with `default(true)`, but `CalendarEvent`
+	// is structural and doesn't go through Zod, so this function has to
+	// supply it too: a real hour with no declared `allDay` doesn't turn the
+	// event into a point-in-time appointment.
+	const salida = lines(ics([event({ startDate: at(9), allDay: undefined })]));
+
+	expect(salida).toContain("DTSTART;VALUE=DATE:20260612");
+	expect(salida.some((line) => line.startsWith("DTSTART:"))).toBe(false);
 });
 
 test("con sólo fecha de fin, esa fecha hace de DTSTART", () => {
