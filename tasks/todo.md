@@ -1551,12 +1551,20 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Ficheros: `apps/web/e2e/events.spec.ts`, `views.spec.ts`,
     `calendar-export.spec.ts`, `ai.spec.ts`
 
-- [ ] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
+- [x] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
   - Acepta: `docs/adr/0008-all-day-flag-y-zona-horaria.md` cierra la decisión de
     `allDay` y registra la zona horaria como no decidida (pregunta 1 y 2 del
     spec).
   - Verifica: `ls docs/adr/0008-*.md` existe.
   - Ficheros: `docs/adr/0008-all-day-flag-y-zona-horaria.md`
+  - Evidencia: commit `a38cf24`. `ls docs/adr/0008-*.md` →
+    `docs/adr/0008-all-day-flag-y-zona-horaria.md` existe. Cierra las
+    decisiones 4 y 5 del spec (bandera por evento, normalización a
+    medianoche local) y el arreglo de `activeUntil` que sólo esas
+    decisiones hicieron posible; registra la zona horaria como
+    pospuesta, no olvidada, con lo mínimo que exigirá su propio ADR el
+    día que haya invitados en zonas distintas. Documenta también el bug
+    real de `toEvent()` que encontró T54.
 
 > **Checkpoint I** — tras T44–T47:
 >
