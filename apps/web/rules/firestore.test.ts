@@ -14,6 +14,7 @@ import {
 	getDoc,
 	getDocs,
 	query,
+	serverTimestamp,
 	setDoc,
 	Timestamp,
 	updateDoc,
@@ -1055,6 +1056,9 @@ describe("tags cannot travel on a membership write", () => {
 					inviteeUid: ATTACKER,
 					invitedBy: VICTIM,
 					role: "viewer",
+					status: "pending",
+					createdAt: serverTimestamp(),
+					decidedAt: null,
 				},
 			);
 		});
@@ -1069,7 +1073,10 @@ describe("tags cannot travel on a membership write", () => {
 			[`roles.${ATTACKER}`]: "viewer",
 			...extra,
 		});
-		batch.delete(doc(db, `eventInvites/victim-event_${ATTACKER}`));
+		batch.update(doc(db, `eventInvites/victim-event_${ATTACKER}`), {
+			status: "accepted",
+			decidedAt: serverTimestamp(),
+		});
 		return batch.commit();
 	};
 

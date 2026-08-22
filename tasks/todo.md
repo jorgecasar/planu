@@ -1219,7 +1219,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
 Especificado en [`docs/spec-invitation-activity.md`](../docs/spec-invitation-activity.md).
 Amplía F2: hoy una invitación es un aviso efímero que desaparece al decidirla.
 
-- [ ] **T40 · Estado e historial de la invitación** · M · depende de T16
+- [x] **T40 · Estado e historial de la invitación** · M · depende de T16
   - Acepta: `eventInvites` gana `status` (`pending` | `accepted` | `declined`),
     `createdAt` y `decidedAt`, y deja de borrarse al decidirla. La rama
     `acceptsInvite()` exige **`status == 'pending'`**, de modo que una
@@ -1229,7 +1229,156 @@ Amplía F2: hoy una invitación es un aviso efímero que desaparece al decidirla
     prohibidas — aceptar una ya aceptada, cambiar el rol al decidir, readmitirse
     uno mismo tras ser expulsado, borrar una decidida.
   - Ficheros: `firestore.rules`, `apps/web/rules/event-invites.test.ts`,
-    `src/sharing/invitations.ts`
+    `apps/web/rules/firestore.test.ts`, `src/sharing/invitations.ts`,
+    `src/sharing/invitations-inbox.ts`, `src/sharing/share-dialog.ts`
+  - Evidencia: `npm run test:rules` con emuladores reales (Firestore en
+    `:8181`, ya levantados por otra sesión en este mismo `.git` compartido) →
+    **0**, 168 tests en 4 ficheros. Roto a propósito antes de darlo por
+    bueno: con `firestore.rules` revertido a la versión previa (`git stash` de
+    sólo ese fichero) y los tests nuevos ya escritos, `test:rules` sale en
+    **1** con **14 fallos** — entre ellos los dos que prueban justo las
+    transiciones prohibidas de esta tarea («the invitee can no longer delete
+    instead of declining» y «deleting a decided invitation is denied»
+    **tenían éxito** bajo las reglas viejas, es decir, eran el hueco de
+    seguridad real—. Reglas restauradas (`git stash pop`), vuelve a **0**.
+    `npm run lint`, `npm run typecheck`, `npm run lint:lit` → **0** (el único
+    aviso de `lint:lit` es el preexistente de `landing/legal.ts`). `npm test`
+    → **0**, 541 tests en 45 ficheros.
+  - Nuevo en `apps/web/rules/event-invites.test.ts`: **34 tests** (20 en el
+    fichero original más 14 nuevos), agrupados en un describe dedicado
+    «deciding, reconsidering, and being readmitted» que cubre las cuatro
+    transiciones prohibidas que pedía la tarea — aceptar/declinar una
+    invitación ya decidida, cambiar el rol en la misma escritura que decide,
+    que el invitado se readmita a sí mismo desde `accepted` (a diferencia de
+    reconsiderar su propio `declined`, que sí puede), y borrar una ya
+    decidida — más las permitidas simétricas (el dueño readmite desde
+    `accepted` o `declined`, el invitado reconsidera un `declined` propio).
+    `apps/web/rules/firestore.test.ts` se ajustó porque su propio flujo de
+    aceptación (sección «tags cannot travel on a membership write») todavía
+    borraba la invitación en vez de marcarla decidida.
+  - `inviteToEvent()` pasa de `setDoc` "vacío" a escribir siempre
+    `status: 'pending'`, `createdAt: serverTimestamp()`, `decidedAt: null`:
+    invitar de nuevo a alguien que ya decidió empieza una oferta nueva, no
+    resucita la vieja. `acceptInvite()` cambia el `batch.delete` de la
+    invitación por un `batch.update` a `status: 'accepted'`. Nuevas
+    `declineInvite()`, `reconsiderInvite()` y `revokeInvite()` sustituyen a
+    `dismissInvite()`, que desaparece porque ya no hay un único "borrar" que
+    sirva para decidir y para revocar.
+  - `invitesFor()` (la bandeja) gana `where('status', '==', 'pending')`: sin
+    eso, una invitación decidida seguiría apareciendo en el aviso del listado
+    para siempre, porque ya no se borra. Por el mismo motivo, la consulta de
+    `share-dialog.ts` (gestión de invitados del dueño) gana el mismo filtro:
+    sin él, una persona que ya aceptó saldría dos veces (como miembro y como
+    invitación "pendiente"), y una que rechazó seguiría ofreciendo
+    "Cancelar invitación" sobre un registro ya cerrado.
+  - No implementado aquí, y es explícitamente T41: la página `/app/invitations`
+    y la vista de "decididas". La bandeja del listado (`invitations-inbox.ts`)
+    sigue mostrando sólo pendientes, sin cambios de comportamiento visible
+    para quien la usa hoy.
+  - No verificado en esta tarea: `npm run test:e2e` no se ha corrido — no era
+    parte de la lista de verificación pedida, y el flujo de "Decline" en
+    `apps/web/e2e/sharing.spec.ts` debería seguir funcionando igual (la
+    bandeja sigue vaciándose al declinar, ahora porque el filtro de estado
+    deja de incluirla, antes porque el documento se borraba), pero eso queda
+    para quien retome T41 confirmarlo end-to-end.
+  - **Corregido tras revisión independiente (seguridad + correctitud), mismo
+    PR #56, antes de mergear:**
+    - **Seguridad (media):** `ownerEditsWhilePending()` era la única de las
+      tres rutas de `allow update` que no fijaba `createdAt` — el dueño podía
+      falsificar la fecha de creación de su propia invitación mientras seguía
+      `pending`, y esa fecha falsa quedaba permanente en el registro
+      `accepted`/`declined` final. Arreglo de una línea:
+      `request.resource.data.createdAt == resource.data.createdAt` añadida a
+      `ownerEditsWhilePending()`, la misma disciplina que ya usaban
+      `invitedDecides()` y `ownerReadmits()`. Test nuevo: «the owner cannot
+      backdate createdAt while the invitation is pending». Roto a propósito
+      quitando la línea → **1 fallo, exactamente ese test**; restaurada →
+      **0**.
+    - **Correctitud:** reinvitar a alguien que ya había decidido (aceptado o
+      rechazado) fallaba siempre con `PERMISSION_DENIED`, porque el documento
+      ya no se borra y Firestore evalúa el `setDoc` de `inviteToEvent()` como
+      `update`, no como `create` — ninguna de las tres rutas existentes lo
+      permitía. Esto rompía justo el escenario que el propio código documenta
+      («expulsar y reinvitar empieza una oferta nueva»). Arreglo: nueva
+      función `ownerReoffers()` en `firestore.rules`, gemela de `create` mas
+      aplicada como `update` — mismo estado de partida (`pending`, sin
+      decidir), misma libertad para cambiar el texto copiado y el rol, mismo
+      `createdAt` fijado al servidor (`request.time`, nunca un valor del
+      cliente, para no reabrir el hueco de seguridad por esta puerta nueva).
+      10 tests nuevos en el describe «re-offering a decided invitation
+      (inviteToEvent's real write shape)», ejercitando la forma de escritura
+      real de `inviteToEvent()` sobre invitaciones sembradas `declined` y
+      `accepted`. Roto a propósito quitando `ownerReoffers()` del `allow
+      update` → **3 fallos**, justo los tres casos de éxito que dependen de
+      ella; restaurada → **0**.
+    - Ajustados también los tres tests de «re-inviting after something
+      changed» (reinvitar mientras sigue `pending`): al fijar `createdAt` en
+      `ownerEditsWhilePending()`, un `setDoc` completo con un
+      `serverTimestamp()` fresco ya no podía coincidir con el valor
+      almacenado, así que ahora leen el `createdAt` real (bypasseando las
+      reglas) y lo reutilizan en la reescritura.
+    - Tras ambos arreglos: `npm run test:rules` → **0**, **178 tests** (34 →
+      44 en `event-invites.test.ts`: 10 nuevos por esta ronda de revisión).
+      `npm run lint`, `typecheck`, `lint:lit` → **0**. `npm test` → **0**,
+      541 tests.
+    - No se tocó `#remove()` en `share-dialog.ts`: el checker lo marcó como
+      opcional («si quieres»), y con `ownerReoffers()` el escenario de
+      «expulsar y reinvitar» ya funciona de punta a punta desde el único
+      punto de entrada real de la interfaz (el formulario de invitar por
+      email de `share-dialog.ts`, que llama a `inviteToEvent()`), sin
+      necesitar que `#remove()` toque el documento de la invitación.
+  - **Tercera ronda de revisión, mismo PR #56: la propia corrección de
+    seguridad de la ronda anterior rompió reinvitar mientras sigue
+    `pending`.** `ownerEditsWhilePending()` ya fijaba `createdAt`, pero
+    `inviteToEvent()` seguía enviando siempre un `serverTimestamp()` fresco
+    en su `setDoc` completo — así que reinvitar a alguien que aún no había
+    decidido (para corregir un rol mal puesto, o simplemente reenviar el
+    formulario) empezó a fallar siempre con `PERMISSION_DENIED`, porque un
+    timestamp nuevo nunca coincide con el guardado. Y los tres tests de
+    «re-inviting after something changed» lo enmascaraban: leían el
+    `createdAt` real y lo inyectaban a mano en el `updateDoc` de la prueba,
+    una forma de escritura que `inviteToEvent()` nunca produce.
+    - **Arreglo real, en `apps/web/src/sharing/invitations.ts`:**
+      `inviteToEvent()` ahora lee primero el documento (`getDoc`) y sólo
+      reutiliza el `createdAt` guardado cuando ya hay una invitación
+      `pending`; si no existe, o si está `accepted`/`declined`, sigue
+      pidiendo un `serverTimestamp()` fresco. Efecto colateral necesario:
+      `allow read` en `firestore.rules` no contemplaba `resource == null`
+      —`getDoc` sobre un documento inexistente evaluaba a
+      `permission-denied` porque la condición leía `resource.data` sobre
+      `null`—, así que se añadió esa rama explícita. **Verificado contra el
+      emulador real, no asumido**: sin ella, invitar por primera vez a
+      alguien (el caso más común de todos) fallaba.
+    - **Test unitario nuevo, `apps/web/src/sharing/invitations.test.ts`**
+      (fichero nuevo, no existía ningún test de `invitations.ts`): mockea
+      `firebase/firestore` con el mismo patrón que
+      `infrastructure/firebase/event-repository.test.ts`, y comprueba los
+      tres casos de `createdAt` (sin invitación previa, `pending`,
+      decidida) llamando a la función real. Es deliberadamente un test
+      **unitario**, no uno de reglas: `apps/web/rules/event-invites.test.ts`
+      sólo puede construir con `firebase/compat`, el tipo que
+      `@firebase/rules-unit-testing` expone, y no es asignable al
+      `Firestore` modular contra el que está tipado `inviteToEvent()` — de
+      ahí que la ronda anterior lo enmascarara en el sitio de reglas y no en
+      el de aplicación. Roto a propósito quitando la lectura previa →
+      **1 fallo**, exactamente el caso de reinvitar-mientras-pendiente;
+      restaurado → **4/4**.
+    - **Hallazgo menor del mismo checker, atendido aunque no bloqueaba:**
+      un invitado puede marcar su propia invitación como `accepted` sin
+      unirse a `memberIds`/`roles` en la misma escritura —`invitedDecides()`
+      no exige esa atomicidad, sólo `acceptsInvite()` la exige desde el lado
+      del evento—. No explotable hoy porque el único código real
+      (`acceptInvite()`) siempre hace el batch correcto. Documentado con un
+      test nuevo, «the invitee can flip their own invitation to accepted
+      without joining the event», que dice explícitamente en su comentario
+      que es un hueco aceptado y no un hallazgo de seguridad, para que quien
+      lo lea en el futuro no lo confunda con un descuido sin registrar.
+    - Verificación final: `npm run test:rules` → **0**, **179 tests** (178 →
+      179, el test de documentación nuevo). `npx vitest run
+      src/sharing/invitations.test.ts` → **0**, 4/4. `npm run lint`,
+      `typecheck`, `lint:lit` (mismo aviso preexistente de
+      `landing/legal.ts`), `test:arch` → **0**. `npm test` → **0**, **545**
+      tests (541 → 545, los cuatro nuevos de `invitations.test.ts`).
 
 - [ ] **T41 · Página de invitaciones** · M · depende de T40, T25
   - Acepta: `/app/invitations` con pendientes arriba y decididas debajo, cada

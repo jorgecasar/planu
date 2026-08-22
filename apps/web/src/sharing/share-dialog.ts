@@ -15,7 +15,6 @@ import { msg, str } from "@lit/localize";
 import {
 	collection,
 	type DocumentData,
-	deleteDoc,
 	doc,
 	type Firestore,
 	getDocs,
@@ -33,7 +32,11 @@ import {
 import type { SessionUser } from "../application/ports/session.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
-import { INVITES_COLLECTION, inviteToEvent } from "./invitations.js";
+import {
+	INVITES_COLLECTION,
+	inviteToEvent,
+	revokeInvite,
+} from "./invitations.js";
 import { canManageMembers } from "./permissions.js";
 import { findProfiles, findUserByEmail } from "./user-directory.js";
 
@@ -224,11 +227,17 @@ export class PlanuShareDialog extends LitElement {
 			(uid) => uid !== event.userId,
 		);
 
+		// Decided invitations now survive in Firestore instead of being
+		// deleted, so this must be narrowed to `pending` explicitly: an
+		// accepted one would otherwise show its person twice, once as a
+		// member and once as a stale offer, and a declined one would keep
+		// offering "cancel" on something already answered.
 		const pending = await getDocs(
 			query(
 				collection(firestore, INVITES_COLLECTION),
 				where("invitedBy", "==", user.uid),
 				where("eventId", "==", event.id),
+				where("status", "==", "pending"),
 			),
 		).catch(() => null);
 
@@ -589,7 +598,7 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.busy = true;
 		try {
-			await deleteDoc(doc(firestore, INVITES_COLLECTION, person.key));
+			await revokeInvite(firestore, { id: person.key });
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
