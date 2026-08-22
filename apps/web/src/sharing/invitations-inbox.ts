@@ -12,7 +12,7 @@ import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole } from "../lib/types.js";
 import {
 	acceptInvite,
-	dismissInvite,
+	declineInvite,
 	type EventInvite,
 	invitesFor,
 } from "./invitations.js";
@@ -123,7 +123,7 @@ export class PlanuInvitationsInbox extends LitElement {
 
 	async #decline(invite: EventInvite): Promise<void> {
 		await this.#run(invite, async (firestore) => {
-			await dismissInvite(firestore, invite);
+			await declineInvite(firestore, invite);
 		});
 	}
 
@@ -146,7 +146,12 @@ export class PlanuInvitationsInbox extends LitElement {
 	}
 }
 
-/** Firestore hands back loose data; only well-formed invitations are shown. */
+/**
+ * Firestore hands back loose data; only well-formed invitations are shown.
+ *
+ * The query already filters to `status == 'pending'`, so this inbox never
+ * needs to render a decided one — that view belongs to the invitations page.
+ */
 function toInvite(document: DocumentData & { id: string }): EventInvite {
 	return {
 		id: document["id"],
@@ -157,6 +162,9 @@ function toInvite(document: DocumentData & { id: string }): EventInvite {
 		invitedBy: String(document["invitedBy"] ?? ""),
 		invitedByName: String(document["invitedByName"] ?? ""),
 		role: document["role"] === "editor" ? "editor" : ("viewer" as EventRole),
+		status: "pending",
+		createdAt: (document["createdAt"] as EventInvite["createdAt"]) ?? null,
+		decidedAt: (document["decidedAt"] as EventInvite["decidedAt"]) ?? null,
 	};
 }
 

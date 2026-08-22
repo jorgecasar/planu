@@ -8,11 +8,15 @@ import {
 import {
 	arrayUnion,
 	collection,
+	type DocumentData,
 	deleteDoc,
 	doc,
+	getDoc,
 	getDocs,
 	query,
+	serverTimestamp,
 	setDoc,
+	Timestamp,
 	updateDoc,
 	where,
 	writeBatch,
@@ -41,6 +45,10 @@ const anEvent = (extra: Record<string, unknown> = {}) => ({
 	...extra,
 });
 
+/**
+ * A well-formed invitation: pending, with a server-set `createdAt` and no
+ * decision yet. Every field a real invitation carries once T40 landed.
+ */
 const anInvite = (extra: Record<string, unknown> = {}) => ({
 	eventId: "an-event",
 	eventTitle: "Concert",
@@ -48,6 +56,9 @@ const anInvite = (extra: Record<string, unknown> = {}) => ({
 	invitedBy: OWNER,
 	invitedByName: "Ana",
 	role: "viewer",
+	status: "pending",
+	createdAt: serverTimestamp(),
+	decidedAt: null,
 	...extra,
 });
 
@@ -75,11 +86,27 @@ beforeEach(async () => {
 
 const as = (uid: string) => env.authenticatedContext(uid).firestore();
 
-/** Seeds a pending invitation, bypassing the rules. */
+/** Seeds an invitation, bypassing the rules. Pending unless `extra` says otherwise. */
 const seedInvite = async (extra: Record<string, unknown> = {}) => {
 	await env.withSecurityRulesDisabled(async (ctx) => {
 		await setDoc(doc(ctx.firestore(), INVITE), anInvite(extra));
 	});
+};
+
+/**
+ * Reads the invitation's real, server-resolved data, bypassing the rules.
+ *
+ * Needed wherever a test has to reuse the actual stored `createdAt`: it is a
+ * server timestamp resolved at write time, not a value the test can predict,
+ * and `ownerEditsWhilePending()` now pins it to stay unchanged.
+ */
+const currentInvite = async (): Promise<DocumentData | undefined> => {
+	let data: DocumentData | undefined;
+	await env.withSecurityRulesDisabled(async (ctx) => {
+		const snapshot = await getDoc(doc(ctx.firestore(), INVITE));
+		data = snapshot.data();
+	});
+	return data;
 };
 
 describe("creating an invitation", () => {
@@ -136,6 +163,35 @@ describe("creating an invitation", () => {
 			}),
 		);
 	});
+
+	test("rejects a made-up status", async () => {
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ status: "revoked" })),
+		);
+	});
+
+	test("an invitation is always born pending, never already decided", async () => {
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ status: "accepted" })),
+		);
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ status: "declined" })),
+		);
+	});
+
+	test("decidedAt must start out null", async () => {
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ decidedAt: Timestamp.now() })),
+		);
+	});
+
+	test("createdAt comes from the server, not the client", async () => {
+		// Success criterion 5 of the spec: a client-forged date is denied even
+		// when it is a well-formed timestamp.
+		await assertFails(
+			setDoc(doc(as(OWNER), INVITE), anInvite({ createdAt: Timestamp.now() })),
+		);
+	});
 });
 
 describe("seeing your invitations", () => {
@@ -172,7 +228,7 @@ describe("seeing your invitations", () => {
 describe("accepting an invitation", () => {
 	/**
 	 * What the client writes: no read of the event needed, and the invitation
-	 * consumed in the same batch so it cannot be reused.
+	 * flipped to `accepted` in the same batch so it cannot be reused.
 	 */
 	const accept = (uid: string, role = "viewer") => {
 		const db = as(uid);
@@ -181,7 +237,10 @@ describe("accepting an invitation", () => {
 			memberIds: arrayUnion(uid),
 			[`roles.${uid}`]: role,
 		});
-		batch.delete(doc(db, `eventInvites/an-event_${uid}`));
+		batch.update(doc(db, `eventInvites/an-event_${uid}`), {
+			status: "accepted",
+			decidedAt: serverTimestamp(),
+		});
 		return batch.commit();
 	};
 
@@ -236,7 +295,7 @@ describe("accepting an invitation", () => {
 		);
 	});
 
-	test("accepting and clearing the invitation is one atomic write", async () => {
+	test("accepting and marking the invitation decided is one atomic write", async () => {
 		await seedInvite();
 		const db = as(GUEST);
 		const batch = writeBatch(db);
@@ -244,25 +303,58 @@ describe("accepting an invitation", () => {
 			memberIds: arrayUnion(GUEST),
 			[`roles.${GUEST}`]: "viewer",
 		});
-		batch.delete(doc(db, INVITE));
+		batch.update(doc(db, INVITE), {
+			status: "accepted",
+			decidedAt: serverTimestamp(),
+		});
 		await assertSucceeds(batch.commit());
+	});
+
+	test("an invitation that is not pending cannot be accepted", async () => {
+		// Pins the same requirement from the event side: `acceptsInvite()`
+		// checks `get(invitePath()).data.status == 'pending'` before anything
+		// else. Without it, conserving the record would silently reopen the
+		// door that expulsion is supposed to close.
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(accept(GUEST));
+
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(accept(GUEST));
 	});
 });
 
 describe("declining and revoking", () => {
-	test("the invitee can decline", async () => {
+	test("the invitee declines, and the record survives as declined", async () => {
 		await seedInvite();
-		await assertSucceeds(deleteDoc(doc(as(GUEST), INVITE)));
+		await assertSucceeds(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			}),
+		);
 	});
 
-	test("the owner can revoke", async () => {
+	test("the owner revokes a pending invitation", async () => {
 		await seedInvite();
 		await assertSucceeds(deleteDoc(doc(as(OWNER), INVITE)));
 	});
 
-	test("a stranger can do neither", async () => {
+	test("the invitee can no longer delete instead of declining", async () => {
+		// Deleting used to double as declining. Now the record has to survive a
+		// decision, so deleting is the owner's tool alone.
+		await seedInvite();
+		await assertFails(deleteDoc(doc(as(GUEST), INVITE)));
+	});
+
+	test("a stranger can neither delete it nor decide it", async () => {
 		await seedInvite();
 		await assertFails(deleteDoc(doc(as(STRANGER), INVITE)));
+		await assertFails(
+			updateDoc(doc(as(STRANGER), INVITE), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			}),
+		);
 	});
 
 	test("the owner can still change the role while it is pending", async () => {
@@ -270,6 +362,22 @@ describe("declining and revoking", () => {
 		// when they do.
 		await seedInvite();
 		await assertSucceeds(updateDoc(doc(as(OWNER), INVITE), { role: "editor" }));
+	});
+
+	test("the owner cannot backdate createdAt while the invitation is pending", async () => {
+		// Security review finding on this PR: of the three update paths,
+		// ownerEditsWhilePending() was the only one that never pinned
+		// `createdAt`, because `isValidInvite()` only checks that it is *a*
+		// timestamp, not *the* original one. A forged date here would ride
+		// along permanently into the invitation's final accepted/declined
+		// record — exactly the consultable history this feature exists to
+		// produce honestly.
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(OWNER), INVITE), {
+				createdAt: Timestamp.fromDate(new Date("2000-01-01T00:00:00Z")),
+			}),
+		);
 	});
 
 	test("changing the role cannot change anything else", async () => {
@@ -298,20 +406,56 @@ describe("declining and revoking", () => {
 	});
 });
 
-describe("an invitation is a single-use key", () => {
-	test("accepting without consuming it is denied", async () => {
-		// Left alive, the invitation is a spare key: its holder walks back in
-		// after being removed, as often as they like.
-		await seedInvite();
+// ─── Deciding, reconsidering, and being readmitted (T40) ────────────────────
+//
+// The document survives a decision now instead of being deleted, so the rule
+// itself has to draw every line that used to be drawn for free by the row not
+// existing any more. Each denial below was confirmed to fail against the
+// pre-T40 rule (no `status` at all, and `acceptsInvite()` gated on the
+// invitation no longer existing) before the new clauses were added — see the
+// PR description for the transcript.
+describe("deciding, reconsidering, and being readmitted", () => {
+	test("the invitee reconsiders a decline and puts it back to pending", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertSucceeds(
+			updateDoc(doc(as(GUEST), INVITE), { status: "pending", decidedAt: null }),
+		);
+	});
+
+	test("but never from accepted: that is what makes being removed final", async () => {
+		// Success criterion 3 of the spec. If this ever starts passing, removing
+		// a guest means nothing: they simply "reconsider" their way back in.
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
 		await assertFails(
-			updateDoc(doc(as(GUEST), EVENT), {
-				memberIds: arrayUnion(GUEST),
-				[`roles.${GUEST}`]: "viewer",
+			updateDoc(doc(as(GUEST), INVITE), { status: "pending", decidedAt: null }),
+		);
+	});
+
+	test("the invitee can flip their own invitation to accepted without joining the event", async () => {
+		// Documented gap, not a fix: `invitedDecides()` only constrains the
+		// invitation side of a decision. The atomicity guarantee — that
+		// accepting always joins `memberIds` in the same write — lives on the
+		// *event* side instead, in `acceptsInvite()`'s `get`/`getAfter` check,
+		// which blocks joining without flipping the invite but not the other
+		// way around. This is safe today only because the real client,
+		// `acceptInvite()` in `apps/web/src/sharing/invitations.ts`, always
+		// batches both writes together — nothing here enforces that a future
+		// caller must. If `invitedDecides()` is ever tightened to close this,
+		// this test should start failing and can be deleted; until then it
+		// exists so the gap is asserted, not just implied by its absence.
+		await seedInvite();
+		await assertSucceeds(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
 			}),
 		);
 	});
 
 	test("removing someone is final once the invitation is spent", async () => {
+		// The end-to-end version of the test above: the guest actually joins,
+		// gets removed, and cannot use the same invitation to walk back in
+		// because it no longer reads `pending` — it still exists, just spent.
 		await seedInvite();
 
 		const db = as(GUEST);
@@ -320,15 +464,124 @@ describe("an invitation is a single-use key", () => {
 			memberIds: arrayUnion(GUEST),
 			[`roles.${GUEST}`]: "viewer",
 		});
-		batch.delete(doc(db, INVITE));
+		batch.update(doc(db, INVITE), {
+			status: "accepted",
+			decidedAt: serverTimestamp(),
+		});
 		await assertSucceeds(batch.commit());
 
-		// The owner removes them.
+		// The owner removes them, bypassing the rules to isolate this test from
+		// the leaving/removal path, which is covered elsewhere.
 		await env.withSecurityRulesDisabled(async (ctx) => {
 			await setDoc(doc(ctx.firestore(), EVENT), anEvent());
 		});
 
-		// And they cannot let themselves back in: there is no offer any more.
+		// And they cannot let themselves back in: the invitation is not absent,
+		// it is `accepted`, and `acceptsInvite()` requires `pending`.
+		await assertFails(
+			updateDoc(doc(as(GUEST), EVENT), {
+				memberIds: arrayUnion(GUEST),
+				[`roles.${GUEST}`]: "viewer",
+			}),
+		);
+	});
+
+	test("accepting an already-accepted invitation is denied", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
+			}),
+		);
+	});
+
+	test("declining an already-declined invitation is denied", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			}),
+		);
+	});
+
+	test("declining directly from accepted is denied: there is no such move", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			}),
+		);
+	});
+
+	test("the role cannot change in the same write that decides", async () => {
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(GUEST), INVITE), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
+				role: "editor",
+			}),
+		);
+	});
+
+	test("the owner readmits from accepted back to pending", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertSucceeds(
+			updateDoc(doc(as(OWNER), INVITE), { status: "pending", decidedAt: null }),
+		);
+	});
+
+	test("the owner readmits from declined back to pending", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertSucceeds(
+			updateDoc(doc(as(OWNER), INVITE), { status: "pending", decidedAt: null }),
+		);
+	});
+
+	test("readmitting cannot change the role in the same write", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(OWNER), INVITE), {
+				status: "pending",
+				decidedAt: null,
+				role: "editor",
+			}),
+		);
+	});
+
+	test("readmitting must clear decidedAt, not leave the old one behind", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(updateDoc(doc(as(OWNER), INVITE), { status: "pending" }));
+	});
+
+	test("a stranger cannot readmit anyone", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(STRANGER), INVITE), {
+				status: "pending",
+				decidedAt: null,
+			}),
+		);
+	});
+
+	test("deleting a decided invitation is denied: it would destroy the record", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(deleteDoc(doc(as(OWNER), INVITE)));
+
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(deleteDoc(doc(as(OWNER), INVITE)));
+	});
+});
+
+describe("an invitation is a single-use key", () => {
+	test("accepting without consuming it is denied", async () => {
+		// Left untouched, the invitation still reads `pending` after the write:
+		// its holder could walk back in after being removed, as often as they
+		// like.
+		await seedInvite();
 		await assertFails(
 			updateDoc(doc(as(GUEST), EVENT), {
 				memberIds: arrayUnion(GUEST),
@@ -371,30 +624,132 @@ describe("an invitation is a single-use key", () => {
 });
 
 describe("re-inviting after something changed", () => {
+	// While the invitation is still pending, a full setDoc goes through
+	// `ownerEditsWhilePending()`, which pins `createdAt` to its stored value —
+	// editing the offer is not the same as starting a new one. Each test reads
+	// the real, server-resolved value back and reuses it, since the default in
+	// `anInvite()` is a fresh `serverTimestamp()` sentinel that would otherwise
+	// resolve to a different moment on every write.
 	test("the title can change between invitations", async () => {
 		// setDoc rewrites the whole document, so pinning every field but `role`
 		// made a perfectly ordinary re-invitation fail — after renaming the
 		// event, or once the owner had set a display name.
 		await seedInvite();
+		const stored = await currentInvite();
 		await assertSucceeds(
-			setDoc(doc(as(OWNER), INVITE), anInvite({ eventTitle: "Renamed" })),
+			setDoc(
+				doc(as(OWNER), INVITE),
+				anInvite({ eventTitle: "Renamed", createdAt: stored?.["createdAt"] }),
+			),
 		);
 	});
 
 	test("the inviter's display name can change too", async () => {
 		await seedInvite();
+		const stored = await currentInvite();
 		await assertSucceeds(
-			setDoc(doc(as(OWNER), INVITE), anInvite({ invitedByName: "Ana Nueva" })),
+			setDoc(
+				doc(as(OWNER), INVITE),
+				anInvite({
+					invitedByName: "Ana Nueva",
+					createdAt: stored?.["createdAt"],
+				}),
+			),
 		);
 	});
 
 	test("but never the event, the recipient or who invites", async () => {
 		await seedInvite();
+		const stored = await currentInvite();
 		await assertFails(
-			setDoc(doc(as(OWNER), INVITE), anInvite({ eventId: "another-event" })),
+			setDoc(
+				doc(as(OWNER), INVITE),
+				anInvite({
+					eventId: "another-event",
+					createdAt: stored?.["createdAt"],
+				}),
+			),
 		);
 		await assertFails(
-			setDoc(doc(as(OWNER), INVITE), anInvite({ inviteeUid: STRANGER })),
+			setDoc(
+				doc(as(OWNER), INVITE),
+				anInvite({ inviteeUid: STRANGER, createdAt: stored?.["createdAt"] }),
+			),
 		);
+	});
+});
+
+// ─── Re-offering a decided invitation (security review + correctness review) ─
+//
+// `inviteToEvent()` always does a full setDoc with a fresh `createdAt`. Once
+// an invitation has been decided it is never deleted, so Firestore evaluates
+// that same call as an `update`, not a `create` — and none of the other three
+// update paths permitted it: `ownerEditsWhilePending()` requires the previous
+// state to already be pending, `invitedDecides()` requires the invitee to be
+// the one writing, and `ownerReadmits()` restricts the diff to exactly
+// `status`/`decidedAt`, which a fresh `createdAt` (and any changed
+// `eventTitle`/`role`) always violates. `ownerReoffers()` is what closes that
+// gap: this is the exact write shape `inviteToEvent()` sends.
+describe("re-offering a decided invitation (inviteToEvent's real write shape)", () => {
+	/** What `inviteToEvent()` actually sends: a full replacement via setDoc. */
+	const reoffer = (extra: Record<string, unknown> = {}) =>
+		setDoc(doc(as(OWNER), INVITE), anInvite(extra));
+
+	test("re-inviting someone who declined starts a fresh pending offer", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertSucceeds(reoffer());
+	});
+
+	test("re-inviting someone removed after accepting starts a fresh offer too", async () => {
+		// The scenario the spec calls out by name: expelling someone leaves
+		// their invitation `accepted`, and the owner's only way back in is to
+		// invite again — this exact write, unassisted by any other code path.
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertSucceeds(reoffer());
+	});
+
+	test("the role and the copied text may change when re-offering", async () => {
+		await seedInvite({
+			status: "declined",
+			decidedAt: serverTimestamp(),
+			role: "viewer",
+		});
+		await assertSucceeds(reoffer({ role: "editor", eventTitle: "Renamed" }));
+	});
+
+	test("createdAt is still the server's to set, even when re-offering", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(
+			reoffer({ createdAt: Timestamp.fromDate(new Date("2000-01-01")) }),
+		);
+	});
+
+	test("decidedAt must come back null, not survive the re-offer", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(reoffer({ decidedAt: serverTimestamp() }));
+	});
+
+	test("re-offering cannot land already decided", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(reoffer({ status: "accepted" }));
+	});
+
+	test("a stranger cannot re-offer someone else's invitation", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(setDoc(doc(as(STRANGER), INVITE), anInvite()));
+	});
+
+	test("the invitee cannot re-offer their own decided invitation", async () => {
+		// Re-offering is the owner's move alone — otherwise "declining" would be
+		// reversible by the same person who declined, just via a different door
+		// than the reconsider path already covered above.
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(setDoc(doc(as(GUEST), INVITE), anInvite()));
+	});
+
+	test("re-offering cannot smuggle in a different event or recipient", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(reoffer({ eventId: "another-event" }));
+		await assertFails(reoffer({ inviteeUid: STRANGER }));
 	});
 });
