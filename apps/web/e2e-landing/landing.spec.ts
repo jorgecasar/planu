@@ -10,26 +10,38 @@ import { expect, test } from "@playwright/test";
  */
 
 const LOCALES = [
-	{ path: "/", lang: "en", heading: "Your events. Private. Shareable. Yours." },
+	{
+		path: "/",
+		lang: "en",
+		heading: "Your events. Private. Shareable. Yours.",
+		title: "planu — Plan your events, privately",
+	},
 	{
 		path: "/en/",
 		lang: "en",
 		heading: "Your events. Private. Shareable. Yours.",
+		title: "planu — Plan your events, privately",
 	},
 	{
 		path: "/es/",
 		lang: "es",
 		heading: "Tus eventos. Privados. Compartibles. Tuyos.",
+		title: "planu — Planifica tus eventos, en privado",
 	},
 ];
 
-for (const { path, lang, heading } of LOCALES) {
+for (const { path, lang, heading, title } of LOCALES) {
 	test(`${path} sirve la landing en ${lang}`, async ({ page }) => {
 		const response = await page.goto(path);
 
 		expect(response?.status()).toBe(200);
 		await expect(page.locator("html")).toHaveAttribute("lang", lang);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+		// El <title> tiene su propia comprobación: un `msg()` importado antes de
+		// `configureLocalization` en build-landing.js quedaba congelado en
+		// inglés para siempre, y nada que mirase sólo el `<h1>` lo habría
+		// cazado —el cuerpo renderizado por @lit-labs/ssr sí se traducía bien—.
+		await expect(page).toHaveTitle(title);
 	});
 
 	test(`${path} no tiene violaciones de accesibilidad`, async ({ page }) => {
@@ -120,6 +132,21 @@ test("privacy.html y terms.html responden 200 en los dos idiomas y no se indexan
 		// y no están en sitemap.xml por el mismo motivo.
 		expect(body, path).toContain('name="robots" content="noindex"');
 	}
+});
+
+test("las páginas legales en español tienen su título traducido, no el inglés", async ({
+	page,
+}) => {
+	// El síntoma exacto que este test existe para cazar: `<h1>` y el cuerpo
+	// salían en español —pasan por @lit-labs/ssr, que sí resuelve `msg()`
+	// correctamente— pero el `<title>` de la pestaña se quedaba en inglés,
+	// porque se construía con un `msg()` importado antes de
+	// `configureLocalization` en build-landing.js.
+	await page.goto("/es/privacy.html");
+	await expect(page).toHaveTitle("Política de privacidad — planu");
+
+	await page.goto("/es/terms.html");
+	await expect(page).toHaveTitle("Términos de servicio — planu");
 });
 
 test("privacy.html describe el tratamiento real, no un texto genérico", async ({

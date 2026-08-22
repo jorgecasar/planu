@@ -236,6 +236,26 @@ function footer(): TemplateResult {
 	`;
 }
 
+/**
+ * Título y descripción de la landing.
+ *
+ * Exportados, y no una constante de módulo del script de build: `msg()` sólo
+ * traduce si `lit-localize extract` la ve, y su configuración sólo analiza
+ * `apps/web/src/**`. Una llamada a `msg()` en `scripts/build-landing.js` nunca
+ * llega al XLIFF, así que salía siempre en inglés en `/es/` aunque
+ * `configureLocalization` ya estuviera en español — el título de la pestaña
+ * era el único sitio de la landing donde eso pasaba desapercibido.
+ */
+export function landingTitle(): string {
+	return msg("planu — Plan your events, privately");
+}
+
+export function landingDescription(): string {
+	return msg(
+		"Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.",
+	);
+}
+
 export function jsonLd(): string {
 	const data = {
 		"@context": "https://schema.org",
@@ -249,8 +269,7 @@ export function jsonLd(): string {
 			priceCurrency: "EUR",
 			availability: "https://schema.org/InStock",
 		},
-		description:
-			"Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.",
+		description: landingDescription(),
 		url: "https://planu-app.web.app/",
 	};
 	return JSON.stringify(data);

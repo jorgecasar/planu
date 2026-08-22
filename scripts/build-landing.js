@@ -230,9 +230,8 @@ async function buildLanding() {
 	};
 
 	// Import the compiled landing template
-	const { landingTemplate, jsonLd } = await import(
-		resolve(ROOT, "dist/landing.js")
-	);
+	const { landingTemplate, jsonLd, landingTitle, landingDescription } =
+		await import(resolve(ROOT, "dist/landing.js"));
 	const { privacyPage, termsPage } = await import(
 		resolve(ROOT, "dist/legal.js")
 	);
@@ -246,7 +245,6 @@ async function buildLanding() {
 	const { configureLocalization } = await import(
 		"@lit/localize/init/runtime.js"
 	);
-	const { msg } = await import("@lit/localize");
 
 	// Configure lit-localize for SSR (same as app but for Node)
 	const { setLocale } = configureLocalization({
@@ -262,6 +260,18 @@ async function buildLanding() {
 			return mod;
 		},
 	});
+
+	// `msg` se importa DESPUÉS de `configureLocalization`, no antes. Una
+	// desestructuración captura el valor de `msg` en el momento del `import()`,
+	// y `@lit/localize` exporta `let msg = defaultMsg` —la identidad, sin
+	// traducir— hasta que `configureLocalization` lo reemplaza con la
+	// implementación real. Importarlo antes deja esta variable local congelada
+	// en la identidad para siempre: es justo lo que hacía que `privacyPage()` y
+	// `termsPage()` salieran en inglés en `/es/`, mientras que `landingTemplate()`
+	// se libraba porque su `msg` vive en `dist/landing.js`, un módulo
+	// compilado aparte que resuelve el export en el momento de ejecutarse, no
+	// en el momento de importarse.
+	const { msg } = await import("@lit/localize");
 
 	/**
 	 * Renderiza una plantilla para un idioma, sustituye los placeholders
@@ -341,11 +351,11 @@ async function buildLanding() {
 		console.log(`  → Rendering ${locale}...`);
 		await setLocale(locale);
 
-		// Note: msg() is now available globally from @lit/localize runtime
-		const title = msg("planu — Plan your events, privately");
-		const description = msg(
-			"Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.",
-		);
+		// `landingTitle()`/`landingDescription()`, no `msg()` suelto aquí: viven
+		// en `landing.ts`, donde `lit-localize extract` sí las ve. Ver el
+		// comentario junto a su definición.
+		const title = landingTitle();
+		const description = landingDescription();
 
 		writtenPages.push(
 			...(await renderAndWrite({
