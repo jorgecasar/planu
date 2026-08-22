@@ -419,3 +419,26 @@ test("la hora se ve en la agenda, heredada de la tarjeta", async ({ page }) => {
 		page.locator("planu-agenda-view").getByText(/7:30 PM.*11:00 PM/),
 	).toBeVisible();
 });
+
+// --- Filtro de rango con hora (T50) -----------------------------------------
+
+test("el rango con hora coge la cena de las 19:30 y no la de las 21:00", async ({
+	page,
+}) => {
+	// El criterio de aceptación literal del spec de horas: 19:00–20:00 coge
+	// la cena de las 19:30 y no la de las 21:00.
+	await signUp(page);
+	await createEventTodayWithTime(page, "Cena temprana", "19:30", "20:30");
+	await createEventTodayWithTime(page, "Cena tardía", "21:00", "22:00");
+
+	const hoy = dayFromToday(0);
+	await page.getByLabel("From", { exact: true }).fill(hoy);
+	await page.getByLabel("From time").fill("19:00");
+	await page.getByLabel("To", { exact: true }).fill(hoy);
+	await page.getByLabel("To time").fill("20:00");
+
+	await expect(
+		page.getByRole("heading", { name: "Cena temprana" }),
+	).toBeVisible();
+	await expect(page.getByRole("heading", { name: "Cena tardía" })).toBeHidden();
+});
