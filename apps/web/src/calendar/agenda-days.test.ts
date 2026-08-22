@@ -21,6 +21,7 @@ function event(
 		endDate: end ? local(end) : null,
 		memberIds: [],
 		roles: {},
+		allDay: true,
 		tags: [],
 	} satisfies StoredEvent;
 }

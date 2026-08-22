@@ -1335,7 +1335,7 @@ garantiza conflictos.
 Derivadas de [`docs/spec-horas-en-eventos.md`](docs/spec-horas-en-eventos.md)
 y del plan actualizado en `plan.md`. Orden por dependencia.
 
-- [ ] **T44 · Esquema Zod: campo `allDay`** · XS · sin dependencias
+- [x] **T44 · Esquema Zod: campo `allDay`** · XS · sin dependencias
   - Acepta: `eventSchema()` expone `allDay: z.boolean().default(true)`; un
     documento sin el campo parsea como `true`; `PlanuEvent` y
     `PlanuEventDocument` incluyen el campo.
@@ -1343,6 +1343,10 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     domain/build-ics.test.ts domain/sort-events.test.ts` en 0;
     `npm run typecheck` en 0.
   - Ficheros: `apps/web/src/lib/types.ts`
+  - Evidencia: commit `ef70e04` («feat: add allDay field to event schema with
+    default true»); `npm run typecheck` sale en 0; se propagó `allDay: true`
+    a los ocho ficheros de fixtures que el compilador señaló como
+    incompletos.
 
 - [ ] **T45 · format-dates: `toInputTime` y `formatEventDates` con `allDay`** · S · depende de T44
   - Acepta: `toInputTime(date)` devuelve `HH:mm` o `""`; `formatEventDates`
