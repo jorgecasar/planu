@@ -883,6 +883,43 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/landing/legal.ts`, `src/landing/privacy.ts`,
     `src/landing/terms.ts`, `src/profile/profile-view.ts`
   - Nota: son textos honestos, no asesoramiento legal, y así se dice.
+  - **No se marca: la verificación pide revisión manual, y ésa no la hace un
+    agente.** Lo demás está hecho y comprobado:
+  - Contenido en un único `src/landing/legal.ts` —no dos ficheros separados,
+    para no duplicar `legalPageShell()`/`legalFooter()`—, generado con el
+    mismo prerender de T28: cada sección corresponde a un dato real (Auth,
+    Firestore, Storage, ADR 0003 —hoy la nube está apagada, y lo dice—, ADR
+    0009 y Sentry), no a una plantilla genérica.
+  - Aviso de cookies **con** contenido, porque T31 eligió Firebase Analytics
+    —que sí las usa—: vive en el pie de toda página de la landing, no sólo en
+    `privacy.html`, porque Analytics corre desde la primera visita.
+    `noindex` en las dos páginas legales; no entran en `sitemap.xml`.
+  - Enlazado desde el pie de la landing (ya existía el `href`, daba 404) y
+    desde `profile-view.ts`, nuevo: dos enlaces en el pie de la tarjeta,
+    `target="_blank"`, con la ruta calculada por `getLocale()` porque la SPA
+    no lleva el prefijo de idioma en su propia URL.
+  - `npm run build:landing` → **0**, `privacy.html` y `terms.html` en los dos
+    idiomas, dentro del presupuesto de bytes; **el aviso de «referenciados y
+    ausentes» que arrastraba desde T28 desaparece del todo**.
+  - `npm run lint`, `lint:lit`, `typecheck`, `test:arch`, `build` → **0**.
+    `npm test` → **0**, 467 tests (sin cambio: el contenido nuevo es de la
+    landing, sin unitarios propios).
+  - E2E: 5 nuevos en `e2e-landing/landing.spec.ts` (páginas responden 200 y
+    `noindex`, contenido real verificado por texto anclado, aviso de cookies
+    en toda página, axe limpio) más 2 en `e2e/profile.spec.ts`, nuevo — no
+    existía ningún e2e de perfil hasta ahora. **23 e2e de landing en total**,
+    todos en verde.
+  - Dos aserciones rotas a propósito para confirmar que no eran vacuas: quitar
+    `noindex` → falla; vaciar el aviso de cookies → falla. Restauradas,
+    vuelven a pasar.
+  - Encontrado de paso: `es.js` y `locale-codes.ts` salen de
+    `lit-localize build`/`extract` sin el formato de Biome —comillas simples,
+    sin comillas en las claves, indentación distinta—, y eso hacía fallar
+    `test:arch` con un diff que parecía «39 mensajes desfasados» cuando en
+    realidad ninguno lo estaba: el regex del test no encontraba el id porque
+    esperaba comillas dobles. Un `npx @biomejs/biome check --write` sobre esos
+    dos ficheros lo resuelve; el flujo de `AGENTS.md` no lo menciona y
+    convendría añadirlo.
 
 - [x] **T31 · Analítica de activación (F16)** · M · depende de T25
   - Acepta: ADR 0009 con el proveedor elegido y qué se mide; cinco eventos y no

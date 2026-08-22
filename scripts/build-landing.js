@@ -196,6 +196,7 @@ async function buildLanding() {
 	// directorios del origen y las rutas de salida dejarían de ser predecibles.
 	for (const [entry, outfile] of [
 		["apps/web/src/landing/landing.ts", "dist/landing.js"],
+		["apps/web/src/landing/legal.ts", "dist/legal.js"],
 		["apps/web/src/generated/locales/locale-codes.ts", "dist/locale-codes.js"],
 	]) {
 		const esbuildResult = spawnSync(
@@ -232,6 +233,9 @@ async function buildLanding() {
 	const { landingTemplate, jsonLd } = await import(
 		resolve(ROOT, "dist/landing.js")
 	);
+	const { privacyPage, termsPage } = await import(
+		resolve(ROOT, "dist/legal.js")
+	);
 	// Compilado, no importado en crudo: importar un `.ts` sólo funciona en Node
 	// >= 22, que hace type-stripping. CI corre Node 20 y abortaba el despliegue
 	// con ERR_UNKNOWN_FILE_EXTENSION — un fallo que no se ve en local si tu Node
@@ -259,12 +263,21 @@ async function buildLanding() {
 		},
 	});
 
-	// For each locale, render and write
-	const writtenPages = [];
-	for (const locale of allLocales) {
-		console.log(`  → Rendering ${locale}...`);
-		await setLocale(locale);
-		const result = await render(landingTemplate());
+	/**
+	 * Renderiza una plantilla para un idioma, sustituye los placeholders
+	 * comunes y la escribe en uno o más ficheros de destino. Compartida entre
+	 * la landing y las dos páginas legales de T30: las tres pasan por el mismo
+	 * inlining de CSS, el mismo prefijo de idioma y el mismo presupuesto de
+	 * bytes, y duplicarlo por página habría sido el primer sitio donde una de
+	 * las dos se desincroniza de la otra sin que nadie lo note.
+	 */
+	async function renderAndWrite({
+		locale,
+		template,
+		fileName,
+		extraReplacements = [],
+	}) {
+		const result = await render(template);
 
 		// @lit-labs/ssr returns an async iterator, consume it to get the HTML string
 		let html = "";
@@ -272,20 +285,7 @@ async function buildLanding() {
 			html += chunk;
 		}
 
-		// Replace placeholders with localized content
-		// Note: msg() is now available globally from @lit/localize runtime
-		const title = msg("planu — Plan your events, privately");
-		const description = msg(
-			"Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.",
-		);
-		const jsonLdContent = jsonLd();
-
 		html = html
-			.replace("<!--TITLE_PLACEHOLDER-->", title)
-			.replace("<!--DESCRIPTION_PLACEHOLDER-->", description)
-			.replace("<!--OG_TITLE_PLACEHOLDER-->", title)
-			.replace("<!--OG_DESC_PLACEHOLDER-->", description)
-			.replace("<!--JSON_LD_PLACEHOLDER-->", jsonLdContent)
 			.replace("<!--INLINE_CSS_PLACEHOLDER-->", minifiedCss)
 			.replace("__WA_STYLESHEET__", waHref)
 			// Prefijo de idioma de los enlaces internos: el de origen vive en la
@@ -300,13 +300,17 @@ async function buildLanding() {
 			// documento.
 			.replace(/<html lang="[^"]*"/, `<html lang="${locale}"`);
 
+		for (const [placeholder, value] of extraReplacements) {
+			html = html.replace(placeholder, value);
+		}
+
 		// Cada idioma se escribe donde el `hreflang` del propio HTML promete que
 		// está, y el de origen además en la raíz como `x-default`. Antes sólo se
 		// escribía `localized/{locale}/`, así que las tres URLs anunciadas a los
 		// buscadores —`/`, `/en/` y `/es/`— eran 404.
-		const targets = [resolve(DIST, locale, "index.html")];
+		const targets = [resolve(DIST, locale, fileName)];
 		if (locale === sourceLocale) {
-			targets.push(resolve(DIST, "index.html"));
+			targets.push(resolve(DIST, fileName));
 		}
 
 		html = stripLitMarkers(html);
@@ -314,19 +318,71 @@ async function buildLanding() {
 		const bytes = Buffer.byteLength(html, "utf-8");
 		if (bytes > HTML_BUDGET_BYTES) {
 			throw new Error(
-				`El HTML de "${locale}" pesa ${bytes} B y el tope es ` +
+				`El HTML de "${locale}/${fileName}" pesa ${bytes} B y el tope es ` +
 					`${HTML_BUDGET_BYTES} B. Adelgaza el CSS en línea o el contenido; ` +
 					"subir el tope es la última opción, no la primera.",
 			);
 		}
 
+		const written = [];
 		for (const target of targets) {
 			mkdirSync(dirname(target), { recursive: true });
 			writeFileSync(target, html, "utf-8");
-			writtenPages.push(target);
+			written.push(target);
 			console.log(`  ✓ ${relative(ROOT, target)}`);
 		}
 		console.log(`    ${bytes} B / ${HTML_BUDGET_BYTES} B`);
+		return written;
+	}
+
+	// For each locale, render and write
+	const writtenPages = [];
+	for (const locale of allLocales) {
+		console.log(`  → Rendering ${locale}...`);
+		await setLocale(locale);
+
+		// Note: msg() is now available globally from @lit/localize runtime
+		const title = msg("planu — Plan your events, privately");
+		const description = msg(
+			"Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.",
+		);
+
+		writtenPages.push(
+			...(await renderAndWrite({
+				locale,
+				template: landingTemplate(),
+				fileName: "index.html",
+				extraReplacements: [
+					["<!--TITLE_PLACEHOLDER-->", title],
+					["<!--DESCRIPTION_PLACEHOLDER-->", description],
+					["<!--OG_TITLE_PLACEHOLDER-->", title],
+					["<!--OG_DESC_PLACEHOLDER-->", description],
+					["<!--JSON_LD_PLACEHOLDER-->", jsonLd()],
+				],
+			})),
+		);
+
+		writtenPages.push(
+			...(await renderAndWrite({
+				locale,
+				template: privacyPage(),
+				fileName: "privacy.html",
+				extraReplacements: [
+					["<!--TITLE_PLACEHOLDER-->", `${msg("Privacy Policy")} — planu`],
+				],
+			})),
+		);
+
+		writtenPages.push(
+			...(await renderAndWrite({
+				locale,
+				template: termsPage(),
+				fileName: "terms.html",
+				extraReplacements: [
+					["<!--TITLE_PLACEHOLDER-->", `${msg("Terms of Service")} — planu`],
+				],
+			})),
+		);
 	}
 
 	// Copy landing assets to dist/assets/landing

@@ -80,20 +80,100 @@ test("la landing se ve con JavaScript desactivado", async ({ browser }) => {
 	await context.close();
 });
 
-test("cada idioma enlaza sus propios legales", async ({ page }) => {
+test("cada idioma enlaza sus propios legales, y las páginas existen (T30)", async ({
+	page,
+	request,
+}) => {
 	// El pie enlazaba a `/es/privacy.html` en los dos idiomas, así que la versión
-	// inglesa mandaba a la española.
+	// inglesa mandaba a la española. Y hasta T30 ninguna de las dos páginas
+	// existía siquiera: comprobar sólo el `href` habría dejado pasar un enlace
+	// a un 404, que es justo lo que pasaba antes.
 	await page.goto("/");
-	await expect(page.getByRole("link", { name: "Privacy" })).toHaveAttribute(
-		"href",
-		"/privacy.html",
-	);
+	const enHref = await page
+		.getByRole("link", { name: "Privacy", exact: true })
+		.getAttribute("href");
+	expect(enHref).toBe("/privacy.html");
+	expect((await request.get(enHref ?? "")).status()).toBe(200);
 
 	await page.goto("/es/");
-	await expect(page.getByRole("link", { name: "Privacidad" })).toHaveAttribute(
-		"href",
+	const esHref = await page
+		.getByRole("link", { name: "Privacidad", exact: true })
+		.getAttribute("href");
+	expect(esHref).toBe("/es/privacy.html");
+	expect((await request.get(esHref ?? "")).status()).toBe(200);
+});
+
+test("privacy.html y terms.html responden 200 en los dos idiomas y no se indexan", async ({
+	request,
+}) => {
+	for (const path of [
+		"/privacy.html",
+		"/terms.html",
 		"/es/privacy.html",
+		"/es/terms.html",
+	]) {
+		const response = await request.get(path);
+		expect(response.status(), path).toBe(200);
+
+		const body = await response.text();
+		// noindex: son páginas legales, no contenido que interese a un buscador,
+		// y no están en sitemap.xml por el mismo motivo.
+		expect(body, path).toContain('name="robots" content="noindex"');
+	}
+});
+
+test("privacy.html describe el tratamiento real, no un texto genérico", async ({
+	page,
+}) => {
+	// Ancla el contenido a hechos verificables del propio repo, no a que "haya
+	// texto": el aviso de cookies existe *porque* ADR 0009 eligió Firebase
+	// Analytics, y esta página tiene que decirlo, no callarlo.
+	await page.goto("/privacy.html");
+
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+		"Privacy Policy",
 	);
+	// El cuerpo, no el aviso de cookies del pie: los dos mencionan Firebase
+	// Analytics, y en esta página coinciden en pantalla.
+	await expect(
+		page.locator(".wa-prose").getByText("Firebase Analytics", { exact: false }),
+	).toBeVisible();
+	await expect(
+		page.getByText("cloud AI is switched off", { exact: false }),
+	).toBeVisible();
+	await expect(
+		page.getByText("no self-service", { exact: false }),
+	).toBeVisible();
+});
+
+test("el aviso de cookies está en toda página de la landing, no sólo en privacy.html", async ({
+	page,
+}) => {
+	// ADR 0009: Firebase Analytics corre desde la primera visita, así que el
+	// aviso no puede vivir detrás de un enlace que nadie tiene por qué seguir.
+	for (const path of ["/", "/privacy.html", "/terms.html"]) {
+		await page.goto(path);
+		// El aviso vive en el pie, así que se ancla ahí y no a cualquier mención
+		// de Firebase Analytics en la página — privacy.html también la nombra en
+		// el cuerpo.
+		await expect(
+			page
+				.locator(".cookie-notice")
+				.getByText("Firebase Analytics", { exact: false }),
+		).toBeVisible();
+	}
+});
+
+test("privacy.html y terms.html no tienen violaciones de accesibilidad", async ({
+	page,
+}) => {
+	for (const path of ["/privacy.html", "/terms.html"]) {
+		await page.goto(path);
+		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+		const results = await new AxeBuilder({ page }).analyze();
+		expect(results.violations, path).toEqual([]);
+	}
 });
 
 test("el hreflang apunta a URLs que existen", async ({ page, request }) => {

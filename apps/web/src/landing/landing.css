@@ -177,3 +177,32 @@ a.wa-button--large {
 	border-radius: var(--wa-border-radius-l);
 	box-shadow: var(--wa-shadow-l);
 }
+
+/* Páginas legales (T30): privacidad, términos. */
+.legal-page {
+	max-width: 42rem;
+	margin-inline: auto;
+	padding-inline: var(--wa-space-xl);
+	padding-block: var(--wa-space-2xl);
+}
+
+.legal-header {
+	padding-block-end: var(--wa-space-l);
+}
+
+.legal-back {
+	color: var(--wa-color-brand-fill-loud);
+	text-decoration: none;
+	font-size: var(--wa-font-size-s);
+}
+
+.legal-back:hover {
+	text-decoration: underline;
+}
+
+.cookie-notice {
+	max-width: 42rem;
+	margin-inline: auto;
+	padding-inline: var(--wa-space-xl);
+	padding-block-start: var(--wa-space-s);
+}

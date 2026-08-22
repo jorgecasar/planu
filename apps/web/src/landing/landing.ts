@@ -1,5 +1,6 @@
 import { msg } from "@lit/localize";
 import { html, type TemplateResult } from "lit";
+import { cookiesNotice } from "./legal.js";
 
 /**
  * Iconos en línea, no `<wa-icon>`.
@@ -212,6 +213,10 @@ function featureCard(
 }
 
 function footer(): TemplateResult {
+	// El aviso de cookies vive en el pie de toda página de la landing, no sólo
+	// en privacy.html: ADR 0009 hace que Firebase Analytics corra en la
+	// primera visita, así que el aviso tiene que estar ya en la primera página
+	// que se pinta, no detrás de un enlace que nadie tiene por qué seguir.
 	// Los legales viven bajo el prefijo del idioma, salvo el de origen, que está
 	// en la raíz. Codificarlo aquí evita que la versión inglesa enlazara a `/es/`,
 	// que es lo que hacía antes.
@@ -226,6 +231,7 @@ function footer(): TemplateResult {
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
 			<p class="wa-text-xs wa-color-text-quiet">${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}</p>
+			${cookiesNotice()}
 		</footer>
 	`;
 }

@@ -14,6 +14,8 @@ import {
 	sessionContext,
 	userContext,
 } from "../firebase/context.js";
+import { sourceLocale } from "../generated/locales/locale-codes.js";
+import { getLocale } from "../i18n/localization.js";
 
 /** Account details and sign out. */
 @customElement("planu-profile-view")
@@ -79,14 +81,24 @@ export class PlanuProfileView extends LitElement {
 					<dd>${user.email ?? msg("Not set")}</dd>
 				</dl>
 
-				<wa-button
+				<div
 					slot="footer"
-					variant="danger"
-					appearance="outlined"
-					@click=${this.#onSignOut}
+					class="wa-stack wa-gap-s wa-align-items-start"
 				>
-					${msg("Sign out")}
-				</wa-button>
+					<wa-button
+						variant="danger"
+						appearance="outlined"
+						@click=${this.#onSignOut}
+					>
+						${msg("Sign out")}
+					</wa-button>
+
+					<div class="wa-cluster wa-gap-s wa-text-sm">
+						<a href="${this.#legalHref("privacy")}" target="_blank" rel="noopener">${msg("Privacy")}</a>
+						<span aria-hidden="true">·</span>
+						<a href="${this.#legalHref("terms")}" target="_blank" rel="noopener">${msg("Terms")}</a>
+					</div>
+				</div>
 			</wa-card>
 		`;
 	}
@@ -96,6 +108,19 @@ export class PlanuProfileView extends LitElement {
 	 * **nobody can invite it to an event**. Better said here than discovered by
 	 * the other person when they cannot find you.
 	 */
+	/**
+	 * Las páginas legales prerrenderizadas viven bajo el prefijo de idioma
+	 * —`/es/privacy.html`—, salvo el idioma de origen, en la raíz. El perfil
+	 * vive dentro de la SPA y no tiene ese prefijo en su propia URL, así que
+	 * hay que calcularlo a partir del idioma que la interfaz sirve ahora
+	 * mismo, no del de la landing en la pestaña que lo abrió.
+	 */
+	#legalHref(page: "privacy" | "terms"): string {
+		const locale = getLocale();
+		const prefix = locale === sourceLocale ? "" : `/${locale}`;
+		return `${prefix}/${page}.html`;
+	}
+
 	#renderVerificationNotice(user: SessionUser) {
 		if (!user.email || user.emailVerified) return nothing;
 
