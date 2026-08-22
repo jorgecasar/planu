@@ -215,3 +215,62 @@ test("las tarjetas se reparten en rejilla, no en una columna", async ({
 	expect(xs.length).toBe(6);
 	expect(new Set(xs).size).toBeGreaterThan(1);
 });
+
+test("robots.txt no bloquea la landing y apunta al sitemap", async ({
+	request,
+}) => {
+	const response = await request.get("/robots.txt");
+	expect(response.status()).toBe(200);
+
+	const body = await response.text();
+	expect(body).toMatch(/Allow:\s*\//);
+	expect(body).not.toMatch(/Disallow:\s*\/\s*$/m);
+	expect(body).toContain("Sitemap: https://planu-app.web.app/sitemap.xml");
+});
+
+test("sitemap.xml lista sólo las URLs de la landing, con hreflang", async ({
+	request,
+}) => {
+	const response = await request.get("/sitemap.xml");
+	expect(response.status()).toBe(200);
+
+	const body = await response.text();
+	// Nada de /app entre las <loc>: es privado por diseño, no algo que el
+	// sitemap invite a indexar aunque robots.txt lo bloquee por separado. Sólo
+	// las <loc>, porque el propio comentario del fichero menciona "/app" al
+	// explicar por qué no está.
+	const locs = [...body.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
+	expect(locs.some((loc) => loc?.includes("/app"))).toBe(false);
+	for (const loc of ["planu-app.web.app/</loc>", "/en/</loc>", "/es/</loc>"]) {
+		expect(body).toContain(loc);
+	}
+	expect(body).toContain('hreflang="x-default"');
+});
+
+test("la imagen del hero existe, con las medidas que declara y sin recorte inesperado", async ({
+	page,
+	request,
+}) => {
+	await page.goto("/");
+
+	const img = page.locator("figure.hero-figure img");
+	await expect(img).toBeVisible();
+
+	const [ancho, alto] = await img.evaluate((el: HTMLImageElement) => [
+		el.naturalWidth,
+		el.naturalHeight,
+	]);
+	// Las medidas declaradas en el <img> (width/height) existen para reservar
+	// el hueco antes de que la imagen cargue; si no coinciden con las reales
+	// hay salto de layout (CLS) en el momento en que sí carga.
+	expect(ancho).toBe(1200);
+	expect(alto).toBe(675);
+
+	const response = await request.get("/assets/landing/hero.webp");
+	expect(response.status()).toBe(200);
+	// No es el peso exacto —cambia con cada regeneración— sino que sigue
+	// siendo una imagen comprimida y no, por ejemplo, el PNG sin comprimir de
+	// 2 MB que generó la herramienta antes de redimensionar.
+	const bytes = (await response.body()).length;
+	expect(bytes).toBeLessThan(200 * 1024);
+});
