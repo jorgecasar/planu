@@ -17,7 +17,11 @@
 
 import { chromium } from "playwright";
 
-const TARGET = process.argv[2] ?? "https://planu-app.web.app";
+// `/app`, no la raíz: desde #21/#22 la raíz es la landing prerrenderizada, sin
+// Firebase ni JavaScript alguno, así que mediría la página equivocada — cero
+// orígenes ajenos y cero peso porque no hay nada que cargar. Antes de eso la
+// raíz redirigía a `/app`, así que apuntar aquí no cambia lo que se mide.
+const TARGET = process.argv[2] ?? "https://planu-app.web.app/app";
 
 /** Orígenes que no deben aparecer al arrancar, y por qué. */
 const PROHIBIDOS = new Map([
