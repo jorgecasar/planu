@@ -39,6 +39,13 @@ export const eventSchema = () =>
 			roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
 			createdAt: z.coerce.date().nullable().optional(),
 			/**
+			 * All-day flag. default(true): earlier events don't carry the
+			 * field and all of them are all-day — the editor saved them at
+			 * T00:00:00. With false as the default, every existing event
+			 * would turn into a midnight appointment in the .ics.
+			 */
+			allDay: z.boolean().default(true),
+			/**
 			 * Free-form tags, normalized by `domain/tags.ts`.
 			 *
 			 * Sanitized instead of rejected, hence the `unknown`: this schema
@@ -96,6 +103,7 @@ export type PlanuEventDocument = Omit<
 	endDate: Timestamp | null;
 	createdAt?: Timestamp | null;
 	imageUrl?: string | null;
+	allDay: boolean;
 };
 
 /** An event already read from Firestore, with its identifier. */

@@ -33,6 +33,7 @@ function event(
 		userId: "u1",
 		memberIds: ["u1"],
 		roles: {},
+		allDay: true,
 		tags: [],
 		createdAt: null,
 	};
