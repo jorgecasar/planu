@@ -994,6 +994,14 @@
   <source>privacy policy</source>
   <target>política de privacidad</target>
 </trans-unit>
+<trans-unit id="sf074ff000bff75f4">
+  <source>planu — Plan your events, privately</source>
+  <target>planu — Planifica tus eventos, en privado</target>
+</trans-unit>
+<trans-unit id="s38514c79d527a38b">
+  <source>Create, search and filter events with title, description, location, dates and cover image. Private by default — only you can see yours.</source>
+  <target>Crea, busca y filtra eventos con título, descripción, ubicación, fechas e imagen de portada. Privados por defecto — sólo tú puedes verlos.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
