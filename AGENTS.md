@@ -348,7 +348,21 @@ Al añadir o cambiar un texto:
 npm run localize:extract   # actualiza xliff/es.xlf
 # traducir los <target> nuevos
 npm run localize:build     # regenera src/generated/locales/
+npx @biomejs/biome check --write apps/web/src/generated/locales/
 ```
+
+**El último paso no es opcional.** `lit-localize extract`/`build` —las
+herramientas oficiales de `lit.dev/docs/localization/cli-and-config`— generan
+`locale-codes.ts` y `es.js` con su propio estilo: comillas simples, sin
+comillas en claves que son identificadores válidos, indentación de cuatro
+espacios. Ninguno de los dos coincide con Biome, así que sin este paso
+`npm run lint` falla en esos dos ficheros y —peor, porque tarda en
+diagnosticarse— `test:arch` también: su comparación busca el id entre
+comillas dobles en el `.js` generado, no lo encuentra en el crudo de
+`lit-localize`, y el fallo se lee como «39 mensajes desfasados» cuando
+ninguno lo está realmente. Corre `npx @biomejs/biome check --write` sobre
+los dos ficheros generados, no sobre todo el repo: así no arrastra el
+formateo de nada que no acabas de tocar tú.
 
 Los mensajes que viven fuera de un componente —esquemas de Zod, mapas de
 errores— se construyen en **fábricas**, no en constantes de módulo: `msg()` se

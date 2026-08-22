@@ -838,6 +838,162 @@
   <source>This is a sample event. Change anything you like, then save it.</source>
         <target>Esto es un evento de ejemplo. Cambia lo que quieras y guárdalo.</target>
 </trans-unit>
+<trans-unit id="sd7fc7aff9055cc49">
+  <source>← Back to planu</source>
+  <target>← Volver a planu</target>
+</trans-unit>
+<trans-unit id="s3200c378cc8520a1">
+  <source>Last updated: 22 August 2026</source>
+  <target>Última actualización: 22 de agosto de 2026</target>
+</trans-unit>
+<trans-unit id="sab07cf2bfae8483f">
+  <source>Privacy Policy</source>
+  <target>Política de privacidad</target>
+</trans-unit>
+<trans-unit id="s2f18495492320b68">
+  <source>planu is a private event planner. This page describes what we actually collect, why, and who else sees it — not a generic template. If a paragraph here stops matching the code, the code is what changes, not this page.</source>
+  <target>planu es un planificador de eventos privado. Esta página describe lo que de verdad recogemos, por qué y quién más lo ve — no es una plantilla genérica. Si un párrafo de aquí deja de coincidir con el código, lo que cambia es el código, no esta página.</target>
+</trans-unit>
+<trans-unit id="s48fd2ebd801bef61">
+  <source>Your account</source>
+  <target>Tu cuenta</target>
+</trans-unit>
+<trans-unit id="s6efbac1cd73eecf7">
+  <source>Signing up with email and password, or with Google, is handled by Firebase Authentication. We store your email, and — if you sign in with Google — the name and photo your Google account already shares with sites you sign into. We never see or store your password: Firebase does that.</source>
+  <target>Registrarte con correo y contraseña, o con Google, lo gestiona Firebase Authentication. Guardamos tu correo y —si accedes con Google— el nombre y la foto que tu cuenta de Google ya comparte con los sitios en los que entras. Nunca vemos ni guardamos tu contraseña: de eso se encarga Firebase.</target>
+</trans-unit>
+<trans-unit id="s183ca06155e5e69b">
+  <source>Your events</source>
+  <target>Tus eventos</target>
+</trans-unit>
+<trans-unit id="s5586569ece6227ce">
+  <source>Events are private by default: only you can read one you created, unless you explicitly invite someone. Title, description, location, dates and tags live in our database and are never public — see the security section below for what that promise does and does not cover.</source>
+  <target>Los eventos son privados por defecto: sólo tú puedes leer uno que hayas creado, a menos que invites explícitamente a alguien. El título, la descripción, la ubicación, las fechas y las etiquetas viven en nuestra base de datos y nunca son públicos — mira la sección de seguridad más abajo para saber qué cubre esa promesa y qué no.</target>
+</trans-unit>
+<trans-unit id="sd514c515555c7a32">
+  <source>Sharing an event</source>
+  <target>Compartir un evento</target>
+</trans-unit>
+<trans-unit id="s3c76582024886b3c">
+  <source>To invite someone by email, your device turns that email into a fingerprint (a one-way hash) and looks it up against a directory every user publishes to — never a list of raw emails. Whoever you invite sees your name and photo, never your email address, and you see theirs the same way.</source>
+  <target>Para invitar a alguien por correo, tu dispositivo convierte ese correo en una huella (un hash de un solo sentido) y la busca en un directorio que publica cada usuario — nunca una lista de correos en claro. A quien invites le verá tu nombre y tu foto, nunca tu correo, y tú verás los suyos del mismo modo.</target>
+</trans-unit>
+<trans-unit id="s51ac807224fd06e2">
+  <source>Event cover images</source>
+  <target>Imágenes de portada de eventos</target>
+</trans-unit>
+<trans-unit id="s36ad216a18c106c6">
+  <source>An uploaded cover photo goes to Firebase Storage under a path tied to your account. Reading the event's text always requires being signed in as someone with access; the image link itself does not check your session — it works from an unguessable address instead. Do not use a cover photo for something you would not want reachable by whoever gets hold of that address.</source>
+  <target>Una foto de portada subida va a Firebase Storage bajo una ruta ligada a tu cuenta. Leer el texto del evento siempre exige haber iniciado sesión como alguien con acceso; el enlace de la imagen en sí no comprueba tu sesión — funciona a partir de una dirección impredecible en su lugar. No uses una foto de portada para algo que no quieras que sea accesible por quien consiga esa dirección.</target>
+</trans-unit>
+<trans-unit id="sd72fdc4216b98171">
+  <source>AI-assisted event creation</source>
+  <target>Creación de eventos asistida por IA</target>
+</trans-unit>
+<trans-unit id="sdabaa7bb2952f3a4">
+  <source>Creating an event from a photo or pasted text can use on-device AI (Chrome's built-in model) or cloud AI (Google's Gemini), depending on your browser and device. Today, cloud AI is switched off in the code — every request runs on your own device, and the photo or text never leaves it. If cloud AI is ever turned back on, this page will say so before it happens, and it will only run for accounts explicitly granted that access.</source>
+  <target>Crear un evento desde una foto o texto pegado puede usar IA en el dispositivo (el modelo integrado de Chrome) o IA en la nube (Gemini de Google), según tu navegador y dispositivo. Hoy, la IA en la nube está desactivada en el código — cada solicitud corre en tu propio dispositivo, y la foto o el texto nunca salen de él. Si la IA en la nube se vuelve a activar alguna vez, esta página lo dirá antes de que ocurra, y sólo funcionará para cuentas a las que se conceda ese acceso explícitamente.</target>
+</trans-unit>
+<trans-unit id="s330fba8c48b8e294">
+  <source>Activity we measure</source>
+  <target>Actividad que medimos</target>
+</trans-unit>
+<trans-unit id="scee5c0b3671fd9c0">
+  <source>We use Firebase Analytics (Google Analytics) to count five things: that you visited, that you signed up, that you created your first event, that you shared an event, and that you used AI to create one. We never send what you typed — no titles, no descriptions, no locations, no dates, no names. See the cookie notice below for what this means for your browser.</source>
+  <target>Usamos Firebase Analytics (Google Analytics) para contar cinco cosas: que nos visitaste, que te registraste, que creaste tu primer evento, que compartiste un evento y que usaste la IA para crear uno. Nunca enviamos lo que escribiste — ni títulos, ni descripciones, ni ubicaciones, ni fechas, ni nombres. Mira el aviso de cookies más abajo para saber qué significa esto para tu navegador.</target>
+</trans-unit>
+<trans-unit id="sd54ca44bee6f7e4a">
+  <source>Error reports</source>
+  <target>Informes de errores</target>
+</trans-unit>
+<trans-unit id="s120213d9d475c0d9">
+  <source>If something breaks, a bare error report — no personal data attached by us — can be sent to Sentry, our error-tracking tool, so we can fix it. This is off entirely unless the deployment you are using has it configured.</source>
+  <target>Si algo se rompe, puede enviarse un informe de error escueto —sin datos personales añadidos por nosotros— a Sentry, nuestra herramienta de seguimiento de errores, para poder arreglarlo. Esto está completamente apagado a menos que el despliegue que uses lo tenga configurado.</target>
+</trans-unit>
+<trans-unit id="sbb5b3c434e181ac7">
+  <source>What protects this, and what it does not yet</source>
+  <target>Qué protege esto, y qué no todavía</target>
+</trans-unit>
+<trans-unit id="s3c280a8fa801ac67">
+  <source>Firestore and Storage security rules enforce every promise above at the database level, not just in what the interface shows you — tested against real attacks, not assumed. Two things they do not cover: the cover image's address is guessable-resistant, not access-controlled, as noted above; and the type of an uploaded file is declared by your browser and not checked against its actual content.</source>
+  <target>Las reglas de seguridad de Firestore y Storage hacen cumplir cada promesa de arriba a nivel de base de datos, no sólo en lo que muestra la interfaz — comprobado contra ataques reales, no supuesto. Dos cosas que no cubren: la dirección de la imagen de portada resiste a que la adivinen, no tiene control de acceso, como se indica arriba; y el tipo de un fichero subido lo declara tu navegador y no se contrasta con su contenido real.</target>
+</trans-unit>
+<trans-unit id="s2117a76eb21cef94">
+  <source>Deleting your data</source>
+  <target>Borrar tus datos</target>
+</trans-unit>
+<trans-unit id="s9ada47339b6ed3b0">
+  <source>There is no self-service “delete my account” button yet. Until there is, write to the address below and we will remove your account and everything tied to it by hand.</source>
+  <target>Todavía no hay un botón de autoservicio para «borrar mi cuenta». Hasta que lo haya, escribe a la dirección de abajo y eliminaremos tu cuenta y todo lo asociado a ella a mano.</target>
+</trans-unit>
+<trans-unit id="sfed429a964ba3f98">
+  <source>Who to contact</source>
+  <target>A quién contactar</target>
+</trans-unit>
+<trans-unit id="sc7d22207fb094554">
+  <source>Questions about any of this: </source>
+  <target>Preguntas sobre cualquiera de estos puntos: </target>
+</trans-unit>
+<trans-unit id="s6da5e7a9ad0d8e31">
+  <source>Not legal advice</source>
+  <target>No es asesoramiento legal</target>
+</trans-unit>
+<trans-unit id="sed2237125cb33b63">
+  <source>This page is an honest description of what the product does, written by the people who built it — not a lawyer, and not a substitute for one.</source>
+  <target>Esta página es una descripción honesta de lo que hace el producto, escrita por quienes lo construyeron — no un abogado, ni un sustituto de uno.</target>
+</trans-unit>
+<trans-unit id="s1d707488ea5b1812">
+  <source>Terms of Service</source>
+  <target>Términos de servicio</target>
+</trans-unit>
+<trans-unit id="s4728375134792559">
+  <source>planu is a free product with no paid plan. These terms describe what that means in practice, not a template written for a business model we do not have.</source>
+  <target>planu es un producto gratuito, sin plan de pago. Estos términos describen qué significa eso en la práctica, no una plantilla escrita para un modelo de negocio que no tenemos.</target>
+</trans-unit>
+<trans-unit id="s7504ebf553341267">
+  <source>The service</source>
+  <target>El servicio</target>
+</trans-unit>
+<trans-unit id="saa5c4feee877ccf0">
+  <source>planu lets you create, search and filter your own events, and optionally share individual events with people you invite. It is provided as-is, free of charge, with no service-level guarantee: we have no paid plan and no support contract to promise uptime against.</source>
+  <target>planu te permite crear, buscar y filtrar tus propios eventos, y opcionalmente compartir eventos concretos con las personas que invites. Se ofrece tal cual, de forma gratuita, sin garantía de nivel de servicio: no tenemos plan de pago ni contrato de soporte con el que prometer disponibilidad.</target>
+</trans-unit>
+<trans-unit id="saf1d26b5543b2fb2">
+  <source>You are responsible for the accuracy of what you enter and for keeping your account credentials to yourself. Sharing an event hands the person you invite the role you chose — viewer or editor — and nothing more; you can change or remove that access at any time from the event's share dialog.</source>
+  <target>Eres responsable de la exactitud de lo que introduces y de mantener las credenciales de tu cuenta para ti. Compartir un evento le da a la persona invitada el rol que elegiste —espectador o editor— y nada más; puedes cambiar o retirar ese acceso en cualquier momento desde el diálogo de compartir del evento.</target>
+</trans-unit>
+<trans-unit id="se59685e71cca789a">
+  <source>Acceptable use</source>
+  <target>Uso aceptable</target>
+</trans-unit>
+<trans-unit id="s4c001520bb97f727">
+  <source>Do not use planu to store or share content that is illegal, or that you do not have the right to share with the people you invite. Do not attempt to access another account's data by circumventing the application — the security rules described in our privacy policy exist precisely to stop that, and attempting it is not permitted even where it happens to fail.</source>
+  <target>No uses planu para guardar o compartir contenido ilegal, o que no tengas derecho a compartir con las personas que invites. No intentes acceder a los datos de otra cuenta evitando la aplicación — las reglas de seguridad descritas en nuestra política de privacidad existen precisamente para impedirlo, e intentarlo no está permitido aunque llegue a fallar.</target>
+</trans-unit>
+<trans-unit id="s5b424751e1043b2a">
+  <source>Changes</source>
+  <target>Cambios</target>
+</trans-unit>
+<trans-unit id="sed414e6f28289512">
+  <source>We may change these terms as the product changes. Meaningful changes will be reflected on this page with an updated date at the top.</source>
+  <target>Podemos cambiar estos términos según cambie el producto. Los cambios relevantes se reflejarán en esta página con una fecha actualizada arriba.</target>
+</trans-unit>
+<trans-unit id="s3db8cebe78e1dfa1">
+  <source>Questions about these terms: </source>
+  <target>Preguntas sobre estos términos: </target>
+</trans-unit>
+<trans-unit id="s5c3514e237d3f8ed">
+  <source>This page is an honest description of the product's terms, written by the people who built it — not a lawyer, and not a substitute for one.</source>
+  <target>Esta página es una descripción honesta de los términos del producto, escrita por quienes lo construyeron — no un abogado, ni un sustituto de uno.</target>
+</trans-unit>
+<trans-unit id="s0c18a4ec034540d1">
+  <source>planu uses Firebase Analytics (Google Analytics), which stores a small identifier in your browser to recognise repeat visits. It never contains anything you typed — see our </source>
+  <target>planu usa Firebase Analytics (Google Analytics), que guarda un pequeño identificador en tu navegador para reconocer visitas repetidas. Nunca contiene nada de lo que escribiste — mira nuestra</target>
+</trans-unit>
+<trans-unit id="sbc6953a36ced943f">
+  <source>privacy policy</source>
+  <target>política de privacidad</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
