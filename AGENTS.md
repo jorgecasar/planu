@@ -96,10 +96,14 @@ un salto repentino a miles de errores. Los motivos van aquí, no ahí.
 
 ### Módulos
 
-**ES modules en todo el repo. CommonJS no entra.** Cada `package.json` declara
-`"type": "module"` —también los que se añadan a `packages/`—, de modo que un
-`.js` ya *es* un módulo y **no se usan las extensiones `.mjs` ni `.cjs`**: no
-aportan nada y delatan que el paquete no está bien configurado.
+**ES modules en todo el repo, siempre. CommonJS no entra nunca.** Cada
+`package.json` declara `"type": "module"` —también los que se añadan a
+`packages/`—, así que **la extensión de todo fichero de JavaScript es `.js`,
+sin excepción**: con `"type": "module"` puesto, un `.js` ya *es* un módulo
+ECMAScript, que es el estándar del lenguaje, y no hace falta —ni se usa—
+`.mjs` para decirlo dos veces. Tampoco se usa `.cjs`, porque eso significaría
+que algo en el repo necesita CommonJS, y nada lo necesita. Cualquiera de las
+dos extensiones delata que el paquete no está bien configurado.
 
 Al importar un paquete de terceros que aún distribuya ambos formatos, coge su
 entrada ESM (`exports["."].import`). La de CommonJS obliga a rodeos del tipo
