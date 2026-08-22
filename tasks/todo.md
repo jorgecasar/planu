@@ -1289,11 +1289,24 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     relanzaron en este workspace antes de verificar, a petición explícita
     del usuario.
 
-- [ ] **T53 · Seed: al menos 3 eventos con hora** · XS · sin dependencias
+- [x] **T53 · Seed: al menos 3 eventos con hora** · XS · sin dependencias
   - Acepta: `npm run seed` crea 11 eventos, ≥3 con `allDay: false` y hora
     distinta de `00:00`.
   - Verifica: `npm run seed` y comprobar en la UI.
   - Ficheros: `scripts/seed-emulator.js`
+  - Evidencia: commit `db80384`. `npm run seed` (dos veces, contra los
+    emuladores de este workspace) → «11 eventos: 5 próximos, 2 sin fecha,
+    4 pasados, 3 con hora». Releído con una consulta **autenticada**, sin
+    saltarse las reglas: exactamente 3 documentos con `allDay: false` y
+    hora local distinta de medianoche —Zumba 18:00–19:00, Almuerzo con
+    Ana 13:30–15:30, Concierto de verano 21:00–23:30, en CEST—; los ocho
+    restantes normalizan a medianoche local (`22:00Z` = `00:00` CEST en
+    agosto), igual que hace el editor al guardar un evento de día
+    completo (decisión 5). `npm run lint` en 0.
+  - No se comprobó en la UI real (navegador), por el mismo bloqueo de
+    entorno de T48–T50; la verificación se hizo por API autenticada
+    contra el emulador, que es un sustituto más estricto —pasa por las
+    mismas reglas que verá la interfaz— aunque no confirma el pintado.
 
 - [ ] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
   - Acepta: `events.spec.ts` — crear con hora, reabrir y verla; crear sin hora
