@@ -62,6 +62,67 @@ test("una fecha con hora se respeta tal cual", () => {
 	expect(result.startDate?.getHours()).toBe(21);
 });
 
+// ── allDay: la hora que la IA ya extraía y el editor perdía ─────────────────
+
+test("una fecha con hora pone allDay en false", () => {
+	// Sin esto, el editor mostraba los campos de hora vacíos aunque `startDate`
+	// llevara una hora real —decisión 4 del spec: es la bandera, no el dato en
+	// sí, la que decide si se ven—, así que la extracción de la IA la perdía en
+	// el mismo instante en que la había conseguido.
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Cena", startDate: "2026-06-20T21:00" }),
+	);
+
+	expect(result.allDay).toBe(false);
+});
+
+test("una fecha de sólo día deja allDay en true", () => {
+	const result = parseGeneratedEvent(
+		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
+	);
+
+	expect(result.allDay).toBe(true);
+});
+
+test("sin ninguna fecha, allDay se queda en true", () => {
+	const result = parseGeneratedEvent(JSON.stringify({ title: "Concierto" }));
+
+	expect(result.allDay).toBe(true);
+});
+
+test("con inicio de sólo día y fin con hora, basta que uno de los dos la tenga", () => {
+	// No es habitual, pero el modelo no siempre es consistente entre los dos
+	// campos: si cualquiera trae hora, el evento tiene hora.
+	const result = parseGeneratedEvent(
+		JSON.stringify({
+			title: "Congreso",
+			startDate: "2026-06-20",
+			endDate: "2026-06-22T18:00",
+		}),
+	);
+
+	expect(result.allDay).toBe(false);
+});
+
+test("una fecha de sólo día a medianoche no se confunde con una cita a medianoche", () => {
+	// El motivo por el que allDay se calcula en el parseo y no adivinando por
+	// los componentes del Date resultante después: una fecha ISO de sólo día y
+	// una con hora explícita de 00:00 producen el mismo instante local, pero
+	// significan cosas distintas.
+	const soloDia = parseGeneratedEvent(
+		JSON.stringify({ title: "Feria", startDate: "2026-06-20" }),
+	);
+	const conHoraCero = parseGeneratedEvent(
+		JSON.stringify({
+			title: "Entrega a medianoche",
+			startDate: "2026-06-20T00:00",
+		}),
+	);
+
+	expect(soloDia.allDay).toBe(true);
+	expect(conHoraCero.allDay).toBe(false);
+});
+
 test("lo que no es ISO se descarta en vez de adivinarse", () => {
 	// Lo importante no es que sean null, sino **por qué**: `new Date("June 20")`
 	// devuelve el año 2001, y una fecha así se guarda con un despiste. Vacío es
@@ -200,6 +261,7 @@ test("el modelo no puede colar campos que no se le han pedido", () => {
 	) as unknown as Record<string, unknown>;
 
 	expect(Object.keys(result).sort()).toEqual([
+		"allDay",
 		"description",
 		"endDate",
 		"location",
