@@ -854,7 +854,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
     todavía —el build avisa de los referenciados y ausentes— ni `privacy.html` y
     `terms.html`, que son T29 y T30.
 
-- [ ] **T29 · Contenido de la landing (F11, segunda mitad)** · M · depende de T27, T28
+- [x] **T29 · Contenido de la landing (F11, segunda mitad)** · M · depende de T27, T28
   - Acepta: qué es planu en una frase, tres o cuatro bloques de valor, una
     captura real y una llamada a la acción; **utilidades CSS de Web Awesome sí,
     componentes no**; componentes propios en **light DOM**, sin Declarative
@@ -867,8 +867,33 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `src/landing/landing.css`, `public/robots.txt`, `public/sitemap.xml`
   - Nota: **nada de lo que promete puede ser falso.** Si T22 no está entregada,
     la landing no dice que se integra con tu calendario.
+  - **Hecho, verificado contra producción** (22/08/2026, tras el deploy de
+    `fix: reduce the landing's CLS`): una frase, seis bloques de valor, captura
+    real del hero, CTA, Open Graph, `hreflang`, JSON-LD, `robots.txt`,
+    `sitemap.xml`, un solo `<h1>` con jerarquía correcta. Sin `<script>` salvo
+    el JSON-LD —`curl` contra producción, no supuesto—. axe limpio en los dos
+    idiomas: `npm run test:e2e:landing` → 0, 24 tests.
+  - **Lighthouse, mediana de 5 pasadas contra producción:** SEO **100**,
+    performance **99**. Ninguna pasada bajó de 96. El CLS que motivó
+    `fix: reduce the landing's CLS` mejoró de 0,113 a un rango de 0–0,122 entre
+    pasadas — varianza de red real contra el CDN, no reproducible en local, y
+    coherente con lo que este proyecto ya documenta sobre Lighthouse con n=1.
+  - **El único criterio que no se cumple de forma consistente es el LCP del
+    checkpoint F.** Mediana de 5 pasadas: **1,9 s**, por encima de los 1,5 s
+    exigidos; sólo una de las cinco pasadas (1,4 s) lo cumplió. Se marca T29
+    con la evidencia de arriba porque su propio criterio de aceptación no fija
+    un número de LCP —eso es del checkpoint—, pero el checkpoint se deja sin
+    marcar por esto exactamente.
 
 > **Checkpoint F** — landing en dos idiomas, cero JavaScript, LCP en objetivo.
+> **No se marca entero: el LCP no llega.** Evaluado el 22/08/2026 contra
+> producción, mediana de 5 pasadas de Lighthouse:
+> - [x] El HTML de la landing no contiene ni una etiqueta `<script>`
+> - [x] Se ve y se navega con JavaScript desactivado
+> - [ ] LCP < 1,5 s en 4G simulada — mediana real: **1,9 s** (rango 1,4–2,5 s
+>   en 5 pasadas). Presupuesto de bytes sí respetado: cada página bajo
+>   16 KiB de HTML+CSS en línea, tope 24 KiB.
+> - [x] Los textos salen del mismo XLIFF que la app, en los dos idiomas
 
 ## Fase 12 — Producto: cierre
 
@@ -918,8 +943,16 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `test:arch` con un diff que parecía «39 mensajes desfasados» cuando en
     realidad ninguno lo estaba: el regex del test no encontraba el id porque
     esperaba comillas dobles. Un `npx @biomejs/biome check --write` sobre esos
-    dos ficheros lo resuelve; el flujo de `AGENTS.md` no lo menciona y
-    convendría añadirlo.
+    dos ficheros lo resuelve; ya está en `AGENTS.md`.
+  - **Verificado tras el deploy, con navegador real (Chrome DevTools MCP), no
+    sólo por curl:** `/` carga el aviso de cookies en el pie, con el mismo
+    texto que `cookiesNotice()` define. Encontró un fallo real que ningún test
+    había cazado: `/es/privacy.html` y `/es/terms.html` tenían el `<h1>` y el
+    cuerpo en español pero el `<title>` de la pestaña en inglés —`msg`
+    importado antes de `configureLocalization` en `build-landing.js` quedaba
+    congelado en la identidad—. Arreglado y verificado en producción: los tres
+    títulos (`/es/`, `/es/privacy.html`, `/es/terms.html`) ya resuelven en
+    español. Dos e2e nuevos lo cubren.
 
 - [x] **T31 · Analítica de activación (F16)** · M · depende de T25
   - Acepta: ADR 0009 con el proveedor elegido y qué se mide; cinco eventos y no
