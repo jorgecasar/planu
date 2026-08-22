@@ -1435,7 +1435,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     —el editor no ofrece día completo sin fin, decisión 4 del spec—.
     `npm run typecheck` y `npm run lint` en 0.
 
-- [ ] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
+- [x] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
   - Acepta: fila `.dates` con cuatro `wa-input` (date, time, date, time);
     `toInputTime` para rellenar hora; `enterkeyhint="done"` en hora de fin;
     escribir hora pone `allDay: false`; borrar las dos horas pone `allDay:
@@ -1445,6 +1445,53 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     crear «Cena 4 jul 19:30–23:00», reabrir y ver las horas; crear «Vacaciones
     1–15 ago» sin horas y no ver ninguna.
   - Ficheros: `apps/web/src/events/event-editor.ts`
+  - Evidencia: `npm run typecheck`, `npm run lint`, `npm run lint:lit` y
+    `npm run test:arch` en 0. Sigue la regla de las capas de `AGENTS.md`:
+    `event-editor.ts` migró a `EventRepositoryPort` e `ImageStorePort`
+    (nuevos, en `application/ports/` con adaptador en
+    `infrastructure/firebase/`), así que ya no importa `firebase/firestore`
+    ni `firebase/storage`. Se queda en la lista de exenciones de
+    `biome.json` por un motivo distinto y no relacionado —`firebase/app` +
+    el import dinámico de `firebase/ai` de la sugerencia de etiquetas con
+    IA (T24)—, así que `arch/boundary.test.ts` **sube** `TOPE_ACOPLADOS` de
+    21 a 23 en vez de bajarlo; la excepción está documentada en el
+    comentario del propio test, con el porqué.
+  - **Verificado en CI** (491/491 unitarios, `test:e2e` en 0), no en esta
+    sesión: el modo browser de Vitest se queda colgado aquí para cualquier
+    fichero, entorno aparte —ver el histórico de esa incidencia en
+    commits anteriores de esta rama—. La CI encontró dos fallos reales que
+    ninguna revisión manual había visto:
+    - `fakeRepository().update()` no registraba la llamada en `calls`,
+      así que «borrar las dos horas devuelve el evento a día completo»
+      pasaba con cero llamadas verificadas en vez de una. Corregido.
+    - El primer intento de e2e fallaba con `PERMISSION_DENIED` al crear
+      cualquier evento: no era un bug de T48, sino que esta tarea depende
+      de T51 (guardar `allDay` exige que las reglas lo acepten en
+      `hasOnly`) sin que esa dependencia estuviera anotada aquí arriba.
+      Con T51 fusionado en `main`, la CI pasa.
+    Revisión con `code-reviewer`/`security-auditor`/`test-engineer` (los
+    tres en paralelo) encontró y se corrigió además: `allDay` se
+    calculaba sólo de las dos horas, sin mirar si había alguna fecha —una
+    hora sin fecha propia guardaba `allDay: false` con ambas fechas
+    `null`, contradiciendo que «sin fecha, `allDay` no significa nada» del
+    spec; comentarios en español en los cuatro ficheros nuevos de
+    puerto/adaptador; `FirebaseImageStore.upload()` duplicaba la lógica de
+    `uploadFile()` en vez de delegar en ella; y los adaptadores reales
+    (`FirebaseEventRepository`, `FirebaseImageStore`) no tenían ningún
+    test, pese a que el propio `AGENTS.md` señala que ésa es la razón de
+    ser de un puerto —poder probar la lógica sin emuladores—, siguiendo el
+    patrón ya usado en `session-adapter.test.ts`/`analytics-adapter.test.ts`.
+    Se añadieron tests para ambos adaptadores, para `uploadFile()` (incluido
+    el saneado de `file.name`, hallazgo de baja severidad de la auditoría de
+    seguridad) y cinco tests nuevos en `event-editor.test.ts`: la dirección
+    simétrica del toggle de `allDay` (sólo hora de fin), el caso de hora sin
+    fecha, un reabrir con una sola hora guardada, y el cableado
+    `wasFirstEvent` → `trackFirstEventCreated()` en ambos sentidos. Esos tres
+    ficheros de test nuevos (`event-repository.test.ts`, `image-store.test.ts`,
+    `firebase/storage.test.ts`) sólo necesitan un import de tipo para mockear
+    el SDK —igual que `analytics-adapter.test.ts`—, pero un import de tipo
+    sigue siendo un import: `TOPE_ACOPLADOS` **sube** otra vez, de 23 a 26,
+    documentado en el mismo comentario de `boundary.test.ts`.
 
 - [x] **T49 · month-grid: ordena con `sortEvents` y pinta hora en celda** · S · depende de T46, T47
   - Acepta: `buildMonthGrid` llama a `sortEvents` antes de repartir; cada celda
@@ -1589,6 +1636,14 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >
 > **Checkpoint II** — tras T48: editor crea y reabre con hora; sin hora no
 > muestra ninguna.
+>
+> - [x] Automatizado: `npm test events/event-editor.test.ts` en 0 vía CI
+>   (491/491 en la suite completa) y `npm run test:e2e` en 0 —ver la
+>   evidencia de T48 arriba, incluidos los dos fallos reales que la CI
+>   encontró y se corrigieron—.
+> - [ ] Sin marcar: la prueba manual de «Cena 4 jul 19:30–23:00, reabrir y
+>   ver las horas» y «Vacaciones 1–15 ago sin horas y no ver ninguna» exige
+>   una persona en un navegador real; ningún agente la cierra.
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.
