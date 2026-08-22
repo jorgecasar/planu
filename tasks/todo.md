@@ -1251,15 +1251,17 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     sin ningún cambio. `npm run typecheck`, `npm run lint`, `npm run
     lint:lit` y `npm run test:arch` en 0. `localize:extract`/`build` para
     los dos textos nuevos («From time», «To time»), traducidos.
-  - **No verificado con la suite en modo navegador**, mismo bloqueo de
-    entorno que T48/T49 (reconfirmado en este fichero). Los cinco tests
-    nuevos de `event-filters.test.ts` —los cuatro campos, hora vacía = día
-    entero, una hora combinada con su fecha, limpiar borra las dos horas—
-    se trazaron a mano contra `handleChange()`/`relayNativeEvent()` reales
-    de `WaInput` (leídos en `node_modules`): en producción el `change` del
-    `<input>` interno se reemite desde el propio host `wa-input` con
-    `.value` ya sincronizado, que es justo lo que simulan disparando el
-    evento sobre el host directamente.
+  - Los cinco tests unitarios de `event-filters.test.ts` —los cuatro
+    campos, hora vacía = día entero, una hora combinada con su fecha,
+    limpiar borra las dos horas— se trazaron a mano contra
+    `handleChange()`/`relayNativeEvent()` reales de `WaInput` (leídos en
+    `node_modules`), sin ejecutarlos en modo navegador. **Complementado con
+    evidencia real**: tras resolver la causa raíz de los bloqueos de esta
+    sesión (ver T54), se añadió y ejecutó de verdad el e2e «el rango con
+    hora coge la cena de las 19:30 y no la de las 21:00» —commit
+    `88d1495`, contra Playwright y los emuladores, en verde en tres
+    pasadas completas de `views.spec.ts`—, que es el criterio de
+    aceptación literal de esta tarea.
 
 - [x] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
   - Acepta: `allDay` en `keys().hasOnly([...])`; `(!('allDay' in d) || d.allDay
@@ -1308,7 +1310,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     contra el emulador, que es un sustituto más estricto —pasa por las
     mismas reglas que verá la interfaz— aunque no confirma el pintado.
 
-- [ ] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
+- [x] **T54 · E2E: editor, vistas, exportación, IA** · M · depende de T48, T49, T50
   - Acepta: `events.spec.ts` — crear con hora, reabrir y verla; crear sin hora
     y no verla. `views.spec.ts` — hora visible en agenda y mes. `calendar-
     export.spec.ts` — `.ics` descargado lleva `DTSTART:` con hora. `ai.spec.ts`
@@ -1316,6 +1318,31 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm run test:e2e` en 0.
   - Ficheros: `apps/web/e2e/events.spec.ts`, `views.spec.ts`,
     `calendar-export.spec.ts`, `ai.spec.ts`
+  - Evidencia: commit `b77b46c`, contra Playwright y emuladores reales, no
+    trazado a mano: `events.spec.ts` 28/28, `views.spec.ts` 14/14,
+    `calendar-export.spec.ts` 6/6, `ai.spec.ts` 6/6, **suite e2e completa
+    75/75**. Ninguno de los 14 tests nuevos de hora falló en su primera
+    ejecución en ninguna pasada; las intermitencias vistas (siempre en
+    `signUp`, nunca en un test de hora) se confirmaron como inestabilidad
+    del emulador de Auth bajo carga de esta sesión, reproduciendo cada una
+    en verde al reintentarla aislada.
+  - **Encontrado y arreglado un bug real al escribir el primer e2e**:
+    `toEvent()` en `events-view.ts` no leía `document.allDay` antes de
+    pasarlo a `eventSchema().safeParse()`; con `allDay: z.boolean()
+    .default(true)`, todo evento leído volvía `allDay: true` sin importar
+    lo guardado. La vía de escritura (T48) era correcta; sólo la lectura
+    perdía el campo, y ningún unitario lo detectó porque cada uno prueba
+    un lado del viaje de ida y vuelta por separado.
+  - Nota de sesión, relevante para T48–T50 también: la causa raíz de los
+    bloqueos de esta sesión (modo navegador de Vitest colgado, y
+    `test:e2e` resolviendo vite/playwright del checkout padre) era que
+    este worktree no tenía `node_modules` propio, sólo caché de Vite. Se
+    resolvió con `npm install` en el worktree, copiando `.env.local` del
+    checkout principal (no es secreto, viaja en el bundle) y relanzando
+    emuladores y `npm run dev` en este workspace. El modo navegador de
+    Vitest sigue colgado tras esto —problema distinto, ya documentado en
+    `AGENTS.md`—, pero `test:e2e` ya corre de verdad contra el código de
+    esta rama.
 
 - [ ] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
   - Acepta: `docs/adr/0008-all-day-flag-y-zona-horaria.md` cierra la decisión de
@@ -1348,26 +1375,28 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 > **Checkpoint II** — tras T48: editor crea y reabre con hora; sin hora no
 > muestra ninguna.
 >
-> - [ ] Sin marcar: exige una persona en un navegador real o los emuladores
->   levantados, ninguno disponible en esta sesión. El código y su lógica
->   están trazados a mano (ver la evidencia de T48 arriba) y las ocho
->   pruebas de `event-editor.test.ts` escritas, pero **ninguna se ha
->   ejecutado**: el modo browser de Vitest se cuelga en esta sesión, en
->   cualquier fichero, no sólo en éste. Falta: `npm test
->   events/event-editor.test.ts` en 0, y la prueba manual de «Cena 4 jul
->   19:30–23:00» y «Vacaciones 1–15 ago».
+> - [x] Cerrado con evidencia real, no trazada a mano: la sesión que dejó
+>   este checkpoint sin marcar no tenía emuladores ni navegador
+>   disponibles. Se resolvió la causa raíz (ver la nota de sesión en T54:
+>   el worktree no tenía `node_modules` propio) y se ejecutó
+>   `events.spec.ts` contra Playwright y los emuladores reales — «crear un
+>   evento con hora, reabrirlo y ver la hora puesta» y «crear un evento
+>   sin hora no muestra ninguna al reabrirlo», ambos en verde, commit
+>   `b77b46c`. `events/event-editor.test.ts` (modo navegador de Vitest)
+>   sigue sin poder ejecutarse —problema distinto, ya documentado en
+>   `AGENTS.md`—, pero el criterio de este checkpoint queda cumplido por
+>   el e2e, que ejercita el mismo camino de extremo a extremo.
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.
 >
-> - [ ] Sin marcar: por el mismo motivo que el Checkpoint II — exige un
->   navegador real o los emuladores, ninguno disponible en esta sesión.
->   T49 y T50 tienen su código trazado a mano (ver evidencia arriba) y
->   sus tests unitarios escritos, pero ninguno se ha ejecutado: el modo
->   browser de Vitest sigue colgado en cualquier fichero de esta sesión.
->   Falta: `npm test calendar/calendar-view.test.ts
->   events/event-filters.test.ts` en 0, y la prueba manual de rango
->   19:00–20:00 con las cenas de las 19:30 y las 21:00.
+> - [x] Cerrado con evidencia real, mismo motivo que el Checkpoint II.
+>   `views.spec.ts` cubre hora visible en la celda del mes (sólo el día de
+>   inicio, orden por hora) y en la agenda (heredada de la tarjeta); el
+>   filtro de rango con hora tiene su e2e propio, commit `88d1495`, en
+>   verde en tres pasadas completas. `calendar/calendar-view.test.ts` y
+>   `events/event-filters.test.ts` (modo navegador de Vitest) siguen sin
+>   poder ejecutarse por el mismo problema distinto que el Checkpoint II.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
 > `arch/boundary.test.ts` en 22.
