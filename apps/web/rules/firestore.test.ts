@@ -916,6 +916,53 @@ describe("tags cannot be used to pad a document", () => {
 	});
 });
 
+describe("allDay is typed but not required (T51/T52)", () => {
+	const allDay = (value: unknown) => anEvent(VICTIM, { allDay: value });
+
+	test("an event without allDay is still valid", async () => {
+		// Every event written before this feature lacks the field. Requiring it
+		// would make every existing event uneditable, which is why `allDay` is
+		// in `hasOnly` but not in `hasAll` — same reasoning as `tags`. The
+		// client's Zod schema supplies `default(true)` on read.
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), anEvent(VICTIM)),
+		);
+	});
+
+	test("true and false are both accepted", async () => {
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), allDay(true)),
+		);
+		await assertSucceeds(
+			addDoc(collection(asVictim(), "events"), allDay(false)),
+		);
+	});
+
+	test("a string is denied, even the literal 'true'", async () => {
+		await assertFails(addDoc(collection(asVictim(), "events"), allDay("true")));
+	});
+
+	test("a number is denied", async () => {
+		await assertFails(addDoc(collection(asVictim(), "events"), allDay(1)));
+	});
+
+	test("null is denied: unlike startDate and endDate, this field has no null case", async () => {
+		await assertFails(addDoc(collection(asVictim(), "events"), allDay(null)));
+	});
+
+	test("an editor may flip allDay: it is content", async () => {
+		await assertSucceeds(
+			updateDoc(doc(asEditor(), "events/shared-event"), { allDay: false }),
+		);
+	});
+
+	test("a viewer cannot set allDay at all", async () => {
+		await assertFails(
+			updateDoc(doc(asViewer(), "events/shared-event"), { allDay: false }),
+		);
+	});
+});
+
 // ─── What an editor may write, pinned as a set ──────────────────────────────
 //
 // `changesContentOnly()` is a blacklist: it names the four fields an editor may
@@ -936,6 +983,7 @@ describe("the set an editor may write is pinned", () => {
 			"https://firebasestorage.googleapis.com/v0/b/planu-app/o/events%2Fy.png?alt=media&token=abc",
 		],
 		["tags", ["concierto"]],
+		["allDay", false],
 	];
 
 	/**

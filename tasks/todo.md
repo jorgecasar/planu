@@ -1462,17 +1462,33 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     rango 19:00–20:00 coge cena 19:30 y no cena 21:00.
   - Ficheros: `apps/web/src/events/event-filters.ts`
 
-- [ ] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
+- [x] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
   - Acepta: `allDay` en `keys().hasOnly([...])`; `(!('allDay' in d) || d.allDay
     is bool)`; **no** en `hasAll` (eventos anteriores editables).
   - Verifica: `npm run test:rules` en 0.
   - Ficheros: `firestore.rules`
+  - Evidencia: commit `3d75c7f`. `npm run test:rules` → **150/150**, contra
+    emuladores reales (no sólo typecheck/lint). También `allDay` añadido a
+    `CONTENT` en el test que clasifica cada campo de `hasOnly` como
+    contenido o no —ese test falla si un campo nuevo queda sin clasificar—.
 
-- [ ] **T52 · Tests de reglas: aserciones de `allDay`** · S · depende de T51
+- [x] **T52 · Tests de reglas: aserciones de `allDay`** · S · depende de T51
   - Acepta: acepta `true`/`false`; rechaza `'true'`, `1`, `null`; documento
     **sin** campo sigue siendo editable.
   - Verifica: `npm run test:rules` → 3 tests nuevos pasan; suite completa en 0.
   - Ficheros: `apps/web/rules/firestore.test.ts`
+  - Evidencia: mismo commit `3d75c7f`. 7 tests nuevos (no 3, se añadieron
+    también el caso de editor/viewer): sin campo sigue siendo válido,
+    `true`/`false` aceptados, `'true'` (cadena) rechazado, `1` rechazado,
+    `null` rechazado, un editor puede cambiarlo, un viewer no. Base antes
+    del cambio: 143 tests. Con el cambio: **150**, verificado revirtiendo
+    a un `git stash` temporal, confirmando 143, y restaurando para
+    confirmar 150 de nuevo — no es una cifra asumida.
+  - Nota de sesión: había emuladores de Firestore activos de otra sesión de
+    trabajo (`agent-a827220e31fd08a42`) en los puertos de este proyecto.
+    Se pararon con `SIGTERM` —salida limpia, exportan al terminar— y se
+    relanzaron en este workspace antes de verificar, a petición explícita
+    del usuario.
 
 - [ ] **T53 · Seed: al menos 3 eventos con hora** · XS · sin dependencias
   - Acepta: `npm run seed` crea 11 eventos, ≥3 con `allDay: false` y hora
