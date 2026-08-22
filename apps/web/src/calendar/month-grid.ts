@@ -1,3 +1,4 @@
+import { type SortPreference, sortEvents } from "../domain/sort-events.js";
 import type { PlanuEvent } from "../lib/types.js";
 
 /**
@@ -329,19 +330,29 @@ export interface MonthGrid<T> {
  *
  * Genérica para no perder por el camino nada que el llamante haya colgado del
  * evento, como el `id` que trae de Firestore.
+ *
+ * **Ordena con `sortEvents` antes de repartir** (T49 del spec de horas): con
+ * día suelto casi no se notaba, pero con hora dos eventos del mismo día
+ * salían en el orden que hubiera devuelto Firestore, que es una lista de
+ * horas desordenadas. Es una propiedad de la rejilla, igual que ya hacen
+ * `groupEvents` y `buildAgenda`; quien llama no tiene que ordenar antes.
  */
 export function buildMonthGrid<T extends PlanuEvent>(
 	events: readonly T[],
 	month: Date,
 	locale?: string,
 	today: Date = new Date(),
+	sort?: SortPreference,
 ): MonthGrid<T> {
 	const year = month.getFullYear();
 	const monthIndex = month.getMonth();
 
 	// Una sola vez y para todo el camino: si la etiqueta no vale, se usa la del
-	// entorno en los cuatro formateadores **y** en el primer día de la semana.
+	// entorno en los cuatro formateadores, en el primer día de la semana **y**
+	// en el orden alfabético de `sortEvents` — un locale mal formado no debe
+	// hacer que ordenar reviente donde el resto de la función ya se protegía.
 	const tag = safeLocale(locale);
+	const sorted = sortEvents(events, sort, tag);
 
 	// Al mediodía por el mismo motivo que las celdas: es fecha pública.
 	const first = new Date(year, monthIndex, 1, 12);
@@ -371,7 +382,7 @@ export function buildMonthGrid<T extends PlanuEvent>(
 	windowEndDate.setDate(windowEndDate.getDate() - lead + weekCount * 7 - 1);
 	const windowEnd = dayKey(windowEndDate);
 
-	const spans = events.map(
+	const spans = sorted.map(
 		(event) => [event, eventSpan(event, windowEnd, todayKey)] as const,
 	);
 

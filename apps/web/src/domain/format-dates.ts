@@ -42,6 +42,16 @@ const TIME_FORMAT: Intl.DateTimeFormatOptions = {
 	minute: "numeric",
 };
 
+/**
+ * Sólo la hora, en el reloj de 12 o 24 horas que decida el locale.
+ *
+ * Para la celda de la rejilla mensual (T49): ahí no cabe la fecha completa de
+ * `formatEventDates`, sólo la hora delante del título.
+ */
+export function formatEventTime(date: Date, locale?: string): string {
+	return new Intl.DateTimeFormat(locale, TIME_FORMAT).format(date);
+}
+
 /** Mismo día local, para no repetir la fecha en un evento de una tarde. */
 function sameDay(a: Date, b: Date): boolean {
 	return (

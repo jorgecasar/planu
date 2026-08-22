@@ -458,6 +458,8 @@ export class PlanuEventsView extends LitElement {
 			return html`<planu-calendar-view
 				heading-level="2"
 				.events=${visible}
+				.sort=${this.sort}
+				.locale=${locale}
 			></planu-calendar-view>`;
 		}
 

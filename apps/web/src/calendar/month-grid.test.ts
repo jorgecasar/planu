@@ -375,7 +375,12 @@ test("un evento con el fin antes del inicio se colapsa al día de inicio", () =>
 	expect(titlesOn(grid, 20260605)).toEqual([]);
 });
 
-test("la celda conserva el orden en que llegaron los eventos", () => {
+test("la celda ordena con sortEvents, no con el orden de llegada (T49)", () => {
+	// Antes de T49 la rejilla no ordenaba y dos eventos del mismo día salían
+	// en el orden que hubiera devuelto Firestore. Con día suelto casi no se
+	// notaba; con hora es una lista de horas desordenadas. El desempate por
+	// defecto —sin hora que distinga— es alfabético, igual que en
+	// `groupEvents` y `buildAgenda`.
 	const grid = buildMonthGrid(
 		[
 			event("Segundo", "2026-06-10"),
@@ -386,7 +391,32 @@ test("la celda conserva el orden en que llegaron los eventos", () => {
 		"es",
 	);
 
-	expect(titlesOn(grid, 20260610)).toEqual(["Segundo", "Primero", "Tercero"]);
+	expect(titlesOn(grid, 20260610)).toEqual(["Primero", "Segundo", "Tercero"]);
+});
+
+test("dos eventos del mismo día salen ordenados por hora, y al revés con el orden invertido", () => {
+	const eventos = [
+		event("Tarde", "2026-06-10T18:00"),
+		event("Temprano", "2026-06-10T09:00"),
+	];
+
+	const ascendente = buildMonthGrid(
+		eventos,
+		local("2026-06-15"),
+		"es",
+		local("2026-06-15"),
+		{ field: "startDate", direction: "asc" },
+	);
+	expect(titlesOn(ascendente, 20260610)).toEqual(["Temprano", "Tarde"]);
+
+	const descendente = buildMonthGrid(
+		eventos,
+		local("2026-06-15"),
+		"es",
+		local("2026-06-15"),
+		{ field: "startDate", direction: "desc" },
+	);
+	expect(titlesOn(descendente, 20260610)).toEqual(["Tarde", "Temprano"]);
 });
 
 test("hoy se marca en su celda y en ninguna otra", () => {

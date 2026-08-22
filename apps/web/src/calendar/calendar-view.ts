@@ -3,6 +3,8 @@ import "@awesome.me/webawesome/dist/components/details/details.js";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { formatEventTime } from "../domain/format-dates.js";
+import type { SortPreference } from "../domain/sort-events.js";
 import { getLocale } from "../i18n/localization.js";
 import type { StoredEvent } from "../lib/types.js";
 import {
@@ -183,6 +185,13 @@ export class PlanuCalendarView extends LitElement {
 	@property() locale = "";
 
 	/**
+	 * Cómo ordenar dentro de cada celda. El mismo criterio que agenda y
+	 * tarjetas, para que un congreso de tres días no salga en un orden en la
+	 * rejilla y en otro en la agenda.
+	 */
+	@property({ attribute: false }) sort: SortPreference | undefined;
+
+	/**
 	 * Nivel del encabezado del mes. `0` —el valor por defecto— deja un párrafo.
 	 *
 	 * El nivel no puede fijarse aquí: depende de dónde se monte la rejilla, y en
@@ -234,7 +243,13 @@ export class PlanuCalendarView extends LitElement {
 
 	override render() {
 		const locale = this.locale || getLocale();
-		const grid = buildMonthGrid(this.events, this.month, locale, this.today);
+		const grid = buildMonthGrid(
+			this.events,
+			this.month,
+			locale,
+			this.today,
+			this.sort,
+		);
 		const focusKey = dayKey(this.focused);
 
 		return html`
@@ -273,7 +288,7 @@ export class PlanuCalendarView extends LitElement {
 				${grid.weeks.map(
 					(week) => html`
 						<div class="row" role="row">
-							${week.map((cell) => this.#renderCell(cell, focusKey))}
+							${week.map((cell) => this.#renderCell(cell, focusKey, locale))}
 						</div>
 					`,
 				)}
@@ -349,13 +364,26 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	/**
+	 * La hora delante del título, o nada.
+	 *
+	 * Sólo si el evento tiene hora (`!allDay`) y sólo el día en que **empieza**:
+	 * un congreso de tres días no repite «9:00» en los otros dos, porque ahí no
+	 * es cuándo ocurre, es sólo un día en el que sigue en curso.
+	 */
+	#eventTime(event: StoredEvent, cellKey: number, locale: string): string {
+		if (event.allDay || !event.startDate) return "";
+		if (dayKey(event.startDate) !== cellKey) return "";
+		return formatEventTime(event.startDate, locale);
+	}
+
+	/**
 	 * Una celda.
 	 *
 	 * La fecha completa va como primer contenido y oculta a la vista, no como
 	 * `aria-label`: la etiqueta taparía los títulos de los eventos, y entonces el
 	 * lector diría el día pero no lo que pasa en él.
 	 */
-	#renderCell(cell: MonthCell<StoredEvent>, focusKey: number) {
+	#renderCell(cell: MonthCell<StoredEvent>, focusKey: number, locale: string) {
 		return html`
 			<div
 				role="gridcell"
@@ -370,7 +398,10 @@ export class PlanuCalendarView extends LitElement {
 				${
 					cell.events.length > 0
 						? html`<ul>
-								${cell.events.map((event) => html`<li>${event.title}</li>`)}
+								${cell.events.map((event) => {
+									const time = this.#eventTime(event, cell.key, locale);
+									return html`<li>${time ? `${time} ` : ""}${event.title}</li>`;
+								})}
 							</ul>`
 						: nothing
 				}
