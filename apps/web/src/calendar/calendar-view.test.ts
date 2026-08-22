@@ -15,7 +15,13 @@ function local(text: string): Date {
 	return new Date(text.includes("T") ? text : `${text}T12:00`);
 }
 
-function event(id: string, title: string, start: string, end?: string) {
+function event(
+	id: string,
+	title: string,
+	start: string,
+	end?: string,
+	allDay = true,
+) {
 	return {
 		id,
 		title,
@@ -23,7 +29,7 @@ function event(id: string, title: string, start: string, end?: string) {
 		endDate: end ? local(end) : null,
 		memberIds: [],
 		roles: {},
-		allDay: true,
+		allDay,
 		tags: [],
 	} satisfies StoredEvent;
 }
@@ -304,6 +310,71 @@ test("los eventos se pintan como entradas compactas en su día", async () => {
 	// And the one that crosses the month's edge is also in the filler cells.
 	const july = cells(el).find((cell) => cell.dataset["key"] === "20260701");
 	expect(july?.textContent).toContain("Congreso");
+
+	el.remove();
+});
+
+// ── Order and hour in the cell (T49) ────────────────────────────────────────
+
+test("dos eventos con hora salen ordenados por hora dentro de la celda", async () => {
+	const el = await mount((view) => {
+		view.events = [
+			event("1", "Tarde", "2026-06-10T18:00", undefined, false),
+			event("2", "Temprano", "2026-06-10T09:00", undefined, false),
+		];
+	});
+	const tenth = cells(el).find((cell) => cell.dataset["key"] === "20260610");
+
+	expect(
+		[...(tenth?.querySelectorAll("li") ?? [])].map((item) => item.textContent),
+	).toEqual(["9:00 Temprano", "18:00 Tarde"]);
+
+	el.remove();
+});
+
+test("el orden se invierte cuando la vista pide el orden contrario", async () => {
+	const el = await mount((view) => {
+		view.events = [
+			event("1", "Tarde", "2026-06-10T18:00", undefined, false),
+			event("2", "Temprano", "2026-06-10T09:00", undefined, false),
+		];
+		view.sort = { field: "startDate", direction: "desc" };
+	});
+	const tenth = cells(el).find((cell) => cell.dataset["key"] === "20260610");
+
+	expect(
+		[...(tenth?.querySelectorAll("li") ?? [])].map((item) => item.textContent),
+	).toEqual(["18:00 Tarde", "9:00 Temprano"]);
+
+	el.remove();
+});
+
+test("un evento de día completo no muestra ninguna hora en su celda", async () => {
+	const el = await mount((view) => {
+		view.events = [event("1", "Feria", "2026-06-10", undefined, true)];
+	});
+	const tenth = cells(el).find((cell) => cell.dataset["key"] === "20260610");
+
+	expect(tenth?.querySelector("li")?.textContent).toBe("Feria");
+
+	el.remove();
+});
+
+test("un congreso de varios días sólo muestra la hora en el día en que empieza", async () => {
+	const el = await mount((view) => {
+		view.events = [
+			event("1", "Congreso", "2026-06-10T09:00", "2026-06-12T18:00", false),
+		];
+		view.month = local("2026-06-15");
+	});
+
+	const start = cells(el).find((cell) => cell.dataset["key"] === "20260610");
+	const middle = cells(el).find((cell) => cell.dataset["key"] === "20260611");
+	const end = cells(el).find((cell) => cell.dataset["key"] === "20260612");
+
+	expect(start?.querySelector("li")?.textContent).toBe("9:00 Congreso");
+	expect(middle?.querySelector("li")?.textContent).toBe("Congreso");
+	expect(end?.querySelector("li")?.textContent).toBe("Congreso");
 
 	el.remove();
 });
