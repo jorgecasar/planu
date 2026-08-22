@@ -20,7 +20,11 @@ export function uploadFile(
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
 		// Unique name so two simultaneous uploads don't clobber each other.
-		const fileName = `${Date.now()}_${file.name}`;
+		// The original name is sanitized, not trusted: it's user-controlled,
+		// and a `/` in it would add path segments the Storage rules don't
+		// expect instead of escaping them (the SDK doesn't resolve `..`).
+		const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+		const fileName = `${Date.now()}_${safeName}`;
 		const task = uploadBytesResumable(
 			ref(storage, `${path}/${fileName}`),
 			file,

@@ -18,6 +18,8 @@ import {
 	noopAnalytics,
 } from "../application/ports/analytics.js";
 import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
+import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
+import { FirebaseImageStore } from "../infrastructure/firebase/image-store.js";
 import {
 	FirebaseSessionAdapter,
 	toSessionUser,
@@ -25,7 +27,9 @@ import {
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
+	eventRepositoryContext,
 	firestoreContext,
+	imageStoreContext,
 	sessionContext,
 	storageContext,
 	userContext,
@@ -137,11 +141,19 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	readonly #storage = new ContextProvider(this, { context: storageContext });
 
-	// `noopAnalytics` de partida: la analítica no depende de la sesión, así
-	// que no hay un estado "aún comprobando" que distinguir como en `#user`.
+	// `noopAnalytics` up front: analytics doesn't depend on the session, so
+	// there's no "still checking" state to distinguish, unlike `#user`.
 	readonly #analytics = new ContextProvider(this, {
 		context: analyticsContext,
 		initialValue: noopAnalytics,
+	});
+
+	readonly #eventRepository = new ContextProvider(this, {
+		context: eventRepositoryContext,
+	});
+
+	readonly #imageStore = new ContextProvider(this, {
+		context: imageStoreContext,
 	});
 
 	#unsubscribe: (() => void) | undefined;
@@ -189,6 +201,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			const { firestore, storage } = await loadDataServices(this.#core.app);
 			this.#firestore.setValue(firestore);
 			this.#storage.setValue(storage);
+			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
+			this.#imageStore.setValue(new FirebaseImageStore(storage));
 
 			// Publishing the directory entry is what lets other people find this
 			// user by email when inviting them. It is not essential to using the
