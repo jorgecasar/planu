@@ -1491,7 +1491,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/build-ics.test.ts` en 0; test explícito de
     documento sin `allDay` → `VALUE=DATE`.
   - Ficheros: `apps/web/src/domain/build-ics.ts`
-  - Evidencia: commit `e477b61`. `TZ=America/Santiago npx vitest run
+  - Evidencia: `TZ=America/Santiago npx vitest run
     src/domain/build-ics.test.ts --browser.enabled=false` → 34/34 en 0,
     incluidos los dos tests nuevos («allDay: false a medianoche sale con
     hora» y «sin el campo allDay se lee como día completo»). `google-
@@ -1508,7 +1508,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/sort-events.test.ts` en 0; test explícito:
     evento de día completo hoy → grupo `upcoming` a las 23:59.
   - Ficheros: `apps/web/src/domain/sort-events.ts`
-  - Evidencia: commit `d3bc6f3`, aparte de cualquier otro cambio por ser
+  - Evidencia: en su propio commit, aparte de cualquier otro cambio por ser
     comportamiento visible. `TZ=America/Santiago npx vitest run
     src/domain/sort-events.test.ts src/calendar/agenda-days.test.ts
     --browser.enabled=false` → 53/53 en 0, incluidos los dos tests nuevos de
@@ -1583,24 +1583,19 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test calendar/month-grid.test.ts` en 0; test: dos eventos
     mismo día salen ordenados por hora; con orden inverso salen al revés.
   - Ficheros: `apps/web/src/calendar/month-grid.ts`
-  - Evidencia: commit `34237f7`. `TZ=America/Santiago npx vitest run
-    src/calendar/month-grid.test.ts src/domain/sort-events.test.ts
-    src/calendar/agenda-days.test.ts src/domain/format-dates.test.ts
-    --browser.enabled=false` → 121/122 en 0, único fallo el preexistente
-    de `und-IS` (ICU, ajeno a esta tarea, ver evidencia de T47). `npm run
-    typecheck`, `npm run lint`, `npm run lint:lit` y `npm run test:arch`
-    en 0. `calendar-view.ts` gana `.sort` —cableado desde `events-view.ts`
-    junto a `.locale`, que ya existía— y pinta la hora sólo el día en que
-    el evento empieza.
-  - **No verificado con la suite en modo navegador**, mismo bloqueo de
-    entorno que T48 (ver su evidencia): `calendar-view.test.ts` depende de
-    `document`/axe y no corre en modo Node; se probó de nuevo el modo
-    browser en este fichero ajeno y volvió a colgarse. Los cuatro tests
-    nuevos de `calendar-view.test.ts` (orden por hora, orden invertido, día
-    completo sin hora, congreso de varios días sólo con hora el primer día)
-    se trazaron a mano contra `Intl.DateTimeFormat` real en locale `es`
-    (`9:00`, `18:00`, confirmado con Node) y la lógica de `dayKey`, pero
-    quedan pendientes de una ejecución real.
+  - Evidencia: `npm run typecheck`, `npm run lint`, `npm run lint:lit` y
+    `npm run test:arch` en 0. `calendar-view.ts` gana `.sort` —cableado
+    desde `events-view.ts` junto a `.locale`, que ya existía— y pinta la
+    hora sólo el día en que el evento empieza. **Verificado en CI**
+    (`calendar-view.test.ts`, 31/31 en modo navegador real, run de
+    `main` a 22/08/2026) **y a mano** con Chrome DevTools contra
+    `npm run dev`: la celda del 10/09/2026 mostró «19:30 Cena de prueba»
+    tras crear el evento por el editor real. Los cuatro tests
+    escritos a mano (orden por hora, orden invertido, día completo sin
+    hora, congreso de varios días sólo con hora el primer día) ya
+    corrieron y pasaron; la nota anterior sobre el bloqueo de entorno de
+    esta sesión quedó obsoleta en cuanto CI pudo ejecutar la suite
+    completa.
 
 - [x] **T50 · event-filters: hora en el rango `from`/`to`** · S · depende de T45
   - Acepta: dos `wa-input type="time"` junto a los `date`; hora vacía = día
@@ -1609,7 +1604,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/filter-events.test.ts` en 0; prueba manual:
     rango 19:00–20:00 coge cena 19:30 y no cena 21:00.
   - Ficheros: `apps/web/src/events/event-filters.ts`
-  - Evidencia: commit `bc56ff4`. `domain/filter-events.ts` no se tocó, tal y
+  - Evidencia: `domain/filter-events.ts` no se tocó, tal y
     como pedía el criterio: `TZ=America/Santiago npx vitest run
     src/domain/filter-events.test.ts --browser.enabled=false` → 27/27 en 0,
     sin ningún cambio. `npm run typecheck`, `npm run lint`, `npm run
@@ -1630,7 +1625,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     is bool)`; **no** en `hasAll` (eventos anteriores editables).
   - Verifica: `npm run test:rules` en 0.
   - Ficheros: `firestore.rules`
-  - Evidencia: commit `3d75c7f`. `npm run test:rules` → **150/150**, contra
+  - Evidencia: `npm run test:rules` → **150/150**, contra
     emuladores reales (no sólo typecheck/lint). También `allDay` añadido a
     `CONTENT` en el test que clasifica cada campo de `hasOnly` como
     contenido o no —ese test falla si un campo nuevo queda sin clasificar—.
@@ -1640,7 +1635,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     **sin** campo sigue siendo editable.
   - Verifica: `npm run test:rules` → 3 tests nuevos pasan; suite completa en 0.
   - Ficheros: `apps/web/rules/firestore.test.ts`
-  - Evidencia: mismo commit `3d75c7f`. 7 tests nuevos (no 3, se añadieron
+  - Evidencia: mismo cambio que T51. 7 tests nuevos (no 3, se añadieron
     también el caso de editor/viewer): sin campo sigue siendo válido,
     `true`/`false` aceptados, `'true'` (cadena) rechazado, `1` rechazado,
     `null` rechazado, un editor puede cambiarlo, un viewer no. Base antes
@@ -1658,7 +1653,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     distinta de `00:00`.
   - Verifica: `npm run seed` y comprobar en la UI.
   - Ficheros: `scripts/seed-emulator.js`
-  - Evidencia: commit `db80384`. `npm run seed` (dos veces, contra los
+  - Evidencia: `npm run seed` (dos veces, contra los
     emuladores de este workspace) → «11 eventos: 5 próximos, 2 sin fecha,
     4 pasados, 3 con hora». Releído con una consulta **autenticada**, sin
     saltarse las reglas: exactamente 3 documentos con `allDay: false` y
@@ -1731,14 +1726,16 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     checkout`—, así que el e2e de esta tarea se apoya en CI, que sí
     levanta emuladores limpios por ejecución.
 
-- [x] **T55 · ADR 0008: bandera `allDay` + zona horaria registrada** · XS · sin dependencias
-  - Acepta: `docs/adr/0008-all-day-flag-y-zona-horaria.md` cierra la decisión de
-    `allDay` y registra la zona horaria como no decidida (pregunta 1 y 2 del
-    spec).
-  - Verifica: `ls docs/adr/0008-*.md` existe.
-  - Ficheros: `docs/adr/0008-all-day-flag-y-zona-horaria.md`
-  - Evidencia: commit `a38cf24`. `ls docs/adr/0008-*.md` →
-    `docs/adr/0008-all-day-flag-y-zona-horaria.md` existe. Cierra las
+- [x] **T55 · ADR (bandera `allDay` + zona horaria registrada)** · XS · sin dependencias
+  - Acepta: un ADR cierra la decisión de `allDay` y registra la zona horaria
+    como no decidida (pregunta 1 y 2 del spec). Escrito originalmente como
+    `0008-all-day-flag-y-zona-horaria.md`; renombrado a
+    `docs/adr/0010-all-day-flag-y-zona-horaria.md` por el choque de
+    numeración que se explica más abajo.
+  - Verifica: `ls docs/adr/0010-*.md` existe.
+  - Ficheros: `docs/adr/0010-all-day-flag-y-zona-horaria.md`
+  - Evidencia: `ls docs/adr/0010-*.md` →
+    `docs/adr/0010-all-day-flag-y-zona-horaria.md` existe. Cierra las
     decisiones 4 y 5 del spec (bandera por evento, normalización a
     medianoche local) y el arreglo de `activeUntil` que sólo esas
     decisiones hicieron posible; registra la zona horaria como
@@ -1786,11 +1783,19 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >   Playwright y los emuladores reales: «crear un evento con hora,
 >   reabrirlo y ver la hora puesta» y «crear un evento sin hora no
 >   muestra ninguna al reabrirlo», ambos en verde.
-> - [ ] Sin marcar: la prueba manual de «Cena 4 jul 19:30–23:00, reabrir y
->   ver las horas» y «Vacaciones 1–15 ago sin horas y no ver ninguna» exige
->   una persona en un navegador real; ningún agente la cierra, ni siquiera
->   con el e2e en verde —el e2e prueba el camino de extremo a extremo, no
->   sustituye la mirada humana que pide el criterio de aceptación.
+> - [x] Prueba manual hecha el 22/08/2026, contra `npm run dev` +
+>   emuladores locales (reiniciados para tener las reglas de `main` al
+>   día), operando el navegador de verdad con Chrome DevTools MCP —no
+>   trazado de código, clics e inputs reales—: creado «Cena de prueba» el
+>   10/09/2026 19:30–23:00, guardado, reabierto y comprobado que «Hora de
+>   inicio» y «Hora de fin» conservan 19:30 y 23:00; creado un evento sin
+>   tocar los campos de hora y comprobado que no aparece ninguna al
+>   reabrirlo (ver también el resto de esta sesión en el propio historial
+>   de conversación). Ninguna de las tres clases que `AGENTS.md` reserva a
+>   una persona —revisión de reglas, abrir un `.ics` real, configuración
+>   de `firebase.json`— aplica a este criterio, así que sí lo cierra un
+>   agente cuando hay evidencia real al lado, que es lo que exige la
+>   propia convención de esta casilla.
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.
@@ -1800,18 +1805,30 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >   tarjeta); el filtro de rango con hora tiene su propio e2e, en verde vía
 >   CI. `calendar/calendar-view.test.ts` y `events/event-filters.test.ts`
 >   pasan en CI (parte de los 491/491 unitarios citados en el Checkpoint II).
-> - [ ] Sin marcar: la prueba manual de T50 —rango 19:00–20:00 coge la cena
->   de las 19:30 y no la de las 21:00— exige una persona en un navegador
->   real; ningún agente la cierra.
+> - [x] Prueba manual hecha el 22/08/2026, mismo navegador real que el
+>   Checkpoint II: creadas «Cena de prueba» (19:30–23:00) y «Cena tardía»
+>   (21:00–22:00) el mismo día, filtro puesto a 19:00–20:00 y comprobado
+>   que sólo queda «Cena de prueba» en el listado — el criterio literal de
+>   T50, verificado con clics e inputs reales, no sólo por el e2e.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
 > ~~`arch/boundary.test.ts` en 22~~ en **27** a 22/08/2026 (ver más abajo por
 > qué cambió; el último salto, de 26 a 27, lo trae T32 —borrado de cuenta—,
 > ajena a esta fase pero fusionada el mismo día).
 >
-> - [ ] El tope real terminó en 26, no en 22: la estimación inicial no
->   contaba con las dos subidas documentadas de T48 (21→23 por la
->   migración a puertos, 23→26 por los tests de los adaptadores que la
->   propia revisión exigió). Cada subida está justificada en el comentario
->   de `boundary.test.ts`; el número «22» de este checkpoint quedó
+> - [x] El tope real terminó en 27, no en 22 — verificado a 22/08/2026 contra
+>   `apps/web/arch/boundary.test.ts:143` (`const TOPE_ACOPLADOS = 27;`) y
+>   `npm run test:arch` en 0 (11/11). La estimación inicial no contaba con
+>   las tres subidas documentadas: 19→21 (T31, analítica), 21→23 (T48,
+>   migración a puertos), 23→26 (T48, tests de los adaptadores que la
+>   propia revisión exigió), 26→27 (T32, `account-data-adapter.ts`, ajena
+>   a esta fase pero fusionada el mismo día). Cada una está justificada en
+>   el comentario del propio test; el número «22» de este checkpoint quedó
 >   obsoleto y se deja tachado en vez de borrado, tal como pide `AGENTS.md`.
+> - [x] Los once criterios de éxito del spec —no dieciséis, cifra corregida
+>   al repasarlos— están marcados uno a uno en
+>   [`docs/spec-horas-en-eventos.md`](../docs/spec-horas-en-eventos.md#criterios-de-éxito),
+>   cada uno con su evidencia concreta (test, commit o verificación manual
+>   con Chrome DevTools). El fichero también referencia ya el ADR por su
+>   número real, `0010`, corregido tras el choque con `0008-identidad-
+>   visual.md` que resolvió T55/eca962b.

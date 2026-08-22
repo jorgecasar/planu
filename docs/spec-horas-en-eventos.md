@@ -323,7 +323,8 @@ firestore.rules                            allDay en hasOnly
 apps/web/rules/firestore.test.ts           aserciones nuevas
 apps/web/xliff/es.xlf                      textos nuevos
 scripts/seed-emulator.js                   eventos con hora
-docs/adr/0008-…                            la decisión de allDay y la zona horaria
+docs/adr/0010-…                            la decisión de allDay y la zona horaria
+                                            (0008 ya lo ocupaba otro ADR; ver T55)
 ```
 
 `domain/google-calendar-url.ts` no se toca: lee `calendarWindow()` y hereda el
@@ -383,24 +384,53 @@ este repo de dos e2e que pasaban igual con la regresión puesta.
 
 ## Criterios de éxito
 
-- [ ] Crear «Cena, 4 jul 19:30–23:00», reabrir el editor y ver `19:30` y
-      `23:00` en sus campos.
-- [ ] La tarjeta dice «4 jul 2026, 19:30 – 23:00», sin repetir la fecha.
-- [ ] Crear «Vacaciones, 1–15 ago» sin horas: ninguna hora en ninguna vista, y
-      el `.ics` lleva `DTSTART;VALUE=DATE:20260801`.
-- [ ] Un evento a las 00:00 con `allDay: false` exporta `DTSTART` con hora, no
-      `VALUE=DATE`.
-- [ ] Un evento de día completo que ocurre **hoy** aparece en «Próximos», no en
-      «Pasados».
-- [ ] Dos eventos del mismo día salen ordenados por hora en la celda del mes.
-- [ ] Un evento guardado antes de esta feature se sigue viendo, se sigue
-      editando y se sigue exportando como de día completo.
-- [ ] Filtrar de 19:00 a 20:00 devuelve la cena de las 19:30 y no la de las
-      21:00.
-- [ ] Una foto de un cartel con «21:00» llega al editor con `21:00`.
-- [ ] `npm test`, `test:rules`, `test:arch`, `test:e2e`, `typecheck`,
+Cerrados a 22/08/2026. Evidencia completa, tarea por tarea, en
+[`tasks/todo.md`](../tasks/todo.md) (T44–T55 y sus checkpoints I–IV).
+
+- [x] Crear «Cena, 4 jul 19:30–23:00», reabrir el editor y ver `19:30` y
+      `23:00` en sus campos. Verificado dos veces: `events.spec.ts` en CI y,
+      a mano, con Chrome DevTools contra `npm run dev` real (ver Checkpoint
+      II en `todo.md`).
+- [x] La tarjeta dice «4 jul 2026, 19:30 – 23:00», sin repetir la fecha.
+      Mismo par de verificaciones que el criterio anterior.
+- [x] Crear «Vacaciones, 1–15 ago» sin horas: ninguna hora en ninguna vista, y
+      el `.ics` lleva `DTSTART;VALUE=DATE:20260801`. `calendar-export.spec.ts`
+      («un evento de día completo sigue exportando VALUE=DATE»).
+- [x] Un evento a las 00:00 con `allDay: false` exporta `DTSTART` con hora, no
+      `VALUE=DATE`. Añadido durante la revisión de T54:
+      `calendar-export.spec.ts` («un evento a las 00:00 con hora explícita
+      exporta DTSTART con hora, no VALUE=DATE»).
+- [x] Un evento de día completo que ocurre **hoy** aparece en «Próximos», no en
+      «Pasados». `sort-events.test.ts` y `agenda-days.test.ts` (T47).
+- [x] Dos eventos del mismo día salen ordenados por hora en la celda del mes.
+      Verificado en CI (`month-grid.test.ts`, `calendar-view.test.ts`) y a
+      mano con Chrome DevTools (celda del 10/09/2026 con «19:30 Cena de
+      prueba»).
+- [x] Un evento guardado antes de esta feature se sigue viendo, se sigue
+      editando y se sigue exportando como de día completo. `types.test.ts`
+      (`default(true)`), `build-ics.test.ts` («sin el campo allDay se lee
+      como día completo»), y el e2e añadido en la revisión de T54
+      (`events.spec.ts`, «un evento heredado sin el campo allDay se muestra
+      como día completo», escribiendo el documento directo en el emulador
+      para simular uno anterior a esta feature).
+- [x] Filtrar de 19:00 a 20:00 devuelve la cena de las 19:30 y no la de las
+      21:00. Verificado en CI (`views.spec.ts`) y a mano con Chrome DevTools
+      (creadas «Cena de prueba» 19:30 y «Cena tardía» 21:00, filtro
+      19:00–20:00, sólo queda la primera).
+- [x] Una foto de un cartel con «21:00» llega al editor con `21:00`.
+      `ai.spec.ts` («una imagen con hora llega al editor con la hora
+      puesta»), verificado en CI — no repetido a mano, porque mockear
+      `window.LanguageModel` no es práctico fuera de Playwright.
+- [x] `npm test`, `test:rules`, `test:arch`, `test:e2e`, `typecheck`,
       `lint`, `lint:lit` salen en **0**, comprobando `$?` y no la salida.
-- [ ] El tope de `arch/boundary.test.ts` baja a 22, o el plan dice por qué no.
+      Job `verify` del run de CI de `main` a 22/08/2026 (SHA `eca962b`) en
+      verde: 541 tests unitarios, tests de reglas y 72 e2e, todos pasando;
+      `typecheck`, `lint` y `lint:lit` comprobados también en local con
+      código de salida explícito.
+- [x] El tope de `arch/boundary.test.ts` baja a 22, o el plan dice por qué
+      no. No baja: subió a 27, y el porqué de cada salto —T31, T48 (dos
+      veces) y T32— está documentado en el comentario del propio test y en
+      el Checkpoint IV de `todo.md`.
 
 ## Límites
 
