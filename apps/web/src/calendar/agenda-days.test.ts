@@ -13,6 +13,7 @@ function event(
 	title: string,
 	start: string | null,
 	end?: string | null,
+	allDay = true,
 ): StoredEvent {
 	return {
 		id,
@@ -21,7 +22,7 @@ function event(
 		endDate: end ? local(end) : null,
 		memberIds: [],
 		roles: {},
-		allDay: true,
+		allDay,
 		tags: [],
 	} satisfies StoredEvent;
 }
@@ -138,8 +139,9 @@ test("un evento sin fin sigue en curso, igual que en el calendario", () => {
 	// The contradiction the review found: the month grid paints this ongoing
 	// work in today's cell, and the agenda put it in the past fold. **Both
 	// views are checked at once**, which is the only thing that would catch
-	// them diverging again.
-	const obras = event("1", "Obras en la calle", "2026-06-10");
+	// them diverging again. And `allDay: false` on purpose: an open end can
+	// only be declared on a timed event (decision 4 of the hours spec).
+	const obras = event("1", "Obras en la calle", "2026-06-10", null, false);
 	const agenda = buildAgenda([obras], { now: NOW, locale: "es" });
 	const grid = buildMonthGrid([obras], local("2026-06-01"), "es", NOW);
 	const hoy = grid.weeks.flat().find((cell) => cell.key === dayKey(NOW));
@@ -257,9 +259,12 @@ test("contar eventos suma los de todos los días, no los días", () => {
 test("lo que termina justo ahora todavía cuenta como próximo", () => {
 	// The boundary is inclusive, same as in `filterEvents` and in `groupOf`.
 	// Without this, the ongoing event disappears into the fold at the exact
-	// instant it's still happening.
+	// instant it's still happening. Timed and not all-day: the millisecond
+	// precision this test checks only makes sense for a point-in-time
+	// appointment, which closes on its own instant instead of at the end of
+	// the day (see `sort-events.test.ts` for the all-day case).
 	const agenda = buildAgenda(
-		[event("1", "Charla", "2026-06-15T09:00", "2026-06-15T10:00")],
+		[event("1", "Charla", "2026-06-15T09:00", "2026-06-15T10:00", false)],
 		{
 			now: NOW,
 			locale: "es",

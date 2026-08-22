@@ -151,6 +151,19 @@ function isUndated(event: PlanuEvent): boolean {
 const startOf = (event: PlanuEvent): Date | null =>
 	event.startDate ?? event.endDate ?? null;
 
+/** The last instant of `date`'s local day, at millisecond precision. */
+function endOfDay(date: Date): Date {
+	return new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+		23,
+		59,
+		59,
+		999,
+	);
+}
+
 /**
  * When an event stops being ongoing. `null` means "not yet".
  *
@@ -163,11 +176,24 @@ const startOf = (event: PlanuEvent): Date | null =>
  * and on the cards**. It's only visible when the three views are put side by
  * side, which is exactly what the task that closes the phase exists for.
  *
- * The calendar's semantics rule, and those are the ones the user chose in
- * T20:
+ * The calendar's semantics rule, which are the ones the user chose in T20,
+ * with a T47 adjustment: **for an all-day event, the instant that closes it
+ * is the end of its local day (23:59:59.999), not its start.** Without the
+ * adjustment, an all-day event's `endDate` today is midnight, and at 00:01
+ * it's already "past" for the rest of the day it's supposed to be happening
+ * on. This could only be distinguished from a point-in-time midnight
+ * appointment once `allDay` existed — `eventSchema()` supplies it with
+ * `default(true)`, so it always arrives resolved here — hence this fix
+ * arriving with this task and not before.
  *
- * - **With no end, it's still ongoing**: it isn't a point in time, it's
- *   something that started and hasn't finished. It's never past.
+ * - **With no end and a time** (`allDay: false`), it's still ongoing: it
+ *   isn't a point in time, it's something that started and hasn't finished.
+ *   It's never past — the case the review above already covered.
+ * - **With no end and all-day** (`allDay: true`), it's a single-day event:
+ *   it closes at the end of that same day. An all-day event, unlike a timed
+ *   appointment, doesn't allow an "open end": the editor doesn't offer that
+ *   combination (decision 4 of the hours spec), so no declared end can only
+ *   mean "lasts that day".
  * - **With no start**, the end is a deadline and it's the one that closes it.
  * - **With the end before the start** — inconsistent data the schema rejects
  *   but that could have been saved before it existed — it collapses to the
@@ -181,10 +207,14 @@ const startOf = (event: PlanuEvent): Date | null =>
 function activeUntil(event: PlanuEvent): Date | null {
 	const start = event.startDate ?? null;
 	const end = event.endDate ?? null;
+	const { allDay } = event;
+	const wrap = (date: Date) => (allDay ? endOfDay(date) : date);
 
-	if (start && end) return end.getTime() >= start.getTime() ? end : start;
-	if (start) return null;
-	return end;
+	if (start && end) {
+		return wrap(end.getTime() >= start.getTime() ? end : start);
+	}
+	if (start) return allDay ? wrap(start) : null;
+	return end ? wrap(end) : null;
 }
 
 /**
