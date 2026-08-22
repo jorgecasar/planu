@@ -897,7 +897,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
 
 ## Fase 12 — Producto: cierre
 
-- [ ] **T30 · Privacidad, términos y cookies (F13)** · M · depende de T29, T31
+- [x] **T30 · Privacidad, términos y cookies (F13)** · M · depende de T29, T31
   - Acepta: política que describe el tratamiento **real**, incluida la
     diferencia entre generar en el dispositivo y generar en la nube; términos
     proporcionados a un producto sin plan de pago; aviso de cookies **sólo si**
@@ -908,8 +908,11 @@ Numeración continuada: la fase 1 llegó hasta T10.
   - Ficheros: `src/landing/legal.ts`, `src/landing/privacy.ts`,
     `src/landing/terms.ts`, `src/profile/profile-view.ts`
   - Nota: son textos honestos, no asesoramiento legal, y así se dice.
-  - **No se marca: la verificación pide revisión manual, y ésa no la hace un
-    agente.** Lo demás está hecho y comprobado:
+  - **Revisión manual del contenido: hecha el 22/08/2026 por el usuario.**
+    Confirmado que la política de privacidad y los términos son ciertos
+    contra lo que la aplicación hace de verdad — es la única pieza de esta
+    tarea que un agente no puede cerrar por sí mismo. Lo demás ya estaba
+    hecho y comprobado:
   - Contenido en un único `src/landing/legal.ts` —no dos ficheros separados,
     para no duplicar `legalPageShell()`/`legalFooter()`—, generado con el
     mismo prerender de T28: cada sección corresponde a un dato real (Auth,
