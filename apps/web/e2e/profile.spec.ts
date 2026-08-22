@@ -17,6 +17,29 @@ async function signUp(page: Page): Promise<void> {
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 
+test("el menú de la cabecera lleva de verdad a /app/profile", async ({
+	page,
+}) => {
+	// Reproduce el bug tal cual se reportó: clic en el menú, no `page.goto()`
+	// directo a la ruta. `#onMenuSelect` navegaba a `/profile`, que sólo
+	// existe como redirect 301 en `firebase.json` — Hosting lo aplica, pero
+	// `@lit-labs/router` no la reconoce, así que el clic no navegaba a
+	// ningún sitio. Sólo un refresco, que sí pasa por Hosting, disimulaba el
+	// fallo; los tests que ya había aquí usaban `page.goto("/app/profile")`
+	// directo y por eso ninguno lo cazó.
+	await signUp(page);
+	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
+
+	// El botón de la cabecera es el único dentro de `banner`: `label` es el
+	// email generado al azar en `signUp`, así que se localiza por posición,
+	// no por texto impredecible.
+	await page.getByRole("banner").getByRole("button").click();
+	await page.getByRole("menuitem", { name: "Profile" }).click();
+
+	await expect(page).toHaveURL(/\/app\/profile$/);
+	await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
+});
+
 test("el perfil enlaza a las páginas legales prerrenderizadas (T30)", async ({
 	page,
 }) => {
