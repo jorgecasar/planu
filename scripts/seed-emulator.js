@@ -31,10 +31,17 @@ const EMAIL = process.argv[2] ?? "algae.algae.96@example.com";
 const CLAVE = "secret123";
 
 const HOY = new Date();
-const dia = (offset, hora = 10) => {
+/**
+ * `hora` sólo importa si `allDay` es `false`: de día completo se normaliza a
+ * medianoche, igual que hace el editor al guardar (decisión 5 del spec de
+ * horas) — sin eso, un evento marcado día completo llevaría una hora
+ * residual que ninguna vista mostraría pero que sí viajaría en el `.ics`.
+ */
+const dia = (offset, hora = 10, minuto = 0, allDay = false) => {
 	const d = new Date(HOY);
 	d.setDate(d.getDate() + offset);
-	d.setHours(hora, 0, 0, 0);
+	if (allDay) d.setHours(0, 0, 0, 0);
+	else d.setHours(hora, minuto, 0, 0);
 	return d.toISOString();
 };
 const creado = (offset) => {
@@ -43,30 +50,99 @@ const creado = (offset) => {
 	return d.toISOString();
 };
 
-// [título, ubicación, offsetInicio, offsetFin, etiquetas, offsetCreación]
+// [título, ubicación, offsetInicio, [horaInicio, minutoInicio], offsetFin,
+//  [horaFin, minutoFin], allDay, etiquetas, offsetCreación]
 // Títulos elegidos a propósito para que el orden alfabético **no** coincida con
 // el cronológico: si coincidieran, cambiar de orden no se notaría.
+//
+// Al menos tres llevan `allDay: false` y una hora real —nunca 00:00, para que
+// se distinga a simple vista de un día completo sin hora—: es lo que hace
+// falta para probar a mano el editor, la celda del mes, la agenda y el
+// filtro de rango con hora, todos ellos de T44 a T50.
 const EVENTOS = [
-	["Zumba en el parque", "Retiro", 2, 2, ["deporte"], -1],
-	["Almuerzo con Ana", "Casa Lucio", 5, 5, ["cena"], -20],
-	["Mudanza", "Casa nueva", 9, 11, ["casa"], -3],
-	["Boda de Marta", "Segovia", 21, 22, ["viaje"], -60],
-	["Curso de cerámica", "La Nave", 40, 44, ["taller"], -8],
+	[
+		"Zumba en el parque",
+		"Retiro",
+		2,
+		[18, 0],
+		2,
+		[19, 0],
+		false,
+		["deporte"],
+		-1,
+	],
+	[
+		"Almuerzo con Ana",
+		"Casa Lucio",
+		5,
+		[13, 30],
+		5,
+		[15, 30],
+		false,
+		["cena"],
+		-20,
+	],
+	["Mudanza", "Casa nueva", 9, null, 11, null, true, ["casa"], -3],
+	["Boda de Marta", "Segovia", 21, null, 22, null, true, ["viaje"], -60],
+	["Curso de cerámica", "La Nave", 40, null, 44, null, true, ["taller"], -8],
 
-	["Feria de abril", "Sevilla", -120, -114, ["feria", "viaje"], -200],
-	["Concierto de verano", "Auditorio", -30, -30, ["música"], -45],
-	["Revisión del coche", "Taller Ruiz", -12, -12, ["casa"], -14],
-	["Antigua reunión", "Oficina", -3, -3, ["trabajo"], -5],
+	[
+		"Feria de abril",
+		"Sevilla",
+		-120,
+		null,
+		-114,
+		null,
+		true,
+		["feria", "viaje"],
+		-200,
+	],
+	[
+		"Concierto de verano",
+		"Auditorio",
+		-30,
+		[21, 0],
+		-30,
+		[23, 30],
+		false,
+		["música"],
+		-45,
+	],
+	[
+		"Revisión del coche",
+		"Taller Ruiz",
+		-12,
+		null,
+		-12,
+		null,
+		true,
+		["casa"],
+		-14,
+	],
+	["Antigua reunión", "Oficina", -3, null, -3, null, true, ["trabajo"], -5],
 
 	[
 		"Escapada rural, algún fin de semana",
 		"",
 		null,
 		null,
+		null,
+		null,
+		true,
 		["idea", "viaje"],
 		-2,
 	],
-	["Idea de regalo para Marta", "", null, null, ["idea"], -30],
+	[
+		"Idea de regalo para Marta",
+		"",
+		null,
+		null,
+		null,
+		null,
+		true,
+		["idea"],
+		-30,
+	],
 ];
 
 async function json(url, opciones) {
@@ -137,7 +213,17 @@ for (const fila of previos) {
 console.log(`borrados ${previos.length} eventos previos`);
 
 let n = 0;
-for (const [title, location, ini, fin, tags, hecho] of EVENTOS) {
+for (const [
+	title,
+	location,
+	ini,
+	horaIni,
+	fin,
+	horaFin,
+	allDay,
+	tags,
+	hecho,
+] of EVENTOS) {
 	await json(`${FIRESTORE}/events`, {
 		method: "POST",
 		headers: auth,
@@ -153,10 +239,29 @@ for (const [title, location, ini, fin, tags, hecho] of EVENTOS) {
 				memberIds: { arrayValue: { values: [{ stringValue: uid }] } },
 				roles: { mapValue: { fields: {} } },
 				tags: { arrayValue: { values: tags.map((t) => ({ stringValue: t })) } },
+				allDay: { booleanValue: allDay },
 				startDate:
-					ini === null ? { nullValue: null } : { timestampValue: dia(ini) },
+					ini === null
+						? { nullValue: null }
+						: {
+								timestampValue: dia(
+									ini,
+									horaIni?.[0] ?? 10,
+									horaIni?.[1] ?? 0,
+									allDay,
+								),
+							},
 				endDate:
-					fin === null ? { nullValue: null } : { timestampValue: dia(fin, 20) },
+					fin === null
+						? { nullValue: null }
+						: {
+								timestampValue: dia(
+									fin,
+									horaFin?.[0] ?? 20,
+									horaFin?.[1] ?? 0,
+									allDay,
+								),
+							},
 				createdAt: { timestampValue: creado(hecho) },
 			},
 		}),
@@ -167,7 +272,10 @@ for (const [title, location, ini, fin, tags, hecho] of EVENTOS) {
 const futuros = EVENTOS.filter(([, , i]) => i !== null && i > 0).length;
 const pasados = EVENTOS.filter(([, , i]) => i !== null && i < 0).length;
 const sinFecha = EVENTOS.filter(([, , i]) => i === null).length;
+const conHora = EVENTOS.filter(
+	([, , , , , , allDay]) => allDay === false,
+).length;
 console.log(
-	`\n${n} eventos: ${futuros} próximos, ${sinFecha} sin fecha, ${pasados} pasados`,
+	`\n${n} eventos: ${futuros} próximos, ${sinFecha} sin fecha, ${pasados} pasados, ${conHora} con hora`,
 );
 console.log(`entra con ${EMAIL} / ${CLAVE}`);
