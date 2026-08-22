@@ -202,7 +202,12 @@ export class PlanuApp extends LitElement {
 	#onMenuSelect(event: Event): void {
 		const item = (event as CustomEvent<{ item: { value: string } }>).detail
 			.item;
-		if (item.value === "profile") this.#navigate("/profile");
+		// `/app/profile`, no `/profile`: la ruta corta sólo existe como
+		// redirect 301 en `firebase.json`, que Hosting aplica pero
+		// `@lit-labs/router` no conoce. El clic no hacía nada porque `goto()`
+		// no encontraba esa ruta; sólo un refresco —que sí pasa por Hosting—
+		// disimulaba el fallo.
+		if (item.value === "profile") this.#navigate(`${APP_BASE}/profile`);
 		if (item.value === "signout") this.#onSignOut();
 	}
 }
