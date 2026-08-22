@@ -142,7 +142,7 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(
                  ['title', 'description', 'location', 'userId',
-                  'startDate', 'endDate', 'imageUrl',
+                  'startDate', 'endDate', 'imageUrl', 'allDay',
                   'memberIds', 'roles', 'createdAt', 'tags'])
             && d.keys().hasAll(['title', 'description', 'location', 'userId',
                                 'memberIds', 'roles'])
@@ -167,6 +167,12 @@ service cloud.firestore {
                 || d.startDate == null || d.startDate is timestamp)
             && (!('endDate' in d)
                 || d.endDate == null || d.endDate is timestamp)
+            // NOT in hasAll, same reasoning as tags: every event written
+            // before this feature lacks the field, and requiring it would
+            // make those events uneditable. The client's Zod schema supplies
+            // `default(true)` on read; the rule only has to keep the field
+            // honest when it is present.
+            && (!('allDay' in d) || d.allDay is bool)
             && isValidTags(d);
       }
 
