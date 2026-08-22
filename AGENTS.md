@@ -600,6 +600,36 @@ fiablemente, y ni un dedo más.**
 - **Luces apagadas** sólo cuando la comprobación es un oráculo binario y difícil
   de falsear: la suite de tests, axe, un umbral de Core Web Vitals.
 
+**Todo desarrollo de código sigue este patrón: maker, checker independiente y
+convergencia, todo antes de que exista un PR.**
+
+1. Cada tarea se lanza como un agente («maker») con un objetivo verificable —no
+   «mejora X», sino «cero imports de `firebase/firestore` en estos ficheros» o
+   equivalente— y su batería de comandos con código de salida, decidida de
+   antemano para que el maker no tenga que parar a preguntar un diseño que ya
+   está resuelto en el propio repo.
+2. El maker trabaja en su rama y **no abre PR** al terminar. Corre su propia
+   verificación y, cuando él mismo se da por hecho, se detiene ahí.
+3. Un segundo agente («checker»), con contexto nuevo y sin ver el razonamiento
+   del maker, revisa **el diff de la rama contra `main`**, sin PR de por medio.
+   Re-ejecuta la verificación por su cuenta —nunca confía en lo que el maker
+   reportó— y busca lo que el maker no puede ver de sí mismo: un `grep` que no
+   es tan exhaustivo como parece, un método de puerto que se parece al pedido
+   pero no tiene su misma semántica, una transición de reglas que nadie probó
+   que deniegue. Reporta hallazgos verificados, no narrados.
+4. Si hay hallazgos, se le devuelven al **mismo maker** —continuando su sesión,
+   no uno nuevo sin contexto—, que corrige y vuelve a verificar. El checker
+   vuelve a pasar sobre el estado nuevo. Se repite hasta que el checker no
+   encuentre nada más.
+5. **El PR se abre sólo cuando el par ya convergió.** Lo que llega a revisión
+   humana es el resultado final del maker y el checker de acuerdo, no la
+   primera propuesta con «arreglado tras revisión» como commits sueltos: esa
+   negociación ya ocurrió en background, antes de que hubiera nada que
+   revisar desde fuera.
+6. Tareas de seguridad o con reglas de Firestore de por medio (ver «luces
+   encendidas» arriba) llevan además `security-auditor` en paralelo al
+   `code-reviewer`, no en su lugar.
+
 ### Verificar de verdad
 
 1. **Comprueba el código de salida, no la salida.** Leer «Tests passed» en un
