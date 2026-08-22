@@ -42,6 +42,16 @@ const TIME_FORMAT: Intl.DateTimeFormatOptions = {
 	minute: "numeric",
 };
 
+/**
+ * Just the hour, in whichever 12/24h clock the locale picks.
+ *
+ * For the month grid's cell (T49): a full `formatEventDates()` date doesn't
+ * fit there, only the hour in front of the title.
+ */
+export function formatEventTime(date: Date, locale?: string): string {
+	return new Intl.DateTimeFormat(locale, TIME_FORMAT).format(date);
+}
+
 /** Same local day, so an afternoon event doesn't repeat the date. */
 function sameDay(a: Date, b: Date): boolean {
 	return (
