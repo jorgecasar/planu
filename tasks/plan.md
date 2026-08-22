@@ -262,14 +262,11 @@ Se enumera para que la lista de checkpoints esté completa.
 - [ ] Los dieciséis criterios de éxito del spec
 - [ ] `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:rules` y
       `npm run lint` limpios
-- [ ] ADRs 0004 a 0009 escritos — **no se marca, y no por faltar ninguno.**
-      `main` tiene hoy (22/08/2026) **diez** ficheros de ADR, no nueve:
-      T55 añadió `docs/adr/0008-all-day-flag-y-zona-horaria.md` sin darse
-      cuenta de que `0008` ya lo ocupaba `0008-identidad-visual.md` (T26/T27,
-      desde el 21/08). Dos ADR con el mismo número conviven en el repo ahora
-      mismo. Este ítem se marca cuando alguno de los dos se renombre al
-      siguiente número libre, **0010**, no antes — ver la entrada de T55 en
-      `todo.md`.
+- [x] ADRs 0004 a 0010 escritos —diez ficheros, no nueve: T55 añadió
+      `docs/adr/0008-all-day-flag-y-zona-horaria.md` sin darse cuenta de que
+      `0008` ya lo ocupaba `0008-identidad-visual.md` (T26/T27, desde el
+      21/08). Renombrado a `0010` en T34 — ver la entrada de T55 en
+      `todo.md`. El objetivo pasa de «0004 a 0009» a «0004 a 0010».
 - [ ] `AGENTS.md`, `SPEC.md` y `docs/backend.json` al día
 
 ## Paralelización

@@ -1,4 +1,4 @@
-# 0008 · Bandera `allDay` explícita, zona horaria pendiente
+# 0010 · Bandera `allDay` explícita, zona horaria pendiente
 
 - **Estado:** aceptado
 - **Fecha:** 2026-08-22

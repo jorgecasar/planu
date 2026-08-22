@@ -1745,16 +1745,15 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     pospuesta, no olvidada, con lo mínimo que exigirá su propio ADR el
     día que haya invitados en zonas distintas. Documenta también el bug
     real de `toEvent()` que encontró T54.
-  - **Choque de numeración, sin corregir a 22/08/2026.** `main` tiene hoy
-    **dos** ficheros `0008-*.md`: éste y `0008-identidad-visual.md`
-    (T26/T27, en `main` desde el 21/08). El criterio de aceptación de esta
-    tarea se escribió antes de que existiera el segundo, y nadie lo ajustó
-    al fusionarla. `ls docs/adr/0008-*.md` de la propia entrada ya delataba
-    el problema —debería devolver un único fichero y devuelve dos—, pero el
-    comando pasa igual porque `ls` con glob no falla por tener más de un
-    resultado. Pendiente: renombrar este fichero. `0009` ya lo ocupa
-    `0009-analitica-de-activacion.md`, así que el siguiente número libre es
-    **0010**.
+  - **Choque de numeración, corregido en T34.** `main` tuvo, del 22/08 al
+    22/08/2026 (mismo día), **dos** ficheros `0008-*.md`: éste y
+    `0008-identidad-visual.md` (T26/T27, en `main` desde el 21/08). El
+    criterio de aceptación de esta tarea se escribió antes de que existiera
+    el segundo, y nadie lo ajustó al fusionarla. Renombrado a
+    `docs/adr/0010-all-day-flag-y-zona-horaria.md` — `0009` ya lo ocupa
+    `0009-analitica-de-activacion.md` —, con el título interno actualizado
+    a juego. Nada más referenciaba el fichero por nombre salvo estas dos
+    entradas de `tasks/`.
 
 > **Checkpoint I** — tras T44–T47:
 >
