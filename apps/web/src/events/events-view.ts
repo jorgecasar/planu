@@ -96,6 +96,13 @@ function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
 		endDate: asDate(document["endDate"]),
 		createdAt: asDate(document["createdAt"]),
 		tags: document["tags"],
+		// Sin enumerar la clave, un evento guardado con hora se leía siempre
+		// como día completo: `allDay` faltaba en el objeto que llega a
+		// `safeParse`, y `z.boolean().default(true)` rellenaba el hueco. La
+		// migración implícita —documentos de antes de esta feature, sin el
+		// campo— sigue funcionando igual: `document["allDay"]` es `undefined`
+		// para ellos, y el mismo `default(true)` decide por la fecha completa.
+		allDay: document["allDay"],
 	});
 
 	if (!parsed.success) {

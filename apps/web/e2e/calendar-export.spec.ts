@@ -22,7 +22,12 @@ async function signUp(page: Page): Promise<void> {
 async function createEvent(
 	page: Page,
 	title: string,
-	dates?: { start: string; end?: string },
+	dates?: {
+		start: string;
+		end?: string;
+		startTime?: string;
+		endTime?: string;
+	},
 ): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
 	await page.getByRole("menuitem", { name: "Create manually" }).click();
@@ -33,7 +38,10 @@ async function createEvent(
 	await page.getByLabel("Location").fill("Madrid");
 	if (dates) {
 		await page.getByLabel("Start date").fill(dates.start);
+		if (dates.startTime)
+			await page.getByLabel("Start time").fill(dates.startTime);
 		if (dates.end) await page.getByLabel("End date").fill(dates.end);
+		if (dates.endTime) await page.getByLabel("End time").fill(dates.endTime);
 	}
 	await page.getByRole("button", { name: "Save event" }).click();
 
@@ -137,4 +145,59 @@ test("el aviso de exportación no tiene violaciones de accesibilidad", async ({
 
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
+});
+
+// --- Hora en la exportación (T46, T54) --------------------------------------
+
+/**
+ * `YYYYMMDDTHHMMSSZ` de una fecha local, calculado con los mismos getters de
+ * UTC que usa `toIcsDateTime`. No se hardcodea el desfase de una zona
+ * concreta: el runner puede ejecutarse en cualquier huso.
+ */
+function icsDateTime(local: Date): string {
+	const pad = (value: number, length = 2) =>
+		String(value).padStart(length, "0");
+	return (
+		`${pad(local.getUTCFullYear(), 4)}${pad(local.getUTCMonth() + 1)}${pad(local.getUTCDate())}` +
+		`T${pad(local.getUTCHours())}${pad(local.getUTCMinutes())}${pad(local.getUTCSeconds())}Z`
+	);
+}
+
+test("un evento con hora exporta DTSTART con hora, no VALUE=DATE", async ({
+	page,
+}) => {
+	await signUp(page);
+	await createEvent(page, "Cena de fin de curso", {
+		start: "2026-06-12",
+		startTime: "19:30",
+		end: "2026-06-12",
+		endTime: "23:00",
+	});
+
+	const { contenido } = await exportar(page, "Add to calendar");
+
+	expect(contenido).toContain(
+		`DTSTART:${icsDateTime(new Date(2026, 5, 12, 19, 30))}`,
+	);
+	expect(contenido).toContain(
+		`DTEND:${icsDateTime(new Date(2026, 5, 12, 23, 0))}`,
+	);
+	expect(contenido).not.toContain("VALUE=DATE");
+});
+
+test("un evento de día completo sigue exportando VALUE=DATE", async ({
+	page,
+}) => {
+	// El contraste con el test anterior: sin hora, el criterio de aceptación de
+	// T44–T46 sigue vigente sin regresión.
+	await signUp(page);
+	await createEvent(page, "Vacaciones", {
+		start: "2026-08-01",
+		end: "2026-08-15",
+	});
+
+	const { contenido } = await exportar(page, "Add to calendar");
+
+	expect(contenido).toContain("DTSTART;VALUE=DATE:20260801");
+	expect(contenido).toContain("DTEND;VALUE=DATE:20260816");
 });

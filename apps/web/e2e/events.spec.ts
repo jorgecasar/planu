@@ -628,3 +628,72 @@ test("el estado vacío no tiene violaciones de accesibilidad", async ({
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
 });
+
+// --- Fecha y hora (T44–T48) --------------------------------------------------
+
+test("crear un evento con hora, reabrirlo y ver la hora puesta", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena de fin de curso");
+	await page.getByLabel("Start date").fill("2026-07-04");
+	await page.getByLabel("Start time").fill("19:30");
+	await page.getByLabel("End date").fill("2026-07-04");
+	await page.getByLabel("End time").fill("23:00");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// La tarjeta ya dice la hora, sin repetir la fecha por caer el mismo día.
+	await expect(page.getByText("Jul 4, 2026, 7:30 PM – 11:00 PM")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("19:30");
+	await expect(page.getByLabel("End time")).toHaveValue("23:00");
+});
+
+test("crear un evento sin hora no muestra ninguna al reabrirlo", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Vacaciones");
+	await page.getByLabel("Start date").fill("2026-08-01");
+	await page.getByLabel("End date").fill("2026-08-15");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// Sin hora en la tarjeta, día completo.
+	await expect(page.getByText("Aug 1, 2026 – Aug 15, 2026")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("");
+	await expect(page.getByLabel("End time")).toHaveValue("");
+});
+
+test("borrar las dos horas devuelve el evento a día completo", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena");
+	await page.getByLabel("Start date").fill("2026-07-04");
+	await page.getByLabel("Start time").fill("19:30");
+	await page.getByLabel("End date").fill("2026-07-04");
+	await page.getByLabel("End time").fill("23:00");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await page.getByLabel("Start time").fill("");
+	await page.getByLabel("End time").fill("");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// Ahora dice sólo la fecha, sin hora.
+	await expect(page.getByText("Jul 4, 2026 – Jul 4, 2026")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("");
+	await expect(page.getByLabel("End time")).toHaveValue("");
+});
