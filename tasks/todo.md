@@ -1472,13 +1472,28 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     (`9:00`, `18:00`, confirmado con Node) y la lógica de `dayKey`, pero
     quedan pendientes de una ejecución real.
 
-- [ ] **T50 · event-filters: hora en el rango `from`/`to`** · S · depende de T45
+- [x] **T50 · event-filters: hora en el rango `from`/`to`** · S · depende de T45
   - Acepta: dos `wa-input type="time"` junto a los `date`; hora vacía = día
     entero (comportamiento actual sin regresión); `filterEvents` no cambia
     (compara instantes).
   - Verifica: `npm test domain/filter-events.test.ts` en 0; prueba manual:
     rango 19:00–20:00 coge cena 19:30 y no cena 21:00.
   - Ficheros: `apps/web/src/events/event-filters.ts`
+  - Evidencia: commit `bc56ff4`. `domain/filter-events.ts` no se tocó, tal y
+    como pedía el criterio: `TZ=America/Santiago npx vitest run
+    src/domain/filter-events.test.ts --browser.enabled=false` → 27/27 en 0,
+    sin ningún cambio. `npm run typecheck`, `npm run lint`, `npm run
+    lint:lit` y `npm run test:arch` en 0. `localize:extract`/`build` para
+    los dos textos nuevos («From time», «To time»), traducidos.
+  - **No verificado con la suite en modo navegador**, mismo bloqueo de
+    entorno que T48/T49 (reconfirmado en este fichero). Los cinco tests
+    nuevos de `event-filters.test.ts` —los cuatro campos, hora vacía = día
+    entero, una hora combinada con su fecha, limpiar borra las dos horas—
+    se trazaron a mano contra `handleChange()`/`relayNativeEvent()` reales
+    de `WaInput` (leídos en `node_modules`): en producción el `change` del
+    `<input>` interno se reemite desde el propio host `wa-input` con
+    `.value` ya sincronizado, que es justo lo que simulan disparando el
+    evento sobre el host directamente.
 
 - [ ] **T51 · firestore.rules: `allDay` en `hasOnly`, tipo boolean** · XS · depende de T44
   - Acepta: `allDay` en `keys().hasOnly([...])`; `(!('allDay' in d) || d.allDay
@@ -1540,6 +1555,15 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >
 > **Checkpoint III** — tras T49–T50: hora visible en agenda y mes; filtro por
 > hora funciona.
+>
+> - [ ] Sin marcar: por el mismo motivo que el Checkpoint II — exige un
+>   navegador real o los emuladores, ninguno disponible en esta sesión.
+>   T49 y T50 tienen su código trazado a mano (ver evidencia arriba) y
+>   sus tests unitarios escritos, pero ninguno se ha ejecutado: el modo
+>   browser de Vitest sigue colgado en cualquier fichero de esta sesión.
+>   Falta: `npm test calendar/calendar-view.test.ts
+>   events/event-filters.test.ts` en 0, y la prueba manual de rango
+>   19:00–20:00 con las cenas de las 19:30 y las 21:00.
 >
 > **Checkpoint IV (Final)** — suite completa en 0; tope
 > `arch/boundary.test.ts` en 22.

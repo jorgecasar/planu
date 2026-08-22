@@ -53,7 +53,9 @@ export class PlanuEventFilters extends LitElement {
 
 	@state() private searchTerm = "";
 	@state() private from = "";
+	@state() private fromTime = "";
 	@state() private to = "";
+	@state() private toTime = "";
 	@state() private ownership: OwnershipFilter = "all";
 	@state() private tags: string[] = [];
 
@@ -102,11 +104,27 @@ export class PlanuEventFilters extends LitElement {
 				></wa-input>
 
 				<wa-input
+					type="time"
+					name="fromTime"
+					label=${msg("From time")}
+					.value=${this.fromTime}
+					@change=${this.#onFromTime}
+				></wa-input>
+
+				<wa-input
 					type="date"
 					name="to"
 					label=${msg("To")}
 					.value=${this.to}
 					@change=${this.#onTo}
+				></wa-input>
+
+				<wa-input
+					type="time"
+					name="toTime"
+					label=${msg("To time")}
+					.value=${this.toTime}
+					@change=${this.#onToTime}
 				></wa-input>
 
 				${this.#renderTags()}
@@ -205,8 +223,18 @@ export class PlanuEventFilters extends LitElement {
 		this.#emit();
 	}
 
+	#onFromTime(event: globalThis.Event): void {
+		this.fromTime = readValue(event);
+		this.#emit();
+	}
+
 	#onTo(event: globalThis.Event): void {
 		this.to = readValue(event);
+		this.#emit();
+	}
+
+	#onToTime(event: globalThis.Event): void {
+		this.toTime = readValue(event);
 		this.#emit();
 	}
 
@@ -227,7 +255,9 @@ export class PlanuEventFilters extends LitElement {
 	#clear(): void {
 		this.searchTerm = "";
 		this.from = "";
+		this.fromTime = "";
 		this.to = "";
+		this.toTime = "";
 		this.ownership = "all";
 		this.tags = [];
 		this.#emit();
@@ -240,8 +270,19 @@ export class PlanuEventFilters extends LitElement {
 					searchTerm: this.searchTerm,
 					ownership: this.ownership,
 					// An empty date input is "", which as a Date would be invalid.
-					from: this.from ? new Date(`${this.from}T00:00:00`) : null,
-					to: this.to ? new Date(`${this.to}T23:59:59`) : null,
+					// An empty time means the whole day, same as before this field
+					// existed: "00:00:00" for the start of the range and "23:59:59"
+					// for its end — exactly today's default, so no regression for
+					// anyone who never touches these two fields. A time that is
+					// present rounds to the start of that minute for "from" and the
+					// end of it for "to": a "to" of 20:00 still catches something
+					// that happened at 20:00:30.
+					from: this.from
+						? new Date(`${this.from}T${this.fromTime || "00:00"}:00`)
+						: null,
+					to: this.to
+						? new Date(`${this.to}T${this.toTime || "23:59"}:59`)
+						: null,
 					tags: [...this.tags],
 				},
 				bubbles: true,
