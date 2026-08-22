@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Sólo la landing es pública. Nada bajo /app entra: es privado por diseño
+	(ver docs/adr/0002-eventos-privados-por-usuario.md) y las reglas de
+	Firestore lo protegen igual que el robots.txt no protegería.
+
+	Sin `lastmod`: el contenido lo genera el prerender de cada despliegue y no
+	hay un dato real de cuándo cambió el texto, no la fecha del build. Poner la
+	del build habría sido peor que omitirlo — un buscador confiando en una
+	fecha que no significa lo que promete.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+	<url>
+		<loc>https://planu-app.web.app/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
+		<xhtml:link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
+	</url>
+	<url>
+		<loc>https://planu-app.web.app/en/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
+		<xhtml:link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
+	</url>
+	<url>
+		<loc>https://planu-app.web.app/es/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
+		<xhtml:link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
+	</url>
+</urlset>

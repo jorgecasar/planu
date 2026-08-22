@@ -118,6 +118,14 @@ function hero(): TemplateResult {
 				</div>
 				<p class="wa-text-sm wa-color-text-quiet">${msg("Free. No ads. Your data stays yours.")}</p>
 			</div>
+			<figure class="hero-figure">
+				<img
+					src="/assets/landing/hero.webp"
+					alt="${msg("Screenshot of planu showing event cards with title, date, location and cover image")}"
+					width="1200"
+					height="675"
+				/>
+			</figure>
 		</section>
 	`;
 }

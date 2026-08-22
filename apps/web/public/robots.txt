@@ -1,11 +1,16 @@
-# Sin este fichero, el rewrite catch-all de firebase.json servía el index.html
-# de la aplicación en /robots.txt: 200 con text/html y 17 errores de sintaxis.
-# Los estáticos de public/ ganan al rewrite, así que basta con existir.
+# La landing (T29) sí es pública y quiere indexarse: es la que vive en la
+# raíz y en /en/, /es/. Lo privado está bajo /app — un editor, un perfil, un
+# calendario que pertenecen al usuario autenticado y que las reglas de
+# Firestore ya protegen, así que bloquearlo aquí es defensa en profundidad,
+# no la única barrera.
 #
-# Conservador a propósito. Hoy no hay nada público que indexar; cuando llegue
-# la landing de la fase 2 (T28/T29) habrá que revisarlo.
+# Sin este fichero, el rewrite catch-all de firebase.json serviría el
+# index.html de la aplicación en /robots.txt: 200 con text/html y errores de
+# sintaxis. Los estáticos de public/ ganan al rewrite, así que basta con
+# existir.
 
 User-agent: *
-Disallow: /events
-Disallow: /profile
+Disallow: /app
 Allow: /
+
+Sitemap: https://planu-app.web.app/sitemap.xml

@@ -160,3 +160,15 @@ a.wa-button--large {
 	font-size: var(--wa-font-size-l);
 	padding-inline: var(--wa-space-xl);
 }
+
+.hero-figure {
+	margin: 0;
+	margin-block-start: var(--wa-space-2xl);
+}
+
+.hero-figure img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--wa-border-radius-l);
+	box-shadow: var(--wa-shadow-l);
+}
