@@ -1,84 +1,203 @@
 {
+  "$comment": "Modelo de datos real de Firestore, en el mismo formato de JSON Schema que traía el fichero original del prototipo (julio 2025), pero con contenido verificado contra apps/web/src/lib/types.ts, apps/web/src/sharing/*.ts y firestore.rules a fecha 2026-08-22. El fichero original estaba obsoleto: describía sólo la colección `events` de la fase 1, con formas que las reglas vigentes ya no aceptan (lectura pública, sin `memberIds`).",
   "entities": {
     "Event": {
       "$schema": "http://json-schema.org/draft-07/schema",
       "title": "Event",
-      "description": "Represents an event with details such as title, description, location, date, and image.",
+      "description": "A user's event: title, description, location, dates (with an explicit all-day flag), tags, a cover image, and who may see and edit it.",
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Event entity. The specific format and generation strategy depend on the target database implementation."
+          "description": "Firestore document id, auto-generated on create."
         },
         "title": {
           "type": "string",
-          "description": "The title of the event."
+          "minLength": 3,
+          "maxLength": 200,
+          "description": "Required. The rule enforces the same minimum (3) as the client's Zod schema."
         },
         "description": {
           "type": "string",
-          "description": "A detailed description of the event."
+          "maxLength": 5000,
+          "description": "Required by the rule's hasAll, though it may be an empty string."
         },
         "location": {
           "type": "string",
-          "description": "The location where the event will take place."
+          "maxLength": 200,
+          "description": "Required by the rule's hasAll, though it may be an empty string."
         },
         "startDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date-time",
-          "description": "The start date of the event. Can be null if the event doesn't have a specific start date."
+          "description": "Stored as a Firestore Timestamp. Optional and nullable; absent for an event with no start."
         },
         "endDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date-time",
-          "description": "The end date of the event. Can be null if the event doesn't have a specific end date."
+          "description": "Stored as a Firestore Timestamp. Optional and nullable; absent for an event with no end."
+        },
+        "allDay": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the event spans whole days rather than a specific time. Optional: an event written before this field existed has none, and the client's Zod schema reads that as true (default(true)). NOT required by the rule's hasAll, precisely so those older events stay editable; when present, the rule only checks it is a bool."
         },
         "imageUrl": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "URL of the image illustrating the event. Can be null if no image is available."
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https://firebasestorage\\.googleapis\\.com/.*",
+          "description": "Cover image URL. Optional; may be an empty string. Pinned to Storage's own host by the rule, so an editor cannot point every member's browser at a server of their choosing."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 10,
+          "uniqueItems": true,
+          "description": "Free-form labels, normalized by the client (trimmed, lowercased, deduplicated, max 24 characters each). Optional; absent on events written before this field existed. The rule cannot check each tag's length (no loops in the rules language), so it bounds the joined length of all tags to 280 characters instead."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The event's owner. Required, immutable, pinned to the creator's uid on create. Always a member of memberIds, and never has an entry in roles."
+        },
+        "memberIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 21,
+          "description": "Everyone who may read the event, the owner included. Required. This is what the listing queries with `where('memberIds', 'array-contains', uid)` — an event without it is invisible to everyone, including its own owner. Capped at 21 (owner plus 20 guests) so `roles`, which lives in the same document, cannot grow toward the 1 MiB document limit."
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "enum": ["viewer", "editor"] },
+          "description": "Guest roles, keyed by uid. Required (may be an empty object). The owner never has an entry here — their authority comes from userId instead, which is also what stops an owner from being demoted. Exactly one entry per non-owner member of memberIds."
+        },
+        "createdAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Stored as a Firestore Timestamp, set once on create. Optional. Used to order by creation date; an editor may not rewrite it, since that would let them pin or drop any event in every member's listing."
         }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "location"
-      ]
+      "required": ["title", "description", "location", "userId", "memberIds", "roles"]
+    },
+    "EventInvite": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "title": "EventInvite",
+      "description": "A pending offer to join an event as a guest. Deleted the moment it is decided (accepted or declined) — there is no history of past invitations yet. See docs/spec-invitation-activity.md for the planned, not-yet-built, persistent version.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "The event being offered."
+        },
+        "eventTitle": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Copied onto the invite because the invitee cannot read the event until they accept it."
+        },
+        "inviteeUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Who is being invited, resolved from their email via userDirectory before this document is written."
+        },
+        "inviteeEmail": {
+          "type": "string",
+          "maxLength": 320,
+          "description": "The address the owner typed, shown back to them. Kept on the invite rather than on the public profile so it is never visible to other guests of the event."
+        },
+        "invitedBy": {
+          "type": "string",
+          "description": "The event's owner's uid. Only the owner may create or update an invite for their own event."
+        },
+        "invitedByName": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The owner's display name, shown to the invitee."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["viewer", "editor"],
+          "description": "The role the invitee will get in the event's `roles` map once they accept."
+        }
+      },
+      "required": ["eventId", "eventTitle", "inviteeUid", "invitedBy", "role"],
+      "$comment": "Document id is `{eventId}_{inviteeUid}` (see inviteId() in apps/web/src/sharing/invitations.ts), so one event can hold at most one pending invitation per person, and the accept rule can look it up without a query."
+    },
+    "DirectoryEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "title": "DirectoryEntry",
+      "description": "What a signed-in user publishes about themselves so someone else can invite them by email. Firebase Auth exposes no directory to clients, hence this. See docs/adr/0007-client-side-user-directory.md.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Must equal the document's own author (request.auth.uid)." },
+        "displayName": { "type": "string", "maxLength": 200 },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*",
+          "description": "Empty string, or one of the two hosts the app ever renders a photo from."
+        }
+      },
+      "required": ["uid"],
+      "$comment": "Document id is the lowercase hex SHA-256 of the user's trimmed, lowercased, verified email — see emailHash() in apps/web/src/sharing/user-directory.ts. The collection cannot be listed (allow list: if false); only a get by exact hash is allowed."
+    },
+    "PublicProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "title": "PublicProfile",
+      "description": "The directory's second index, keyed by uid instead of email hash, so a guest list can show a name instead of a uid. Carries no email, so sharing an event never hands out anyone's address.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 200 },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*"
+        }
+      },
+      "required": ["displayName", "photoURL"],
+      "$comment": "Document id is the user's own uid. Also cannot be listed; a member of a shared event resolves the other guests' uids one get() at a time."
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "google"
-    ]
+    "providers": ["password", "google"],
+    "$comment": "Email/password (createUserWithEmailAndPassword, signInWithEmailAndPassword) and Google (signInWithPopup + GoogleAuthProvider). No anonymous auth, unlike the prototype this file used to describe. No sendPasswordResetEmail either — see SPEC.md's open questions."
   },
   "firestore": {
+    "database": "planu",
     "structure": [
       {
+        "path": "/events/{eventId}",
         "definition": {
-          "description": "Collection containing event documents.",
+          "description": "One document per event. Read by its owner and every invited guest (memberIds, array-contains); written by its owner (any field) or by an editor guest (content fields only, never membership or ownership).",
           "entityName": "Event",
-          "schema": {
-            "$ref": "#/backend/entities/Event"
-          },
-          "params": [
-            {
-              "description": "The unique ID of the event.",
-              "name": "eventId"
-            }
-          ]
-        },
-        "path": "/events/{eventId}"
+          "schema": { "$ref": "#/entities/Event" }
+        }
+      },
+      {
+        "path": "/eventInvites/{inviteId}",
+        "definition": {
+          "description": "One pending invite per (event, invitee) pair. Readable by the owner who sent it and the invitee it names; created and updated only by the event's owner; deleted by either side when the invite is decided.",
+          "entityName": "EventInvite",
+          "schema": { "$ref": "#/entities/EventInvite" }
+        }
+      },
+      {
+        "path": "/userDirectory/{emailHash}",
+        "definition": {
+          "description": "Lets an owner turn an email into a uid to invite someone. Written only by the person whose verified email hashes to that id; readable by any signed-in, verified user by exact id, never listable.",
+          "entityName": "DirectoryEntry",
+          "schema": { "$ref": "#/entities/DirectoryEntry" }
+        }
+      },
+      {
+        "path": "/userProfiles/{uid}",
+        "definition": {
+          "description": "Lets a guest list show a name and photo instead of a bare uid. Written only by that uid; readable by any signed-in user by exact id, never listable.",
+          "entityName": "PublicProfile",
+          "schema": { "$ref": "#/entities/PublicProfile" }
+        }
       }
     ],
-    "reasoning": "Based on the application proposal, we need a collection to store events. Each document in the `events` collection will represent a single event and will contain the fields defined in the `Event` entity (title, description, location, startDate, endDate, and imageUrl). Since the application supports anonymous authentication in addition to password-based authentication, security rules need to accommodate both authenticated and unauthenticated users."
+    "reasoning": "Events are private by default and shared explicitly: an event carries its own membership (memberIds) and per-guest roles (roles) instead of living in a subcollection, because memberIds as an array-contains query is required either way to power the shared listing, and reading roles out of the document avoids a billable get() per rule evaluation (see docs/adr/0006-sharing-with-invited-members.md). userDirectory and userProfiles exist only because Firebase Auth has no client-readable directory: each user publishes their own entry, split into two collections so that inviting by email (which needs the hash-keyed lookup) never has to expose that email to the other guests of a shared event (see docs/adr/0007-client-side-user-directory.md). eventInvites makes membership consensual — the owner offers, only the invitee can turn it into membership — and is deleted on decision rather than kept as a history; docs/spec-invitation-activity.md specifies the not-yet-built persistent version."
   }
 }

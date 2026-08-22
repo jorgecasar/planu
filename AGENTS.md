@@ -1,8 +1,10 @@
 # planu
 
-Planificador de eventos: crear, listar, buscar y filtrar eventos con título,
-descripción, ubicación, fechas e imagen. **Los eventos son privados: sólo su
-creador los lee y los modifica.**
+Planificador de eventos: crear, listar, buscar, filtrar, ordenar y compartir
+eventos con título, descripción, ubicación, fechas —con o sin hora—,
+etiquetas e imagen. **Los eventos son privados por defecto: sólo su creador
+los lee y los modifica, salvo que invite a alguien más como lector o
+editor** (ver [ADR 0006](docs/adr/0006-sharing-with-invited-members.md)).
 
 Si lees en algún sitio que son públicos de lectura, es documentación heredada
 del prototipo y está equivocada. La lectura pública fue una fuga real que se
@@ -15,9 +17,13 @@ components. Del prototipo se conservan el concepto, el modelo de datos, las
 reglas de seguridad —reescritas, ver más abajo— y el proyecto de Firebase
 `planu-app`.
 
-La especificación de producto original está en [`docs/blueprint.md`](docs/blueprint.md)
-y el modelo de datos en [`docs/backend.json`](docs/backend.json). Ambos vienen
-del prototipo y **no han sido revisados todavía** para esta reescritura.
+La especificación de producto original está en [`docs/blueprint.md`](docs/blueprint.md);
+del prototipo, sólo su identidad visual (paleta, tipografías) se revisó y se
+decidió adoptar, en el [ADR 0008](docs/adr/0008-identidad-visual.md) — el resto
+del documento sigue sin revisar para esta reescritura. El modelo de datos real
+vive en [`docs/backend.json`](docs/backend.json), que ya no describe el
+prototipo: se mantiene al día con `apps/web/src/lib/types.ts` y
+`firestore.rules`.
 
 ## Stack
 
@@ -64,7 +70,7 @@ Monorepo con npm workspaces (`apps/*`, `packages/*`). Hoy sólo existe
    deja al editor sin guardar ni subir imágenes. El patrón es deliberado —con
    `@tsconfig/strictest`, estrechar sobre variables locales es lo que evita el
    `!` más abajo, porque `this.firestore` pierde el estrechamiento tras el
-   primer `await`— y hay 14 campos `@consume` en el proyecto, así que sembrar
+   primer `await`— y hay 26 campos `@consume` en el proyecto, así que sembrar
    `biome-ignore` en cada uno sería peor.
 
 **Si `npm run lint` sale con 1 sin mostrar ningún hallazgo, reintenta.** Con
@@ -125,9 +131,15 @@ No es portabilidad; Firebase se queda.
 | `src/infrastructure/` | Adaptadores. **El único sitio con `firebase/*`** | `domain/`, puertos |
 | `src/ui/` | Componentes Lit | `application/` |
 
-Hoy sólo existe `domain/`; las demás las crean T36, T37 y T38, cada una con su
-puerto. El resto del código sigue organizado por funcionalidad y **está en
-migración**.
+Hoy existen `domain/`, `application/` e `infrastructure/`. La sesión (T36), la
+analítica (T31) y el borrado de cuenta (T32) ya viven tras su puerto. El
+repositorio de eventos y el almacén de imágenes (T37/T38) sólo migraron
+`event-editor.ts`: `events-view.ts`, `event-card.ts`, `lib/types.ts` y
+`ai-event-generator.ts` siguen importando `firebase/firestore` o
+`firebase/storage`/`firebase/app` directamente. `src/ui/` como capa propia
+(T39) no existe todavía: el resto del código sigue organizado por
+funcionalidad (`auth/`, `events/`, `profile/`, `sharing/`, `calendar/`,
+`landing/`) y **está en migración**.
 
 **La regla, y no es opcional: toda tarea que toque un componente acoplado lo
 deja tras su puerto antes de darse por hecha.** Es lo que hace incremental la
@@ -145,9 +157,14 @@ Lo vigilan dos cosas, no la buena voluntad:
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **23 ficheros** cubiertos por 18 entradas, porque
-`firebase/**` agrupa seis. El tope está fijado en `arch/boundary.test.ts` y
-cada migración lo baja; subirlo hace fallar la suite.
+lista.** Hoy son **27 ficheros** cubiertos por 13 entradas, porque
+`firebase/**` agrupa siete e `infrastructure/firebase/**` agrupa nueve. El
+tope está fijado en `arch/boundary.test.ts`: migrar un componente acoplado lo
+baja, pero un adaptador nuevo bajo `infrastructure/firebase/` —el único sitio
+donde el acoplamiento es intencional— puede subirlo, siempre con su motivo
+documentado en el propio comentario del test. Ya ha pasado varias veces, de
+19 (tras T36) a 27 (tras T32): nunca por una entrada añadida a la lista para
+esquivar el recuento, sólo por ficheros nuevos en el sitio al que pertenecen.
 
 Y el vigilante vigila **la puerta además de la lista**: comprueba que siga
 existiendo exactamente un `override` que impone la regla y otro que exime, y que
@@ -608,20 +625,29 @@ fiablemente, y ni un dedo más.**
 
 ## Decisiones pendientes
 
-- Revisar `docs/blueprint.md` para la reescritura: sigue describiendo la app de
-  planu, con guías de estilo (indigo #3F51B5, tipografías Belleza y Alegreya)
-  que hay que traducir a tokens de Web Awesome o descartar.
-- El generador de eventos con IA (Genkit sobre Next en planu) está **aplazado**.
-  Al retomarlo hay que elegir entre Cloud Functions con Genkit o `@google/genai`
-  directamente, y escribir el ADR correspondiente.
-- Convención de nombres para las imágenes en Storage (ver arriba).
-- **Arquitectura hexagonal.** Hoy el código se organiza por funcionalidad
-  (`auth/`, `events/`, `firebase/`…) y no por capas, y las dependencias de
-  terceros se importan allí donde se usan. La dirección acordada es aislarlas
-  tras puertos, con los adaptadores en una capa de infraestructura. Sentry
-  (`src/observability/`) es el caso más fácil, pero **el que de verdad importa
-  es Firebase**: hoy `Firestore`, `User` y `FirebaseStorage` entran por
-  `@consume` directamente en los componentes de eventos, así que el dominio
-  conoce al proveedor. Hacerlo sólo en observabilidad dejaría el proyecto a
-  medio camino, así que conviene decidir el alcance completo y escribir el ADR
-  antes de mover nada.
+- ~~Revisar `docs/blueprint.md` para la reescritura~~ — **resuelto**: el
+  [ADR 0008](docs/adr/0008-identidad-visual.md) adopta la paleta y las
+  tipografías del blueprint, traducidas a tokens `--wa-*`.
+- ~~El generador de eventos con IA (Genkit sobre Next en planu) está
+  aplazado~~ — **resuelto**: el
+  [ADR 0003](docs/adr/0003-generacion-con-ia-hibrida.md) adopta Firebase AI
+  Logic híbrido, implementado desde imagen y desde texto pegado.
+- ~~Convención de nombres para las imágenes en Storage~~ — **resuelto**: ver
+  «Estado de seguridad» más abajo, `events/{userId}/{fileName}`.
+- **Arquitectura hexagonal, en marcha, no ya decidida.** El alcance está fijado
+  en [`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md):
+  tres puertos —sesión, repositorio de eventos, almacén de imágenes— más
+  analítica y borrado de cuenta. Sesión, analítica y borrado de cuenta ya
+  viven tras su puerto; el repositorio de eventos y el almacén de imágenes
+  sólo migraron `event-editor.ts`, no `events-view.ts`, `event-card.ts`,
+  `lib/types.ts` ni `ai-event-generator.ts`; cerrar la frontera a `src/ui/`
+  no se ha empezado. Ver T37, T38 y T39 en `tasks/todo.md`.
+- **Backfill de `memberIds` en eventos de la fase 1.** Sigue sin entregarse:
+  exige `firebase-admin` (cae en «preguntar primero») y, antes de eso, saber
+  si la base `planu` tiene documentos heredados sin ese campo — la primera
+  pregunta abierta de `SPEC.md`, todavía sin comprobar. Bloquea el despliegue
+  con datos reales, no el desarrollo (ver Checkpoint A en `tasks/plan.md`).
+- **Zona horaria entre invitados.** El
+  [ADR 0010](docs/adr/0010-all-day-flag-y-zona-horaria.md) añadió la bandera
+  `allDay` pero dejó la zona horaria pospuesta: toda fecha se guarda y se lee
+  en la zona local de quien la escribe, sin registrar cuál era.

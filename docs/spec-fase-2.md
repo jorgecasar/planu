@@ -1,5 +1,36 @@
 # Spec: planu — fase 2
 
+- **Estado:** entregada, con tres excepciones explícitas
+- **Fecha de esta evaluación:** 2026-08-22
+
+Las dieciséis funcionalidades (F1–F16, tareas T11–T34) están entregadas y
+verificadas según la evidencia de [`tasks/todo.md`](../tasks/todo.md), con tres
+excepciones registradas ahí y en [`tasks/plan.md`](../tasks/plan.md):
+
+1. **F11, criterio de LCP.** El Checkpoint F no se marca entero: mediana de 5
+   pasadas de Lighthouse contra producción da **1,9 s**, por encima del 1,5 s
+   exigido (evaluado el 22/08/2026). El resto del checkpoint —0 KB de
+   JavaScript, navegación sin JS, textos desde el mismo XLIFF que la
+   aplicación— sí está cerrado.
+2. **Cierre de la arquitectura hexagonal (T37, T38, T39).** Fuera del alcance
+   de este documento —tiene spec propia en
+   [`docs/spec-arquitectura-hexagonal.md`](spec-arquitectura-hexagonal.md)—
+   pero mencionada aquí porque T34 la evalúa: T35 (capas y frontera) y T36
+   (puerto de sesión) están entregados; T37 y T38 sólo migraron
+   `event-editor.ts`, no `events-view.ts`, `event-card.ts` ni `lib/types.ts`;
+   T39 no se ha empezado. Ver Checkpoint H en `tasks/plan.md`.
+3. **Registro de invitaciones (fase 13, T40–T41).** Especificado en
+   [`docs/spec-invitation-activity.md`](spec-invitation-activity.md), sin
+   empezar. Una invitación sigue siendo efímera: se acepta o se rechaza y el
+   documento de `eventInvites` se borra, sin dejar registro consultable.
+
+El Checkpoint G de `tasks/plan.md` —los dieciséis criterios de éxito del
+spec, con la suite completa en verde— no se marca entero mientras las tres
+excepciones de arriba sigan abiertas. Todo lo demás de este documento está
+entregado.
+
+---
+
 Segunda tanda de funcionalidad sobre la base ya entregada (T0–T10 de
 [`tasks/todo.md`](../tasks/todo.md)). **No sustituye a [`SPEC.md`](../SPEC.md):**
 lo amplía. Todo lo que aquel documento fija —stack, decoradores legacy, base
