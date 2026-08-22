@@ -1018,6 +1018,50 @@
   <source>End time</source>
         <target>Hora de fin</target>
 </trans-unit>
+<trans-unit id="s045c3b86aae073c1">
+  <source>Delete account</source>
+        <target>Eliminar cuenta</target>
+</trans-unit>
+<trans-unit id="s92d5a679e3f179fc">
+  <source>This permanently deletes your account: every event you own, their cover images, and your entry in the directory. Any event you shared will disappear for the people you invited — they will no longer see it.</source>
+        <target>Esto elimina tu cuenta de forma permanente: todos los eventos de los que eres propietario, sus imágenes de portada y tu entrada en el directorio. Cualquier evento que hayas compartido desaparecerá para las personas que invitaste — dejarán de verlo.</target>
+</trans-unit>
+<trans-unit id="s15563f48caae3853">
+  <source>Type your email — <x id="0" equiv-text="${user.email ?? &quot;&quot;}"/> — to confirm.</source>
+        <target>Escribe tu email — <x id="0" equiv-text="${user.email ?? &quot;&quot;}"/> — para confirmar.</target>
+</trans-unit>
+<trans-unit id="s1017626b6d2cf0cc">
+  <source>This takes a moment: please confirm it's you before we delete your account.</source>
+        <target>Esto lleva un momento: confirma que eres tú antes de eliminar tu cuenta.</target>
+</trans-unit>
+<trans-unit id="s94432257cd977c1d">
+  <source>Confirming…</source>
+        <target>Confirmando…</target>
+</trans-unit>
+<trans-unit id="s3726c4950f6705e5">
+  <source>Confirm and delete</source>
+        <target>Confirmar y eliminar</target>
+</trans-unit>
+<trans-unit id="s85b1860d882845a7">
+  <source>Finding what belongs to your account…</source>
+        <target>Buscando lo que pertenece a tu cuenta…</target>
+</trans-unit>
+<trans-unit id="sa4646d0dca5b3ef5">
+  <source>Deleting events: <x id="0" equiv-text="${step.done}"/> of <x id="1" equiv-text="${step.total}"/>…</source>
+        <target>Eliminando eventos: <x id="0" equiv-text="${step.done}"/> de <x id="1" equiv-text="${step.total}"/>…</target>
+</trans-unit>
+<trans-unit id="s73a53e78c72afb43">
+  <source>Removing your entry from the directory…</source>
+        <target>Eliminando tu entrada del directorio…</target>
+</trans-unit>
+<trans-unit id="s7525c0a80cbe885f">
+  <source>Deleting your account…</source>
+        <target>Eliminando tu cuenta…</target>
+</trans-unit>
+<trans-unit id="s6eb70e4e980899b6">
+  <source>Something went wrong deleting your account. You can try again.</source>
+        <target>Algo salió mal al eliminar tu cuenta. Puedes volver a intentarlo.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

@@ -22,6 +22,14 @@ export interface SessionUser {
 	 * interface instead of just what a single use case needs.
 	 */
 	getIdTokenResult?: () => Promise<{ claims: Record<string, unknown> }>;
+	/**
+	 * How this session signed in. T32 needs it to know which credential
+	 * `reauthenticate()` requires: a password for `"password"`, nothing for
+	 * `"google.com"` — `reauthenticateWithPopup` carries its own. `"unknown"`
+	 * covers a session an adapter can't classify, which the UI treats as "no
+	 * self-service deletion available" rather than guessing a flow.
+	 */
+	provider: "password" | "google.com" | "unknown";
 }
 
 /**
@@ -38,6 +46,25 @@ export interface SessionUser {
  */
 export interface SessionPort {
 	signIn(email: string, password: string): Promise<void>;
+
+	/**
+	 * Proves the session is fresh enough for a sensitive operation.
+	 *
+	 * `password` is required and used only when `SessionUser.provider` is
+	 * `"password"`; for `"google.com"` the adapter reauthenticates through a
+	 * popup instead and ignores it. Rejects with `SessionError`
+	 * `"invalid-credential"` on a wrong password, same as `signIn`.
+	 */
+	reauthenticate(password?: string): Promise<void>;
+
+	/**
+	 * Deletes the Auth account itself — the last step of T32's account
+	 * deletion, after every Firestore and Storage record tied to it is gone.
+	 * Rejects with `SessionError` `"requires-recent-login"` if the session
+	 * is too old; the caller is expected to call `reauthenticate()` and
+	 * retry, not to reauthenticate on its behalf.
+	 */
+	deleteAccount(): Promise<void>;
 
 	/**
 	 * Creates the account and, if the provider allows it, sends the

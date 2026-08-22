@@ -13,10 +13,12 @@ import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
+import { accountDataContext } from "../application/ports/account-data.js";
 import {
 	analyticsContext,
 	noopAnalytics,
 } from "../application/ports/analytics.js";
+import { createAccountDataAdapter } from "../infrastructure/firebase/account-data-adapter.js";
 import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
 import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
 import { FirebaseImageStore } from "../infrastructure/firebase/image-store.js";
@@ -141,6 +143,14 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	readonly #storage = new ContextProvider(this, { context: storageContext });
 
+	// `AccountDataPort`, built once both Firestore and Storage are ready —
+	// see `#provideDataServices()`. This is the one place allowed to import
+	// `infrastructure/firebase/account-data-adapter.js`, so components like
+	// `profile-view.ts` never construct it themselves.
+	readonly #accountData = new ContextProvider(this, {
+		context: accountDataContext,
+	});
+
 	// `noopAnalytics` up front: analytics doesn't depend on the session, so
 	// there's no "still checking" state to distinguish, unlike `#user`.
 	readonly #analytics = new ContextProvider(this, {
@@ -203,6 +213,7 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#storage.setValue(storage);
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
+			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
 
 			// Publishing the directory entry is what lets other people find this
 			// user by email when inviting them. It is not essential to using the
@@ -212,7 +223,13 @@ export class PlanuFirebaseProvider extends LitElement {
 			const { publishDirectoryEntry } = await import(
 				"../sharing/user-directory.js"
 			);
-			await publishDirectoryEntry(firestore, user).catch(() => {});
+			// Converted explicitly, not passed through as `User`: the domain type
+			// carries fields Firebase's own doesn't — `provider`, for T32 — and
+			// the two happened to structurally match well enough that TypeScript
+			// never caught the shortcut until this one didn't.
+			await publishDirectoryEntry(firestore, toSessionUser(user)).catch(
+				() => {},
+			);
 		} catch {
 			this.dispatchEvent(
 				new CustomEvent("planu-data-services-failed", {

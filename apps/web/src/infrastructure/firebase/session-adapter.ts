@@ -2,8 +2,11 @@ import { FirebaseError } from "firebase/app";
 import {
 	type Auth,
 	createUserWithEmailAndPassword,
+	deleteUser,
+	EmailAuthProvider,
 	signOut as firebaseSignOut,
 	GoogleAuthProvider,
+	reauthenticateWithCredential,
 	reload,
 	sendEmailVerification,
 	signInWithEmailAndPassword,
@@ -26,6 +29,18 @@ import {
  * `SessionUser` can carry the `premium` claim (T23) without its signature
  * knowing about `firebase/auth`.
  */
+/**
+ * `providerData[0]` and not `providerId` on the user itself: Firebase's own
+ * top-level `providerId` is always `"firebase"` — the umbrella, not the one
+ * that actually authenticated this session. An account with no provider
+ * entry (should never happen for a signed-in user) maps to `"unknown"`
+ * rather than guessing.
+ */
+function providerOf(user: User): SessionUser["provider"] {
+	const id = user.providerData[0]?.providerId;
+	return id === "password" || id === "google.com" ? id : "unknown";
+}
+
 export function toSessionUser(user: User): SessionUser {
 	return {
 		uid: user.uid,
@@ -34,6 +49,7 @@ export function toSessionUser(user: User): SessionUser {
 		photoURL: user.photoURL,
 		emailVerified: user.emailVerified,
 		getIdTokenResult: () => user.getIdTokenResult(),
+		provider: providerOf(user),
 	};
 }
 
@@ -55,6 +71,7 @@ const CODIGOS: Record<string, SessionErrorCode> = {
 	"auth/popup-blocked": "popup-blocked",
 	"auth/network-request-failed": "network-error",
 	"auth/too-many-requests": "too-many-requests",
+	"auth/requires-recent-login": "requires-recent-login",
 };
 
 /**
@@ -63,6 +80,11 @@ const CODIGOS: Record<string, SessionErrorCode> = {
  * message.
  */
 export function toSessionError(cause: unknown): SessionError {
+	// Pass through unchanged: a `SessionError` thrown deliberately by this
+	// adapter — see `reauthenticate()`'s missing-password check — is already
+	// domain vocabulary, and re-wrapping it here would flatten its real code
+	// to "unknown" because it isn't a `FirebaseError`.
+	if (cause instanceof SessionError) return cause;
 	if (cause instanceof FirebaseError) {
 		return new SessionError(CODIGOS[cause.code] ?? "unknown");
 	}
@@ -125,6 +147,62 @@ export class FirebaseSessionAdapter implements SessionPort {
 				new GoogleAuthProvider(),
 				browserPopupRedirectResolver,
 			);
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
+	}
+
+	async reauthenticate(password?: string): Promise<void> {
+		const user = this.#auth.currentUser;
+		if (!user) throw new SessionError("unknown");
+
+		try {
+			const provider = providerOf(user);
+			if (provider === "password") {
+				if (!user.email || !password) {
+					throw new SessionError("invalid-credential");
+				}
+				await reauthenticateWithCredential(
+					user,
+					EmailAuthProvider.credential(user.email, password),
+				);
+				return;
+			}
+
+			// `SessionUser.provider`'s own doc says "unknown" is the session an
+			// adapter can't classify, treated as "no self-service deletion
+			// available" rather than guessing a flow. Before this check it fell
+			// through here just like Google, attempting a popup for an account
+			// that may not have that provider linked at all.
+			if (provider === "unknown") {
+				throw new SessionError("unknown");
+			}
+
+			// Google: same isolated-chunk reasoning as signInWithGoogle() above —
+			// the popup resolver only downloads once someone actually needs it.
+			const { browserPopupRedirectResolver, reauthenticateWithPopup } =
+				await import("firebase/auth");
+			await reauthenticateWithPopup(
+				user,
+				new GoogleAuthProvider(),
+				browserPopupRedirectResolver,
+			);
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
+	}
+
+	async deleteAccount(): Promise<void> {
+		const user = this.#auth.currentUser;
+		// Not a silent `return`: that would report success without deleting
+		// anything. It can genuinely happen — the session got invalidated in
+		// another tab while the deletion was in flight — and the caller needs
+		// to tell that apart from a real deletion, so it doesn't announce the
+		// account as gone while the Auth record still exists.
+		if (!user) throw new SessionError("unknown");
+
+		try {
+			await deleteUser(user);
 		} catch (cause) {
 			throw toSessionError(cause);
 		}

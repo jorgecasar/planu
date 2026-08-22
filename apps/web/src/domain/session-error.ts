@@ -17,6 +17,13 @@ export type SessionErrorCode =
 	| "popup-blocked"
 	| "network-error"
 	| "too-many-requests"
+	/**
+	 * The provider requires a session younger than it is. T32's account
+	 * deletion is the one place this surfaces: `deleteUser()` demands a
+	 * recent sign-in, and a session opened hours ago routinely isn't one.
+	 * The caller reauthenticates and retries — see `deleteAccount()`.
+	 */
+	| "requires-recent-login"
 	| "unknown";
 
 /**

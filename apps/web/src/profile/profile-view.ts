@@ -2,13 +2,23 @@ import "@awesome.me/webawesome/dist/components/avatar/avatar.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
+import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
+import "@awesome.me/webawesome/dist/components/input/input.js";
+import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { consume } from "@lit/context";
-import { msg } from "@lit/localize";
+import { msg, str } from "@lit/localize";
 import type { Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import {
+	type DeleteAccountStep,
+	deleteAccount,
+} from "../application/delete-account.js";
+import type { AccountDataPort } from "../application/ports/account-data.js";
+import { accountDataContext } from "../application/ports/account-data.js";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
 import { signOut } from "../application/sign-out.js";
+import { SessionError } from "../domain/session-error.js";
 import {
 	firestoreContext,
 	sessionContext,
@@ -64,6 +74,23 @@ export class PlanuProfileView extends LitElement {
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
 
+	// `AccountDataPort`, not raw `Firestore`/`FirebaseStorage`: T32 touches this
+	// already-coupled component, and the project's hexagonal-migration rule is
+	// that a task which touches a coupled component leaves it behind a port
+	// instead of adding a new raw import. The adapter itself is built once, at
+	// the composition root (`firebase-provider.ts`), not here.
+	@consume({ context: accountDataContext, subscribe: true })
+	private account: AccountDataPort | undefined;
+
+	@state() private confirmingDelete = false;
+	@state() private confirmEmail = "";
+	@state() private deleteStep: DeleteAccountStep | undefined;
+	@state() private deleteError = "";
+	/** The one step that needs to ask for credentials again. */
+	@state() private needsReauth = false;
+	@state() private reauthPassword = "";
+	@state() private reauthenticating = false;
+
 	override render() {
 		const user = this.user;
 		if (!user) return null;
@@ -85,13 +112,23 @@ export class PlanuProfileView extends LitElement {
 					slot="footer"
 					class="wa-stack wa-gap-s wa-align-items-start"
 				>
-					<wa-button
-						variant="danger"
-						appearance="outlined"
-						@click=${this.#onSignOut}
-					>
-						${msg("Sign out")}
-					</wa-button>
+					<div class="wa-cluster wa-gap-s">
+						<wa-button
+							variant="danger"
+							appearance="outlined"
+							@click=${this.#onSignOut}
+						>
+							${msg("Sign out")}
+						</wa-button>
+
+						<wa-button
+							variant="danger"
+							appearance="plain"
+							@click=${this.#askDelete}
+						>
+							${msg("Delete account")}
+						</wa-button>
+					</div>
 
 					<div class="wa-cluster wa-gap-s wa-text-sm">
 						<a href="${this.#legalHref("privacy")}" target="_blank" rel="noopener">${msg("Privacy")}</a>
@@ -100,7 +137,171 @@ export class PlanuProfileView extends LitElement {
 					</div>
 				</div>
 			</wa-card>
+
+			${this.#renderDeleteDialog(user)}
 		`;
+	}
+
+	/**
+	 * The delete dialog, and when it's needed, the reauthentication one — two
+	 * steps because they're two different questions: "are you sure?" first,
+	 * "prove it again" only if Firebase demands it. T32 asks for confirmation
+	 * by typing the email, not a plain "are you sure?", and warns that shared
+	 * events disappear for their guests.
+	 */
+	#renderDeleteDialog(user: SessionUser) {
+		const step = this.deleteStep;
+		const deleting = step !== undefined;
+		const confirmed =
+			!!user.email &&
+			this.confirmEmail.trim().toLowerCase() === user.email.toLowerCase();
+
+		return html`
+			<wa-dialog
+				label=${msg("Delete account")}
+				.open=${this.confirmingDelete}
+				@wa-hide=${this.#cancelDelete}
+			>
+				${
+					this.needsReauth
+						? this.#renderReauthStep()
+						: html`
+								<p>
+									${msg(
+										"This permanently deletes your account: every event you own, their cover images, and your entry in the directory. Any event you shared will disappear for the people you invited — they will no longer see it.",
+									)}
+								</p>
+								<p>
+									${msg(str`Type your email — ${user.email ?? ""} — to confirm.`)}
+								</p>
+								<wa-input
+									label=${msg("Email")}
+									.value=${this.confirmEmail}
+									?disabled=${deleting}
+									@input=${this.#onConfirmEmailInput}
+								></wa-input>
+								${
+									step
+										? html`<wa-progress-bar
+												value=${this.#progressValue(step)}
+											></wa-progress-bar>
+											<p class="wa-text-sm wa-color-text-quiet">
+												${this.#progressLabel(step)}
+											</p>`
+										: nothing
+								}
+								${
+									this.deleteError
+										? html`<wa-callout variant="danger" role="alert">
+												${this.deleteError}
+											</wa-callout>`
+										: nothing
+								}
+								<wa-button
+									slot="footer"
+									appearance="outlined"
+									?disabled=${deleting}
+									@click=${this.#cancelDelete}
+								>
+									${msg("Cancel")}
+								</wa-button>
+								<wa-button
+									slot="footer"
+									variant="danger"
+									?disabled=${!confirmed || deleting}
+									@click=${this.#confirmDelete}
+								>
+									${deleting ? msg("Deleting…") : msg("Delete account")}
+								</wa-button>
+							`
+				}
+			</wa-dialog>
+		`;
+	}
+
+	#renderReauthStep() {
+		const passwordProvider = this.user?.provider === "password";
+		return html`
+			<p>
+				${msg(
+					"This takes a moment: please confirm it's you before we delete your account.",
+				)}
+			</p>
+			${
+				passwordProvider
+					? html`<wa-input
+							type="password"
+							label=${msg("Password")}
+							.value=${this.reauthPassword}
+							?disabled=${this.reauthenticating}
+							@input=${this.#onReauthPasswordInput}
+						></wa-input>`
+					: nothing
+			}
+			${
+				this.deleteError
+					? html`<wa-callout variant="danger" role="alert">
+							${this.deleteError}
+						</wa-callout>`
+					: nothing
+			}
+			<wa-button
+				slot="footer"
+				appearance="outlined"
+				?disabled=${this.reauthenticating}
+				@click=${this.#cancelDelete}
+			>
+				${msg("Cancel")}
+			</wa-button>
+			<wa-button
+				slot="footer"
+				variant="danger"
+				?disabled=${
+					(passwordProvider && !this.reauthPassword) || this.reauthenticating
+				}
+				@click=${this.#reauthenticateAndRetry}
+			>
+				${
+					this.reauthenticating
+						? msg("Confirming…")
+						: passwordProvider
+							? msg("Confirm and delete")
+							: msg("Continue with Google")
+				}
+			</wa-button>
+		`;
+	}
+
+	/**
+	 * Progress as a percentage, 0-100 — `<wa-progress-bar>`'s own scale, not
+	 * a 0-1 fraction.
+	 */
+	#progressValue(step: DeleteAccountStep): number {
+		switch (step.phase) {
+			case "listing":
+				return 10;
+			case "deleting-events":
+				// 10 to 70: the step that can have many events is the only one
+				// with a wide range, so the bar advances along with them.
+				return step.total === 0 ? 70 : 10 + 60 * (step.done / step.total);
+			case "deleting-directory":
+				return 80;
+			case "deleting-account":
+				return 95;
+		}
+	}
+
+	#progressLabel(step: DeleteAccountStep): string {
+		switch (step.phase) {
+			case "listing":
+				return msg("Finding what belongs to your account…");
+			case "deleting-events":
+				return msg(str`Deleting events: ${step.done} of ${step.total}…`);
+			case "deleting-directory":
+				return msg("Removing your entry from the directory…");
+			case "deleting-account":
+				return msg("Deleting your account…");
+		}
 	}
 
 	/**
@@ -200,6 +401,103 @@ export class PlanuProfileView extends LitElement {
 
 	#onSignOut(): void {
 		if (this.session) void signOut(this.session);
+	}
+
+	#askDelete(): void {
+		this.confirmingDelete = true;
+		this.confirmEmail = "";
+		this.deleteError = "";
+	}
+
+	#cancelDelete(): void {
+		// Doesn't cancel mid-deletion or mid-reauthentication: dismissing the
+		// dialog while either is in flight would let it keep running in the
+		// background — including a successful reauthentication sliding
+		// straight into `#runDelete()` — with nobody watching. The dialog's
+		// own Cancel button is disabled for both cases already; this guards
+		// the other way in, `@wa-hide` firing from Escape or a backdrop click.
+		if (this.deleteStep || this.reauthenticating) return;
+		this.confirmingDelete = false;
+		this.needsReauth = false;
+		this.reauthPassword = "";
+	}
+
+	#onConfirmEmailInput(event: Event): void {
+		this.confirmEmail = (event.target as HTMLInputElement).value;
+	}
+
+	#onReauthPasswordInput(event: Event): void {
+		this.reauthPassword = (event.target as HTMLInputElement).value;
+	}
+
+	async #confirmDelete(): Promise<void> {
+		// Explicit reentrancy guard, same reason as `#onCheck`/`#onResend`:
+		// without it, two quick clicks would fire two deletions at once.
+		// Neither would corrupt anything — the whole use case is idempotent —
+		// but it's a redundant network round trip the rest of this file
+		// already avoids on purpose.
+		if (this.deleteStep) return;
+		const { session, account, user } = this;
+		if (!session || !account || !user) return;
+
+		this.deleteError = "";
+		await this.#runDelete(session, account, user);
+	}
+
+	/**
+	 * The one step that can demand reauthentication: `deleteUser()` inside
+	 * `deleteAccount()`. Everything before it — events, images, directory —
+	 * is already deleted by the time this happens, so the retry repeats
+	 * nothing: it lists (empty) and lands directly on the last step.
+	 */
+	async #runDelete(
+		session: SessionPort,
+		account: AccountDataPort,
+		user: SessionUser,
+	): Promise<void> {
+		try {
+			await deleteAccount(session, account, user, (step) => {
+				this.deleteStep = step;
+			});
+			// The account no longer exists: `onAuthStateChanged` in the
+			// provider picks it up and the guard redirects to login on its own.
+			// Nothing else to do here.
+		} catch (cause) {
+			this.deleteStep = undefined;
+			if (
+				cause instanceof SessionError &&
+				cause.code === "requires-recent-login"
+			) {
+				this.needsReauth = true;
+				return;
+			}
+			this.deleteError = msg(
+				"Something went wrong deleting your account. You can try again.",
+			);
+		}
+	}
+
+	async #reauthenticateAndRetry(): Promise<void> {
+		// Same reason as in `#confirmDelete()`: a second click while the first
+		// is still in flight must not fire a second reauthentication.
+		if (this.reauthenticating || this.deleteStep) return;
+		const { session, account, user } = this;
+		if (!session || !account || !user) return;
+
+		this.deleteError = "";
+		this.reauthenticating = true;
+		try {
+			await session.reauthenticate(
+				user.provider === "password" ? this.reauthPassword : undefined,
+			);
+			this.needsReauth = false;
+			this.reauthPassword = "";
+			await this.#runDelete(session, account, user);
+		} catch {
+			this.deleteError = msg("That did not work. Please try again.");
+		} finally {
+			this.reauthenticating = false;
+		}
 	}
 }
 

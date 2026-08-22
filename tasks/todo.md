@@ -1008,7 +1008,7 @@ Numeración continuada: la fase 1 llegó hasta T10.
     espera de `setTimeout` que ya usan otros tests del fichero para cadenas
     asíncronas más largas.
 
-- [ ] **T32 · Borrado de cuenta y de datos (F14)** · M · depende de T13, T15, T18
+- [x] **T32 · Borrado de cuenta y de datos (F14)** · M · depende de T13, T15, T18
   - Acepta: confirmación escribiendo el email, no un «¿seguro?»; borra en orden
     los eventos propios, sus imágenes, la entrada del directorio, las membresías
     en eventos ajenos y por último la cuenta de Auth; maneja
@@ -1021,6 +1021,75 @@ Numeración continuada: la fase 1 llegó hasta T10.
     `src/profile/profile-view.ts`, `firestore.rules`
   - Nota: es la única tarea de producto que es **código delicado** y no
     contenido. Depende de la decisión tomada en T12.
+  - Evidencia:
+    - **Puerto + adaptador, no el fichero único del plan** — decisión explícita
+      tomada antes de picar código, consistente con la migración a arquitectura
+      hexagonal en marcha: `application/ports/account-data.ts` (interfaz pura +
+      su contexto de Lit), `application/delete-account.ts` (caso de uso, sin
+      `firebase/*`) y `infrastructure/firebase/account-data-adapter.ts` (el
+      único fichero nuevo que sí importa Firebase). El adaptador se construye
+      una sola vez en `firebase-provider.ts` —la raíz de composición— y se
+      publica por `accountDataContext`; `profile-view.ts` sólo lo consume, no
+      lo construye. `TOPE_ACOPLADOS` sube de 21 a 22 en
+      `apps/web/arch/boundary.test.ts` por ese único fichero nuevo, documentado
+      en su propio comentario, mismo patrón que T31/T36.
+    - **`firestore.rules`/`storage.rules` sin cambios, a propósito** —
+      desviación del fichero literal del plan—: `allow delete: if isOwner()`
+      en `events` y en Storage, `leavesTheEvent()` y los `allow delete` de
+      `userDirectory`/`userProfiles` ya cubrían exactamente lo que T32
+      necesita, construidos por T13/T15/T18. Comprobado leyendo las reglas
+      línea a línea, no supuesto.
+    - `deleteAccount()` (`apps/web/src/application/delete-account.ts`) borra en
+      el orden fijado —imagen antes que evento, antes que directorio, antes
+      que la cuenta de Auth— porque `isOwner()` deja de cumplirse en cuanto la
+      sesión desaparece. Cada paso es idempotente por sí mismo, así que un
+      reintento tras una interrupción a mitad no repite nada; probado con un
+      test dedicado a exactamente ese escenario.
+    - Revisado por dos subagentes antes de darlo por bueno (maker≠checker):
+      un `security-auditor` y un `code-reviewer`, en paralelo. Hallazgos
+      corregidos, no sólo anotados:
+      - `deleteAccount()`/`reauthenticate()` en `session-adapter.ts` devolvían
+        o continuaban en silencio sin sesión real o con un proveedor sin
+        clasificar, lo que podía reportar un borrado como hecho sin haberlo
+        hecho. Ahora ambos rechazan con `SessionError`; cubierto con dos tests
+        nuevos en `session-adapter.test.ts`.
+      - La barra de progreso estaba en escala 0–1; `wa-progress-bar` espera
+        0–100 (comprobado contra su documentación), así que se veía
+        permanentemente casi vacía durante todo el borrado. Corregido.
+      - El diálogo podía cerrarse a mitad de una reautenticación en curso
+        —`@wa-hide` por Escape o clic fuera, no sólo el botón Cancelar— y
+        dejar que una reautenticación con éxito cayera directa en el borrado
+        sin que nadie lo viera. `#cancelDelete()` ahora también lo bloquea.
+      - Los comentarios de los ficheros nuevos habían vuelto a español;
+        traducidos al inglés siguiendo la convención de T42 (los nombres de
+        los tests siguen en español, igual que el resto de la suite).
+    - `npm run lint`, `lint:lit` (0 errores, el único warning es preexistente
+      en `landing/legal.ts`), `typecheck`, `test:arch`, `test:rules`, `build`
+      → **0**. `npm test` → **0**, 507 tests en 42 ficheros (16 más que la
+      base: 11 de `delete-account.test.ts` y 5 de los cambios en
+      `session-adapter.test.ts`/`sign-*.test.ts`/`guard.test.ts`).
+    - E2E: `apps/web/e2e/account-deletion.spec.ts`, contra los emuladores
+      reales — dos cuentas, A comparte un evento con B; B acepta, sube una
+      imagen real a Storage con su propio idToken (no con el token de
+      administración) y crea su propio evento con esa imagen; B borra su
+      cuenta desde el diálogo real del perfil. Verifica después: el evento
+      propio de B ha desaparecido de Firestore, su imagen ha desaparecido de
+      Storage, el evento de A sigue existiendo pero sin B entre sus miembros,
+      su entrada de `userProfiles` ha desaparecido, y entrar con sus
+      credenciales ya falla. El bypass de administración (`Bearer owner`) se
+      usa **sólo** para preparar el estado previo y para las aserciones
+      finales — la acción bajo prueba, el borrado, corre siempre con la
+      sesión real de B contra reglas reales, comprobado explícitamente.
+      Mutación deliberada y revertida antes de dar el test por bueno: se
+      comentó la línea que borra la imagen y el test lo detectó en rojo
+      (`expected [] but got [...]`); restaurada, vuelve a verde. Suite e2e
+      completa: **69 tests, todos en verde** (`npx playwright test`).
+    - **No verificado de extremo a extremo**: el sub-flujo de reautenticación
+      (`requires-recent-login`) sólo tiene tests unitarios —no hay forma
+      conocida de forzar al emulador de Auth a exigir un login reciente—, así
+      que el camino feliz (borrado sin reautenticación) es el único probado
+      contra emuladores reales. Queda para quien retome esta área si hace
+      falta más confianza en ese camino concreto.
 
 - [x] **T33 · Onboarding y primera sesión (F15)** · S · depende de T23
   - Acepta: el estado vacío explica qué hacer, con acciones directas para crear
