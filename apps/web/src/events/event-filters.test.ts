@@ -56,6 +56,29 @@ const isChecked = (el: PlanuEventFilters, tag: string): boolean | undefined =>
 const clearButton = (el: PlanuEventFilters): HTMLElement | null =>
 	el.shadowRoot?.querySelector("wa-button") ?? null;
 
+type InputHost = HTMLElement & {
+	value: string;
+	updateComplete?: Promise<unknown>;
+};
+
+/**
+ * Escribe el `.value` de un `wa-input` por su `name` y espera a que se
+ * propague — mismo motivo que en `event-editor.test.ts`: `wa-input`
+ * sincroniza su valor desde `willUpdate()`, un ciclo asíncrono de Lit.
+ */
+async function setField(
+	el: PlanuEventFilters,
+	name: string,
+	value: string,
+): Promise<void> {
+	const host = el.shadowRoot?.querySelector<InputHost>(`[name="${name}"]`);
+	if (!host) throw new Error(`El campo "${name}" no está en el DOM`);
+	host.value = value;
+	host.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+	await host.updateComplete;
+	await el.updateComplete;
+}
+
 function listen(el: PlanuEventFilters): FiltersChange[] {
 	const seen: FiltersChange[] = [];
 	el.addEventListener("planu-filters-change", (event) => {
@@ -159,5 +182,85 @@ test("reordenar no le mueve el foco a quien navega con el teclado", async () => 
 
 	const focused = el.shadowRoot?.activeElement as CheckboxHost | null;
 	expect(focused?.value).toBe("cine");
+	el.remove();
+});
+
+// ── Rango con hora (T50) ─────────────────────────────────────────────────────
+
+test("cuatro campos: fecha y hora de inicio, fecha y hora de fin", async () => {
+	const el = await mount([]);
+
+	expect(
+		el.shadowRoot?.querySelector('[name="from"]')?.getAttribute("type"),
+	).toBe("date");
+	expect(
+		el.shadowRoot?.querySelector('[name="fromTime"]')?.getAttribute("type"),
+	).toBe("time");
+	expect(
+		el.shadowRoot?.querySelector('[name="to"]')?.getAttribute("type"),
+	).toBe("date");
+	expect(
+		el.shadowRoot?.querySelector('[name="toTime"]')?.getAttribute("type"),
+	).toBe("time");
+
+	el.remove();
+});
+
+test("hora vacía es el día entero, igual que antes de este campo", async () => {
+	const el = await mount([]);
+	const emitted = listen(el);
+
+	await setField(el, "from", "2026-06-12");
+	await setField(el, "to", "2026-06-14");
+
+	const last = emitted.at(-1);
+	expect(last?.from?.toISOString()).toBe(
+		new Date("2026-06-12T00:00:00").toISOString(),
+	);
+	expect(last?.to?.toISOString()).toBe(
+		new Date("2026-06-14T23:59:59").toISOString(),
+	);
+
+	el.remove();
+});
+
+test("una hora en el rango se combina con su fecha", async () => {
+	const el = await mount([]);
+	const emitted = listen(el);
+
+	await setField(el, "from", "2026-06-12");
+	await setField(el, "fromTime", "19:00");
+	await setField(el, "to", "2026-06-12");
+	await setField(el, "toTime", "20:00");
+
+	const last = emitted.at(-1);
+	expect(last?.from?.toISOString()).toBe(
+		new Date("2026-06-12T19:00:00").toISOString(),
+	);
+	// El minuto entero de "to" cuenta: 20:00:59 y no 20:00:00, así que algo que
+	// pasó a las 20:00:30 sigue dentro del rango que se pidió hasta las 20:00.
+	expect(last?.to?.toISOString()).toBe(
+		new Date("2026-06-12T20:00:59").toISOString(),
+	);
+
+	el.remove();
+});
+
+test("limpiar borra también las dos horas", async () => {
+	const el = await mount([]);
+	const emitted = listen(el);
+
+	await setField(el, "from", "2026-06-12");
+	await setField(el, "fromTime", "19:00");
+	clearButton(el)?.click();
+	await settle();
+	await el.updateComplete;
+
+	expect(emitted.at(-1)?.from).toBeNull();
+	expect(
+		(el.shadowRoot?.querySelector('[name="fromTime"]') as InputHost | null)
+			?.value,
+	).toBe("");
+
 	el.remove();
 });
