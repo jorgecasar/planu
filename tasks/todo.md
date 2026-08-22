@@ -791,6 +791,19 @@ Numeración continuada: la fase 1 llegó hasta T10.
     fallaron 6 y 8 tests **sin una sola coincidencia**, mientras en serie da 59
     de 60. Apunta a estado compartido entre tests sobre los emuladores. No se
     arregla aquí porque no es de esta tarea, pero queda escrito.
+  - **Se marcó antes de tiempo, y salió caro.** Esta casilla se puso con `axe` en
+    verde y los tokens en su sitio, pero **la landing se publicó sin un solo
+    estilo**: el marcado llevaba `wa-stack`, `wa-cluster`, `wa-grid` y
+    `a.wa-button` y detrás no había nada. Dos fallos a la vez —faltaba la hoja de
+    Web Awesome entera, y nueve clases (`wa-text-3xl`, `wa-button--brand`…)
+    estaban inventadas con la convención de otro framework—. Lo vio una persona
+    mirando el sitio, no la suite.
+  - El motivo del hueco: los doce e2e de entonces miraban **el DOM** —encabezados,
+    landmarks, `hreflang`— y **axe no se queja de una página sin CSS**, porque el
+    HTML semántico es accesible igual. Se verificó estructura y se dio por
+    verificada la presentación. Arreglado en `fix/landing-missing-wa-styles` con
+    cuatro tests que sí la comprueban, y los dos fallos se reprodujeron contra
+    ellos antes de tocar nada.
   - **Salvedad medida, no supuesta:** el `og:image` lleva la fuente del sistema,
     no Belleza ni Alegreya. `sips` es el único rasterizador disponible aquí e
     **ignora los `@font-face`** incluso incrustados como data URI; se comparó el
@@ -1132,6 +1145,26 @@ garantiza conflictos.
 ---
 
 ## Deuda transversal
+
+- [ ] **T56 · Proteger `main` contra pushes que reescriben historia** · XS · sin dependencias
+  - Motivo, y no es hipotético: **el 21/08/2026 un force-push borró de `main` tres
+    PR ya fusionadas** —#18 (T33), #19 (T36) y #20 (T42)—. `main` estaba en
+    `35c860c`, con los tres merges dentro, y un push de `7b15c9a` lo dejó
+    colgando de `2fd82f8`, anterior a todos ellos. El reflog lo registra:
+    `refs/remotes/origin/main@{2}: update by push`.
+  - Lo peor no fue la pérdida —los commits sobrevivían en el remoto y se
+    recuperaron con cherry-pick— sino que **las cuatro PR siguientes se
+    construyeron encima de la historia amputada** y nadie lo notó: todo lo
+    posterior al reset era consistente consigo mismo. Salió al auditar ramas
+    sobrantes por otro motivo.
+  - Acepta: regla de protección en `main` que rechace pushes non-fast-forward y
+    force-push. Con eso, el fallo es imposible en vez de invisible.
+  - Verifica: intentar un `git push --force` a `main` y comprobar que el remoto
+    lo rechaza.
+  - Nota: `git branch --merged` **no** habría avisado. Con squash el SHA cambia,
+    así que la comprobación buena sigue siendo por contenido
+    (`git diff origin/main origin/<rama> --name-only`), y ni ésa detecta que un
+    merge ha desaparecido de la historia.
 
 - [ ] **T43 · El diálogo se queda translúcido al reabrirlo** · S · sin dependencias
   - Síntoma: abrir el editor de eventos, cerrarlo y volver a abrirlo deja el
