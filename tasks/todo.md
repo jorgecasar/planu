@@ -1383,7 +1383,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
     detección heurística por hora que antes heredaba— y quedó en 8/8.
     `npm run typecheck`, `npm run lint` y `npm run lint:lit` en 0.
 
-- [ ] **T47 · sort-events: `activeUntil` respeta día completo** · S · depende de T44
+- [x] **T47 · sort-events: `activeUntil` respeta día completo** · S · depende de T44
   - Acepta: `activeUntil(event)` devuelve `endDate` a `23:59:59.999` local si
     `allDay` y hay `endDate`; si `allDay` y sólo `startDate`, devuelve
     `startDate` a `23:59:59.999`; así un evento de día completo de hoy está en
@@ -1392,6 +1392,15 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `npm test domain/sort-events.test.ts` en 0; test explícito:
     evento de día completo hoy → grupo `upcoming` a las 23:59.
   - Ficheros: `apps/web/src/domain/sort-events.ts`
+  - Evidencia: commit `d3bc6f3`, aparte de cualquier otro cambio por ser
+    comportamiento visible. `TZ=America/Santiago npx vitest run
+    src/domain/sort-events.test.ts src/calendar/agenda-days.test.ts
+    --browser.enabled=false` → 53/53 en 0, incluidos los dos tests nuevos de
+    día completo hoy a las 23:59 (de un día y de varios) y el ajuste de los
+    dos tests que modelaban un fin abierto (`Obras en la calle`, el límite de
+    milisegundo exacto), que sólo tiene sentido declarado con `allDay: false`
+    —el editor no ofrece día completo sin fin, decisión 4 del spec—.
+    `npm run typecheck` y `npm run lint` en 0.
 
 - [ ] **T48 · Editor: cuatro campos date+time, lógica de `allDay`** · M · depende de T44, T45
   - Acepta: fila `.dates` con cuatro `wa-input` (date, time, date, time);
@@ -1454,8 +1463,26 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Verifica: `ls docs/adr/0008-*.md` existe.
   - Ficheros: `docs/adr/0008-all-day-flag-y-zona-horaria.md`
 
-> **Checkpoint I** — tras T44–T47: tests de dominio en 0; migración implícita
-> probada (evento sin `allDay` → día completo en ICS y en listado).
+> **Checkpoint I** — tras T44–T47:
+>
+> - [x] Tests de dominio afectados por `allDay` en 0 — `TZ=America/Santiago
+>       npx vitest run src/domain/sort-events.test.ts
+>       src/domain/build-ics.test.ts src/domain/format-dates.test.ts
+>       src/domain/google-calendar-url.test.ts src/lib/types.test.ts
+>       src/calendar/agenda-days.test.ts --browser.enabled=false` → 175/175.
+>       El modo browser real cuelga en este entorno (ver nota de la sesión
+>       anterior sobre Playwright/Chromium en background); el resto de
+>       `src/domain` en el mismo modo Node da 186/192, con los 6 fallos
+>       restantes en `startup-buffer.test.ts` —ajeno a esta feature, depende
+>       de `ErrorEvent`/`dispatchEvent` de navegador y ya fallaba así antes de
+>       T44—.
+> - [x] Migración implícita probada: evento sin `allDay` → día completo en
+>       ICS (`build-ics.test.ts`, «un evento sin el campo allDay se lee como
+>       día completo») y `default(true)` en el esquema (`types.test.ts`).
+>       El listado (`sort-events.ts`) no tiene un test propio de «sin
+>       `allDay`» porque `PlanuEvent.allDay` es obligatorio ahí: la
+>       migración vive en el parseo de Zod, no en esta capa — ver el
+>       comentario de `activeUntil` en `sort-events.ts`.
 >
 > **Checkpoint II** — tras T48: editor crea y reabre con hora; sin hora no
 > muestra ninguna.
