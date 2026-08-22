@@ -8,8 +8,10 @@ import type { PlanuEvent } from "../../lib/types.js";
 // this logic behind a port.
 
 const addDocMock = vi.fn();
+const arrayRemoveMock = vi.fn((uid: string) => ({ arrayRemove: uid }));
 const collectionMock = vi.fn((_db: unknown, name: string) => ({ path: name }));
 const deleteDocMock = vi.fn();
+const deleteFieldMock = vi.fn(() => "DELETE_FIELD");
 const docMock = vi.fn((_db: unknown, name: string, id: string) => ({
 	path: `${name}/${id}`,
 }));
@@ -31,8 +33,10 @@ const fromDateMock = vi.fn((date: Date) => ({ toDate: () => date }));
 
 vi.mock("firebase/firestore", () => ({
 	addDoc: addDocMock,
+	arrayRemove: arrayRemoveMock,
 	collection: collectionMock,
 	deleteDoc: deleteDocMock,
+	deleteField: deleteFieldMock,
 	doc: docMock,
 	getCountFromServer: getCountFromServerMock,
 	getDocs: getDocsMock,
@@ -113,6 +117,10 @@ describe("FirebaseEventRepository", () => {
 		addDocMock.mockReset().mockResolvedValue({ id: "new-id" });
 		getCountFromServerMock.mockReset();
 		setDocMock.mockReset().mockResolvedValue(undefined);
+		deleteDocMock.mockReset().mockResolvedValue(undefined);
+		updateDocMock.mockReset().mockResolvedValue(undefined);
+		arrayRemoveMock.mockClear();
+		deleteFieldMock.mockClear();
 		queryMock.mockClear();
 		whereMock.mockClear();
 		collectionMock.mockClear();
@@ -193,5 +201,25 @@ describe("FirebaseEventRepository", () => {
 		expect(written).not.toHaveProperty("userId");
 		expect(written).not.toHaveProperty("memberIds");
 		expect(written).not.toHaveProperty("roles");
+	});
+
+	test("delete() borra el documento del evento", async () => {
+		await repository.delete("event-1");
+
+		expect(deleteDocMock).toHaveBeenCalledWith({ path: "events/event-1" });
+	});
+
+	test("leave() saca sólo el uid indicado de memberIds y de roles", async () => {
+		await repository.leave("event-1", "guest-1");
+
+		expect(arrayRemoveMock).toHaveBeenCalledWith("guest-1");
+		expect(deleteFieldMock).toHaveBeenCalled();
+		expect(updateDocMock).toHaveBeenCalledWith(
+			{ path: "events/event-1" },
+			{
+				memberIds: { arrayRemove: "guest-1" },
+				"roles.guest-1": "DELETE_FIELD",
+			},
+		);
 	});
 });

@@ -10,7 +10,7 @@
 		"includes": [
 			"**",
 			"!**/dist",
-			"!**/node_modules",
+			!**/node_modules",
 			"!**/coverage",
 			"!**/.agents",
 			"!**/.claude/skills",

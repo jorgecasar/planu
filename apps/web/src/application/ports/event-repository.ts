@@ -44,10 +44,9 @@ export interface EventRepositoryPort {
 	update(id: string, values: PlanuEvent): Promise<void>;
 
 	/**
-	 * Deletes an event.
-	 *
-	 * Only the owner (or an invited editor with `canDelete`) should call
-	 * this. The rules enforce authorization; this port just executes.
+	 * Deletes the event outright. Whether the caller is allowed to — only the
+	 * owner is, see `canDelete()` in `sharing/permissions.ts` and the matching
+	 * `firestore.rules` clause — is a UI/rules concern, not this port's.
 	 */
 	delete(id: string): Promise<void>;
 
@@ -58,15 +57,13 @@ export interface EventRepositoryPort {
 	listFor(uid: string): AsyncIterable<StoredEvent>;
 
 	/**
-	 * Updates an event's `memberIds` and `roles` — used when a guest leaves.
+	 * Removes `uid` from the event's `memberIds` and `roles`, and nothing
+	 * else — the way a guest leaves an event that isn't theirs.
 	 *
-	 * The caller must compute the new `memberIds` and `roles` after removing
-	 * their own uid. The rules enforce that only the leaving user's entry
-	 * is removed; this port just executes the write.
+	 * Not a narrower `update()`: `update()` is barred from ever touching
+	 * membership, and this is the one write that touches only membership,
+	 * scoped to the caller's own uid. See ADR 0006 and `leavesTheEvent()` in
+	 * `firestore.rules`.
 	 */
-	updateMembership(
-		id: string,
-		memberIds: string[],
-		roles: Record<string, EventRole>,
-	): Promise<void>;
+	leave(id: string, uid: string): Promise<void>;
 }

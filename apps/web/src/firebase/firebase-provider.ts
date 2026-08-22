@@ -21,6 +21,7 @@ import {
 import { createAccountDataAdapter } from "../infrastructure/firebase/account-data-adapter.js";
 import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
 import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
+import { EventsController } from "../infrastructure/firebase/events-controller.js";
 import { FirebaseImageStore } from "../infrastructure/firebase/image-store.js";
 import {
 	FirebaseSessionAdapter,
@@ -29,7 +30,10 @@ import {
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
+	type EventsSnapshot,
 	eventRepositoryContext,
+	eventsContext,
+	eventsInterestContext,
 	firestoreContext,
 	imageStoreContext,
 	sessionContext,
@@ -166,6 +170,18 @@ export class PlanuFirebaseProvider extends LitElement {
 		context: imageStoreContext,
 	});
 
+	// The live listing, kept apart from `#eventRepository`: that port is
+	// per-operation on purpose (see its own doc comment), and observing a
+	// collection is this provider's job, same as `onAuthStateChanged` below.
+	// `EventsController` owns the query and the `Timestamp`→`Date` mapping;
+	// this class only turns its `.snapshot` into `eventsContext`'s value, and
+	// — unlike every other context here — also has to be told when that
+	// subscription is actually wanted; see `eventsContext`'s own doc comment
+	// in `context.ts` for why, and `#eventsInterest` below for how.
+	readonly #eventsController = new EventsController(this);
+	readonly #events = new ContextProvider(this, { context: eventsContext });
+	#lastPublishedEvents: EventsSnapshot | undefined;
+
 	#unsubscribe: (() => void) | undefined;
 
 	constructor() {
@@ -177,6 +193,18 @@ export class PlanuFirebaseProvider extends LitElement {
 		new ContextProvider(this, {
 			context: sessionContext,
 			initialValue: new FirebaseSessionAdapter(this.#core.auth),
+		});
+		// A stable function, not a DOM event: `events-view.ts` calls this from
+		// its own `disconnectedCallback()`, which runs *after* it has already
+		// been detached from the tree — a bubbling event dispatched at that
+		// point would have no parent left to bubble through. Provided once, as
+		// an `initialValue`, since the function itself never changes.
+		new ContextProvider(this, {
+			context: eventsInterestContext,
+			initialValue: (interested: boolean) => {
+				this.#eventsController.setInterested(interested);
+				this.#publishEvents();
+			},
 		});
 	}
 
@@ -194,11 +222,50 @@ export class PlanuFirebaseProvider extends LitElement {
 				// The context exposes the domain type: whoever consumes it shouldn't
 				// need to know this comes from Firebase.
 				this.#user.setValue(user ? toSessionUser(user) : null);
+				// The uid alone is enough to decide the listing's state (see
+				// `EventsController.snapshot`): with no Firestore yet, it already
+				// distinguishes "loading" from "logged out and nothing to show".
+				this.#eventsController.setUid(user?.uid);
+				this.#publishEvents();
 				// There is only data to read when there is a session, so this is the
 				// exact moment to bring in Firestore and Storage.
 				if (user) void this.#provideDataServices(user);
 			},
 		);
+	}
+
+	/**
+	 * Pushes `EventsController`'s current snapshot into `eventsContext`, but
+	 * only when it actually changed: `EventsController.snapshot` memoizes its
+	 * own `events` array (see there), so comparing by reference here is
+	 * enough to skip a republish — and the render it would otherwise force on
+	 * every consumer of `eventsContext` — triggered by something unrelated,
+	 * such as `willUpdate()` running because `createAnalyticsAdapter()`'s
+	 * promise resolved.
+	 *
+	 * Called explicitly wherever this provider changes something the snapshot
+	 * depends on (`setUid`, `setFirestore`, and `eventsInterestContext`'s
+	 * callback above), and again from `willUpdate()`: `CollectionController`
+	 * calls `requestUpdate()` on this element whenever `onSnapshot` delivers
+	 * new data or an error, and that is the only signal for those two
+	 * asynchronous cases.
+	 */
+	#publishEvents(): void {
+		const snapshot = this.#eventsController.snapshot;
+		const last = this.#lastPublishedEvents;
+		if (
+			last &&
+			last.status === snapshot.status &&
+			last.events === snapshot.events
+		) {
+			return;
+		}
+		this.#lastPublishedEvents = snapshot;
+		this.#events.setValue(snapshot);
+	}
+
+	override willUpdate(): void {
+		this.#publishEvents();
 	}
 
 	/**
@@ -214,6 +281,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
+			this.#eventsController.setFirestore(firestore);
+			this.#publishEvents();
 
 			// Publishing the directory entry is what lets other people find this
 			// user by email when inviting them. It is not essential to using the

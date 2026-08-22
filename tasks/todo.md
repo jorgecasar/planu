@@ -1501,7 +1501,7 @@ garantiza conflictos.
     veces seguidas —confirma que es la inestabilidad por carga que ya
     describía el informe, no una regresión de esta tarea.
 
-- [ ] **T37 · Puerto de repositorio de eventos** · M · depende de T35, T14
+- [x] **T37 · Puerto de repositorio de eventos** · M · depende de T35, T14
   - Acepta: `EventRepository` con `save`, `delete` y `listFor`; el mapeo
     `Timestamp` ↔ `Date` y `PlanuEventDocument` se mudan a `infrastructure/`;
     `lib/types.ts` no importa de `firebase/firestore`; `events-view.ts`,
@@ -1520,6 +1520,73 @@ garantiza conflictos.
     **No completa T37**: `events-view.ts`, `event-card.ts` y `lib/types.ts`
     siguen importando de `firebase/firestore` en `main` a 22/08/2026, sin
     tocar por esa tarea. Lo que queda de T37 es sólo migrar esos tres.
+  - **Cerrada con dos desviaciones deliberadas del criterio original, no
+    silenciadas:**
+    1. **No hay `listFor` en el puerto.** `EventRepositoryPort` se queda
+       per-operación —`create`, `update`, y ahora `delete(id)` y
+       `leave(id, uid)`—; el listado en vivo lo resuelve un
+       `EventsController` (`infrastructure/firebase/events-controller.ts`,
+       con `event-mapper.ts` para `toStoredEvent()`) que `firebase-provider.ts`
+       publica como `eventsContext`, con el mismo razonamiento que ya escribe
+       `application/ports/session.ts` para justificar que
+       `onAuthStateChanged` no está en `SessionPort`: observar una colección
+       es responsabilidad de quien publica el contexto, no de un puerto por
+       operación. `listFor` habría sido espejar el SDK con un
+       `AsyncIterable`, justo lo que `spec-arquitectura-hexagonal.md` prohíbe.
+    2. **`delete`/`leave`, no sólo `delete`.** `event-card.ts` tenía dos
+       escrituras: borrar y "salir de un evento compartido" (un `updateDoc`
+       parcial de ADR 0006, no un `update()` de contenido). Ambas necesitaban
+       puerto; `leave(id, uid)` no estaba en el criterio original porque no
+       se había mirado ese segundo camino al escribirlo.
+  - Verificado: `npm run lint`, `typecheck`, `lint:lit`, `test:arch` y `test`
+    → **0** (163 ficheros, 565 tests tras la ronda de revisión de abajo);
+    `npm run build` → 0; `grep -rn 'from "firebase/firestore"' event-card.ts
+    events-view.ts lib/types.ts` → vacío. `TOPE_ACOPLADOS` sube de 27 a 28
+    —libera 3 ficheros, añade 4 bajo `infrastructure/firebase/**` (dos
+    adaptadores más sus tests)—, documentado junto a la constante en
+    `arch/boundary.test.ts`.
+  - **Ronda de revisión (`code-reviewer` independiente, PR #57): un hallazgo
+    real, corregido antes de fusionar.** Mover la suscripción de
+    `events-view.ts` a `firebase-provider.ts` había cambiado, sin decirlo, su
+    ciclo de vida: `firebase-provider.ts` nunca se desconecta mientras la
+    sesión dura, así que la suscripción `memberIds array-contains` pasaba de
+    "abierta sólo mientras se ve el listado" —el comportamiento original,
+    cuando `events-view.ts` era dueña de su propio `CollectionController`— a
+    "abierta en cualquier ruta, incluida `/profile`, mientras haya sesión".
+    Ni fuga ni duplicado, pero un coste de fondo que nadie había decidido a
+    propósito.
+    Corregido con un tercer requisito para suscribirse, además de `uid` y
+    `Firestore`: **interés**, que `events-view.ts` señala desde
+    `connectedCallback`/`disconnectedCallback`. No por evento de DOM —
+    `disconnectedCallback` corre ya desconectado del árbol, sin nada a lo
+    que hacer *bubble*— sino por una función que llega por un contexto de
+    Lit nuevo, `eventsInterestContext` (`firebase/context.ts`), entregada
+    una sola vez como `initialValue` porque nunca cambia. Documentado en el
+    propio `eventsContext` (por qué no es siempre-activo, a diferencia de
+    `sessionContext`) y en `EventsController`. Añade dos sugerencias menores
+    del mismo checker: `firebase-provider.ts` ahora memoiza el snapshot
+    (`EventsController` cachea el array traducido por referencia) para no
+    republicar en cada `willUpdate()` sin motivo, y el ejemplo ilustrativo de
+    `docs/spec-arquitectura-hexagonal.md` ya no muestra `listFor()`.
+  - **No verificado, y dicho así**: `npm run test:e2e` de `events.spec.ts`/
+    `sharing.spec.ts` contra emuladores. Los emuladores de esta máquina ya
+    estaban ocupados por otra sesión (puertos 8181/9099/9199 en uso) al
+    cerrar esta tarea; usarlos habría sido escribir sobre el estado de otra
+    sesión, y `AGENTS.md` ya avisa de que no se paralelizan entre worktrees.
+  - **Hallazgo colateral, no corregido aquí**: `npm run build` avisa de que
+    Rollup no puede aislar `firebase/firestore` en un chunk perezoso propio,
+    porque `firebase-provider.ts` ya lo importa de forma estática y
+    transitiva desde **T48** (vía `FirebaseEventRepository`). Como
+    `firebase-provider.js` se carga sin condiciones en cada visita
+    (`main.ts`), el SDK de Firestore probablemente ya viaja en el bundle de
+    la página de login desde T48. Confirmado leyendo `event-repository.ts`/
+    `firebase-provider.ts` de `main` tal cual estaban antes de esta tarea —
+    no lo introduce T37, que añade dos ficheros más a la misma cadena
+    (`event-mapper.ts`, `events-controller.ts`) sin cambiar si el problema
+    existe. Arreglarlo es un cambio de diseño mayor —cargar los adaptadores
+    de forma perezosa dentro de `loadDataServices()`— y sólo
+    `scripts/check-startup-cost.js` contra producción puede medirlo con
+    seguridad. Pendiente de tarea propia.
 
 - [x] **T38 · Puerto de almacén de imágenes** · S · depende de T37
   - Acepta: `ImageStore.upload` con progreso; `firebase/storage.ts` pasa a ser

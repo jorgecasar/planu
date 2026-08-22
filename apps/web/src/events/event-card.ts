@@ -316,16 +316,10 @@ export class PlanuEventCard extends LitElement {
 		const { eventRepository, event } = this;
 		if (!eventRepository || this.leaving) return;
 
-		const memberIds = (event.memberIds ?? []).filter(
-			(uid) => uid !== this.#uid,
-		);
-		const roles = { ...event.roles };
-		delete roles[this.#uid];
-
 		this.leaveError = "";
 		this.leaving = true;
 		try {
-			await eventRepository.updateMembership(event.id, memberIds, roles);
+			await eventRepository.leave(event.id, this.#uid);
 			this.confirmingLeave = false;
 		} catch {
 			this.leaveError = msg("You could not be removed from this event.");
@@ -344,13 +338,12 @@ export class PlanuEventCard extends LitElement {
 	}
 
 	async #confirmDelete(): Promise<void> {
-		const { eventRepository, event } = this;
-		if (!eventRepository) return;
+		if (!this.eventRepository) return;
 
 		this.deleting = true;
 		this.error = "";
 		try {
-			await eventRepository.delete(event.id);
+			await this.eventRepository.delete(this.event.id);
 			this.confirming = false;
 		} catch {
 			// Without this catch the promise was rejected unhandled: the dialog

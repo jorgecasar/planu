@@ -24,30 +24,16 @@ import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
-import { buildAgenda } from "../calendar/agenda-days.js";
 import {
-	type DateRange,
-	filterEvents,
-	isNarrowed,
-	type OwnershipFilter,
-} from "../domain/filter-events.js";
-import {
-	groupEvents,
-	parseSortPreference,
-	type SortPreference,
-	serializeSortPreference,
-	sortOptions,
-} from "../domain/sort-events.js";
-import {
-	parseViewMode,
-	type ViewMode,
-	viewOptions,
-} from "../domain/view-mode.js";
-import { eventRepositoryContext, userContext } from "../firebase/context.js";
+	type EventsSnapshot,
+	eventsContext,
+	eventsInterestContext,
+	userContext,
+} from "../firebase/context.js";
 import { getLocale } from "../i18n/localization.js";
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 import {
@@ -97,8 +83,17 @@ export class PlanuEventsView extends LitElement {
 		}
 	`;
 
-	@consume({ context: eventRepositoryContext, subscribe: true })
-	private eventRepository: EventRepositoryPort | undefined;
+	@consume({ context: eventsContext, subscribe: true })
+	private eventsSnapshot: EventsSnapshot | undefined;
+
+	/**
+	 * Tells `firebase-provider.ts` whether this view is around to look at
+	 * `eventsSnapshot`. See `eventsContext`'s doc comment in `context.ts`:
+	 * without calling this, the subscription behind it would stay open on
+	 * every route for the rest of the session instead of just this one.
+	 */
+	@consume({ context: eventsInterestContext, subscribe: true })
+	private setEventsInterest: ((interested: boolean) => void) | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -143,37 +138,26 @@ export class PlanuEventsView extends LitElement {
 	 */
 	@state() private view: ViewMode = readViewMode();
 
-	@state() private events: StoredEvent[] = [];
-	@state() private loading = true;
-	@state() private error = false;
-
 	override async connectedCallback(): Promise<void> {
 		super.connectedCallback();
+		// Opens the live subscription behind `eventsContext` — see that
+		// context's doc comment in `context.ts` for why this view has to say
+		// so explicitly instead of the subscription just always being open.
+		this.setEventsInterest?.(true);
 		// A button that always fails is worse than a button that isn't there.
 		this.aiAvailable = canOffer(await checkAvailability());
-		await this.#loadEvents();
 	}
 
-	async #loadEvents(): Promise<void> {
-		const { eventRepository, user } = this;
-		if (!eventRepository || !user) {
-			this.loading = false;
-			return;
-		}
-
-		this.loading = true;
-		this.error = false;
-		try {
-			const events: StoredEvent[] = [];
-			for await (const event of eventRepository.listFor(user.uid)) {
-				events.push(event);
-			}
-			this.events = events;
-		} catch {
-			this.error = true;
-		} finally {
-			this.loading = false;
-		}
+	/**
+	 * Symmetric to `connectedCallback()` above: closes what it opened.
+	 *
+	 * A context-provided function call, not a bubbling DOM event:
+	 * `disconnectedCallback()` runs after this element is already detached
+	 * from the tree, with no parent left for an event to bubble through.
+	 */
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.setEventsInterest?.(false);
 	}
 
 	constructor() {
@@ -199,7 +183,7 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	override render() {
-		const all = this.events;
+		const all = this.eventsSnapshot?.events ?? [];
 		const visible = filterEvents(
 			all,
 			this.searchTerm,
@@ -262,19 +246,23 @@ export class PlanuEventsView extends LitElement {
 					mode="agenda"
 					.events=${visible}
 				></planu-calendar-export>
-				<wa-dropdown @wa-select=${this.#onCreateOption}>
-					<wa-button slot="trigger" variant="brand" .withCaret=${true}>
-						${msg("New event")}
-					</wa-button>
-					<wa-dropdown-item value="manual">${msg("Create manually")}</wa-dropdown-item>
-					${
-						this.aiAvailable
-							? html`<wa-dropdown-item value="ai">
+				${
+					this.aiAvailable
+						? html`<wa-dropdown @wa-select=${this.#onCreateOption}>
+									<wa-button slot="trigger" variant="brand" .withCaret=${true}>
+										${msg("New event")}
+									</wa-button>
+									<wa-dropdown-item value="manual"
+										>${msg("Create manually")}</wa-dropdown-item
+									>
+									<wa-dropdown-item value="ai">
 										${msg("Generate with AI")}
-									</wa-dropdown-item>`
-							: nothing
-					}
-				</wa-dropdown>
+									</wa-dropdown-item>
+								</wa-dropdown>`
+						: html`<wa-button variant="brand" @click=${this.#onNew}>
+								${msg("New event")}
+							</wa-button>`
+				}
 			</div>
 
 			${this.#renderList(visible)}
@@ -359,16 +347,27 @@ export class PlanuEventsView extends LitElement {
 
 	#renderList(visible: StoredEvent[]) {
 		// The error comes before anything else: without this, a permissions
-		// or quota failure left `data` empty and the user read "you don't
+		// or quota failure left the list empty and the user read "you don't
 		// have any events yet", which is exactly the wrong conclusion.
-		if (this.error) {
+		if (this.eventsSnapshot?.status === "error") {
 			return html`<wa-callout variant="danger" role="alert">
 				${msg("Your events could not be loaded. Check your connection and reload.")}
 			</wa-callout>`;
 		}
 
-		if (this.loading) return this.#renderSkeletons();
-		if (visible.length === 0) return this.#renderEmpty(this.events.length);
+		// `undefined` (context not published yet) and `"loading"` both mean
+		// the same thing here: Firestore may still be travelling through its
+		// dynamic import, or the subscription's first snapshot may not have
+		// arrived. Without this check the view would conclude "you don't have
+		// any events yet" on every cold start, indistinguishable from a
+		// genuinely empty list.
+		if (!this.eventsSnapshot || this.eventsSnapshot.status === "loading") {
+			return this.#renderSkeletons();
+		}
+
+		// Need total for the empty state message
+		const total = all.length;
+		if (visible.length === 0) return this.#renderEmpty(total);
 
 		// `visible`, not `all`: **the filter belongs to the screen, not to
 		// the card grid**. All three views hang off this same line and
