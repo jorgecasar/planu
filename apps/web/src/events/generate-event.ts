@@ -14,6 +14,13 @@ export interface GeneratedEvent {
 	location: string;
 	startDate: Date | null;
 	endDate: Date | null;
+	/**
+	 * Whether either date carries an hour. Without this, the extraction lost
+	 * the hour the instant it had gotten it: the editor only shows the time
+	 * fields when `allDay` is `false` (decision 4 of the hours spec), and
+	 * `draft.allDay` always arrived `undefined` — all-day by default.
+	 */
+	allDay: boolean;
 }
 
 export type EventPart =
@@ -131,8 +138,14 @@ const ISO_INSTANT =
  * `"2026-06-20"` as midnight **UTC**, which west of Greenwich falls on the
  * previous day. It is the same reason `toInputDate` does not go through
  * `toISOString()`.
+ *
+ * `null` with no recognisable date; otherwise, the date and whether the text
+ * carried a time. That distinction lives here and isn't guessed afterward
+ * from the resulting `Date`'s own components: a date-only string and one
+ * with an explicit `00:00` time produce the same local instant, but mean
+ * different things — all-day versus a midnight appointment.
  */
-function toDate(value: unknown): Date | null {
+function toDate(value: unknown): { date: Date; hasTime: boolean } | null {
 	if (typeof value !== "string") return null;
 	const text = value.trim();
 
@@ -149,13 +162,15 @@ function toDate(value: unknown): Date | null {
 		local.setFullYear(year);
 		// `new Date(2026, 5, 32)` silently overflows into July.
 		return local.getMonth() === month - 1 && local.getDate() === date
-			? local
+			? { date: local, hasTime: false }
 			: null;
 	}
 
 	if (!ISO_INSTANT.test(text)) return null;
 	const instant = new Date(text);
-	return Number.isNaN(instant.getTime()) ? null : instant;
+	return Number.isNaN(instant.getTime())
+		? null
+		: { date: instant, hasTime: true };
 }
 
 export class GenerationError extends Error {}
@@ -189,12 +204,16 @@ export function parseGeneratedEvent(text: string): GeneratedEvent {
 		throw new GenerationError("The model did not return a title.");
 	}
 
+	const start = toDate(record["startDate"]);
+	const end = toDate(record["endDate"]);
+
 	return {
 		title,
 		description: asText("description"),
 		location: asText("location"),
-		startDate: toDate(record["startDate"]),
-		endDate: toDate(record["endDate"]),
+		startDate: start?.date ?? null,
+		endDate: end?.date ?? null,
+		allDay: !(start?.hasTime || end?.hasTime),
 	};
 }
 

@@ -628,3 +628,145 @@ test("el estado vacío no tiene violaciones de accesibilidad", async ({
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
 });
+
+// --- Date and time (T44–T48) -------------------------------------------------
+
+test("crear un evento con hora, reabrirlo y ver la hora puesta", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena de fin de curso");
+	await page.getByLabel("Start date").fill("2026-07-04");
+	await page.getByLabel("Start time").fill("19:30");
+	await page.getByLabel("End date").fill("2026-07-04");
+	await page.getByLabel("End time").fill("23:00");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// The card already says the hour, without repeating the date since it falls on the same day.
+	await expect(page.getByText("Jul 4, 2026, 7:30 PM – 11:00 PM")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("19:30");
+	await expect(page.getByLabel("End time")).toHaveValue("23:00");
+});
+
+test("crear un evento sin hora no muestra ninguna al reabrirlo", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Vacaciones");
+	await page.getByLabel("Start date").fill("2026-08-01");
+	await page.getByLabel("End date").fill("2026-08-15");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// No hour on the card, all-day.
+	await expect(page.getByText("Aug 1, 2026 – Aug 15, 2026")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("");
+	await expect(page.getByLabel("End time")).toHaveValue("");
+});
+
+const FIRESTORE_EMULATOR =
+	"http://127.0.0.1:8181/v1/projects/planu-app/databases/planu/documents";
+
+interface EmulatorDocument {
+	name: string;
+	fields: Record<string, unknown>;
+}
+
+/**
+ * Rewrites a just-created event's document to drop its `allDay` field
+ * entirely, simulating a document written before this feature existed —
+ * the implicit-migration case, which is neither "with an hour" nor
+ * "without one": it never had the field at all.
+ *
+ * A PATCH with no `updateMask.fieldPaths` replaces the whole document with
+ * exactly the fields given, so taking the real document's own fields and
+ * deleting `allDay` from the copy reproduces a legacy document precisely —
+ * same owner, same dates, same everything else — rather than hand-building
+ * one that might drift from what `isValidEvent()` actually requires.
+ */
+async function stripAllDay(page: Page, title: string): Promise<void> {
+	const admin = { Authorization: "Bearer owner" };
+	const response = await page.request.post(`${FIRESTORE_EMULATOR}:runQuery`, {
+		headers: admin,
+		data: {
+			structuredQuery: {
+				from: [{ collectionId: "events" }],
+				where: {
+					fieldFilter: {
+						field: { fieldPath: "title" },
+						op: "EQUAL",
+						value: { stringValue: title },
+					},
+				},
+			},
+		},
+	});
+	const rows = (await response.json()) as { document?: EmulatorDocument }[];
+	const event = rows.map((row) => row.document).find(Boolean);
+	if (!event) throw new Error(`event ${title} not found`);
+
+	const { allDay: _allDay, ...rest } = event.fields;
+	const path = event.name.split("/documents/")[1];
+	const patched = await page.request.patch(`${FIRESTORE_EMULATOR}/${path}`, {
+		headers: admin,
+		data: { fields: rest },
+	});
+	expect(patched.ok()).toBe(true);
+}
+
+test("un evento heredado sin el campo allDay se muestra como día completo", async ({
+	page,
+}) => {
+	// The implicit-migration case from T44's decision: default(true) fills
+	// the gap for a document that predates the field. It's the read side of
+	// that promise, checked against the real UI instead of the schema in
+	// isolation — this is exactly where the equivalent bug slipped past
+	// every unit test, one layer at a time (see T54's commit message).
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Evento heredado");
+	await page.getByLabel("Start date").fill("2026-09-01");
+	await page.getByLabel("End date").fill("2026-09-03");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	await stripAllDay(page, "Evento heredado");
+	await page.reload();
+
+	// All-day, no hour — same as if allDay had been saved true explicitly.
+	await expect(page.getByText("Sep 1, 2026 – Sep 3, 2026")).toBeVisible();
+});
+
+test("borrar las dos horas devuelve el evento a día completo", async ({
+	page,
+}) => {
+	await signUp(page);
+	await openEditor(page);
+	await page.getByLabel("Title").fill("Cena");
+	await page.getByLabel("Start date").fill("2026-07-04");
+	await page.getByLabel("Start time").fill("19:30");
+	await page.getByLabel("End date").fill("2026-07-04");
+	await page.getByLabel("End time").fill("23:00");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await page.getByLabel("Start time").fill("");
+	await page.getByLabel("End time").fill("");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(page.locator("planu-event-editor dialog")).toBeHidden();
+
+	// Now it says only the date, with no hour.
+	await expect(page.getByText("Jul 4, 2026 – Jul 4, 2026")).toBeVisible();
+
+	await page.getByRole("button", { name: "Edit" }).click();
+	await expect(page.getByLabel("Start time")).toHaveValue("");
+	await expect(page.getByLabel("End time")).toHaveValue("");
+});
