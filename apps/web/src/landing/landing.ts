@@ -85,6 +85,7 @@ export function landingTemplate(): TemplateResult {
 				<link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
 				<link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
 				<script type="application/ld+json"><!--JSON_LD_PLACEHOLDER--></script>
+				<link rel="stylesheet" href="__WA_STYLESHEET__" />
 				<style><!--INLINE_CSS_PLACEHOLDER--></style>
 			</head>
 			<body>

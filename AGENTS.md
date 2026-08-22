@@ -239,6 +239,26 @@ npm run emulators   # emuladores de Firebase (auth, firestore, storage)
 directorio. Probarla contra el servidor de desarrollo comprobaría una página que
 no es la que se publica, que es la definición de test vacuo de este repo.
 
+**Los e2e de la landing comprueban también la presentación, no sólo el DOM.**
+Se publicó una landing **sin un solo estilo** y ninguno de los doce tests que
+tenía se enteró: miraban encabezados, landmarks, `hreflang` y axe —que no se
+queja de una página sin CSS, porque el HTML semántico es accesible igual—. Dos
+fallos se colaron por ese hueco: faltaba la hoja de Web Awesome entera, y nueve
+clases (`wa-text-3xl`, `wa-button--brand`…) estaban **inventadas** con la
+convención de otro framework. Por eso ahora hay un test que recorre las clases
+`wa-*` del marcado y falla si alguna no casa con ninguna regla del CSS cargado,
+más tres que leen `getComputedStyle` del hero, los botones y la rejilla.
+
+**Web Awesome no tiene clases de utilidad para tamaño ni peso de texto.** Define
+los tokens `--wa-font-size-*` y `--wa-font-weight-*`, pero ninguna clase que los
+aplique; y las variantes de botón (`brand`, `outlined`, `large`) son **atributos
+del componente `<wa-button>`**, que en la landing no sirve porque no carga
+JavaScript y el custom element no se definiría nunca. Las clases con esos
+nombres las define `landing.css` sobre los tokens reales. Antes de usar una clase
+`wa-*`, compruébala: `grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`.
+Las de layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
+`.nombre`.
+
 Ese servidor **no hace fallback a `index.html` a propósito**: la landing es
 multipágina y un fallback haría responder 200 a cualquier ruta inexistente,
 incluidas las tres que el `hreflang` promete —y comprobar que existen es justo

@@ -91,3 +91,72 @@ footer a:hover {
 .landing-cta {
 	text-decoration: none;
 }
+
+/*
+ * Utilidades de texto y variantes de botón que Web Awesome **no** trae.
+ *
+ * La primera versión de la landing usó `wa-text-3xl`, `wa-text-bold` y
+ * `wa-button--brand` dando por hecho que existían, con la convención de otro
+ * framework. No existen: el paquete define los tokens `--wa-font-size-*` y
+ * `--wa-font-weight-*`, pero ninguna clase que los aplique, y las variantes de
+ * botón son atributos del componente `<wa-button>` — que aquí no sirve, porque
+ * la landing no carga JavaScript y un custom element no se definiría nunca.
+ *
+ * Así que se definen aquí, sobre los tokens reales. Mismo nombre para que el
+ * marcado no cambie, y `a.wa-button` ya lo estiliza `native.css`.
+ */
+.wa-text-xs {
+	font-size: var(--wa-font-size-xs);
+}
+.wa-text-sm {
+	font-size: var(--wa-font-size-s);
+}
+.wa-text-lg {
+	font-size: var(--wa-font-size-l);
+}
+.wa-text-2xl {
+	font-size: var(--wa-font-size-2xl);
+}
+.wa-text-3xl {
+	font-size: var(--wa-font-size-3xl);
+}
+.wa-text-bold {
+	font-weight: var(--wa-font-weight-bold);
+}
+
+/* Encabezados con la tipografía de la marca, no la del cuerpo. */
+.hero h1,
+.features h2,
+.feature-card h3 {
+	font-family: var(--wa-font-family-heading);
+	line-height: var(--wa-line-height-condensed);
+}
+
+a.wa-button {
+	text-decoration: none;
+}
+
+a.wa-button--brand {
+	background-color: var(--wa-color-brand-fill-loud);
+	border-color: var(--wa-color-brand-border-loud);
+	color: var(--wa-color-brand-on-loud);
+}
+
+a.wa-button--brand:hover {
+	background-color: var(--wa-color-brand-fill-normal);
+}
+
+a.wa-button--outlined {
+	background-color: transparent;
+	border-color: var(--wa-color-brand-border-normal);
+	color: var(--wa-color-brand-fill-loud);
+}
+
+a.wa-button--outlined:hover {
+	background-color: var(--wa-color-brand-fill-quiet);
+}
+
+a.wa-button--large {
+	font-size: var(--wa-font-size-l);
+	padding-inline: var(--wa-space-xl);
+}
