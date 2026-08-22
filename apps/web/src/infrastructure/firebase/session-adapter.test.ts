@@ -1,7 +1,11 @@
 import { FirebaseError } from "firebase/app";
 import { expect, test } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
-import { toSessionError, toSessionUser } from "./session-adapter.js";
+import {
+	FirebaseSessionAdapter,
+	toSessionError,
+	toSessionUser,
+} from "./session-adapter.js";
 
 // Pure and synchronous: builds the errors by hand, without touching the
 // Auth emulator. It's half of what `auth-errors.test.ts` used to test — the
@@ -65,12 +69,15 @@ test("cae a 'unknown' si la causa ni siquiera es un FirebaseError", () => {
 	expect(toSessionError("boom").code).toBe("unknown");
 });
 
-test("un SessionError construido a mano no cambia de forma", () => {
-	// There's no special path for passing through an already-translated
-	// SessionError: it doesn't need one, because whoever calls
-	// `toSessionError` always starts from the SDK's raw cause.
+test("un SessionError construido a mano pasa intacto, sin reenvolverse", () => {
+	// T32's reauthenticate() throws a SessionError directly for the
+	// missing-password case, and its own try/catch calls toSessionError on
+	// whatever it catches — including that SessionError. Without this
+	// pass-through, the real code would flatten to "unknown" because it
+	// isn't a FirebaseError, and the caller would never see
+	// "invalid-credential".
 	expect(toSessionError(new SessionError("weak-password")).code).toBe(
-		"unknown",
+		"weak-password",
 	);
 });
 
@@ -81,6 +88,7 @@ test("toSessionUser sólo copia los campos que necesita el dominio", () => {
 		displayName: "Ana",
 		photoURL: "https://example.com/ana.png",
 		emailVerified: true,
+		providerData: [{ providerId: "password" }],
 	};
 
 	const sessionUser = toSessionUser(user as never);
@@ -92,7 +100,34 @@ test("toSessionUser sólo copia los campos que necesita el dominio", () => {
 		photoURL: "https://example.com/ana.png",
 		emailVerified: true,
 		getIdTokenResult: expect.any(Function),
+		provider: "password",
 	});
+});
+
+test('toSessionUser resuelve provider a "unknown" si providerData no lo reconoce', () => {
+	const user = {
+		uid: "u1",
+		email: null,
+		displayName: null,
+		photoURL: null,
+		emailVerified: false,
+		providerData: [],
+	};
+
+	expect(toSessionUser(user as never).provider).toBe("unknown");
+});
+
+test("toSessionUser distingue una cuenta de Google, no sólo password", () => {
+	const user = {
+		uid: "u1",
+		email: "ana@gmail.com",
+		displayName: "Ana",
+		photoURL: null,
+		emailVerified: true,
+		providerData: [{ providerId: "google.com" }],
+	};
+
+	expect(toSessionUser(user as never).provider).toBe("google.com");
 });
 
 test("toSessionUser delega getIdTokenResult en el user real, sin reimplementarlo", async () => {
@@ -103,6 +138,7 @@ test("toSessionUser delega getIdTokenResult en el user real, sin reimplementarlo
 		displayName: null,
 		photoURL: null,
 		emailVerified: false,
+		providerData: [],
 		getIdTokenResult: () => Promise.resolve({ claims }),
 	};
 
@@ -111,4 +147,32 @@ test("toSessionUser delega getIdTokenResult en el user real, sin reimplementarlo
 	// It's Firebase's own method, not a copy: if the SDK changed its mind
 	// about how to resolve it, this would keep reflecting that.
 	await expect(sessionUser.getIdTokenResult?.()).resolves.toEqual({ claims });
+});
+
+test("deleteAccount() no reporta éxito si ya no hay sesión: lanza en vez de devolver en silencio", async () => {
+	// The session may have been invalidated in another tab while the
+	// deletion was in flight. A silent `return` there would report an
+	// account as deleted when the Auth record can still exist — a finding
+	// from T32's security audit.
+	const adapter = new FirebaseSessionAdapter({ currentUser: null } as never);
+
+	await expect(adapter.deleteAccount()).rejects.toMatchObject({
+		code: "unknown",
+	});
+});
+
+test("reauthenticate() no intenta un popup de Google para un proveedor sin clasificar", async () => {
+	// `SessionUser.provider`'s doc says "unknown" is treated as "no
+	// self-service deletion available," not as if it were Google. Before
+	// this check it fell through to the Google branch and attempted a popup
+	// for an account that may not have that provider linked — same audit
+	// finding.
+	const user = { providerData: [{ providerId: "phone" }] };
+	const adapter = new FirebaseSessionAdapter({
+		currentUser: user,
+	} as never);
+
+	await expect(adapter.reauthenticate()).rejects.toMatchObject({
+		code: "unknown",
+	});
 });

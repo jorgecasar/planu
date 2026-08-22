@@ -8,6 +8,7 @@ const signedIn: SessionUser = {
 	displayName: null,
 	photoURL: null,
 	emailVerified: true,
+	provider: "password",
 };
 
 test("la aplicación vive bajo /app, no en la raíz", () => {

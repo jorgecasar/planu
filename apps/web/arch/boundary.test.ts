@@ -131,7 +131,16 @@ const importaFirebase = (fichero: string): boolean =>
  * to do it — but a type-only import is still an import, so they land back
  * on this list. Three files, three points on the counter.
  */
-const TOPE_ACOPLADOS = 26;
+/**
+ * T32 raises it once more, from 26 to 27, landing independently of T48's
+ * work above: one new file, not two, because `account-data-adapter.ts` has
+ * no pure exported function worth a unit test the way
+ * `toSessionUser()`/`toSessionError()` earned `session-adapter.ts` one —
+ * everything here is a thin wrapper around real Firestore/Storage calls,
+ * verified by T32's end-to-end test against the emulators instead, same as
+ * `event-card.ts` and the rest of `events/` already are.
+ */
+const TOPE_ACOPLADOS = 27;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
