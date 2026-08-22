@@ -169,6 +169,11 @@ a.wa-button--large {
 .hero-figure img {
 	max-width: 100%;
 	height: auto;
+	/* Sin esto el navegador no reserva el hueco hasta conocer las dimensiones
+	   intrínsecas de la imagen, y su llegada empuja el resto de la página:
+	   Lighthouse lo señaló como "Media element lacking an explicit size" con un
+	   CLS de 0,045, la mitad del total medido en producción. */
+	aspect-ratio: 1200 / 675;
 	border-radius: var(--wa-border-radius-l);
 	box-shadow: var(--wa-shadow-l);
 }
