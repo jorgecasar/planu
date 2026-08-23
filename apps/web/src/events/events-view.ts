@@ -27,6 +27,25 @@ import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { SessionUser } from "../application/ports/session.js";
+import { buildAgenda } from "../calendar/agenda-days.js";
+import {
+	type DateRange,
+	filterEvents,
+	isNarrowed,
+	type OwnershipFilter,
+} from "../domain/filter-events.js";
+import {
+	groupEvents,
+	parseSortPreference,
+	type SortPreference,
+	serializeSortPreference,
+	sortOptions,
+} from "../domain/sort-events.js";
+import {
+	parseViewMode,
+	type ViewMode,
+	viewOptions,
+} from "../domain/view-mode.js";
 import {
 	type EventsSnapshot,
 	eventsContext,
@@ -264,7 +283,7 @@ export class PlanuEventsView extends LitElement {
 				}
 			</div>
 
-			${this.#renderList(visible)}
+			${this.#renderList(visible, all)}
 
 			<planu-event-editor
 				.knownTags=${knownTags}
@@ -344,7 +363,7 @@ export class PlanuEventsView extends LitElement {
 		this.editorOpen = true;
 	}
 
-	#renderList(visible: StoredEvent[]) {
+	#renderList(visible: StoredEvent[], all: StoredEvent[]) {
 		// The error comes before anything else: without this, a permissions
 		// or quota failure left the list empty and the user read "you don't
 		// have any events yet", which is exactly the wrong conclusion.
