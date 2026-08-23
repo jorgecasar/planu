@@ -10,7 +10,6 @@ import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
-import type { FirebaseStorage } from "firebase/storage";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
@@ -18,6 +17,7 @@ import {
 	analyticsContext,
 	noopAnalytics,
 } from "../application/ports/analytics.js";
+import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
 import {
 	checkAvailability,
@@ -30,10 +30,9 @@ import type {
 } from "../domain/ai-policy.js";
 import {
 	appContext,
-	storageContext,
+	imageStoreContext,
 	userContext,
 } from "../firebase/context.js";
-import { uploadFile } from "../firebase/storage.js";
 import type { PlanuEvent } from "../lib/types.js";
 import {
 	type AiModelSession,
@@ -220,8 +219,8 @@ export class PlanuAiEventGenerator extends LitElement {
 	@consume({ context: appContext, subscribe: true })
 	private app: FirebaseApp | undefined;
 
-	@consume({ context: storageContext, subscribe: true })
-	private storage: FirebaseStorage | undefined;
+	@consume({ context: imageStoreContext, subscribe: true })
+	private imageStore: ImageStorePort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -621,20 +620,15 @@ export class PlanuAiEventGenerator extends LitElement {
 	 * editor opens anyway and the user can add it by hand.
 	 */
 	async #uploadCover(file: File): Promise<string> {
-		const { storage, user } = this;
-		if (!storage || !user) return "";
+		const { imageStore, user } = this;
+		if (!imageStore || !user) return "";
 
 		this.uploading = true;
 		this.progress = 0;
 		try {
-			return await uploadFile(
-				storage,
-				file,
-				`events/${user.uid}`,
-				(percent) => {
-					this.progress = percent;
-				},
-			);
+			return await imageStore.upload(file, `events/${user.uid}`, (percent) => {
+				this.progress = percent;
+			});
 		} catch {
 			return "";
 		} finally {

@@ -1,5 +1,4 @@
 import { msg } from "@lit/localize";
-import type { Timestamp } from "firebase/firestore";
 import { z } from "zod";
 import { normalizeTags } from "../domain/tags.js";
 
@@ -94,17 +93,5 @@ export type PlanuEvent = z.infer<ReturnType<typeof eventSchema>>;
 /** A guest's role. The owner carries none: they are one by `userId`. */
 export type EventRole = "viewer" | "editor";
 
-/** An event as it lives in Firestore: dates are Timestamp. */
-export type PlanuEventDocument = Omit<
-	PlanuEvent,
-	"id" | "startDate" | "endDate" | "createdAt"
-> & {
-	startDate: Timestamp | null;
-	endDate: Timestamp | null;
-	createdAt?: Timestamp | null;
-	imageUrl?: string | null;
-	allDay: boolean;
-};
-
-/** An event already read from Firestore, with its identifier. */
+/** An event already read from the repository, with its identifier. */
 export type StoredEvent = PlanuEvent & { id: string };

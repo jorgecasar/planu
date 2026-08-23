@@ -6,11 +6,11 @@ import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import { deleteDoc, doc, type Firestore, updateDoc } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
-import { firestoreContext, userContext } from "../firebase/context.js";
+import { eventRepositoryContext, userContext } from "../firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
 import {
 	canDelete,
@@ -81,8 +81,8 @@ export class PlanuEventCard extends LitElement {
 
 	@property({ attribute: false }) event!: StoredEvent;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
+	@consume({ context: eventRepositoryContext, subscribe: true })
+	private eventRepository: EventRepositoryPort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -313,19 +313,19 @@ export class PlanuEventCard extends LitElement {
 	}
 
 	async #leave(): Promise<void> {
-		const { firestore, event } = this;
-		if (!firestore || this.leaving) return;
+		const { eventRepository, event } = this;
+		if (!eventRepository || this.leaving) return;
 
+		const memberIds = (event.memberIds ?? []).filter(
+			(uid) => uid !== this.#uid,
+		);
 		const roles = { ...event.roles };
 		delete roles[this.#uid];
 
 		this.leaveError = "";
 		this.leaving = true;
 		try {
-			await updateDoc(doc(firestore, "events", event.id), {
-				memberIds: (event.memberIds ?? []).filter((uid) => uid !== this.#uid),
-				roles,
-			});
+			await eventRepository.updateMembership(event.id, memberIds, roles);
 			this.confirmingLeave = false;
 		} catch {
 			this.leaveError = msg("You could not be removed from this event.");
@@ -344,12 +344,13 @@ export class PlanuEventCard extends LitElement {
 	}
 
 	async #confirmDelete(): Promise<void> {
-		if (!this.firestore) return;
+		const { eventRepository, event } = this;
+		if (!eventRepository) return;
 
 		this.deleting = true;
 		this.error = "";
 		try {
-			await deleteDoc(doc(this.firestore, "events", this.event.id));
+			await eventRepository.delete(event.id);
 			this.confirming = false;
 		} catch {
 			// Without this catch the promise was rejected unhandled: the dialog

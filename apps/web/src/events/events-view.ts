@@ -24,16 +24,9 @@ import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import {
-	collection,
-	type DocumentData,
-	type Firestore,
-	query,
-	Timestamp,
-	where,
-} from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
 import { buildAgenda } from "../calendar/agenda-days.js";
 import {
@@ -54,14 +47,9 @@ import {
 	type ViewMode,
 	viewOptions,
 } from "../domain/view-mode.js";
-import { CollectionController } from "../firebase/collection-controller.js";
-import { firestoreContext, userContext } from "../firebase/context.js";
+import { eventRepositoryContext, userContext } from "../firebase/context.js";
 import { getLocale } from "../i18n/localization.js";
-import {
-	eventSchema,
-	type PlanuEvent,
-	type StoredEvent,
-} from "../lib/types.js";
+import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 import {
 	readSortPreference,
 	readViewMode,
@@ -69,50 +57,6 @@ import {
 	writeViewMode,
 } from "../lib/view-preferences.js";
 import type { FiltersChange } from "./event-filters.js";
-
-/**
- * Converts a Firestore document into an event, validating it.
- *
- * The rules already enforce types, but the client shouldn't trust that a
- * document complies: the ones inherited from the prototype never went
- * through them. Without validation, a numeric `description` would blow
- * up `.toLowerCase()` inside `render()`, and Lit doesn't catch that: it
- * broke the whole listing, not a single card.
- *
- * Returns `null` for whatever doesn't fit, which gets discarded.
- */
-function toEvent(document: DocumentData & { id: string }): StoredEvent | null {
-	const asDate = (value: unknown) =>
-		value instanceof Timestamp ? value.toDate() : null;
-
-	const parsed = eventSchema().safeParse({
-		title: document["title"],
-		description: document["description"],
-		location: document["location"],
-		imageUrl: document["imageUrl"],
-		userId: document["userId"],
-		memberIds: document["memberIds"],
-		roles: document["roles"],
-		startDate: asDate(document["startDate"]),
-		endDate: asDate(document["endDate"]),
-		createdAt: asDate(document["createdAt"]),
-		tags: document["tags"],
-		// Without listing the key, an event saved with an hour always read
-		// back as all-day: `allDay` was missing from the object reaching
-		// `safeParse`, and `z.boolean().default(true)` filled the gap. The
-		// implicit migration — documents predating this feature, with no
-		// field — keeps working the same way: `document["allDay"]` is
-		// `undefined` for them, and the same `default(true)` decides all-day.
-		allDay: document["allDay"],
-	});
-
-	if (!parsed.success) {
-		console.warn("Evento descartado por no validar:", document["id"]);
-		return null;
-	}
-
-	return { ...parsed.data, id: document["id"] };
-}
 
 /** Listing of the user's events, with search and date filtering. */
 @customElement("planu-events-view")
@@ -153,8 +97,8 @@ export class PlanuEventsView extends LitElement {
 		}
 	`;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
+	@consume({ context: eventRepositoryContext, subscribe: true })
+	private eventRepository: EventRepositoryPort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -199,12 +143,37 @@ export class PlanuEventsView extends LitElement {
 	 */
 	@state() private view: ViewMode = readViewMode();
 
-	readonly #events = new CollectionController<DocumentData>(this);
+	@state() private events: StoredEvent[] = [];
+	@state() private loading = true;
+	@state() private error = false;
 
 	override async connectedCallback(): Promise<void> {
 		super.connectedCallback();
 		// A button that always fails is worse than a button that isn't there.
 		this.aiAvailable = canOffer(await checkAvailability());
+		await this.#loadEvents();
+	}
+
+	async #loadEvents(): Promise<void> {
+		const { eventRepository, user } = this;
+		if (!eventRepository || !user) {
+			this.loading = false;
+			return;
+		}
+
+		this.loading = true;
+		this.error = false;
+		try {
+			const events: StoredEvent[] = [];
+			for await (const event of eventRepository.listFor(user.uid)) {
+				events.push(event);
+			}
+			this.events = events;
+		} catch {
+			this.error = true;
+		} finally {
+			this.loading = false;
+		}
 	}
 
 	constructor() {
@@ -229,38 +198,8 @@ export class PlanuEventsView extends LitElement {
 		});
 	}
 
-	/** Inputs the query depends on; it's only rebuilt if they change. */
-	#queryKey: string | undefined;
-
-	override willUpdate(): void {
-		const { firestore, user } = this;
-		// Firestore arrives after the user, because it loads on demand: if
-		// the key only looked at the uid, the query would never get created.
-		const key = firestore && user ? `${user.uid}:ready` : "";
-
-		// Rebuilding the query on every update triggers a re-subscription,
-		// which triggers a snapshot, which triggers another update: a loop
-		// that rewrites the DOM several times per second.
-		if (key === this.#queryKey) return;
-		this.#queryKey = key;
-
-		this.#events.setQuery(
-			firestore && user
-				? query(
-						collection(firestore, "events"),
-						// By membership rather than ownership, so events other people
-						// shared arrive too. The rules deny every other way of
-						// querying this collection, filtering by `userId` included.
-						where("memberIds", "array-contains", user.uid),
-					)
-				: null,
-		);
-	}
-
 	override render() {
-		const all = this.#events.data
-			.map(toEvent)
-			.filter((event): event is StoredEvent => event !== null);
+		const all = this.events;
 		const visible = filterEvents(
 			all,
 			this.searchTerm,
@@ -338,7 +277,7 @@ export class PlanuEventsView extends LitElement {
 				</wa-dropdown>
 			</div>
 
-			${this.#renderList(all.length, visible)}
+			${this.#renderList(visible)}
 
 			<planu-event-editor
 				.knownTags=${knownTags}
@@ -418,25 +357,18 @@ export class PlanuEventsView extends LitElement {
 		this.editorOpen = true;
 	}
 
-	#renderList(total: number, visible: StoredEvent[]) {
+	#renderList(visible: StoredEvent[]) {
 		// The error comes before anything else: without this, a permissions
 		// or quota failure left `data` empty and the user read "you don't
 		// have any events yet", which is exactly the wrong conclusion.
-		if (this.#events.error) {
+		if (this.error) {
 			return html`<wa-callout variant="danger" role="alert">
 				${msg("Your events could not be loaded. Check your connection and reload.")}
 			</wa-callout>`;
 		}
 
-		// There's a session but Firestore is still traveling through its
-		// dynamic import. Without this check the controller never gets to
-		// subscribe —its `loading` stays false— and the view would conclude
-		// "you don't have any events yet" on every cold start,
-		// indistinguishable from a genuinely empty list.
-		if (this.user && !this.firestore) return this.#renderSkeletons();
-
-		if (this.#events.loading) return this.#renderSkeletons();
-		if (visible.length === 0) return this.#renderEmpty(total);
+		if (this.loading) return this.#renderSkeletons();
+		if (visible.length === 0) return this.#renderEmpty(this.events.length);
 
 		// `visible`, not `all`: **the filter belongs to the screen, not to
 		// the card grid**. All three views hang off this same line and
