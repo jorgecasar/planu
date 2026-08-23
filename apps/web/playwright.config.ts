@@ -4,7 +4,12 @@ export default defineConfig({
 	testDir: "./e2e",
 	fullyParallel: true,
 	forbidOnly: !!process.env["CI"],
-	retries: process.env["CI"] ? 2 : 0,
+	// No retries, not even in CI: a test that fails and passes on retry
+	// counts as "flaky" to Playwright, not "failed", and exits 0. With that
+	// the CI job can't fail on a broken e2e — exactly the pipeline
+	// AGENTS.md calls worse than no test at all. See
+	// docs/spec-ci-e2e-reliability.md.
+	retries: 0,
 	reporter: "list",
 	use: {
 		baseURL: `http://localhost:${process.env["PORT"] || 3000}`,

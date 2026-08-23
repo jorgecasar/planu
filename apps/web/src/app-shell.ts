@@ -1,5 +1,6 @@
 import "@awesome.me/webawesome/dist/components/avatar/avatar.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
@@ -18,7 +19,18 @@ import {
 	HOME_PATH,
 	LOGIN_PATH,
 } from "./auth/guard.js";
+import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
 import { sessionContext, userContext } from "./firebase/context.js";
+
+/**
+ * `onAuthStateChanged` normally fires within a few hundred milliseconds.
+ * Measured against real production traffic it sometimes never fires at all
+ * — a silent hang inside the Auth SDK's persistence resolution, not
+ * reproducible against the emulator (see
+ * docs/spec-ci-e2e-reliability.md). Past this many milliseconds without an
+ * answer, "checking your session" stops being a truthful message.
+ */
+const SESSION_CHECK_TIMEOUT_MS = 8000;
 
 /** Application root: routing, header and session guard. */
 @customElement("planu-app")
@@ -59,6 +71,11 @@ export class PlanuApp extends LitElement {
 	private user: SessionUser | null | undefined;
 
 	@state() private navigating = false;
+
+	/** Set once the session check has taken too long. See `#watchSessionCheck`. */
+	@state() private sessionCheckTimedOut = false;
+
+	#cancelSessionCheckTimeout: (() => void) | undefined;
 
 	@consume({ context: sessionContext, subscribe: true })
 	private session: SessionPort | undefined;
@@ -102,10 +119,41 @@ export class PlanuApp extends LitElement {
 		return true;
 	}
 
+	/**
+	 * Bounds the "checking your session" state. `onAuthStateChanged` normally
+	 * settles in a few hundred milliseconds; when it doesn't (see
+	 * `SESSION_CHECK_TIMEOUT_MS`), `sessionCheckTimedOut` swaps the spinner for
+	 * an honest message instead of leaving it spinning forever.
+	 */
+	#watchSessionCheck(): void {
+		if (this.user === undefined) {
+			this.#cancelSessionCheckTimeout ??= watchSessionCheckTimeout(
+				SESSION_CHECK_TIMEOUT_MS,
+				() => {
+					this.sessionCheckTimedOut = true;
+				},
+			);
+			return;
+		}
+
+		// The session resolved: nothing left to bound.
+		this.#cancelSessionCheckTimeout?.();
+		this.#cancelSessionCheckTimeout = undefined;
+		this.sessionCheckTimedOut = false;
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.#cancelSessionCheckTimeout?.();
+		this.#cancelSessionCheckTimeout = undefined;
+	}
+
 	/** Last session seen, to detect when it stops being unknown. */
 	#seenUser: SessionUser | null | undefined;
 
 	override willUpdate(): void {
+		this.#watchSessionCheck();
+
 		const target = guardRedirect(this.user, window.location.pathname);
 		if (target) {
 			void this.#navigate(target);
@@ -160,6 +208,13 @@ export class PlanuApp extends LitElement {
 		// Three session states, three different screens. Showing the login while
 		// it's being checked would cause a flicker on every reload.
 		if (this.user === undefined) {
+			if (this.sessionCheckTimedOut) {
+				return html`<div class="checking">
+					<wa-callout variant="warning" role="alert">
+						${msg("This is taking longer than expected. Reload the page.")}
+					</wa-callout>
+				</div>`;
+			}
 			return html`<div class="checking">
 				<wa-spinner aria-label=${msg("Checking your session")}></wa-spinner>
 			</div>`;

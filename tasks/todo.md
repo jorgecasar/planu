@@ -1653,6 +1653,157 @@ garantiza conflictos.
     - `npm run test:e2e` → **64 e2e, código 0** (`PORT=3005`, emuladores
       compartidos ya arriba).
 
+- [ ] **T57 · El pipeline no puede fallar por un e2e roto** · XS · sin dependencias
+  - Especificado en [`docs/spec-ci-e2e-reliability.md`](../docs/spec-ci-e2e-reliability.md).
+  - Motivo, verificado contra el run real `32602746219` (push a `main` tras
+    T40, 22/08/2026): `apps/web/playwright.config.ts` tenía
+    `retries: process.env["CI"] ? 2 : 0`. 10 de 83 e2e fallaron en su primer
+    intento —siempre en el mismo punto, justo tras `page.goto("/app/login")`,
+    `Test timeout of 30000ms exceeded`— y pasaron los 10 al reintentar.
+    Playwright los cuenta como *flaky*, no *failed*, y sale con código 0: el
+    job de CI terminó en verde con un fallo real escondido dentro, el patrón
+    que `AGENTS.md` (sección «Verificar de verdad», punto 2) ya señala como
+    peor que ningún test.
+  - Acepta: `retries: 0` en CI, sin excepción; un solo fallo en un solo
+    intento hace fallar el job; demostrado con un run real que rompe a
+    propósito y otro que confirma que pasa limpio.
+  - Verifica: `npm run test:e2e` en local repetido sin reintentos → **0**; un
+    run de CI real con `conclusion: success` y **cero** tests *flaky* en su
+    reporte; y, antes de dar el arreglo por bueno, un run de CI roto a
+    propósito (reintento forzado o fallo sin reintento posible) que **sí**
+    termina en `conclusion: failure` — sin esa mitad el trinquete no está
+    probado, sólo supuesto.
+  - Ficheros: `apps/web/playwright.config.ts`,
+    `apps/web/playwright.landing.config.ts`
+  - No tocado a propósito: el timeout de test (30 s, valor por defecto) y
+    `.github/workflows/ci.yml` — su paso «Tests con emuladores» ya encadena
+    `npm test && npm run test:rules && npm run test:e2e` con `&&`, así que un
+    código de salida distinto de cero de `test:e2e` ya propaga correctamente;
+    revisado, no se necesitaba ningún cambio ahí.
+  - **Ampliada a mitad de tarea: la causa real de la inestabilidad no era
+    (sólo) los reintentos.** Investigando por qué fallaban los e2e de
+    verdad, se confirmó un bug real e intermitente en producción, ajeno a
+    T57 en origen pero atendido aquí por ser la misma investigación.
+    Detalle completo, con las tres muestras y el afinado de causa, en
+    `docs/spec-ci-e2e-reliability.md`. Resumen:
+    - Un script de Playwright contra `https://planu-app.web.app/app/login`
+      (navegador nuevo por corrida) mostró que **`onAuthStateChanged`
+      (`firebase-provider.ts`) a veces nunca dispara**: el spinner
+      «Checking your session» se queda para siempre, sin ningún error de
+      consola ni promesa rechazada —instrumentado con el segundo argumento
+      de error de `onAuthStateChanged` y un `unhandledrejection` global,
+      ninguno de los dos saltó nunca—. Muestra combinada: **5 de 23
+      arranques atascados (21,7 %)**.
+    - **Afinado tras una pregunta del usuario** («¿no será una condición de
+      carrera de caché?»): comparando la misma ventana temporal, un único
+      navegador recargando 8 veces (mismo IndexedDB/caché, como refrescar
+      de verdad) dio **0 de 8 atascos**, frente a **2 de 10 con perfil
+      nuevo en cada intento**. El cuelgue es específico de la **primera vez
+      que ese navegador crea la base de IndexedDB de Auth contra el backend
+      real** — expone sobre todo a quien visita por primera vez (registros
+      nuevos), no a quien vuelve.
+    - **Verificado que esto NO explica la inestabilidad de CI**: el mismo
+      script contra el emulador de Auth (`.env.local` restaurado en este
+      worktree, que se había recreado sin él) dio **12 de 12 resueltos en
+      ~290 ms, cero atascos**. Las dos causas quedan separadas: la política
+      de reintentos (arriba) sigue siendo necesaria por sí sola; el cuelgue
+      de sesión es un hallazgo de producción real, sin relación confirmada
+      con los 10/83 del run `32602746219` — esa causa sigue abierta.
+    - **Arreglo, elegido por el usuario tras valorar tres opciones**
+      (timeout de seguridad / simplificar persistencia / las dos): timeout
+      de seguridad. Nuevo `src/domain/session-check-timeout.ts`
+      (`watchSessionCheckTimeout`, puro, sin dependencias externas —encaja
+      en `domain/`—) con 3 tests (dispara al cumplirse el plazo, cancelar
+      antes lo evita, cancelar después no lanza). `app-shell.ts`: nuevo
+      `SESSION_CHECK_TIMEOUT_MS = 8000`, `#watchSessionCheck()` gestiona el
+      temporizador desde `willUpdate()` y lo cancela en
+      `disconnectedCallback()`; `render()` sustituye el spinner infinito por
+      un `<wa-callout variant="warning">` con un aviso de recarga pasados
+      los 8 s. No toca `firebase-provider.ts` ni el SDK: la causa exacta
+      dentro de `firebase-js-sdk` 12.17.1 queda sin identificar —hay
+      precedente de fragilidad con `[indexedDBLocalPersistence,
+      browserLocalPersistence]` en issues de ese repositorio, ninguno un
+      calco exacto— y perseguirla habría exigido instrumentar el propio
+      bundle minificado, desproporcionado para esta tarea.
+    - Nuevo `src/app-shell.test.ts` (no existía ningún test de este
+      componente): monta `<planu-app>` sin `<planu-firebase-provider>` —los
+      `@consume` no resuelven, así que `user` se queda `undefined`, el
+      estado bajo prueba— y cubre spinner mientras se comprueba,
+      sustitución por el aviso a los 8 s exactos (`vi.useFakeTimers` +
+      `vi.advanceTimersByTime`, mismo patrón que
+      `calendar-export.test.ts`), y que a los 7999 ms sigue siendo el
+      spinner. Hubo que fijar `window.history.pushState` a `/app/login`
+      antes de montar: sin ruta válida, `@lit-labs/router` rechaza al
+      conectar y la suite fallaba por una promesa no atendida ajena a la
+      aserción.
+    - Mensaje nuevo (`msg()`): «This is taking longer than expected. Reload
+      the page.» → «Esto está tardando más de lo esperado. Recarga la
+      página.», con el ciclo completo `localize:extract` → traducir →
+      `localize:build` → `biome check --write` sobre los dos generados.
+    - Verificado, roto a propósito y restaurado dos veces (el helper de
+      dominio y `app-shell.ts` por separado): ambos en rojo al desactivar
+      la lógica, verde al restaurarla. Verificación final completa: `npm
+      test` → **0**, **551/551** (48 ficheros, incluidos los dos nuevos);
+      `npx @biomejs/biome check .` (directo, sin el wrapper de `npm run
+      lint` que en esta sesión devolvía un falso «ESLint output» ajeno a
+      Biome) → **0**, 164 ficheros; `npx tsc --noEmit` → **0**;
+      `npm run lint:lit` → **0** (mismo aviso preexistente de
+      `landing/legal.ts`); `npm run test:arch` → **0**, 15/15;
+      `npm run build` → **0**.
+    - No verificado todavía: repetición contra producción tras desplegar
+      (el criterio 5 de éxito del spec exige una muestra de al menos 20
+      arranques limpios) y confirmación de que esto no introduce ningún
+      nuevo *flaky* en `test:e2e` real contra emuladores —pendiente de la
+      verificación en dos pasos que sigue abierta para el resto de T57—.
+    - **Corregido tras revisión independiente (`code-reviewer` +
+      `security-auditor` en paralelo, por tocar sesión/auth), antes de abrir
+      PR:**
+      - **Seguridad:** sin hallazgos. Confirmado con lectura del código, no
+        supuesto: `sessionCheckTimedOut` es puramente de presentación —
+        `guardRedirect()` no la conoce, `#enterPrivate()` sigue gateando
+        sólo en `!this.user`—, así que el timeout nunca puede convertir una
+        ruta privada en accesible ni saltarse el guard del login. Dos
+        sugerencias de nivel info (test de sesión tardía tras el aviso, y
+        un comentario sobre el supuesto de que `planu-app` no se desmonta
+        y remonta) — la primera ya quedó cubierta por el arreglo de
+        correctitud de abajo; la segunda no aplicaba tras ese arreglo.
+      - **Correctitud (dos hallazgos, ambos confirmados con *mutation
+        testing*, no leyendo el código):** las ramas de cancelar el
+        temporizador al resolverse la sesión y de limpiarlo en
+        `disconnectedCallback()` no tenían cobertura de regresión — un
+        `describe` en verde seguía en verde borrando cualquiera de las
+        dos. El escenario real: si algo en el futuro reintroduce un `user`
+        que vuelve a `undefined` tras haberse resuelto (hoy no pasa —
+        Firebase nunca reemite «desconocido»— pero el código no lo impone),
+        el `??=` de `#watchSessionCheck()` vería la referencia vieja del
+        temporizador y no armaría uno nuevo: el mismo spinner infinito que
+        esta tarea existe para arreglar, reintroducido en silencio con la
+        suite en verde.
+      - **Arreglo real:** cuatro tests nuevos en `app-shell.test.ts`,
+        reproduciendo exactamente las dos mutaciones del checker para
+        confirmarlas en rojo antes de escribir la cobertura, y en verde
+        después. El de rearme (`arma un plazo nuevo, no el viejo`) exigió
+        escalonar los tiempos (t=500, t=4500, t=8000, t=12500) porque con
+        una resolución inmediata el temporizador viejo y el nuevo caducan
+        en el mismo instante y la mutación queda invisible — el primer
+        intento de este test no la detectaba por eso mismo.
+      - **Sin relación con el código, dos hallazgos menores de higiene:**
+        los comentarios nuevos en ambos `playwright.*.config.ts` estaban en
+        español, incumpliendo la convención de `AGENTS.md` («Comentarios de
+        código: inglés») pese a que el propio fichero ya tenía comentarios
+        en inglés al lado — traducidos. Y una duda sobre si la rama
+        arrastraba un commit ajeno (T40): descartada, `e10c1ce` ya estaba
+        en `origin/main` cuando se creó esta rama, así que un PR desde aquí
+        sólo mostraría el commit de T57.
+      - Verificación final tras el arreglo: `npm test` → **0**, **555/555**
+        (551 → 555, los cuatro tests nuevos); `npx @biomejs/biome check .`
+        → **0**, 164 ficheros; `npx tsc --noEmit` → **0**; `npm run
+        lint:lit` → **0** (mismo aviso preexistente); `npm run test:arch` →
+        **0**, 15/15; `npm run build` → **0**. Commit enmendado, no dejado
+        como «arreglado tras revisión» suelto — la negociación ocurre antes
+        de que exista nada que revisar desde fuera, por la propia
+        convención de `AGENTS.md`.
+
 ---
 
 ## Horas en eventos
