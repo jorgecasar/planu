@@ -69,7 +69,6 @@
 				"apps/web/src/events/event-editor.ts",
 				"apps/web/src/firebase/**",
 				"apps/web/src/infrastructure/firebase/**",
-				"apps/web/src/lib/types.ts",
 				"apps/web/src/observability/index.ts",
 				"apps/web/src/profile/profile-view.ts",
 				"apps/web/src/sharing/invitations-inbox.ts",
