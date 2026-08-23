@@ -44,7 +44,9 @@ const imponen = () => overrides().filter((o) => typeof regla(o) === "object");
 /** The one that exempts. Same idea. */
 const eximen = () => overrides().filter((o) => regla(o) === "off");
 
-/** Every .ts under a directory, as paths relative to the repo root. */
+/**
+ * Every .ts under a directory, as paths relative to the repo root.
+ */
 function ficherosBajo(dir: string): string[] {
 	const salida: string[] = [];
 	for (const entrada of readdirSync(dir)) {
@@ -130,8 +132,7 @@ const importaFirebase = (fichero: string): boolean =>
  * pattern as `analytics-adapter.test.ts`, and only need a type-only import
  * to do it — but a type-only import is still an import, so they land back
  * on this list. Three files, three points on the counter.
- */
-/**
+ *
  * T32 raises it once more, from 26 to 27, landing independently of T48's
  * work above: one new file, not two, because `account-data-adapter.ts` has
  * no pure exported function worth a unit test the way
@@ -147,8 +148,40 @@ const importaFirebase = (fichero: string): boolean =>
  * the generative model), which are out of scope for T38 — they belong to the
  * AI model session work (T24/T48). Both files remain on the exemption list for
  * these remaining legitimate couplings.
+ *
+ * T37 frees three files — `event-card.ts`, `events-view.ts` and
+ * `lib/types.ts` — and adds four under `infrastructure/firebase/**`, net
+ * +1, from 27 to 28.
+ *
+ * `event-card.ts` moves its two remaining Firestore calls — `deleteDoc` and
+ * the "leave someone else's event" `updateDoc` from ADR 0006 — behind two
+ * new `EventRepositoryPort` methods, `delete()` and `leave()`, implemented
+ * by `FirebaseEventRepository` (already on the list, so no new file there).
+ * `lib/types.ts` loses `PlanuEventDocument` and its `Timestamp` import
+ * entirely: that type only ever described the persistence shape, per
+ * `spec-arquitectura-hexagonal.md`'s own note that this was a known gap to
+ * close here. `events-view.ts` loses `firestoreContext`, `Timestamp`,
+ * `CollectionController` and its local `toEvent()` — it now consumes a new
+ * `eventsContext` (`StoredEvent[]`, already translated, plus a
+ * loading/ready/error status) and no longer imports `firebase/firestore`
+ * at all.
+ *
+ * What that live listing needs — the query, `onSnapshot`, and the
+ * `Timestamp`↔`Date` mapping `toEvent()` used to do — didn't disappear, it
+ * moved: `event-mapper.ts` (`toStoredEvent()` and the relocated
+ * `PlanuEventDocument`) and `events-controller.ts` (the query-building and
+ * subscription logic, called from `firebase-provider.ts`, which is what
+ * turns its `.snapshot` into `eventsContext`'s value — the same shape
+ * `onAuthStateChanged` already gets turned into `SessionUser` there). Two
+ * files, plus their two tests: `EventRepositoryPort` stayed
+ * per-operation on purpose (no subscription method), so this is
+ * infrastructure the same way `CollectionController` already was, not a
+ * port that needed widening. Testing the pure parts — `toStoredEvent()`'s
+ * validation and `EventsController`'s query/status logic — without an
+ * emulator is the whole point of moving them here, per
+ * `spec-arquitectura-hexagonal.md`'s success criteria, so both get one.
  */
-const TOPE_ACOPLADOS = 28;
+const TOPE_ACOPLADOS = 29;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

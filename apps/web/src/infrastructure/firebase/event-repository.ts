@@ -1,7 +1,9 @@
 import {
 	addDoc,
+	arrayRemove,
 	collection,
 	deleteDoc,
+	deleteField,
 	doc,
 	type Firestore,
 	getCountFromServer,
@@ -18,7 +20,7 @@ import type {
 	EventRepositoryPort,
 	StoredEvent,
 } from "../../application/ports/event-repository.js";
-import type { EventRole, PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../lib/types.js";
 
 /**
  * From `PlanuEvent` to what Firestore accepts: dates become `Timestamp`.
@@ -181,14 +183,15 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 		await deleteDoc(doc(this.#firestore, "events", id));
 	}
 
-	async updateMembership(
-		id: string,
-		memberIds: string[],
-		roles: Record<string, EventRole>,
-	): Promise<void> {
+	async leave(id: string, uid: string): Promise<void> {
+		// `arrayRemove`/`deleteField`, not a client-computed replacement of
+		// `memberIds`/`roles`: the rule only cares about the resulting document
+		// (see `leavesTheEvent()` in firestore.rules), and this way the write
+		// never has to read the event back first just to compute the same
+		// result minus one uid.
 		await updateDoc(doc(this.#firestore, "events", id), {
-			memberIds,
-			roles,
+			memberIds: arrayRemove(uid),
+			[`roles.${uid}`]: deleteField(),
 		});
 	}
 

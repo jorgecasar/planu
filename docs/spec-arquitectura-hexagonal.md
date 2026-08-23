@@ -92,9 +92,18 @@ aplicación necesita y no por quien lo cumple:
 /** Lo que la aplicación necesita para guardar eventos. Firestore es un detalle. */
 export interface EventRepository {
   save(event: PlanuEvent, ownerId: string): Promise<string>;
-  listFor(ownerId: string): AsyncIterable<StoredEvent>;
+  delete(id: string): Promise<void>;
 }
 ```
+
+Nótese que no hay un `listFor()` ni nada que espeje una suscripción en vivo: T37
+lo intentó y lo descartó. Un listado que cambia en tiempo real —`onSnapshot`,
+en este caso— no es una operación puntual como `save` o `delete`, y forzarlo
+dentro del puerto habría sido justo el espejo del SDK que esta sección empieza
+diciendo que no se quiere. La observación vive en `infrastructure/`
+(`events-controller.ts`) y se publica por contexto de Lit, con el mismo
+razonamiento que ya evita meter `onAuthStateChanged` en `SessionProvider` más
+abajo: quien observa una colección es quien publica el contexto, no el puerto.
 
 El caso de uso recibe el puerto, nunca lo construye:
 
