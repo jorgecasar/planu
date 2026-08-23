@@ -1,11 +1,13 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
+import "@awesome.me/webawesome/dist/components/divider/divider.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import "@awesome.me/webawesome/dist/components/icon/icon.js";
 import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
+import "./ai-event-generator.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
@@ -46,6 +48,7 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
+import type { GeneratedDraft } from "./ai-event-generator.js";
 import {
 	createAiModelSession,
 	type ModelLike,
@@ -193,6 +196,14 @@ export class PlanuEventEditor extends LitElement {
 	 */
 	@state() private aiAvailable = false;
 
+	/**
+	 * Whether "Write it by hand" was clicked on the embedded AI block for the
+	 * event currently being created. Reset on every open (see
+	 * `willUpdate()`): the point is to let this one attempt drop back to the
+	 * empty form, not to remember the choice across a whole session.
+	 */
+	@state() private aiBlockDismissed = false;
+
 	/** Lazy: building it doesn't call the model on its own. */
 	#tagSuggestionSession: ReturnType<typeof createAiModelSession> | undefined;
 
@@ -231,11 +242,28 @@ export class PlanuEventEditor extends LitElement {
 			this.suggestingTags = false;
 			this.tagSuggestionDownloading = false;
 			this.tagSuggestionProgress = 0;
+			this.aiBlockDismissed = false;
 			// Counts as a close: a suggestion requested before reopening —for
 			// the same event or for another— must not apply when it resolves.
 			this.#tagGeneration++;
 			void this.#refreshAiAvailability();
 		}
+	}
+
+	/**
+	 * Whether to offer the embedded "fill in with AI" block: only when
+	 * creating (never editing), only before anything's been generated or
+	 * written by hand —a `draft` already means there's something to review,
+	 * whether it came from a real generation or from T33's sample event—,
+	 * only with AI available, and not after an explicit "Write it by hand".
+	 */
+	get #showAiBlock(): boolean {
+		return (
+			this.event === undefined &&
+			this.draft === undefined &&
+			this.aiAvailable &&
+			!this.aiBlockDismissed
+		);
 	}
 
 	/**
@@ -307,6 +335,17 @@ export class PlanuEventEditor extends LitElement {
 	#renderForm(initial: Partial<PlanuEvent>) {
 		return html`
 			<form id="event-form" @submit=${this.#onSubmit}>
+					${
+						this.#showAiBlock
+							? html`
+									<planu-ai-event-generator
+										@planu-event-generated=${this.#onAiGenerated}
+										@planu-generator-dismiss=${this.#onAiDismiss}
+									></planu-ai-event-generator>
+									<wa-divider></wa-divider>
+								`
+							: nothing
+					}
 					<div class="cover">
 						<label for="cover">${msg("Cover image")}</label>
 						${this.imageUrl ? html`<img src=${this.imageUrl} alt="" />` : nothing}
@@ -390,6 +429,39 @@ export class PlanuEventEditor extends LitElement {
 					</div>
 				</form>
 		`;
+	}
+
+	/**
+	 * The AI block generated something: it's handed off exactly like a
+	 * `draft` set from outside always was —`#showAiBlock` hides the block on
+	 * its own once `draft` stops being `undefined`, no separate signal to
+	 * close it is needed.
+	 */
+	async #onAiGenerated(domEvent: Event): Promise<void> {
+		const { event, source } = (domEvent as CustomEvent<GeneratedDraft>).detail;
+		this.draft = event;
+		this.draftSource = source;
+		await this.#focusTitle();
+	}
+
+	/** "Write it by hand": the block goes away without anything generated. */
+	async #onAiDismiss(): Promise<void> {
+		this.aiBlockDismissed = true;
+		await this.#focusTitle();
+	}
+
+	/**
+	 * Moves focus to the title field. Called after the AI block disappears
+	 * —generated or dismissed—, because the control that had focus just left
+	 * the DOM with it: without this, focus falls back to `<body>`, a real
+	 * keyboard-navigation regression that static axe analysis alone doesn't
+	 * catch.
+	 */
+	async #focusTitle(): Promise<void> {
+		await this.updateComplete;
+		this.shadowRoot
+			?.querySelector<HTMLElement & { focus: () => void }>('[name="title"]')
+			?.focus();
 	}
 
 	/**
