@@ -87,7 +87,6 @@ async function signIn(
 
 async function createEvent(page: Page, title: string): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Create manually" }).click();
 	await page.getByLabel("Title").fill(title);
 	await page.getByLabel("Description").fill(`About ${title}`);
 	await page.getByLabel("Location").fill("Madrid");

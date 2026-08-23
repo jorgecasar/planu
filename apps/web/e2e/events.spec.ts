@@ -18,10 +18,9 @@ async function signUp(page: Page): Promise<void> {
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 
-/** Abre el editor manual: el botón principal es ahora un menú de dos opciones. */
+/** Abre el editor: un único botón lleva directo al formulario. */
 async function openEditor(page: Page): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Create manually" }).click();
 	await expect(page.getByLabel("Title")).toBeVisible();
 }
 

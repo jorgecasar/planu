@@ -210,10 +210,6 @@
   <source>Clear filters</source>
         <target>Quitar filtros</target>
 </trans-unit>
-<trans-unit id="s115fc97786e93e72">
-  <source>Create manually</source>
-        <target>Crear a mano</target>
-</trans-unit>
 <trans-unit id="s95c7d4bfce3a645e">
   <source>You have no events yet.</source>
         <target>Todavía no tienes eventos.</target>
@@ -633,10 +629,6 @@
 <trans-unit id="s7f59f507e02a2f38">
   <source>View</source>
         <target>Vista</target>
-</trans-unit>
-<trans-unit id="sfa071e68dcfdd864">
-  <source>Generate event with AI</source>
-        <target>Generar un evento con IA</target>
 </trans-unit>
 <trans-unit id="s9465c45b1029715f">
   <source>Upload a poster or flyer, or paste the text of an invitation, and the details will be filled in for you. You can review everything before saving.</source>
@@ -1065,6 +1057,14 @@
 <trans-unit id="s4b46a7d9cb203130">
   <source>This is taking longer than expected. Reload the page.</source>
         <target>Esto está tardando más de lo esperado. Recarga la página.</target>
+</trans-unit>
+<trans-unit id="s16d2155176aaba45">
+  <source>Fill in with AI</source>
+        <target>Rellenar con IA</target>
+</trans-unit>
+<trans-unit id="s42a990504619e987">
+  <source>Write it by hand</source>
+        <target>Escribir a mano</target>
 </trans-unit>
 </body>
 </file>
