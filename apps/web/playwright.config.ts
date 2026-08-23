@@ -10,6 +10,18 @@ export default defineConfig({
 	// AGENTS.md calls worse than no test at all. See
 	// docs/spec-ci-e2e-reliability.md.
 	retries: 0,
+	// Doubled from Playwright's 30s default, and measured before doing it:
+	// GitHub's runner reports `nproc` = 2, and `vmstat` sampled during a real
+	// failing run showed 9% of seconds under 10% idle CPU (5% at exactly 0%)
+	// with Node, two JVMs (Firestore + Storage rules) and Chromium sharing
+	// those two cores. Three real CI runs failed with the identical signature
+	// — `Test timeout of 30000ms exceeded` waiting on something in
+	// `/app/login`, a different test each time — never reproduced locally,
+	// including with matched concurrency (`--workers=1`). This is a margin
+	// fix for measured contention, not a guess: see
+	// docs/spec-ci-e2e-reliability.md.
+	timeout: 60_000,
+	expect: { timeout: 10_000 },
 	reporter: "list",
 	use: {
 		baseURL: `http://localhost:${process.env["PORT"] || 3000}`,

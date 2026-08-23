@@ -100,7 +100,7 @@ No es el problema de contención en paralelo entre worktrees que documenta
 problema **de estabilidad de la app o del servidor de desarrollo bajo el
 runner de GitHub Actions**, con timeout justo en el margen.
 
-## No tocar en esta tarea
+## No tocar en esta tarea — decisión revisada más abajo con evidencia real
 
 Por decisión explícita: no se sube el timeout de test ni el de navegación de
 Playwright. Se deja en el valor por defecto (30 s) mientras se ve qué falla
@@ -108,6 +108,18 @@ de verdad sin la máscara de los reintentos. Si tras quitar `retries` algún
 test falla de forma consistente por timeout corto —no ocasional—, se decide
 entonces si la causa es ese margen o algo más, en vez de subirlo a ciegas
 ahora.
+
+**Revisado tras tres runs reales de CI con el mismo patrón** (ver «El
+trinquete de reintentos ya se probó en un run real» más abajo): con
+`vmstat` corriendo durante una de esas corridas, el runner reportó
+**`nproc` = 2** y **9,1 % de los segundos muestreados con menos del 10 % de
+CPU libre (5,1 % exactamente al 0 %)**, con Node, dos JVMs (Firestore y las
+reglas de Storage) y Chromium compartiendo esos dos núcleos. Con esa
+medición como justificación —no una suposición—, el usuario aprobó subir
+`timeout` a 60 s y `expect.timeout` a 10 s en `playwright.config.ts`. No es
+esconder un fallo: con `retries: 0` en pie, un cuelgue real seguiría
+fallando, sólo que con el margen que la propia máquina ya ha demostrado
+necesitar.
 
 ## Alcance
 
@@ -193,6 +205,13 @@ no asumir por el diff que va a funcionar.
    `app-shell.ts` deja de ser posible. Verificado con un test unitario que
    simula que `onAuthStateChanged` nunca dispara y comprueba que, pasado el
    timeout, se muestra la salida de recarga en vez del spinner indefinido.
+6. **Nuevo, tras tres runs reales de CI:** el margen de 30 s se subió a 60 s
+   (y `expect.timeout` a 10 s), con `nproc = 2` y datos de `vmstat` como
+   justificación medida — no supuesta. Pendiente de un cuarto run que lo
+   confirme; el criterio 3 («cero tests *flaky*») se da por parcialmente
+   cumplido en el sentido de que el trinquete funciona, no en el de que el
+   runner haya dejado de tener menos CPU de la que el conjunto de
+   emuladores + Vite + Chromium necesitaría idealmente.
 
 ## Segundo hallazgo del mismo tipo: `lint:lit` tampoco podía fallar
 

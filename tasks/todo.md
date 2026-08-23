@@ -1839,6 +1839,23 @@ garantiza conflictos.
     runner de GitHub Actions sigue sin causa confirmada — criterio 3 se da
     por cumplido en el sentido de «el trinquete está probado», no en el de
     «cero tests flaky», que sigue abierto.
+  - **Tercer run real (`32661264258`), y decisión revisada con datos, no a
+    ciegas:** mismo patrón otra vez, en ficheros distintos. Con el `vmstat`
+    del commit anterior ya en marcha, se descargó el artefacto:
+    **`nproc` = 2**, y de 685 muestras de un segundo, **62 (9,1 %) con
+    menos del 10 % de CPU libre, 35 (5,1 %) exactamente al 0 %**. Con esa
+    medición, y aprobación explícita del usuario para revisar la decisión
+    original de «no tocar el timeout», `apps/web/playwright.config.ts` sube
+    `timeout` de 30 s (por defecto) a 60 s y añade `expect.timeout: 10_000`
+    — ambos con el comentario de por qué en el propio fichero. No se tocó
+    `account-deletion.spec.ts`, que ya tiene su propio
+    `test.setTimeout(90_000)` y falló igual en el run 3: caso aparte, con
+    más pasos que un simple `page.goto`, no cubierto por este cambio
+    genérico. Verificado: `npm test` → **0**, 555/555 (sin cambios);
+    `npx tsc --noEmit`, Biome directo → **0** cada uno; comprobación
+    manual de que `auth.spec.ts` y `smoke.spec.ts` siguen pasando en local
+    tras el cambio (8/8). Pendiente: un cuarto run de CI que confirme que
+    el margen nuevo basta.
 
 ---
 
