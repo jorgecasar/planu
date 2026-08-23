@@ -1008,3 +1008,185 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 
 	el.remove();
 });
+
+// --- AI fill-in block (embedded) ---------------------------------------------
+//
+// `event-editor.ts` mounts `<planu-ai-event-generator>` as the first child of
+// its own `<form>` when `#showAiBlock` says it's worth offering. These tests
+// only exercise that wiring — visibility, the two events the block can emit,
+// and the type="button" regression guard —; the block's own generation
+// machinery (image path, text path, cancellation) is already covered end to
+// end in `ai-event-generator.test.ts`.
+
+function aiBlock(el: PlanuEventEditor): Element | null {
+	return el.shadowRoot?.querySelector("planu-ai-event-generator") ?? null;
+}
+
+function aiButton(el: PlanuEventEditor, text: string): HTMLElement {
+	const boton = [
+		...(aiBlock(el)?.shadowRoot?.querySelectorAll("wa-button") ?? []),
+	].find((b) => b.textContent?.includes(text));
+	if (!boton) {
+		throw new Error(`No se encontró el botón "${text}" en el bloque de IA`);
+	}
+	return boton as HTMLElement;
+}
+
+test("con IA disponible y sin evento ni borrador, aparecen a la vez el bloque de IA y el título", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	expect(aiBlock(el)).not.toBeNull();
+	expect(field(el, "title")).not.toBeNull();
+
+	el.remove();
+});
+
+test("sin IA disponible, el bloque no aparece y el formulario vacío sigue igual que hoy", async () => {
+	const el = await mount((editor) => {
+		editor.open = true;
+	});
+
+	expect(aiBlock(el)).toBeNull();
+	expect(field(el, "title").value).toBe("");
+
+	el.remove();
+});
+
+test("editando un evento existente, el bloque no aparece aunque haya IA disponible", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.event = {
+			id: "1",
+			title: "Cena",
+			allDay: true,
+			memberIds: ["abc"],
+			roles: {},
+			tags: [],
+		};
+		editor.open = true;
+	});
+
+	expect(aiBlock(el)).toBeNull();
+
+	el.remove();
+});
+
+test("con un borrador ya puesto antes de abrir, el bloque no aparece", async () => {
+	// Da igual si el borrador viene de una generación real o del evento de
+	// muestra de T33: `#showAiBlock` sólo mira que ya haya uno puesto.
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.draft = { title: "Feria del libro" };
+		editor.open = true;
+	});
+
+	expect(aiBlock(el)).toBeNull();
+
+	el.remove();
+});
+
+test("descartar el bloque de IA lo quita sin cerrar el editor ni vaciar el título", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+	await fillTitle(el, "Cena de equipo");
+
+	aiBlock(el)?.dispatchEvent(new CustomEvent("planu-generator-dismiss"));
+	await el.updateComplete;
+
+	expect(aiBlock(el)).toBeNull();
+	expect(el.open).toBe(true);
+	expect(field(el, "title").value).toBe("Cena de equipo");
+
+	el.remove();
+});
+
+test("un evento generado por la IA quita el bloque, rellena el formulario y avisa de su origen", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	aiBlock(el)?.dispatchEvent(
+		new CustomEvent("planu-event-generated", {
+			detail: {
+				event: { title: "Feria del libro", location: "Retiro" },
+				source: "on_device",
+			},
+		}),
+	);
+	await el.updateComplete;
+
+	expect(aiBlock(el)).toBeNull();
+	expect(field(el, "title").value).toBe("Feria del libro");
+	expect(el.shadowRoot?.querySelector("wa-callout")?.textContent).toContain(
+		"Generated on your device",
+	);
+
+	el.remove();
+});
+
+test("reabrir el editor para un evento nuevo tras un descarte vuelve a mostrar el bloque", async () => {
+	// `aiBlockDismissed` se resetea en el mismo bloque de `willUpdate()` que
+	// ya resetea `tagDraft`, `error`, etc. al abrir.
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	aiBlock(el)?.dispatchEvent(new CustomEvent("planu-generator-dismiss"));
+	await el.updateComplete;
+	expect(aiBlock(el)).toBeNull();
+
+	el.open = false;
+	await el.updateComplete;
+	el.open = true;
+	await el.updateComplete;
+
+	expect(aiBlock(el)).not.toBeNull();
+
+	el.remove();
+});
+
+test("con el bloque de IA visible, pulsar sus botones no envía el formulario de evento", async () => {
+	// El riesgo funcional más serio de esta migración: al vivir dentro de
+	// <form id="event-form">, cualquiera de los dos botones sin un
+	// type="button" explícito enviaría el formulario de evento, todavía casi
+	// vacío, en vez de hacer lo suyo.
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	// Con el textarea vacío el botón de texto sale deshabilitado; se pulsa
+	// igualmente, tal y como lo pide el plan.
+	aiButton(el, "Generate from text").click();
+	aiButton(el, "Write it by hand").click();
+	await el.updateComplete;
+	await new Promise((resolve) => setTimeout(resolve, 20));
+
+	expect(repository.calls).toHaveLength(0);
+
+	el.remove();
+});
+
+test("tras descartar el bloque de IA, el foco recae en el título", async () => {
+	const el = await mount((editor) => {
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	aiBlock(el)?.dispatchEvent(new CustomEvent("planu-generator-dismiss"));
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.activeElement).toBe(field(el, "title"));
+
+	el.remove();
+});

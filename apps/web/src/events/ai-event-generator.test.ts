@@ -2,7 +2,10 @@ import type { FirebaseApp } from "firebase/app";
 import { expect, test, vi } from "vitest";
 import type { SessionUser } from "../application/ports/session.js";
 import type { ModelAvailability } from "../domain/ai-availability.js";
-import type { PlanuAiEventGenerator } from "./ai-event-generator.js";
+import type {
+	GeneratedDraft,
+	PlanuAiEventGenerator,
+} from "./ai-event-generator.js";
 import {
 	explainFailure,
 	progressHint,
@@ -262,4 +265,163 @@ test("usa el puerto ImageStorePort para subir la portada, no firebase/storage di
 	expect(store.calls[0]?.prefix).toBe("events/test-user-123");
 
 	el.remove();
+});
+
+// --- Embedded lifecycle: no `open`, a fresh instance mounts each time ------
+
+const DEFAULT_USER: SessionUser = {
+	uid: "test-user-123",
+	email: "test@example.com",
+	displayName: "Test User",
+	photoURL: null,
+	emailVerified: true,
+	provider: "password",
+};
+
+/** Mounts a fresh, fully wired instance, the same way `event-editor.ts` does. */
+async function mountGenerator(
+	store: ReturnType<typeof fakeImageStore> = fakeImageStore(),
+): Promise<{
+	el: PlanuAiEventGenerator;
+	store: ReturnType<typeof fakeImageStore>;
+}> {
+	await import("./ai-event-generator.js");
+	const el = document.createElement(
+		"planu-ai-event-generator",
+	) as PlanuAiEventGenerator;
+	setState(el, "imageStore", store);
+	setState(el, "user", DEFAULT_USER);
+	setState(el, "app", {} as FirebaseApp);
+	// connectedCallback runs and calls #warmUp, which uses our mocked firebase/ai.
+	document.body.append(el);
+	await el.updateComplete;
+	return { el, store };
+}
+
+function findButton(el: PlanuAiEventGenerator, text: string): HTMLElement {
+	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.includes(text),
+	);
+	if (!boton) throw new Error(`No se encontró el botón "${text}"`);
+	return boton as HTMLElement;
+}
+
+function selectFile(el: PlanuAiEventGenerator, file: File): void {
+	const input = el.shadowRoot?.querySelector<HTMLInputElement>("#ai-image");
+	if (!input) throw new Error("No se encontró el input de imagen");
+	const dt = new DataTransfer();
+	dt.items.add(file);
+	input.files = dt.files;
+	const event = new Event("change", { bubbles: true });
+	Object.defineProperty(event, "target", { value: input });
+	input.dispatchEvent(event);
+}
+
+test("generar desde imagen emite el borrador con título, fuente y portada", async () => {
+	const { el, store } = await mountGenerator();
+
+	const detail = await new Promise<GeneratedDraft>((resolve) => {
+		el.addEventListener(
+			"planu-event-generated",
+			(domEvent) => resolve((domEvent as CustomEvent<GeneratedDraft>).detail),
+			{ once: true },
+		);
+		selectFile(el, new File(["test"], "cover.png", { type: "image/png" }));
+	});
+
+	expect(detail.event.title).toBe("Test Event");
+	expect(detail.source).toBe("on_device");
+	expect(detail.event.imageUrl).toBe("https://example.com/uploaded-image.png");
+	expect(store.calls).toHaveLength(1);
+
+	el.remove();
+});
+
+test("generar desde texto emite el borrador sin subir portada", async () => {
+	const { el, store } = await mountGenerator();
+
+	setState(el, "text", "Cena de equipo el próximo viernes en la oficina");
+	await el.updateComplete;
+
+	const detail = await new Promise<GeneratedDraft>((resolve) => {
+		el.addEventListener(
+			"planu-event-generated",
+			(domEvent) => resolve((domEvent as CustomEvent<GeneratedDraft>).detail),
+			{ once: true },
+		);
+		findButton(el, "Generate from text").click();
+	});
+
+	expect(detail.event.title).toBe("Test Event");
+	expect(detail.event.imageUrl).toBeUndefined();
+	expect(store.calls).toHaveLength(0);
+
+	el.remove();
+});
+
+test('"Write it by hand" emite planu-generator-dismiss sin detalle', async () => {
+	const { el } = await mountGenerator();
+
+	const domEvent = await new Promise<CustomEvent>((resolve) => {
+		el.addEventListener(
+			"planu-generator-dismiss",
+			(event) => resolve(event as CustomEvent),
+			{ once: true },
+		);
+		findButton(el, "Write it by hand").click();
+	});
+
+	expect(domEvent.detail).toBeNull();
+
+	el.remove();
+});
+
+test('"Generate from text" y "Write it by hand" llevan type="button"', async () => {
+	// Both live inside event-editor.ts's own <form>: without an explicit
+	// type="button", clicking either would submit the still near-empty
+	// event form instead of doing what it's meant to do.
+	const { el } = await mountGenerator();
+
+	expect(findButton(el, "Generate from text").getAttribute("type")).toBe(
+		"button",
+	);
+	expect(findButton(el, "Write it by hand").getAttribute("type")).toBe(
+		"button",
+	);
+
+	el.remove();
+});
+
+test("desconectar durante la generación no emite el borrador ni sube la portada", async () => {
+	// Replaces the old `#generation` token test: since a fresh instance
+	// mounts every time this is shown, the only cancellation case left is
+	// "removed from the DOM while a response is still in flight".
+	let resuelveGeneracion: ((value: FakeModelResponse) => void) | undefined;
+	generateContent.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				resuelveGeneracion = resolve;
+			}),
+	);
+
+	const { el, store } = await mountGenerator();
+	const generated = vi.fn();
+	el.addEventListener("planu-event-generated", generated);
+
+	selectFile(el, new File(["test"], "cover.png", { type: "image/png" }));
+	// Waits for warm-up (fails silently against the mocked model) and for
+	// the generation to reach the pending mocked response.
+	await new Promise((resolve) => setTimeout(resolve, 20));
+
+	el.remove();
+	resuelveGeneracion?.({
+		response: {
+			text: () => '{"title":"Too late"}',
+			inferenceSource: "on_device",
+		},
+	});
+	await new Promise((resolve) => setTimeout(resolve, 20));
+
+	expect(generated).not.toHaveBeenCalled();
+	expect(store.calls).toHaveLength(0);
 });
