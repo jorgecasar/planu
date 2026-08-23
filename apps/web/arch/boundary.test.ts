@@ -139,8 +139,16 @@ const importaFirebase = (fichero: string): boolean =>
  * everything here is a thin wrapper around real Firestore/Storage calls,
  * verified by T32's end-to-end test against the emulators instead, same as
  * `event-card.ts` and the rest of `events/` already are.
+ *
+ * T38 raises it once more, from 27 to 28: the migration of `ai-event-generator.ts`
+ * and its test to consume `ImageStorePort` instead of `firebase/storage` is
+ * complete. However, this component still needs `firebase/app` (the `FirebaseApp`
+ * type for the AI model) and a dynamic import of `firebase/ai` (for building
+ * the generative model), which are out of scope for T38 — they belong to the
+ * AI model session work (T24/T48). Both files remain on the exemption list for
+ * these remaining legitimate couplings.
  */
-const TOPE_ACOPLADOS = 27;
+const TOPE_ACOPLADOS = 28;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

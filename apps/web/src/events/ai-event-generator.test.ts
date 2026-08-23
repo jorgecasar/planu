@@ -1,4 +1,8 @@
-import { expect, test } from "vitest";
+import type { FirebaseApp } from "firebase/app";
+import { expect, test, vi } from "vitest";
+import type { SessionUser } from "../application/ports/session.js";
+import type { ModelAvailability } from "../domain/ai-availability.js";
+import type { PlanuAiEventGenerator } from "./ai-event-generator.js";
 import {
 	explainFailure,
 	progressHint,
@@ -6,6 +10,38 @@ import {
 } from "./ai-event-generator.js";
 import { GenerationError } from "./generate-event.js";
 import { TextInputError } from "./generate-from-text.js";
+
+// Mock the Firebase AI SDK at the module level
+interface FakeModelResponse {
+	response: { text: () => string; inferenceSource: string };
+}
+
+const { generateContent, warmUp } = vi.hoisted(() => ({
+	generateContent: vi.fn(
+		async (): Promise<FakeModelResponse> => ({
+			response: {
+				text: () => '{"title":"Test Event","start":"2026-01-15T10:00:00"}',
+				inferenceSource: "on_device",
+			},
+		}),
+	),
+	warmUp: vi.fn(async (): Promise<void> => {}),
+}));
+
+vi.mock("firebase/ai", () => ({
+	getAI: vi.fn(() => ({})),
+	getGenerativeModel: vi.fn(() => ({ generateContent, warmUp })),
+	GoogleAIBackend: vi.fn(),
+}));
+
+// Mock LanguageModel global so checkAvailability returns "available"
+(
+	globalThis as unknown as {
+		LanguageModel?: { availability: () => Promise<ModelAvailability> };
+	}
+).LanguageModel = {
+	availability: async () => "available" as ModelAvailability,
+};
 
 const state = (over: Partial<Parameters<typeof progressMessage>[0]> = {}) => ({
 	preparing: false,
@@ -123,4 +159,110 @@ test("lo que falla en la entrada se dice antes de culpar a nadie más", () => {
 	expect(
 		fallo({ cause: new TextInputError("too-long"), modelReady: false }),
 	).toMatch(/too long/i);
+});
+
+// --- Image store port integration ------------------------------------------
+
+/**
+ * A fake `ImageStorePort` that records what it receives and resolves
+ * with a predictable URL.
+ */
+function fakeImageStore() {
+	const calls: {
+		file: File;
+		prefix: string;
+		onProgress: ((percent: number) => void) | undefined;
+	}[] = [];
+	return {
+		calls,
+		upload: async (
+			file: File,
+			prefix: string,
+			onProgress?: (percent: number) => void,
+		): Promise<string> => {
+			calls.push({ file, prefix, onProgress });
+			if (onProgress) {
+				onProgress(50);
+				onProgress(100);
+			}
+			return "https://example.com/uploaded-image.png";
+		},
+	};
+}
+
+/**
+ * Sets a private state on the element by key.
+ */
+function setState(
+	el: PlanuAiEventGenerator,
+	key: string,
+	value: unknown,
+): void {
+	(el as unknown as Record<string, unknown>)[key] = value;
+}
+
+test("usa el puerto ImageStorePort para subir la portada, no firebase/storage directamente", async () => {
+	// This test verifies that ai-event-generator.ts consumes the imageStoreContext
+	// (ImageStorePort) instead of importing firebase/storage directly.
+	const store = fakeImageStore();
+	const user: SessionUser = {
+		uid: "test-user-123",
+		email: "test@example.com",
+		displayName: "Test User",
+		photoURL: null,
+		emailVerified: true,
+		provider: "password",
+	};
+	const app = {} as FirebaseApp;
+
+	// Import the component module to ensure it's registered
+	await import("./ai-event-generator.js");
+
+	const el = document.createElement(
+		"planu-ai-event-generator",
+	) as PlanuAiEventGenerator;
+
+	// Inject the port and dependencies
+	setState(el, "imageStore", store);
+	setState(el, "user", user);
+	setState(el, "app", app);
+
+	document.body.append(el);
+	await el.updateComplete;
+
+	// Open the dialog - willUpdate runs and calls #warmUp which uses our mocked firebase/ai
+	el.open = true;
+	await el.updateComplete;
+
+	const file = new File(["test"], "cover.png", { type: "image/png" });
+
+	// Trigger file selection through the public API
+	const input = el.shadowRoot?.querySelector<HTMLInputElement>("#ai-image");
+	if (input) {
+		// Create a DataTransfer with our test file
+		const dt = new DataTransfer();
+		dt.items.add(file);
+		input.files = dt.files;
+
+		// Dispatch change event
+		const event = new Event("change", { bubbles: true });
+		Object.defineProperty(event, "target", { value: input });
+		await input.dispatchEvent(event);
+		await el.updateComplete;
+
+		// Wait a bit for the async operations to complete
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	}
+
+	// Debug: check store calls after uploadCover
+	console.log("Store calls after uploadCover:", store.calls);
+	console.log("busy:", el["busy"]);
+	console.log("error:", el["error"]);
+	console.log("uploading:", el["uploading"]);
+
+	// The component should use the injected imageStore port
+	expect(store.calls).toHaveLength(1);
+	expect(store.calls[0]?.prefix).toBe("events/test-user-123");
+
+	el.remove();
 });

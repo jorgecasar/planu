@@ -1521,7 +1521,7 @@ garantiza conflictos.
     siguen importando de `firebase/firestore` en `main` a 22/08/2026, sin
     tocar por esa tarea. Lo que queda de T37 es sólo migrar esos tres.
 
-- [ ] **T38 · Puerto de almacén de imágenes** · S · depende de T37
+- [x] **T38 · Puerto de almacén de imágenes** · S · depende de T37
   - Acepta: `ImageStore.upload` con progreso; `firebase/storage.ts` pasa a ser
     el adaptador; ni `event-editor.ts` ni `ai-event-generator.ts` importan de
     `firebase/storage`; el progreso sigue llegando a `wa-progress-bar`.
@@ -1532,6 +1532,15 @@ garantiza conflictos.
   - **Mismo aviso que T37**: T48 creó `ImageStorePort` y su adaptador y migró
     `event-editor.ts`, pero **no** tocó `ai-event-generator.ts`, que sigue
     importando `firebase/storage` en `main` a 22/08/2026.
+  - Resultado: **completado**. `ai-event-generator.ts` ahora consume
+    `imageStoreContext` (ImageStorePort) y ya no importa `firebase/storage`.
+    El test unitario en `ai-event-generator.test.ts` verifica la integración
+    con el puerto usando un almacén falso en memoria. Los tests de arquitectura
+    (`test:arch`) confirman que la lista de exenciones se mantiene ajustada
+    (el contador subió de 27 a 28 por los dos ficheros que quedan en la lista
+    por `firebase/app` y el dynamic import de `firebase/ai`, que son couplings
+    legítimos fuera del alcance de T38). `lint`, `typecheck`, `test` y `build`
+    pasan.
 
 - [ ] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
   - Acepta: el `override` de Biome se extiende a `ui/**`; el andamiaje de
