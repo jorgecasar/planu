@@ -940,6 +940,20 @@ export class PlanuEventEditor extends LitElement {
 		// suggestion that was still thinking.
 		this.#tagGeneration++;
 		this.open = false;
+		// This instance is never unmounted, and the parent's own binding on
+		// `.draft`/`.draftSource` only ever changes when it goes from one
+		// concrete value to another — going from `undefined` to `undefined`
+		// (the common case: the parent's state was never set in the first
+		// place) never re-invokes the property setter, because lit-html's
+		// dirty-check compares against the *expression's* last committed
+		// value, not against this element's actual current property. Since
+		// `#onAiGenerated` writes `this.draft` directly (bypassing that
+		// binding), a generated draft would otherwise survive forever across
+		// "New event" openings once written — clearing it here, on our own
+		// close, is what guarantees a blank form next time regardless of what
+		// the parent's binding does.
+		this.draft = undefined;
+		this.draftSource = undefined;
 		this.dispatchEvent(new CustomEvent("planu-editor-close"));
 	}
 }

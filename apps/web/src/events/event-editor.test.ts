@@ -1152,6 +1152,49 @@ test("reabrir el editor para un evento nuevo tras un descarte vuelve a mostrar e
 	el.remove();
 });
 
+test("tras guardar un evento generado por la IA, reabrir para uno nuevo vuelve a mostrar el bloque con el formulario en blanco", async () => {
+	// Regresión: `draft`/`draftSource` son `@property` que el padre liga
+	// (`.draft=${this.draft}`) pero que el propio editor también automuta en
+	// `#onAiGenerated`. Como esta instancia nunca se desmonta y el `draft`
+	// del padre nunca cambió de verdad (sigue en `undefined` antes y después
+	// del ciclo), el binding de lit-html nunca vuelve a invocar el setter
+	// para "restaurar" ese `undefined` — así que sin un reseteo propio en
+	// `#close()`, el borrador generado sobrevivía para siempre a la próxima
+	// apertura de "Nuevo evento".
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+
+	aiBlock(el)?.dispatchEvent(
+		new CustomEvent("planu-event-generated", {
+			detail: {
+				event: { title: "Feria del libro", location: "Retiro" },
+				source: "on_device",
+			},
+		}),
+	);
+	await el.updateComplete;
+	expect(field(el, "title").value).toBe("Feria del libro");
+
+	submit(el);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	await el.updateComplete;
+	expect(repository.calls).toHaveLength(1);
+	expect(el.open).toBe(false);
+
+	el.open = true;
+	await el.updateComplete;
+
+	expect(aiBlock(el)).not.toBeNull();
+	expect(field(el, "title").value).toBe("");
+
+	el.remove();
+});
+
 test("con el bloque de IA visible, pulsar sus botones no envía el formulario de evento", async () => {
 	// El riesgo funcional más serio de esta migración: al vivir dentro de
 	// <form id="event-form">, cualquiera de los dos botones sin un
