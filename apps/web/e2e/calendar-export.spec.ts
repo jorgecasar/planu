@@ -30,7 +30,6 @@ async function createEvent(
 	},
 ): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Create manually" }).click();
 	await expect(page.getByLabel("Title")).toBeVisible();
 
 	await page.getByLabel("Title").fill(title);

@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 const newEmail = () =>
@@ -22,18 +23,23 @@ async function signUp(page: Page): Promise<void> {
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 
-test("la generación con IA se ofrece junto al alta manual", async ({
+test("con IA disponible, la imagen y el título salen a la vez en el mismo diálogo, sin menú previo", async ({
 	page,
 }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "available" },
+			configurable: true,
+		});
+	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
 
-	await expect(
-		page.getByRole("menuitem", { name: "Create manually" }),
-	).toBeVisible();
-	await expect(
-		page.getByRole("menuitem", { name: "Generate with AI" }),
-	).toBeVisible();
+	// Ya no hay que decidir a ciegas entre "a mano" o "con IA": el único botón
+	// lleva directo al formulario, con las dos ofertas dentro.
+	await expect(page.getByRole("menuitem")).toHaveCount(0);
+	await expect(page.getByLabel("Event image")).toBeVisible();
+	await expect(page.getByLabel("Title")).toBeVisible();
 });
 
 test("el texto pegado se ofrece junto a la imagen, y su fallo tampoco bloquea", async ({
@@ -47,7 +53,6 @@ test("el texto pegado se ofrece junto a la imagen, y su fallo tampoco bloquea", 
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
 
 	// Las dos entradas conviven en el mismo diálogo: si el campo de texto
 	// hubiera sustituido al de imagen, esto lo diría.
@@ -98,7 +103,6 @@ test("pasarse del tope se explica, en vez de recortar el pegado en silencio", as
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
 
 	const campo = page.getByLabel("Or paste the text of the event");
 	await campo.fill("a".repeat(2500));
@@ -131,7 +135,6 @@ test("si la IA no está lista lo dice y no bloquea el alta manual", async ({
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
 
 	// Y se avisa de la descarga antes de empezar, no después.
 	await expect(
@@ -191,7 +194,6 @@ test("una imagen con hora llega al editor con la hora puesta", async ({
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
 
 	await page.getByLabel("Event image").setInputFiles({
 		name: "cartel.png",
@@ -218,7 +220,6 @@ test("una imagen sin hora deja los campos de hora vacíos, no en 00:00", async (
 	});
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
-	await page.getByRole("menuitem", { name: "Generate with AI" }).click();
 
 	await page.getByLabel("Event image").setInputFiles({
 		name: "cartel.png",
@@ -229,4 +230,50 @@ test("una imagen sin hora deja los campos de hora vacíos, no en 00:00", async (
 	await expect(page.getByLabel("Title")).toHaveValue("Feria del libro");
 	await expect(page.getByLabel("Start time")).toHaveValue("");
 	await expect(page.getByLabel("End time")).toHaveValue("");
+});
+
+// --- Accesibilidad del formulario, con y sin el bloque de IA (T-nuevo-flujo) --
+//
+// El bloque se monta o no dentro del mismo `<form>` según `aiAvailable`: cada
+// rama tiene su propia estructura DOM (fieldset, leyenda, controles propios) y
+// necesita su propio escaneo — uno no cubre al otro.
+
+test("el formulario con el bloque de IA visible no tiene violaciones de accesibilidad", async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "available" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await expect(page.getByLabel("Event image")).toBeVisible();
+
+	const resultados = await new AxeBuilder({ page })
+		.include([["planu-app", "planu-events-view", "planu-event-editor"]])
+		.analyze();
+	expect(resultados.violations).toEqual([]);
+	expect(resultados.passes.length).toBeGreaterThan(0);
+});
+
+test("el formulario sin IA disponible no tiene violaciones de accesibilidad", async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, "LanguageModel", {
+			value: { availability: async () => "unavailable" },
+			configurable: true,
+		});
+	});
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await expect(page.getByLabel("Title")).toBeVisible();
+
+	const resultados = await new AxeBuilder({ page })
+		.include([["planu-app", "planu-events-view", "planu-event-editor"]])
+		.analyze();
+	expect(resultados.violations).toEqual([]);
+	expect(resultados.passes.length).toBeGreaterThan(0);
 });
