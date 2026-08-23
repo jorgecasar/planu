@@ -467,3 +467,25 @@ la petición original («que pasen todos los tests») se sustituye por la
 decisión más pragmática de no correrlos en CI hasta que valgan lo que
 cuestan. El criterio 4 (el trinquete de reintentos probado en ambos
 sentidos) sigue siendo el resultado real y verificado de esta tarea.
+
+## Revisión final: qué queda de todo esto, y por qué
+
+Con `test:e2e` fuera de CI, tocaba repasar qué del resto seguía teniendo un
+beneficiario real y qué era ya configuración sin nadie que la aprovechara.
+Decidido con el usuario, no en solitario:
+
+- **`retries: 0` y `arch/ci-retries.test.ts` se quedan.** No protegen nada
+  en CI ahora mismo —no hay `test:e2e` que pueda esconder un fallo—, pero
+  es la disciplina correcta para `npm run test:e2e` en local y para el día
+  que esta suite vuelva a CI, y el trinquete no cuesta nada (`test:arch`
+  sigue corriendo en la tanda rápida).
+- **`vmstat` en `.github/workflows/ci.yml` se queda.** Diagnosticaba
+  justo la contención de `test:e2e`, que ya no corre, pero es gratis en
+  tiempo de pipeline y sigue cubriendo `npm test` y `test:rules`, que
+  comparten el mismo runner de 2 núcleos.
+- **`timeout: 60_000` y `expect.timeout: 10_000` se revirtieron.** Sin
+  beneficiario: CI no ejecuta `test:e2e` para aprovecharlos, y en local
+  todas las corridas de esta investigación pasaron bien con los valores
+  por defecto de Playwright (30 s / 5 s). La recomendación de partir de
+  60 s/10 s si esta suite vuelve a CI queda en este documento, no en
+  configuración activa sin nadie que la ejecute.
