@@ -18,9 +18,16 @@ import { html, type TemplateResult } from "lit";
 const LOCALE_PREFIX = "__LOCALE_PREFIX__";
 
 function legalHeader(title: string): TemplateResult {
+	// Built outside the template, not `href="${LOCALE_PREFIX}/"`: lit-analyzer's
+	// `no-unintended-mixed-binding` flags a binding directly followed by a
+	// literal `/` as a likely accidental double slash, even though the build
+	// substitutes `LOCALE_PREFIX` to either `""` or `/{locale}` and the result
+	// is correct either way. One bound value sidesteps the false positive
+	// without changing the rendered HTML.
+	const backHref = `${LOCALE_PREFIX}/`;
 	return html`
 		<header class="wa-stack wa-gap-xs legal-header">
-			<a class="legal-back" href="${LOCALE_PREFIX}/">${msg("← Back to planu")}</a>
+			<a class="legal-back" href="${backHref}">${msg("← Back to planu")}</a>
 			<h1 class="wa-text-3xl wa-text-bold">${title}</h1>
 			<p class="wa-color-text-quiet wa-text-sm">
 				${msg("Last updated: 22 August 2026")}

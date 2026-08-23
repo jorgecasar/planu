@@ -194,6 +194,41 @@ no asumir por el diff que va a funcionar.
    simula que `onAuthStateChanged` nunca dispara y comprueba que, pasado el
    timeout, se muestra la salida de recarga en vez del spinner indefinido.
 
+## Segundo hallazgo del mismo tipo: `lint:lit` tampoco podía fallar
+
+Encontrado por el usuario revisando el propio log de CI de esta PR: el paso
+«Calidad estática» corre `lit-analyzer src`, y ese comando **sale con código
+0 en cuanto no hay ningún error**, sin importar cuántos avisos («warnings»)
+reporte. Verificado empíricamente: `npx lit-analyzer src` con el aviso
+preexistente de `landing/legal.ts` presente → `EXIT=0`. Es exactamente el
+mismo patrón que el problema original de este documento — un paso de CI que
+no puede fallar por el problema que dice vigilar—, sólo que en `lint:lit` en
+vez de en `test:e2e`.
+
+Dos partes, no una:
+
+1. **El aviso en sí era real, aunque inofensivo.** `legal.ts:23` tenía
+   `href="${LOCALE_PREFIX}/"`, y `lit-analyzer` marca `no-unintended-mixed-
+   binding` cuando una expresión queda directamente pegada a una `/`. El
+   resultado final era correcto —`LOCALE_PREFIX` se sustituye en build a
+   `""` o `/{locale}`, así que la URL sale bien en ambos casos— pero
+   construir el valor fuera de la plantilla (`const backHref =
+   \`${LOCALE_PREFIX}/\`;`) produce el mismo HTML y evita el falso positivo
+   sin tocar el comportamiento. `npx lit-analyzer src` → **0 problemas**
+   tras el cambio.
+2. **`--maxWarnings 0` añadido al script `lint:lit`** de
+   `apps/web/package.json`, para que un aviso nuevo sí falle el paso de CI
+   en el futuro — no sólo para este caso concreto. Nuevo
+   `arch/lint-lit-cant-pass-silently.test.ts` vigila que el flag no
+   desaparezca del script, mismo patrón que `arch/ci-retries.test.ts`. Roto
+   a propósito (quitando el flag) → **1 fallo**; restaurado → **0**.
+
+Verificación completa tras el arreglo: `npm run lint:lit` → **0**, «Found 0
+problems in 121 files»; `npm run test:arch` → **0**, **16/16** (15 → 16, el
+test nuevo); `npm test` → **0**, 555/555 (sin cambios, este hallazgo no
+tocó tests de aplicación); `npx tsc --noEmit`, `npx @biomejs/biome check .`
+y `npm run build` → **0** cada uno.
+
 ## Preguntas abiertas
 
 Ninguna. Las dos decisiones originales de diseño (sin reintentos, sin tocar

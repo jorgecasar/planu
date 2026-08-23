@@ -1803,6 +1803,23 @@ garantiza conflictos.
         como «arreglado tras revisión» suelto — la negociación ocurre antes
         de que exista nada que revisar desde fuera, por la propia
         convención de `AGENTS.md`.
+  - **Segundo hallazgo, tras abrir la PR #59, encontrado por el usuario en el
+    propio log de CI:** `lint:lit` (`lit-analyzer src`) sale con código 0 en
+    cuanto no hay errores, sin importar los avisos — el mismo patrón que
+    esta tarea existe para quitar de `test:e2e`, esta vez en el paso de
+    calidad estática. Verificado empíricamente (`EXIT=0` con el aviso
+    preexistente de `landing/legal.ts` presente). Arreglo en dos partes:
+    (1) el aviso en sí, real pero inofensivo (`href="${LOCALE_PREFIX}/"`
+    disparaba `no-unintended-mixed-binding` aunque el resultado final fuera
+    correcto), resuelto construyendo el valor fuera de la plantilla, mismo
+    HTML; (2) `--maxWarnings 0` añadido a `apps/web/package.json`'s
+    `lint:lit`, con `arch/lint-lit-cant-pass-silently.test.ts` nuevo
+    vigilando que el flag no desaparezca — roto y restaurado, confirmado en
+    rojo y verde. Detalle completo en
+    `docs/spec-ci-e2e-reliability.md`. Verificación: `npm run lint:lit` →
+    **0**, «Found 0 problems»; `npm run test:arch` → **0**, **16/16** (15 →
+    16); `npm test` → **0**, 555/555; `npx tsc --noEmit`, Biome directo y
+    `npm run build` → **0** cada uno.
 
 ---
 
