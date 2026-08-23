@@ -361,4 +361,9 @@ Lo que queda fuera de este documento porque aún no se ha entregado:
   el puerto de sesión ya está entregado; los de repositorio de eventos y
   almacén de imágenes sólo migraron el editor, no el listado ni la tarjeta; y
   cerrar la frontera a `src/ui/` no se ha empezado.
+- **Flujo único de creación de evento**, especificado en
+  [`docs/spec-flujo-creacion-evento.md`](docs/spec-flujo-creacion-evento.md):
+  el desplegable «Nuevo evento» (crear a mano / generar con IA) se sustituye
+  por un único botón que abre siempre el mismo formulario, con la oferta de
+  IA embebida al principio en vez de en un diálogo aparte.
 </content>
