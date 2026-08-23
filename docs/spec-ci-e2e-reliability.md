@@ -328,3 +328,68 @@ Esto separa las dos tareas que este documento llegó a mezclar:
 El arreglo del timeout de seguridad se hace igualmente porque el hallazgo es
 real y vale la pena, **no** porque vaya a estabilizar CI — no se debe
 prometer eso al reportarlo.
+
+## El trinquete de reintentos ya se probó en un run real — y falló de verdad
+
+Con el commit de arriba en la PR #59, dos runs reales de CI (`32635238325`,
+antes y después de un `gh run rerun` sin tocar nada) confirman el criterio 4
+de éxito: **10/83 y luego 8/83 e2e fallaron de verdad, y el job salió en
+`failure` las dos veces** — el trinquete funciona en ambos sentidos.
+
+**Ambas tandas comparten el mismo patrón**: `Test timeout of 30000ms
+exceeded` esperando algo en `/app/login` (la pestaña «Create account»/«Crear
+cuenta», el campo de email, o el botón «Sign in»), en tests de ficheros
+distintos cada vez (ai, auth, calendar-export, events, i18n, profile,
+sharing, smoke, views — nunca los mismos dos runs). No es un test roto: es
+el propio arranque de `/app/login` tardando más de 30 s de forma
+intermitente bajo el runner de GitHub Actions.
+
+**Se añadió `vmstat` al paso «Tests con emuladores» de `.github/workflows/ci.yml`**,
+en paralelo y subido como artefacto sólo si el job falla, para tener CPU/RAM
+reales del runner la próxima vez que esto pase — antes de este cambio no
+había forma de saber si era contención o alguna otra causa, sólo se podía
+suponer.
+
+**Simulación local, y una corrección importante sobre `CI=true`:**
+`process.env["CI"]` puesto a mano en esta máquina dio **5 workers**, no 1 —
+`CI=true` por sí solo no reduce la concurrencia de Playwright. El «1 worker»
+del run real (confirmado leyendo el log: `Running 83 tests using 1 worker`)
+es consecuencia de que el runner de GitHub Actions tiene pocos núcleos, no
+un modo especial que Playwright active al detectar CI. Forzando
+`--workers=1` a mano localmente, la suite completa pasó **75/83 y 77/83**
+en dos corridas —sin el patrón de `/app/login`—, con un puñado de fallos
+en `sharing.spec.ts` que **no** eran ese patrón (ver más abajo). Conclusión:
+la concurrencia por sí sola no reproduce el problema; hace falta además la
+escasez real de CPU del runner, que esta máquina no tiene y no se puede
+simular sin herramientas de las que macOS carece (`taskset`/`cgroups`, sólo
+Linux).
+
+### Hallazgo aparte, investigado y descartado: `sharing.spec.ts` bajo `--workers=1`
+
+Las corridas locales con `--workers=1` fallaban de forma consistente (7 de
+9 tests) en `sharing.spec.ts`, con el error genérico «The invitation could
+not be saved». La hipótesis inicial —una carrera entre `signIn()` (que
+dispara `publishDirectoryEntry()` como `void`, sin esperar) y la invitación
+inmediata al invitado— parecía encajar con el propio comentario del test
+(«the guest signs in first: doing so publishes them to the directory»), y
+se implementó un `waitForDirectoryEntry()` que sondea el emulador
+directamente (mismo patrón que `promoteToEditor()`).
+
+**Se descartó con una prueba de control, no se dio por buena a ciegas.**
+Instrumentando el error real (`console.error` temporal, ya revertido) salió
+`FirebaseError: evaluation error ... Null value error` dentro de
+`ownerEditsWhilePending()` en `firestore.rules` — una función de `allow
+update` evaluándose con `resource == null`, como si fuera un `create`
+recién hecho. Se comprobó que las reglas cargadas coincidían exactamente con
+las del worktree (`diff` sin diferencias), así que no era un problema de
+reglas obsoletas. La causa real: **el emulador compartido de esta máquina
+llevaba corriendo desde el sábado**, acumulando datos de sesiones de todo
+el día. Reiniciado en caliente (`SIGINT`, exporta limpio; `SIGKILL` no lo
+habría hecho), la suite completa de `sharing.spec.ts` pasó **9/9** —con y
+sin el `waitForDirectoryEntry()` añadido—, confirmando que la carrera nunca
+fue la causa real. **El cambio especulativo se revirtió**: no se deja
+código sin un fallo real que justifique su existencia.
+
+Ninguno de los dos hallazgos de `sharing.spec.ts` tiene relación con el
+patrón de `/app/login` de CI, que sigue sin explicación confirmada más allá
+de la contención de CPU del runner.

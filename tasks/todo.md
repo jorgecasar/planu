@@ -1820,6 +1820,25 @@ garantiza conflictos.
     **0**, «Found 0 problems»; `npm run test:arch` → **0**, **16/16** (15 →
     16); `npm test` → **0**, 555/555; `npx tsc --noEmit`, Biome directo y
     `npm run build` → **0** cada uno.
+  - **Criterios 3 y 4 de éxito, cerrados con evidencia real:** dos runs de
+    CI reales sobre la PR #59 (`32635238325`, uno relanzado sin tocar
+    código) terminaron en `failure`, con 10/83 y 8/83 e2e fallando de
+    verdad — el trinquete de reintentos funciona: un fallo real ya no
+    puede esconderse. Las dos tandas comparten el mismo patrón (timeout de
+    30 s en `/app/login`, tests distintos cada vez), consistente con
+    contención de CPU del runner, no con un test roto. Añadido `vmstat` al
+    paso de emuladores en `.github/workflows/ci.yml`, subido como
+    artefacto sólo si falla, para tener datos reales la próxima vez.
+    Investigado también, y descartado por prueba de control: una
+    sospecha de carrera en `sharing.spec.ts` bajo `--workers=1` local
+    resultó ser el emulador compartido de esta máquina, corriendo desde el
+    sábado sin reiniciar — reiniciado (`SIGINT`), la suite pasó 9/9 con y
+    sin el arreglo especulativo que se había escrito, así que ese cambio
+    se revirtió en vez de dejarse sin justificación. Detalle completo en
+    `docs/spec-ci-e2e-reliability.md`. El patrón de `/app/login` en el
+    runner de GitHub Actions sigue sin causa confirmada — criterio 3 se da
+    por cumplido en el sentido de «el trinquete está probado», no en el de
+    «cero tests flaky», que sigue abierto.
 
 ---
 
