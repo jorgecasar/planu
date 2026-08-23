@@ -1,6 +1,5 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
-import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/divider/divider.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
@@ -11,7 +10,7 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import type { FirebaseApp } from "firebase/app";
 import { css, html, LitElement, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
@@ -161,10 +160,31 @@ export interface GeneratedDraft {
  * poster gets uploaded as the cover. That's why the common path lives in
  * `#generate()` and each input only contributes how to extract and what to
  * say if the model can't make sense of anything.
+ *
+ * Embedded, not its own dialog: `event-editor.ts` mounts this as the first
+ * child of its own form when it's worth offering, and unmounts it the same
+ * way — the same pattern T33's sample event and any other conditional
+ * section of that form already use, documented on `#renderForm` there. A
+ * fresh instance is created every time it's shown, so nothing here needs to
+ * reset itself on reopening.
  */
 @customElement("planu-ai-event-generator")
 export class PlanuAiEventGenerator extends LitElement {
 	static override styles = css`
+		fieldset {
+			display: flex;
+			flex-direction: column;
+			gap: var(--wa-space-s);
+			margin: 0;
+			padding: 0;
+			border: none;
+		}
+
+		legend {
+			padding: 0;
+			font-weight: var(--wa-font-weight-semibold);
+		}
+
 		.drop {
 			display: flex;
 			flex-direction: column;
@@ -214,8 +234,6 @@ export class PlanuAiEventGenerator extends LitElement {
 		}
 	`;
 
-	@property({ type: Boolean }) open = false;
-
 	@consume({ context: appContext, subscribe: true })
 	private app: FirebaseApp | undefined;
 
@@ -259,27 +277,29 @@ export class PlanuAiEventGenerator extends LitElement {
 	#modelSession: AiModelSession | undefined;
 
 	/**
-	 * Changes when the dialog closes. Anything still in flight checks its
-	 * token before taking effect: without this, cancelling didn't cancel
-	 * anything and a late-arriving generation would upload the image and
-	 * reopen the editor anyway.
+	 * Set when this element is disconnected. Anything still in flight checks
+	 * it before taking effect: without this, removing this element from the
+	 * DOM didn't cancel anything, and a late-arriving generation would upload
+	 * the image and reach a parent that's no longer listening. A single
+	 * boolean is enough — unlike the tag-suggestion session in
+	 * `event-editor.ts`, this element is never reused across generations: a
+	 * fresh instance mounts every time it's shown, so there's no "still
+	 * connected but for a different generation" case to tell apart.
 	 */
-	#generation = 0;
+	#disposed = false;
 
-	override willUpdate(changed: Map<string, unknown>): void {
-		if (changed.has("open") && this.open) {
-			this.#revokePreview();
-			this.preview = "";
-			this.text = "";
-			this.progress = 0;
-			this.error = "";
-			this.downloading = false;
-			// Opening the dialog is already clear intent: Chrome recommends
-			// preparing the model here rather than on clicking generate, so the
-			// download happens while the user picks the photo instead of
-			// after.
-			void this.#warmUp();
-		}
+	override connectedCallback(): void {
+		super.connectedCallback();
+		// Mounting is already clear intent: Chrome recommends preparing the
+		// model here rather than on clicking generate, so the download
+		// happens while the user picks the photo instead of after.
+		void this.#warmUp();
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.#disposed = true;
+		this.#revokePreview();
 	}
 
 	/** Prepares the model in the background. Errors wait until generation. */
@@ -306,11 +326,8 @@ export class PlanuAiEventGenerator extends LitElement {
 
 	override render() {
 		return html`
-			<wa-dialog
-				label=${msg("Generate event with AI")}
-				.open=${this.open}
-				@wa-hide=${this.#close}
-			>
+			<fieldset>
+				<legend>${msg("Fill in with AI")}</legend>
 				<p>
 					${msg(
 						"Upload a poster or flyer, or paste the text of an invitation, and the details will be filled in for you. You can review everything before saving.",
@@ -379,6 +396,7 @@ export class PlanuAiEventGenerator extends LitElement {
 						}
 					</p>
 					<wa-button
+						type="button"
 						variant="brand"
 						?disabled=${this.busy || this.text.trim() === "" || this.#tooLong}
 						@click=${this.#onGenerateText}
@@ -421,10 +439,10 @@ export class PlanuAiEventGenerator extends LitElement {
 						: nothing
 				}
 
-				<wa-button slot="footer" appearance="outlined" @click=${this.#close}>
-					${msg("Cancel")}
+				<wa-button type="button" appearance="outlined" @click=${this.#dismiss}>
+					${msg("Write it by hand")}
 				</wa-button>
-			</wa-dialog>
+			</fieldset>
 		`;
 	}
 
@@ -538,9 +556,8 @@ export class PlanuAiEventGenerator extends LitElement {
 	 * The common path for both inputs: prepares the model, extracts, and hands
 	 * the draft off to the editor.
 	 *
-	 * No failure here leaves the user without a way out: they stay in the
-	 * dialog with the reason written out and manual entry still intact
-	 * behind it.
+	 * No failure here leaves the user without a way out: they stay with the
+	 * reason written out and manual entry still intact behind it.
 	 */
 	async #generate({
 		on,
@@ -553,14 +570,13 @@ export class PlanuAiEventGenerator extends LitElement {
 		cover?: File;
 		unreadable: string;
 	}): Promise<void> {
-		const token = this.#generation;
 		this.error = "";
 		this.workingOn = on;
 		this.busy = true;
 
 		try {
-			// The model has already been preparing since the dialog opened; this
-			// just waits for it to finish if it hasn't already.
+			// The model has already been preparing since this element mounted;
+			// this just waits for it to finish if it hasn't already.
 			await this.#warmUp();
 			const session = this.#session();
 
@@ -571,10 +587,10 @@ export class PlanuAiEventGenerator extends LitElement {
 				return response.text;
 			});
 
-			// If the user cancelled while the model was thinking, it stops here:
-			// the image doesn't get uploaded and the editor doesn't reopen
-			// behind their back.
-			if (token !== this.#generation) return;
+			// If this element was removed while the model was thinking, stop
+			// here: the image doesn't get uploaded and nothing reaches a parent
+			// that's no longer listening.
+			if (this.#disposed) return;
 
 			// The cover is uploaded after generating, not before, so as not to
 			// leave the images of attempts that don't lead anywhere in
@@ -582,18 +598,17 @@ export class PlanuAiEventGenerator extends LitElement {
 			const imageUrl = cover ? await this.#uploadCover(cover) : "";
 
 			// Again, because uploading the cover takes a while: without this,
-			// cancelling during the upload would let it finish and reopen the
-			// editor behind their back.
-			if (token !== this.#generation) return;
+			// disconnecting during the upload would let it finish and reach a
+			// parent that's no longer listening.
+			if (this.#disposed) return;
 
 			this.#emit({
 				event: imageUrl ? { ...generated, imageUrl } : generated,
 				source,
 			});
 			this.analytics.trackAiUsed({ fromImage: on === "image" });
-			this.#close();
 		} catch (cause) {
-			if (token !== this.#generation) return;
+			if (this.#disposed) return;
 			this.error = explainFailure({
 				cause,
 				unreadable,
@@ -601,10 +616,9 @@ export class PlanuAiEventGenerator extends LitElement {
 			});
 		} finally {
 			// Only whoever turned the lights on turns them off. Without this
-			// guard, a cancelled generation that resolved late would turn off
-			// the notice of the one currently in progress and re-enable its
-			// fields mid-flight.
-			if (token === this.#generation) {
+			// guard, a generation that resolved after this element was already
+			// removed would touch state nobody will ever read again.
+			if (!this.#disposed) {
 				this.busy = false;
 				this.preparing = false;
 				this.downloading = false;
@@ -646,21 +660,9 @@ export class PlanuAiEventGenerator extends LitElement {
 		);
 	}
 
-	#close(): void {
-		this.#generation++;
-		this.#revokePreview();
-		// And it forgets what was there: cancelling during a slow generation
-		// left `busy` on, so reopening the dialog came up with the field, the
-		// selector and the button disabled and a notice from the previous
-		// time. The only way out was waiting for a call that might never come
-		// back.
-		this.preview = "";
-		this.busy = false;
-		this.preparing = false;
-		this.uploading = false;
-		this.downloading = false;
-		this.open = false;
-		this.dispatchEvent(new CustomEvent("planu-generator-close"));
+	/** "Write it by hand": the block goes away without generating anything. */
+	#dismiss(): void {
+		this.dispatchEvent(new CustomEvent("planu-generator-dismiss"));
 	}
 }
 

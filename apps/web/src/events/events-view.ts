@@ -1,7 +1,5 @@
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
-import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
-import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/option/option.js";
 import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
 import "@awesome.me/webawesome/dist/components/radio/radio.js";
@@ -9,14 +7,12 @@ import "@awesome.me/webawesome/dist/components/select/select.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
 import "../calendar/agenda-view.js";
 import "../calendar/calendar-view.js";
-import "./ai-event-generator.js";
 import "./calendar-export.js";
 import "./empty-state.js";
 import "./event-card.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import type { InferenceSourceName } from "../domain/ai-policy.js";
 import { sampleEventDraft } from "../domain/sample-event.js";
-import type { GeneratedDraft } from "./ai-event-generator.js";
 import "./event-editor.js";
 import "./event-filters.js";
 import "./event-groups.js";
@@ -122,7 +118,6 @@ export class PlanuEventsView extends LitElement {
 	@state() private tags: string[] = [];
 	@state() private editorOpen = false;
 	@state() private editing: StoredEvent | undefined;
-	@state() private generatorOpen = false;
 	@state() private draft: Partial<PlanuEvent> | undefined;
 	@state() private draftSource: InferenceSourceName | undefined;
 
@@ -264,23 +259,9 @@ export class PlanuEventsView extends LitElement {
 					mode="agenda"
 					.events=${visible}
 				></planu-calendar-export>
-				${
-					this.aiAvailable
-						? html`<wa-dropdown @wa-select=${this.#onCreateOption}>
-									<wa-button slot="trigger" variant="brand" .withCaret=${true}>
-										${msg("New event")}
-									</wa-button>
-									<wa-dropdown-item value="manual"
-										>${msg("Create manually")}</wa-dropdown-item
-									>
-									<wa-dropdown-item value="ai">
-										${msg("Generate with AI")}
-									</wa-dropdown-item>
-								</wa-dropdown>`
-						: html`<wa-button variant="brand" @click=${this.#onNew}>
-								${msg("New event")}
-							</wa-button>`
-				}
+				<wa-button variant="brand" @click=${this.#onNew}>
+					${msg("New event")}
+				</wa-button>
 			</div>
 
 			${this.#renderList(visible, all)}
@@ -294,59 +275,12 @@ export class PlanuEventsView extends LitElement {
 				?isSample=${this.draftIsSample}
 				@planu-editor-close=${this.#onEditorClose}
 			></planu-event-editor>
-
-			<planu-ai-event-generator
-				.open=${this.generatorOpen}
-				@planu-event-generated=${this.#onGenerated}
-				@planu-generator-close=${this.#onGeneratorClose}
-			></planu-ai-event-generator>
 		`;
-	}
-
-	#onCreateOption(domEvent: Event): void {
-		const value = (domEvent as CustomEvent<{ item: { value: string } }>).detail
-			.item.value;
-		if (value === "ai") {
-			this.generatorOpen = true;
-			return;
-		}
-		this.#onNew();
-	}
-
-	/** What the AI extracts isn't saved: it prefills the editor for review. */
-	#onGenerated(domEvent: Event): void {
-		const { event, source } = (domEvent as CustomEvent<GeneratedDraft>).detail;
-		this.draft = event;
-		this.draftSource = source;
-		this.draftIsSample = false;
-		this.editing = undefined;
-		this.generatorOpen = false;
-		this.editorOpen = true;
-	}
-
-	#onGeneratorClose(): void {
-		this.generatorOpen = false;
 	}
 
 	#onEditorClose(): void {
 		this.editorOpen = false;
 		this.editing = undefined;
-	}
-
-	/**
-	 * The empty state doesn't know about the editor or the generator: it
-	 * emits and this view decides, same as `event-card` with
-	 * `planu-edit-event`. The three paths it offers are the same as the
-	 * "New event" menu — by hand or with AI — and not something new: T33
-	 * asks for them to be made obvious from the empty state, not for a
-	 * fourth path to be invented.
-	 */
-	#onEmptyCreate(): void {
-		this.#onNew();
-	}
-
-	#onEmptyGenerate(): void {
-		this.generatorOpen = true;
 	}
 
 	/**
@@ -481,8 +415,8 @@ export class PlanuEventsView extends LitElement {
 					? html`<p>${this.#emptyFilteredMessage()}</p>`
 					: html`<planu-empty-state
 							?aiAvailable=${this.aiAvailable}
-							@planu-create-event=${this.#onEmptyCreate}
-							@planu-open-generator=${this.#onEmptyGenerate}
+							@planu-create-event=${this.#onNew}
+							@planu-open-generator=${this.#onNew}
 							@planu-try-sample=${this.#onEmptySample}
 						></planu-empty-state>`
 			}

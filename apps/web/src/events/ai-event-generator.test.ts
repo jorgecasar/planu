@@ -227,11 +227,8 @@ test("usa el puerto ImageStorePort para subir la portada, no firebase/storage di
 	setState(el, "user", user);
 	setState(el, "app", app);
 
+	// connectedCallback runs and calls #warmUp which uses our mocked firebase/ai
 	document.body.append(el);
-	await el.updateComplete;
-
-	// Open the dialog - willUpdate runs and calls #warmUp which uses our mocked firebase/ai
-	el.open = true;
 	await el.updateComplete;
 
 	const file = new File(["test"], "cover.png", { type: "image/png" });
