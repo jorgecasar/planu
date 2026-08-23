@@ -2345,3 +2345,48 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 >   con Chrome DevTools). El fichero también referencia ya el ADR por su
 >   número real, `0010`, corregido tras el choque con `0008-identidad-
 >   visual.md` que resolvió T55/eca962b.
+
+## Fase 14 — Flujo único de creación de evento
+
+- [ ] **T58 · Flujo único de creación de evento con IA embebida** · L · sin dependencias
+  - Especificado en [`docs/spec-flujo-creacion-evento.md`](../docs/spec-flujo-creacion-evento.md)
+    y planificado en la sección «Flujo único de creación de evento · T58» de
+    `tasks/plan.md`.
+  - Motivo: hoy «Nuevo evento» es un `wa-dropdown` («Crear manualmente» /
+    «Generar con IA») que obliga a elegir a ciegas entre dos diálogos
+    distintos antes de ver un solo campo del formulario, y los dos caminos
+    terminan en el mismo editor de todos modos. Se sustituye por un único
+    botón que siempre abre `event-editor.ts`; si la IA está disponible, un
+    bloque al principio del propio formulario ofrece rellenarlo desde una
+    imagen o un texto, con una acción explícita para descartarlo y escribir
+    a mano.
+  - Acepta, los siete criterios de éxito del spec:
+    1. La barra de herramientas nunca muestra un desplegable para crear un
+       evento, con IA disponible o sin ella.
+    2. Con IA disponible, el formulario se abre ofreciendo imagen o texto
+       arriba y permite ignorarlo y escribir a mano sin cerrar el diálogo.
+    3. Sin IA disponible, el formulario se abre vacío directamente, sin
+       ningún rastro de la oferta de IA.
+    4. Generar desde imagen o desde texto sigue funcionando igual que hoy,
+       ahora embebido en el editor.
+    5. Un evento recién creado aparece en el listado sin recargar la
+       página.
+    6. Cero violaciones de axe en el diálogo, con y sin el bloque de IA.
+    7. `npm run lint`, `npm run typecheck`, `npm run lint:lit`, `npm test`
+       y `npm run test:e2e` limpios.
+  - Verifica: `npm run lint && npm run typecheck && npm run lint:lit && npm test && npm run test:e2e`,
+    más `npm run test:arch` y un `grep` de rastros muertos
+    (`generatorOpen`, `planu-generator-close`, `#onEmptyGenerate`,
+    `#onCreateOption`, `"Create manually"`), y una comprobación manual en
+    el servidor de desarrollo (camino imagen, camino texto, «Escribir a
+    mano», sin IA) con chequeo de accesibilidad del editor con y sin el
+    bloque de IA.
+  - Ficheros: `apps/web/src/events/ai-event-generator.ts`,
+    `apps/web/src/events/ai-event-generator.test.ts`,
+    `apps/web/src/events/event-editor.ts`,
+    `apps/web/src/events/event-editor.test.ts`,
+    `apps/web/src/events/events-view.ts`, `apps/web/e2e/ai.spec.ts`,
+    `apps/web/e2e/events.spec.ts`
+  - Fuera de alcance a propósito: `empty-state.ts` (T33) no cambia de
+    interfaz; sólo converge, dentro de `events-view.ts`, el wiring de sus
+    dos primeros botones hacia el mismo editor.

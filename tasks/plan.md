@@ -529,3 +529,90 @@ la evidencia en la entrada de T57 en `tasks/todo.md`.
 - [ ] Verificación pendiente: repetición contra producción tras desplegar,
       con una muestra de al menos 20 arranques y cero atascos —criterio 5
       de éxito del spec—.
+
+---
+
+# Flujo único de creación de evento · T58
+
+Especificación en
+[`docs/spec-flujo-creacion-evento.md`](../docs/spec-flujo-creacion-evento.md).
+Tarea única (T58), sin dependencias, arrancada desde `main` en su propio
+worktree (`t-new-event-button`). Sustituye el desplegable «Nuevo evento» —hoy
+un `wa-dropdown` con «Crear manualmente» / «Generar con IA» que abre uno de
+dos diálogos distintos según la elección— por un único botón que siempre abre
+`event-editor.ts`; si la IA está disponible, un bloque embebido al principio
+del propio formulario ofrece rellenarlo desde imagen o texto, con una acción
+explícita para descartarlo y escribir a mano. `empty-state.ts` (T33) queda
+fuera de alcance: no se toca su interfaz, sólo converge su wiring.
+
+## Orden
+
+No se separa "primero el generador, luego el editor, luego la vista" en tres
+pasos verdes independientes: `lint:lit` resuelve los bindings `.property=`
+contra las properties reales del custom element vía `HTMLElementTagNameMap`,
+así que quitar `open` de `PlanuAiEventGenerator` mientras `events-view.ts`
+todavía le hace `.open=${this.generatorOpen}` rompe `lint:lit` de inmediato —
+no hay un estado intermedio útil que conservar.
+
+1. **Reestructuración central**, los tres archivos de producción a la vez —
+   `ai-event-generator.ts` (se le quita el `<wa-dialog>` propio, pasa a ser
+   un `<fieldset>` embebido con un booleano `#disposed` en vez del contador
+   de cancelación `#generation`, `type="button"` explícito en sus dos
+   botones de acción para no enviar el formulario del evento en el que
+   pasa a vivir), `event-editor.ts` (monta el bloque como primer hijo de
+   `<form id="event-form">` tras un getter derivado `#showAiBlock`,
+   gestiona el foco al ocultarlo), `events-view.ts` (un único
+   `<wa-button>`, sin `wa-dropdown` ni el modal standalone) — manteniendo
+   `lint`, `typecheck`, `lint:lit` y `test` en verde. Incluye el ajuste de
+   la línea de `ai-event-generator.test.ts` que deja de compilar
+   (`el.open = true`).
+2. **Tests unitarios nuevos**: cancelación al desconectar, `type="button"`
+   en ambos botones y el flujo de texto completo en
+   `ai-event-generator.test.ts`; contrato completo del bloque embebido en
+   `event-editor.test.ts` (aparece/desaparece según `event`/`draft`/
+   `aiAvailable`/descarte, foco tras ocultarlo, regresión del envío de
+   formulario). `npm test` en verde.
+3. **E2e**: `openEditor()` sin el `menuitem` intermedio, los seis tests de
+   `ai.spec.ts` actualizados, dos tests de axe nuevos (con y sin bloque de
+   IA). `npm run test:e2e` en verde.
+4. **Barrido de verificación** (sin cambios de código esperados):
+   `npm run test:arch` confirma que `biome.json`/`arch/boundary.test.ts` no
+   necesitan tocarse; `grep` del repo para rastros muertos.
+5. **Puerta final + comprobación manual**: los cinco comandos de
+   verificación de principio a fin, más un paso manual en el servidor de
+   desarrollo (imagen, texto, «Escribir a mano», sin IA) y un chequeo de
+   accesibilidad del editor con y sin el bloque.
+
+## Riesgos
+
+| Riesgo | Mitigación |
+| --- | --- |
+| Los dos botones del bloque de IA envían el formulario del evento al vivir dentro de `<form id="event-form">` | `type="button"` explícito en ambos, con su propio test de regresión que comprueba que `eventRepository.create`/`update` no se llaman |
+| El foco cae a `<body>` cuando el bloque desaparece del DOM (descarte o generación con éxito) — el análisis estático de axe no lo detecta por sí solo | Ambos handlers mueven el foco al campo de título tras `updateComplete`, con test dedicado |
+| `lint:lit` rompe a mitad de migración si `open` desaparece de `PlanuAiEventGenerator` antes de que `events-view.ts` deje de referenciarlo | Los tres ficheros de producción cambian de contrato en un solo paso, no en pasos verdes independientes |
+
+## Verificación
+
+```bash
+npm run lint && npm run typecheck && npm run lint:lit && npm test
+npm run test:e2e
+npm run test:arch
+grep -rn 'generatorOpen\|planu-generator-close\|#onEmptyGenerate\|#onCreateOption\|"Create manually"' apps/web/src
+```
+
+## Checkpoint I
+
+- [ ] Los tres ficheros de producción (`ai-event-generator.ts`,
+      `event-editor.ts`, `events-view.ts`) cambiaron de contrato a la vez;
+      `lint`, `typecheck`, `lint:lit` y `test` en verde tras el paso 1.
+- [ ] Los tests nuevos de `ai-event-generator.test.ts` (5) y de
+      `event-editor.test.ts` (9) según la lista del spec/plan están
+      escritos y en verde.
+- [ ] `npm run test:e2e` en verde, incluidos los dos tests de axe nuevos
+      (con y sin bloque de IA).
+- [ ] `grep` de rastros muertos (`generatorOpen`, `planu-generator-close`,
+      `#onEmptyGenerate`, `#onCreateOption`, `"Create manually"`) vacío.
+- [ ] Comprobación manual en el servidor de desarrollo: crear con imagen,
+      con texto, con «Escribir a mano» y sin IA; los cuatro aparecen en el
+      listado sin recargar. Chequeo de accesibilidad del editor con y sin
+      el bloque de IA.
