@@ -66,9 +66,7 @@
 			"includes": [
 				"apps/web/src/events/ai-event-generator.ts",
 				"apps/web/src/events/ai-event-generator.test.ts",
-				"apps/web/src/events/event-card.ts",
 				"apps/web/src/events/event-editor.ts",
-				"apps/web/src/events/events-view.ts",
 				"apps/web/src/firebase/**",
 				"apps/web/src/infrastructure/firebase/**",
 				"apps/web/src/lib/types.ts",

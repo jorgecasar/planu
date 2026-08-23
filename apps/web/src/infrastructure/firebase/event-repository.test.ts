@@ -9,16 +9,19 @@ import type { PlanuEvent } from "../../lib/types.js";
 
 const addDocMock = vi.fn();
 const collectionMock = vi.fn((_db: unknown, name: string) => ({ path: name }));
+const deleteDocMock = vi.fn();
 const docMock = vi.fn((_db: unknown, name: string, id: string) => ({
 	path: `${name}/${id}`,
 }));
 const getCountFromServerMock = vi.fn();
+const getDocsMock = vi.fn();
 const queryMock = vi.fn((source: unknown, ...clauses: unknown[]) => ({
 	source,
 	clauses,
 }));
 const serverTimestampMock = vi.fn(() => "SERVER_TIMESTAMP");
 const setDocMock = vi.fn();
+const updateDocMock = vi.fn();
 const whereMock = vi.fn((field: string, op: string, value: unknown) => ({
 	field,
 	op,
@@ -29,12 +32,15 @@ const fromDateMock = vi.fn((date: Date) => ({ toDate: () => date }));
 vi.mock("firebase/firestore", () => ({
 	addDoc: addDocMock,
 	collection: collectionMock,
+	deleteDoc: deleteDocMock,
 	doc: docMock,
 	getCountFromServer: getCountFromServerMock,
+	getDocs: getDocsMock,
 	query: queryMock,
 	serverTimestamp: serverTimestampMock,
 	setDoc: setDocMock,
 	Timestamp: { fromDate: fromDateMock },
+	updateDoc: updateDocMock,
 	where: whereMock,
 }));
 
