@@ -67,11 +67,19 @@ jobs:
 
       # `emulators:exec` levanta, ejecuta y apaga; si algo falla, falla el job.
       #
-      # `vmstat` corre en paralelo mientras dura el paso, para tener CPU/RAM
-      # reales del runner si algo falla por timeout — sin esto, un e2e que
-      # falla por `Test timeout of 30000ms exceeded` en `/app/login` no dice
-      # si fue contención del runner o algo más. Ver
-      # docs/spec-ci-e2e-reliability.md.
+      # `test:e2e` fuera de esta tanda **a propósito, de momento**: en cuatro
+      # runs reales (ver docs/spec-ci-e2e-reliability.md) fallaba de forma
+      # intermitente esperando algo en `/app/login`, sin reproducirse nunca en
+      # local — ni con la concurrencia igualada, ni subiendo el timeout de
+      # 30 s a 60 s (que sólo bajó los fallos de 8-10 a 6, con esos 6 agotando
+      # el minuto entero en un clic que en local resuelve en <1 s: más
+      # parecido a un cuelgue no acotado que a contención lenta). Añadir 8-10
+      # minutos de pipeline por una suite que no puede fallar de forma fiable
+      # no aporta como puerta de calidad. Se retoma cuando se entienda la
+      # causa real o se reduzca el número de e2e a favor de más unitarios.
+      #
+      # `vmstat` se deja: sigue siendo útil para `npm test`/`test:rules`, que
+      # también corren aquí y podrían sufrir la misma contención.
       - name: Tests con emuladores
         run: |
           nproc
@@ -79,16 +87,8 @@ jobs:
           VMSTAT_PID=$!
           npx firebase emulators:exec --project planu-app \
             --only auth,firestore,storage \
-            "npm test && npm run test:rules && npm run test:e2e"
+            "npm test && npm run test:rules"
           kill "$VMSTAT_PID" 2>/dev/null || true
-
-      - name: Informe de Playwright si algo falla
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
-          retention-days: 7
 
       - name: CPU/RAM del runner si algo falla
         if: failure()

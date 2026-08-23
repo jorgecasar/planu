@@ -250,10 +250,10 @@ y `npm run build` → **0** cada uno.
 
 ## Preguntas abiertas
 
-Ninguna. Las dos decisiones originales de diseño (sin reintentos, sin tocar
-el timeout de test) y la forma del arreglo del cuelgue de sesión (timeout de
-seguridad) están confirmadas por el usuario e implementadas — ver las
-secciones de abajo.
+Obsoleto — ver «`test:e2e` sale de CI, de momento» al final del documento
+para el estado final. Se deja sin borrar, como pide `AGENTS.md`, porque
+documenta que la decisión de no tocar el timeout se revisó más tarde con
+datos reales, no que nunca existiera.
 
 ## Investigación de causa raíz — cerrada, sin causa exacta identificada
 
@@ -412,3 +412,58 @@ código sin un fallo real que justifique su existencia.
 Ninguno de los dos hallazgos de `sharing.spec.ts` tiene relación con el
 patrón de `/app/login` de CI, que sigue sin explicación confirmada más allá
 de la contención de CPU del runner.
+
+## Subir el timeout, probado en un tercer y cuarto run — mejora parcial, no cierre
+
+Un tercer run real (`32661264258`) repitió el mismo patrón (ficheros
+distintos otra vez). Con el `vmstat` del commit anterior ya activo, el
+artefacto dio números reales por primera vez: **`nproc` = 2** en el runner,
+y de 685 muestras de un segundo, **62 (9,1 %) con menos del 10 % de CPU
+libre, 35 (5,1 %) exactamente al 0 %** — contención medida, con Node, dos
+JVMs (Firestore y las reglas de Storage) y Chromium compartiendo esos dos
+núcleos.
+
+Con esa medición, y aprobación explícita del usuario para revisar la
+decisión original de no tocar el timeout, se subió `timeout` de 30 s a 60 s
+y `expect.timeout` de 5 s a 10 s en `playwright.config.ts`. Un cuarto run
+(`32662816239`) dio **mejora parcial, no una solución**: de 8-10 fallos
+bajó a **6**, pero esos 6 agotaron el minuto completo entero esperando el
+mismo clic (`getByRole('tab', {name: 'Create account'})`) que en local
+resuelve en menos de un segundo. El `vmstat` de este cuarto run mostró
+contención **similar**, no peor, que el tercero (9,9 % / 6,0 %) —
+descartando que el empeoramiento explicara por qué 60 s tampoco bastó para
+esos 6.
+
+**Lectura honesta de los cuatro runs**: un click que no resuelve en 60 s
+enteros con contención de CPU que no empeoró respecto al run anterior se
+parece más a un cuelgue no acotado —de la misma familia que el de
+`onAuthStateChanged` encontrado antes en producción, nunca descartado
+específicamente contra el emulador en las condiciones reales de red/DNS
+del runner de GitHub Actions, sólo desde esta máquina— que a contención
+lenta y acotada. Subir el timeout otra vez habría comprado, como mucho,
+otra mejora parcial al precio de minutos de pipeline adicionales.
+
+## `test:e2e` sale de CI, de momento
+
+Decisión del usuario ante el coste (8-10 minutos de pipeline por corrida,
+resultado no fiable pase lo que pase con el timeout): **`test:e2e` deja de
+correr en `.github/workflows/ci.yml`**, con el motivo y las cifras de los
+cuatro runs documentadas directamente en el comentario del propio
+workflow, no sólo aquí. `npm test` y `test:rules` siguen en la misma tanda
+con emuladores; `vmstat` se queda porque también les es útil a esos dos.
+
+**Qué no cambia**: los ficheros de `apps/web/e2e/**` no se tocan ni se
+borran — siguen siendo la mejor herramienta para verificación manual local
+(`npm run test:e2e`) y para cuando se retome esto. **Qué sí queda
+pendiente**, sin fecha: entender la causa real del cuelgue en
+`/app/login` bajo el runner (posible candidato: la misma familia que el
+bug de producción, nunca probado en las condiciones exactas de CI), o
+reducir el número de e2e a favor de más cobertura unitaria — lo segundo
+señalado por el usuario aparte, como tarea propia, no resuelta en este
+documento.
+
+Los criterios de éxito 2 y 3 de más arriba quedan sin cumplir a propósito:
+la petición original («que pasen todos los tests») se sustituye por la
+decisión más pragmática de no correrlos en CI hasta que valgan lo que
+cuestan. El criterio 4 (el trinquete de reintentos probado en ambos
+sentidos) sigue siendo el resultado real y verificado de esta tarea.

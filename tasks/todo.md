@@ -1856,6 +1856,30 @@ garantiza conflictos.
     manual de que `auth.spec.ts` y `smoke.spec.ts` siguen pasando en local
     tras el cambio (8/8). Pendiente: un cuarto run de CI que confirme que
     el margen nuevo basta.
+  - **Cuarto run (`32662816239`): mejora parcial, no cierre.** De 8-10
+    fallos bajó a **6**, pero los 6 agotaron el minuto entero (60 s)
+    esperando el mismo clic que en local resuelve en <1 s. El `vmstat` de
+    este run dio contención similar al anterior (9,9 % / 6,0 %), no peor —
+    descarta que fuera sólo «esta vez le tocó peor». Lectura: más parecido
+    a un cuelgue no acotado que a contención lenta y acotada; subir el
+    timeout otra vez habría sido pan para hoy.
+  - **Decisión final del usuario, dado el coste (8-10 min de pipeline por
+    corrida, sin garantía pase lo que pase): `test:e2e` sale de
+    `.github/workflows/ci.yml`, de momento.** `npm test` y `test:rules`
+    siguen en la tanda de emuladores; `vmstat` se queda porque también les
+    sirve a esos dos. Los ficheros de `apps/web/e2e/**` no se tocan —
+    siguen valiendo para `npm run test:e2e` en local y para cuando se
+    retome esto. Verificación: `npx js-yaml` sobre el workflow → **0**
+    (YAML válido); el resto de la tanda (`lint`, `typecheck`, `lint:lit`,
+    `test:arch`, `npm test`, `build`) no cambia y sigue en **0**. Detalle
+    completo, con las cifras de los cuatro runs, en
+    `docs/spec-ci-e2e-reliability.md`.
+  - **Pendiente, sin fecha, fuera de esta tarea:** entender la causa real
+    del cuelgue en `/app/login` bajo el runner —posible misma familia que
+    el bug de sesión en producción, nunca descartada específicamente en
+    las condiciones de red/DNS de GitHub Actions—, o reducir el número de
+    e2e a favor de más cobertura unitaria, señalado aparte por el usuario
+    durante esta misma investigación.
 
 ---
 
