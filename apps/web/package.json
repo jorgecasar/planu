@@ -12,7 +12,7 @@
 		"test:e2e": "playwright test",
 		"test:e2e:landing": "playwright test --config playwright.landing.config.ts",
 		"typecheck": "tsc --noEmit",
-		"lint:lit": "lit-analyzer src",
+		"lint:lit": "lit-analyzer src --maxWarnings 0",
 		"localize:extract": "lit-localize extract",
 		"localize:build": "lit-localize build",
 		"test:rules": "vitest run --config vitest.rules.config.ts",

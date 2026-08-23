@@ -83,6 +83,7 @@ export const templates = {
 	s475c0236e0967c5b: str`${0} te ha invitado a editar “${1}”.`,
 	s48fd2ebd801bef61: `Tu cuenta`,
 	s4a0e9a5e2af05a7b: `Exporta cualquier evento o tu lista filtrada completa como .ics. Se abre en Apple Calendar, Google Calendar, Outlook — donde ya organizas tu vida.`,
+	s4b46a7d9cb203130: `Esto está tardando más de lo esperado. Recarga la página.`,
 	s4b4bb32d2b4b5425: str`Esto borra “${0}” de forma permanente. No se puede deshacer.`,
 	s4b7ea123d81b2680: `No hay eventos que exportar.`,
 	s4c001520bb97f727: `No uses planu para guardar o compartir contenido ilegal, o que no tengas derecho a compartir con las personas que invites. No intentes acceder a los datos de otra cuenta evitando la aplicación — las reglas de seguridad descritas en nuestra política de privacidad existen precisamente para impedirlo, e intentarlo no está permitido aunque llegue a fallar.`,

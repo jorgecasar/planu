@@ -1062,6 +1062,10 @@
   <source>Something went wrong deleting your account. You can try again.</source>
         <target>Algo salió mal al eliminar tu cuenta. Puedes volver a intentarlo.</target>
 </trans-unit>
+<trans-unit id="s4b46a7d9cb203130">
+  <source>This is taking longer than expected. Reload the page.</source>
+        <target>Esto está tardando más de lo esperado. Recarga la página.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

@@ -17,7 +17,9 @@ export default defineConfig({
 	testDir: "./e2e-landing",
 	fullyParallel: true,
 	forbidOnly: !!process.env["CI"],
-	retries: process.env["CI"] ? 2 : 0,
+	// Same comment as playwright.config.ts: no retries, so a real failure
+	// doesn't hide as "flaky". See docs/spec-ci-e2e-reliability.md.
+	retries: 0,
 	reporter: "list",
 	use: {
 		baseURL: `http://localhost:${PORT}`,

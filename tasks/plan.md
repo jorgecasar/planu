@@ -446,3 +446,86 @@ grep -rl 'from "firebase/' apps/web/src/ui/      # debe salir vacío
 
 Comprobando **códigos de salida**, no la salida. Y a mano: alta con imagen,
 edición, borrado y acceso con Google.
+
+---
+
+# Fiabilidad de CI · T57
+
+Especificación en
+[`docs/spec-ci-e2e-reliability.md`](../docs/spec-ci-e2e-reliability.md). Tarea
+única, sin dependencias, arrancada desde `main` en su propia rama
+(`fix-ci-e2e-retries`) y sin relación con la arquitectura hexagonal — se
+intercala aquí sólo porque el diagnóstico salió al revisar el run de CI que
+fusionó T40.
+
+## Orden
+
+No hay grafo real: es una tarea XS de dos ficheros de configuración, sin
+paralelizar y sin fases intermedias.
+
+1. Quitar los reintentos en CI de ambas configs de Playwright (ya hecho en el
+   working tree; falta verificar).
+2. Verificación local: `npm run test:e2e` completo contra los emuladores, sin
+   reintentos, repetido para confirmar que no hay una tasa de fallo real
+   detrás de lo que antes tapaban los reintentos.
+3. Verificación en CI real, en dos partes: el arreglo pasa limpio, y una
+   rotura deliberada (revertir `retries: 0` o forzar un fallo sin reintento
+   posible) hace fallar el job — el trinquete probado, no supuesto.
+
+## Riesgos
+
+- **Falso positivo de estabilidad.** Esta máquina comparte emuladores de
+  Firebase con otras sesiones en worktrees paralelos (ver «Worktrees
+  paralelos» en la memoria del agente); un fallo local aislado puede ser
+  contención, no una regresión real. Se distingue repitiendo la tanda en
+  aislamiento antes de concluir nada.
+- **El timeout de 30 s podría no bastar bajo el runner de GitHub Actions**,
+  incluso sin reintentos escondiéndolo. Fuera de alcance por decisión
+  explícita (ver el spec); si aparece, se abre una tarea nueva en vez de
+  subirlo a ciegas aquí.
+
+## Verificación
+
+```bash
+npm run test:e2e                                 # local, sin reintentos
+npm run lint && npm run typecheck                # higiene, no tocado por el cambio
+gh run view <id> --json conclusion,jobs          # CI real: código de salida, no el log
+```
+
+## Checkpoint I
+
+- [ ] `apps/web/playwright.config.ts` y `apps/web/playwright.landing.config.ts`
+      tienen `retries: 0` bajo CI — sin la rama `process.env["CI"] ? 2 : 0`.
+- [ ] `npm run test:e2e` en local, repetido, pasa sin ningún reintento — o
+      cualquier fallo que aparezca se corrigió, no se dejó pendiente.
+- [ ] Un run de CI real sobre el arreglo termina en `conclusion: success` con
+      cero tests *flaky*.
+- [ ] Un run de CI roto a propósito —posterior al de arriba— termina en
+      `conclusion: failure`, confirmando que el trinquete funciona en ambos
+      sentidos.
+
+## Ampliación: cuelgue de sesión en producción
+
+Salió investigando el punto 3 de arriba, y se atendió aquí por ser la misma
+investigación aunque no comparte causa con la inestabilidad de CI —detalle
+completo en `docs/spec-ci-e2e-reliability.md`—. Un script de sondeo contra
+`https://planu-app.web.app/app/login` confirmó que `onAuthStateChanged`
+(`firebase-provider.ts`) a veces no dispara nunca: 5 de 23 arranques con
+perfil de navegador nuevo se quedaron atascados en el spinner, sin ningún
+error observable. Afinado tras una pregunta del usuario: el cuelgue es
+específico de la primera vez que un navegador crea la base de IndexedDB de
+Auth contra el backend real (0/8 recargando el mismo perfil, 2/10 con
+perfil nuevo en la misma ventana) y **no se reproduce contra el
+emulador** (0/12) — así que no explica los 10/83 del run de CI, que sigue
+sin causa confirmada.
+
+Arreglo elegido por el usuario: timeout de seguridad, no perseguir la causa
+exacta dentro de `firebase-js-sdk`. Implementado en
+`src/domain/session-check-timeout.ts` (helper puro) y `app-shell.ts`
+(sustituye el spinner infinito por un aviso de recarga a los 8 s). Tests
+nuevos en ambos, TDD con rojo/verde verificado. Detalle completo con toda
+la evidencia en la entrada de T57 en `tasks/todo.md`.
+
+- [ ] Verificación pendiente: repetición contra producción tras desplegar,
+      con una muestra de al menos 20 arranques y cero atascos —criterio 5
+      de éxito del spec—.
