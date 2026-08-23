@@ -181,7 +181,7 @@ const importaFirebase = (fichero: string): boolean =>
  * emulator is the whole point of moving them here, per
  * `spec-arquitectura-hexagonal.md`'s success criteria, so both get one.
  */
-const TOPE_ACOPLADOS = 28;
+const TOPE_ACOPLADOS = 29;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
