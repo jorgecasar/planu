@@ -20,7 +20,7 @@ import type {
 	EventRepositoryPort,
 	StoredEvent,
 } from "../../application/ports/event-repository.js";
-import type { EventRole, PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../lib/types.js";
 
 /**
  * From `PlanuEvent` to what Firestore accepts: dates become `Timestamp`.

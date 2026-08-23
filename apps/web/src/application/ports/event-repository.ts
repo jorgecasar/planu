@@ -1,4 +1,4 @@
-import type { EventRole, PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../lib/types.js";
 
 /** What `create()` resolves with. */
 export interface CreatedEvent {

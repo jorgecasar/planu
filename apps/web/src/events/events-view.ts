@@ -26,7 +26,6 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
 import {
 	type EventsSnapshot,
