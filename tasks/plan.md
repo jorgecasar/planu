@@ -602,17 +602,52 @@ grep -rn 'generatorOpen\|planu-generator-close\|#onEmptyGenerate\|#onCreateOptio
 
 ## Checkpoint I
 
-- [ ] Los tres ficheros de producción (`ai-event-generator.ts`,
+- [x] Los tres ficheros de producción (`ai-event-generator.ts`,
       `event-editor.ts`, `events-view.ts`) cambiaron de contrato a la vez;
-      `lint`, `typecheck`, `lint:lit` y `test` en verde tras el paso 1.
-- [ ] Los tests nuevos de `ai-event-generator.test.ts` (5) y de
-      `event-editor.test.ts` (9) según la lista del spec/plan están
-      escritos y en verde.
-- [ ] `npm run test:e2e` en verde, incluidos los dos tests de axe nuevos
-      (con y sin bloque de IA).
-- [ ] `grep` de rastros muertos (`generatorOpen`, `planu-generator-close`,
+      `lint`, `typecheck`, `lint:lit` y `test` en verde tras el paso 1, y
+      de nuevo tras las correcciones del checker en `bbd8ed6`:
+      `./node_modules/.bin/biome check .` → 0/169 (el wrapper de
+      `npm run lint` daba un falso «ESLint output» ajeno a Biome, ver
+      T57); `npx tsc --noEmit` → 0; `npm run lint:lit` → 0/125;
+      `npm test` → 0, 595/595 (50 ficheros).
+- [x] Los tests nuevos de `ai-event-generator.test.ts` (5, líneas 320,
+      340, 362, 379, 395) y de `event-editor.test.ts` (9 del plan más 1
+      extra, sección «AI fill-in block (embedded)», líneas 1012–1235)
+      están escritos y en verde.
+- [x] `npm run test:e2e`, incluidos los dos tests de axe nuevos (con y
+      sin bloque de IA): tres corridas completas (85 tests), fallos que
+      no se repiten entre corridas (71/85, 76/85, y 74/85 limpios +10
+      *flaky* +1 persistente con `--retries=2`), todos con la firma ya
+      diagnosticada en `docs/spec-ci-e2e-reliability.md`
+      (`page.goto("/app/login")` seguido de un timeout de 30 s, sin
+      relación con el bloque de IA). Los dos axe tests nuevos y el resto
+      de `ai.spec.ts` pasaron limpios en las tres corridas — ver
+      `tasks/todo.md`, T58, para el detalle completo. No es una firma de
+      fallo nueva.
+- [x] `grep` de rastros muertos (`generatorOpen`, `planu-generator-close`,
       `#onEmptyGenerate`, `#onCreateOption`, `"Create manually"`) vacío.
-- [ ] Comprobación manual en el servidor de desarrollo: crear con imagen,
-      con texto, con «Escribir a mano» y sin IA; los cuatro aparecen en el
-      listado sin recargar. Chequeo de accesibilidad del editor con y sin
-      el bloque de IA.
+- [x] Comprobación manual en el servidor de desarrollo: crear con imagen,
+      con texto y con «Escribir a mano» — los tres aparecen en el listado
+      sin recargar (o, en el camino de imagen, tras quitar la portada; ver
+      el hallazgo de abajo). El sub-caso «sin IA» no se puede forzar desde
+      la UI en el dispositivo real de prueba y se apoya en su lugar en
+      `ai.spec.ts:120` y `:261`, ya verificados en el checkpoint anterior.
+      Chequeo de accesibilidad del editor con y sin el bloque de IA: los
+      dos axe tests (`ai.spec.ts:241`/`:261`) más una inspección manual del
+      panel "Issues" de Chrome DevTools, sin cambios de recuento entre
+      ambos estados y con avisos ya atribuidos a `<wa-select>` de Web
+      Awesome fuera del bloque de IA. Detalle completo, incluida la
+      investigación de red que llevó al hallazgo siguiente, en
+      `tasks/todo.md`, T58.
+      **Hallazgo real, ajeno a T58**: guardar el borrador de imagen con su
+      portada puesta fallaba con `net::ERR_ABORTED` en la escritura de
+      Firestore; el registro del emulador señaló
+      `firestore.rules:170` — la regla `isValidEvent()` exige que
+      `imageUrl` empiece por `https://firebasestorage.googleapis.com/`
+      (anti-SSRF, anclado a producción) y el Storage **emulador** sirve sus
+      URLs de descarga en `http://localhost:9199/...`, así que cualquier
+      evento con portada creado en local contra el emulador topa con esto
+      — antes de T58 también, vía la subida manual de imagen de
+      `event-editor.ts`. No reproduce en producción. No se toca
+      `firestore.rules` en esta tarea: es un cambio de seguridad fuera de
+      alcance que exigiría `security-auditor` por delante.

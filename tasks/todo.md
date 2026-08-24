@@ -2348,7 +2348,7 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
 
 ## Fase 14 — Flujo único de creación de evento
 
-- [ ] **T58 · Flujo único de creación de evento con IA embebida** · L · sin dependencias
+- [x] **T58 · Flujo único de creación de evento con IA embebida** · L · sin dependencias
   - Especificado en [`docs/spec-flujo-creacion-evento.md`](../docs/spec-flujo-creacion-evento.md)
     y planificado en la sección «Flujo único de creación de evento · T58» de
     `tasks/plan.md`.
@@ -2390,3 +2390,110 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
   - Fuera de alcance a propósito: `empty-state.ts` (T33) no cambia de
     interfaz; sólo converge, dentro de `events-view.ts`, el wiring de sus
     dos primeros botones hacia el mismo editor.
+  - **Revisión independiente (`code-reviewer`), antes de abrir PR:**
+    veredicto APPROVE con 2 hallazgos "Important" y 5 sugerencias, todos
+    corregidos en `bbd8ed6`: comentarios de `event-editor.ts` y
+    `event-editor.test.ts` que seguían describiendo el contador
+    `#generation` de `ai-event-generator.ts`, superado por el booleano
+    `#disposed`; y `#dismiss()` sin `bubbles`/`composed` en su
+    `CustomEvent`, inconsistente con `#emit()`.
+  - **Verificación automática, tras la corrección:** `npm run lint`
+    devolvía un falso «ESLint output (JSON parse failed)» ajeno a Biome
+    —mismo wrapper ya visto en T57—; con `./node_modules/.bin/biome
+    check .` directo → **0**, 169 ficheros. `npx tsc --noEmit` → **0**.
+    `npm run lint:lit` → **0**, 125 ficheros. `npm test` → **0**,
+    **595/595** (50 ficheros). `npm run test:arch` → **0**, 16/16.
+    `grep` de rastros muertos (`generatorOpen`, `planu-generator-close`,
+    `#onEmptyGenerate`, `#onCreateOption`, `"Create manually"`) → vacío.
+    Confirmados los cinco tests nuevos de `ai-event-generator.test.ts`
+    (líneas 320, 340, 362, 379, 395) y los diez de `event-editor.test.ts`
+    bajo «AI fill-in block (embedded)» (líneas 1012–1235: los nueve del
+    plan más uno extra de regresión al reabrir tras guardar).
+  - **`npm run test:e2e`, tres corridas completas (85 tests):** 71/85,
+    76/85 y —con `--retries=2`, la misma política que CI— 74/85 limpios
+    de primera más 10 *flaky* recuperados al reintentar y 1 fallo
+    persistente (3/3 intentos). **Los fallos no se solapan entre
+    corridas** —ninguno de los tests que falló en la primera falló en la
+    segunda, y viceversa— y comparten siempre la misma firma ya
+    diagnosticada en
+    [`docs/spec-ci-e2e-reliability.md`](../docs/spec-ci-e2e-reliability.md):
+    `Test timeout of 30000ms exceeded` esperando algo justo tras
+    `page.goto("/app/login")` (la pestaña «Create account», el campo de
+    email o el título), sin relación con `signUp()` en sí —lo comparten
+    decenas de tests que sí pasaron—. Ninguno de los tres fallos toca el
+    bloque de IA embebido: los dos tests de axe nuevos
+    (`ai.spec.ts:241` y `:261`) y el resto de `ai.spec.ts` pasaron en las
+    tres corridas. Conclusión: no hay firma de fallo nueva atribuible a
+    T58; la inestabilidad es la ya aceptada y fuera de alcance de esta
+    tarea.
+  - **Sobre `events-view.test.ts` (sugerencia no bloqueante del
+    `code-reviewer`):** no se crea. La decisión ya estaba en el plan antes
+    de la revisión —«el comportamiento del botón único y el wiring del
+    estado vacío ya quedan cubiertos por los e2e»— y la revisión no aportó
+    nada que la contradijera: el botón único lo cubre
+    `apps/web/e2e/ai.spec.ts` (test de criterio 1, sin `menuitem`), y el
+    wiring de `empty-state.ts` hacia el mismo editor lo cubren los e2e
+    existentes de `events.spec.ts` que arrancan desde el estado vacío. Un
+    unitario de `events-view.ts` duplicaría esa cobertura sin poder probar
+    nada que un componente Lit sin sombra de lógica propia —es cableado
+    puro— no pruebe ya mejor un e2e real.
+  - **Comprobación manual en el servidor de desarrollo, completada** (tras
+    un primer intento bloqueado por el MCP `chrome-devtools`, sin
+    responder más de 120 s tres veces; se retomó cuando el propio usuario
+    confirmó, vía `AskUserQuestion`, reintentarlo):
+    - **Camino texto**: pegar un texto describiendo un evento dispara la
+      generación, rellena Título/Descripción/Ubicación/Fechas y muestra
+      el aviso "Generado en tu dispositivo"; el foco recae en el campo de
+      título.
+    - **Camino imagen**: subir `apps/web/public/assets/landing/og.png`
+      dispara la generación automáticamente (sin pulsar "Generar"),
+      rellena los mismos campos, fija una portada con su control "Quitar
+      la imagen" y mueve el foco al título — extiende a este camino el
+      mismo manejo de foco ya confirmado en descarte y texto.
+    - **"Escribir a mano"**: oculta el bloque de IA sin cerrar el editor
+      ni vaciar lo ya escrito; el foco recae en el título.
+    - **Sin IA disponible**: no hay manera de forzarlo desde la UI en el
+      dispositivo real de prueba (el `LanguageModel` on-device está
+      disponible), así que este sub-caso se apoya en la cobertura
+      automática ya verificada más arriba —
+      `ai.spec.ts:120` ("si la IA no está lista lo dice y no bloquea el
+      alta manual") y `ai.spec.ts:261` (0 violaciones de axe sin el
+      bloque) — en vez de fabricar un interruptor manual que no existe.
+    - **Aparece en el listado sin recargar**: confirmado con un evento
+      manual sin IA ("Evento manual sin IA") y, tras el hallazgo de abajo,
+      también con el evento generado por imagen ("planu" / "Tus eventos.
+      Privados. Tuyos.") — ambos visibles en `planu-event-groups` de
+      inmediato tras guardar, sin `page.reload()`.
+    - **Accesibilidad del editor con y sin el bloque**: cubierta por los
+      dos tests de axe ya verificados en la corrida de `test:e2e` de
+      arriba (`ai.spec.ts:241` y `:261`), más una inspección manual del
+      panel "Issues" de Chrome DevTools sobre el diálogo real: los únicos
+      avisos presentes (`aria-labelledby` de `<wa-select>`, campo sin
+      `id`/`name`, atributo `autocomplete`) son internos de Web Awesome,
+      reproducibles también en controles del editor ajenos a T58 (p. ej.
+      "Ordenar por"), y no cambian de recuento al mostrar u ocultar el
+      bloque de IA.
+    - **Hallazgo real, no atribuible a T58**: guardar el borrador generado
+      por imagen con su portada puesta falló dos veces con "No se pudo
+      guardar el evento." — `net::ERR_ABORTED` en la petición de escritura
+      del canal `Write` de Firestore pese a un `200` HTTP. El registro del
+      emulador (`firebase-debug.log`) identificó la causa exacta:
+      `evaluation error at L252:24 for 'create'` — la regla
+      `isValidEvent()` en `firestore.rules:170` exige
+      `d.imageUrl.matches('^https://firebasestorage\.googleapis\.com/.*')`,
+      un anclaje a producción para evitar SSRF (comentario de la propia
+      regla) que el Storage **emulador** no cumple: su URL de descarga es
+      `http://localhost:9199/v0/b/...`, no `https://firebasestorage.googleapis.com/...`.
+      Confirmado con `curl` autenticado como `Bearer owner` contra el
+      emulador de Firestore: los dos documentos de los intentos fallidos
+      no existen (404), y quitar la imagen de portada (sin tocar ningún
+      otro campo del borrador) permitió guardar al primer intento y
+      aparecer en el listado de inmediato. Es una limitación preexistente
+      de probar imágenes de portada contra el emulador en local —afecta
+      igual a la subida manual de imagen que ya tenía `event-editor.ts`
+      antes de T58, nada de lo tocado en esta tarea— y no reproduce en
+      producción, donde `getDownloadURL()` siempre devuelve un host de
+      `firebasestorage.googleapis.com`. No se toca `firestore.rules`
+      dentro de esta tarea: es un cambio de seguridad ajeno al alcance de
+      T58 y, por la propia convención del repo, exigiría pasar antes por
+      `security-auditor`.
