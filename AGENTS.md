@@ -157,14 +157,23 @@ Lo vigilan dos cosas, no la buena voluntad:
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **27 ficheros** cubiertos por 13 entradas, porque
-`firebase/**` agrupa siete e `infrastructure/firebase/**` agrupa nueve. El
-tope está fijado en `arch/boundary.test.ts`: migrar un componente acoplado lo
-baja, pero un adaptador nuevo bajo `infrastructure/firebase/` —el único sitio
-donde el acoplamiento es intencional— puede subirlo, siempre con su motivo
+lista.** Hoy son **28 ficheros**, porque `firebase/**` agrupa siete e
+`infrastructure/firebase/**` agrupa quince. El tope está fijado en
+`arch/boundary.test.ts`: migrar un componente acoplado lo baja, pero un
+adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
+acoplamiento es intencional— puede subirlo, siempre con su motivo
 documentado en el propio comentario del test. Ya ha pasado varias veces, de
-19 (tras T36) a 27 (tras T32): nunca por una entrada añadida a la lista para
-esquivar el recuento, sólo por ficheros nuevos en el sitio al que pertenecen.
+19 (tras T36) a 27 (tras T32) y, sin planearlo dentro de una tarea de
+arquitectura: al cerrar T66 (verificación de email obligatoria e
+invitaciones por email), un `code-reviewer` señaló que esa tarea había
+añadido lógica sustancial a tres ficheros ya acoplados
+(`sharing/user-directory.ts`, `sharing/share-dialog.ts`,
+`profile/profile-view.ts`) sin migrarlos tras un puerto, y se migraron los
+tres tras un `SharingPort` nuevo (mismo patrón que `AccountDataPort`, T32)
+antes de cerrar la fase — de 29 a 28, con dos ficheros de adaptador nuevos
+compensando parte de los tres que se liberaron. Nunca por una entrada
+añadida a la lista para esquivar el recuento, sólo por ficheros nuevos en
+el sitio al que pertenecen.
 
 Y el vigilante vigila **la puerta además de la lista**: comprueba que siga
 existiendo exactamente un `override` que impone la regla y otro que exime, y que
