@@ -662,7 +662,12 @@ export class PlanuAiEventGenerator extends LitElement {
 
 	/** "Write it by hand": the block goes away without generating anything. */
 	#dismiss(): void {
-		this.dispatchEvent(new CustomEvent("planu-generator-dismiss"));
+		this.dispatchEvent(
+			new CustomEvent("planu-generator-dismiss", {
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 }
 

@@ -951,10 +951,10 @@ test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", a
 });
 
 test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada", async () => {
-	// The same pattern as `#generation` already used by
-	// `ai-event-generator.ts`: the editor doesn't unmount between events,
-	// so a response that arrives late must not apply to whatever is being
-	// edited by then. The download resolves right away (the default
+	// The pattern `ai-event-generator.ts` used to reuse before it became a
+	// recreated-on-mount component: the editor doesn't unmount between
+	// events, so a response that arrives late must not apply to whatever is
+	// being edited by then. The download resolves right away (the default
 	// mock); what's left pending is the generation itself, so as to
 	// reopen right after warming up the model and before the model
 	// answers.
