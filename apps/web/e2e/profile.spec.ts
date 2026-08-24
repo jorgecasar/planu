@@ -1,20 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { signUpVerified } from "./verified-account.js";
 
-const newEmail = () =>
-	`user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-
+/**
+ * Verificada, no sólo creada: T59 exige un email verificado para crear, leer
+ * o editar cualquier evento (docs/adr/0011-verificacion-de-email-obligatoria.md).
+ */
 async function signUp(page: Page): Promise<void> {
-	await page.goto("/app/login");
-	await page.getByRole("tab", { name: "Create account" }).click();
-	const panel = page
-		.getByRole("tabpanel")
-		.filter({ hasText: "Confirm password" });
-	await panel.getByLabel("Email").fill(newEmail());
-	await panel.getByLabel("Password", { exact: true }).fill("secret123");
-	await panel.getByLabel("Confirm password").fill("secret123");
-	await panel.getByRole("button", { name: "Create account" }).click();
-	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
+	await signUpVerified(page);
 }
 
 test("el menú de la cabecera lleva de verdad a /app/profile", async ({

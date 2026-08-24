@@ -11,6 +11,7 @@ import type { SessionUser } from "../application/ports/session.js";
 export const APP_BASE = "/app";
 export const LOGIN_PATH = `${APP_BASE}/login`;
 export const HOME_PATH = APP_BASE;
+export const PROFILE_PATH = `${APP_BASE}/profile`;
 
 /**
  * Decides where to redirect to based on the session and the current route.
@@ -19,6 +20,11 @@ export const HOME_PATH = APP_BASE;
  * The `undefined` state —still checking— is the one that matters: treating it
  * as "no session" would send an already-authenticated user to the login
  * during the instant it takes Firebase to restore the session.
+ *
+ * This is a UX layer only, not the enforcement boundary: an unverified email
+ * can still read and write its own events through Firestore directly, since
+ * this guard runs entirely on the client. The rule that will actually enforce
+ * it lives in `firestore.rules` (see T59 in `tasks/todo.md`).
  */
 export function guardRedirect(
 	user: SessionUser | null | undefined,
@@ -30,5 +36,13 @@ export function guardRedirect(
 		return pathname === LOGIN_PATH ? null : LOGIN_PATH;
 	}
 
-	return pathname === LOGIN_PATH ? HOME_PATH : null;
+	if (pathname === LOGIN_PATH) return HOME_PATH;
+
+	// Accounts without an email (none exist today; every adapter requires
+	// one) have nothing to verify, so they're left alone rather than sent
+	// into a redirect loop against a notice that would never resolve.
+	const unverified = user.email !== null && !user.emailVerified;
+	if (unverified && pathname !== PROFILE_PATH) return PROFILE_PATH;
+
+	return null;
 }

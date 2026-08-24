@@ -14,10 +14,10 @@ import { customElement, state } from "lit/decorators.js";
 import type { SessionPort, SessionUser } from "./application/ports/session.js";
 import { signOut } from "./application/sign-out.js";
 import {
-	APP_BASE,
 	guardRedirect,
 	HOME_PATH,
 	LOGIN_PATH,
+	PROFILE_PATH,
 } from "./auth/guard.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
 import { sessionContext, userContext } from "./firebase/context.js";
@@ -106,7 +106,7 @@ export class PlanuApp extends LitElement {
 			render: () => html`<planu-login-view></planu-login-view>`,
 		},
 		{
-			path: `${APP_BASE}/profile`,
+			path: PROFILE_PATH,
 			enter: () =>
 				this.#enterPrivate(() => import("./profile/profile-view.js")),
 			render: () => html`<planu-profile-view></planu-profile-view>`,
@@ -270,7 +270,7 @@ export class PlanuApp extends LitElement {
 		// `@lit-labs/router` no conoce. El clic no hacía nada porque `goto()`
 		// no encontraba esa ruta; sólo un refresco —que sí pasa por Hosting—
 		// disimulaba el fallo.
-		if (item.value === "profile") this.#navigate(`${APP_BASE}/profile`);
+		if (item.value === "profile") this.#navigate(PROFILE_PATH);
 		if (item.value === "signout") this.#onSignOut();
 	}
 }
