@@ -17,6 +17,19 @@ service cloud.firestore {
         return isSignedIn() && uid() == resource.data.userId;
       }
 
+      // Without a verified email the account exists but the app is unusable:
+      // no event stays invisible while someone decides whether to verify,
+      // access is simply blocked until they do. Google issues tokens with
+      // this claim already `true` (session-adapter.ts:125), so a Google
+      // sign-in never notices this condition. Only the token's own claim is
+      // read, never the live Auth record: reading the account's current
+      // state instead would require a fresh token to take effect anyway (see
+      // SPEC-verificacion-email-invitaciones.md, "Bug confirmado en
+      // producción"), so there is nothing to gain from doing so here.
+      function isVerified() {
+        return request.auth.token.email_verified == true;
+      }
+
       // An event has one owner plus up to 20 guests, each a viewer or an
       // editor. See docs/adr/0006-sharing-with-invited-members.md.
       //
@@ -239,7 +252,15 @@ service cloud.firestore {
       // way — it denied every query, including the one the app makes. A legacy
       // event stays unreadable until the backfill; what the accessors above buy
       // is that it denies cleanly instead of taking the query down with it.
-      allow read: if isMember();
+      //
+      // `isVerified()` is ANDed on here rather than folded into `isMember()`:
+      // it reads only `request.auth.token`, never `resource.data`, so it adds
+      // nothing for the query analyser to line up against the `memberIds`
+      // query and does not reproduce the failure the comment above documents.
+      // Measured against the same list queries this file already tests
+      // (`firestore.test.ts`, "queries for the shared inbox" and "phase 1
+      // events deny cleanly"): both still pass with this clause in place.
+      allow read: if isMember() && isVerified();
 
       // One rule per operation. Firestore rules combine with OR, so splitting
       // validation into its own `allow` would cancel the ownership check
@@ -249,13 +270,27 @@ service cloud.firestore {
       // userId is pinned to the creator's uid: you cannot create on someone
       // else's behalf. And an event is born with no guests, so sharing is
       // always an owner's update and there is no second door.
+      //
+      // `isVerified()` sits alongside `isSignedIn()`, not inside
+      // `isValidEvent()`: the latter validates the document's shape and has
+      // no business knowing about the writer's account, and this keeps the
+      // check paired with the other identity conditions instead of buried in
+      // the shape one.
       allow create: if isSignedIn()
+                    && isVerified()
                     && isValidEvent()
                     && request.resource.data.userId == uid()
                     && request.resource.data.memberIds == [uid()]
                     && request.resource.data.roles.keys().size() == 0;
 
-      allow update: if isValidEvent()
+      // `isVerified()` gates the whole statement, ahead of the four OR-ed
+      // paths below, rather than being repeated inside each one: an
+      // unverified account may not touch an event through any door — owning
+      // it, editing it, leaving it or accepting an invitation into it — and
+      // a single clause here says so once instead of four times with the
+      // risk of forgetting one.
+      allow update: if isVerified()
+                    && isValidEvent()
                     && (
                          // The owner may do anything but transfer ownership and
                          // — the part that makes consent real — may not add
@@ -290,6 +325,19 @@ service cloud.firestore {
 
       function uid() {
         return request.auth.uid;
+      }
+
+      // Same body as events/{eventId}'s isVerified(), redefined here because
+      // functions do not cross `match` blocks. Security review finding: this
+      // collection went untouched by T59 even though it is another door onto
+      // the same events — a signed-in-but-unverified owner could still
+      // create, edit, revoke and re-offer invitations for an event they can
+      // no longer touch directly, and an unverified invitee could flip their
+      // own invitation to `accepted` without ever joining (see
+      // `invitedDecides()` below). Confirmed against the emulator before this
+      // fix landed.
+      function isVerified() {
+        return request.auth.token.email_verified == true;
       }
 
       function eventOf(d) {
@@ -401,23 +449,94 @@ service cloud.firestore {
             && request.resource.data.createdAt == request.time;
       }
 
+      // A pending-by-email offer (eventInvitesByEmail) becoming a normal
+      // invitation once its owner registers and verifies. The claimer is not
+      // the event's owner, so the ordinary path below (invitedBy == uid() &&
+      // eventOf(...).userId == uid()) does not apply to them — this is the
+      // second, unrelated way to reach `create`, gated entirely by holding
+      // the matching pending-by-email document rather than owning the event.
+      // See eventInvitesByEmail's own `allow delete` for the other half of
+      // the same client batch, and its comment for why the pair is safe even
+      // though nothing here enforces that they are sent together.
+      //
+      // The lookup path is built from the claimer's OWN verified token email,
+      // never from anything in the payload: nobody can point this at an
+      // offer made to somebody else, because they cannot make their own
+      // token carry another person's address.
+      function pendingOfferPath() {
+        let hash = hashing.sha256(request.auth.token.email.lower()).toHexString().lower();
+        return /databases/$(database)/documents/eventInvitesByEmail/$(request.resource.data.eventId + '_' + hash);
+      }
+
+      function claimsPendingByEmail() {
+        return request.auth.token.email_verified == true
+            && request.auth.token.email is string
+            && request.resource.data.inviteeUid == uid()
+            // Only a live offer counts, the same reasoning acceptsInvite()
+            // already applies on the events side: once claimed, the offer is
+            // deleted in the same batch, so a second attempt finds nothing
+            // here and is denied right at this line — nothing duplicates.
+            && exists(pendingOfferPath())
+            // Copied from the offer, not chosen by the claimer: the role and
+            // who invited were the owner's decisions, made before this
+            // account existed to decide anything for itself.
+            && request.resource.data.role
+                 == get(pendingOfferPath()).data.role
+            && request.resource.data.invitedBy
+                 == get(pendingOfferPath()).data.invitedBy
+            && request.resource.data.eventTitle
+                 == get(pendingOfferPath()).data.eventTitle
+            // Security review finding on this PR: every other field copied
+            // from the offer was pinned above, but inviteeEmail — optional
+            // on eventInvites — was not, so a claimer could write any
+            // address up to 320 characters with no relation to the offer or
+            // to their own token. Low impact (only the owner and the
+            // claimer ever read it), but the one unpinned field in a path
+            // that pins everything else.
+            && (!('inviteeEmail' in request.resource.data)
+                || request.resource.data.inviteeEmail
+                     == get(pendingOfferPath()).data.inviteeEmail);
+      }
+
       // Only the owner of the event may offer it, and only in their own name.
       // The dates are the server's to set, not the client's: a forged
       // creation time would misorder the invitee's own history of who invited
-      // them and when.
+      // them and when. The two paths below are unrelated identities for who
+      // may be the writer — an owner extending a normal offer, or a claimer
+      // redeeming one already made by email — so they are OR-ed inside this
+      // one `allow` rather than repeating the shared conditions twice.
+      //
+      // `isVerified()` sits only in the owner's branch, not on the whole
+      // `allow`: `claimsPendingByEmail()` already requires
+      // `request.auth.token.email_verified == true` of its own claimer, and
+      // ANDing it again here would just repeat that check for a path that
+      // does not need a second copy.
       allow create: if request.auth != null
                     && isValidInvite(request.resource.data)
-                    && request.resource.data.invitedBy == uid()
                     && request.resource.data.status == 'pending'
                     && request.resource.data.createdAt == request.time
                     && request.resource.data.decidedAt == null
-                    && eventOf(request.resource.data).userId == uid();
+                    && ((isVerified()
+                         && request.resource.data.invitedBy == uid()
+                         && eventOf(request.resource.data).userId == uid())
+                        || claimsPendingByEmail());
 
       // One rule per operation, the three paths OR-ed inside it: splitting
       // them into separate `allow update` statements would combine with OR at
       // the statement level too, but each half would then be missing the
       // others' constraints entirely rather than adding to them.
+      //
+      // `isVerified()` gates the whole statement, ahead of the four OR-ed
+      // paths, the same shape events/{eventId}'s `allow update` already
+      // uses: an unverified account may not touch an invitation through any
+      // door — editing it, deciding it, being readmitted through it or
+      // re-offering it — including `invitedDecides()`, by design (T59's
+      // intent was that an unverified account cannot touch anything through
+      // any door, and letting it flip its own invitation to `accepted` would
+      // be exactly that, even though the write is otherwise harmless without
+      // the matching `events` update — see `invitedDecides()`'s own comment).
       allow update: if request.auth != null
+                    && isVerified()
                     && isValidInvite(request.resource.data)
                     && (ownerEditsWhilePending()
                         || invitedDecides()
@@ -444,8 +563,164 @@ service cloud.firestore {
       // offer nobody has answered yet — a decided invitation is history, and
       // erasing it would defeat the point of keeping one.
       allow delete: if request.auth != null
+                    && isVerified()
                     && resource.data.invitedBy == uid()
                     && resource.data.status == 'pending';
+    }
+
+    // Invitations to an email address with no account yet. Firebase Auth
+    // exposes no directory to look one up by (see
+    // docs/adr/0007-client-side-user-directory.md), so there is no uid to
+    // point eventInvites at until that person registers and verifies. This
+    // collection is the pending half: the owner offers by email, and only
+    // whoever later proves they own that address may turn it into a real
+    // eventInvites document — see eventInvites/{inviteId}'s
+    // claimsPendingByEmail() for the other half. See
+    // SPEC-verificacion-email-invitaciones.md, Part B.
+    //
+    // The id is `{eventId}_{emailHash}`, the same shape as eventInvites'
+    // `{eventId}_{inviteeUid}`: a deterministic name lets the create rule
+    // verify the hash without a query, and stops one event from holding two
+    // live offers for the same address.
+    //
+    // The email itself is stored in the clear, same precedent as
+    // eventInvites.inviteeEmail: whoever creates this document already knows
+    // the address, so there is no new leak in writing down what the writer
+    // already has.
+    match /eventInvitesByEmail/{inviteId} {
+
+      function uid() {
+        return request.auth.uid;
+      }
+
+      function eventOf(d) {
+        return get(/databases/$(database)/documents/events/$(d.eventId)).data;
+      }
+
+      // Same hash userDirectory hashes emails with. Kept local because rules
+      // functions do not cross match blocks — see uid() above, redefined the
+      // same way in every match in this file.
+      function emailHash(email) {
+        return hashing.sha256(email.lower()).toHexString().lower();
+      }
+
+      // Whoever's token names this exact address, verified. Same shape as
+      // userDirectory's isOwnEmail(), compared by hash on both sides rather
+      // than against the document id directly: this collection's id also
+      // encodes the eventId, so what is checked against the caller's own
+      // email hash is the stored inviteeEmail field, not the id itself.
+      function isOwnEmail(email) {
+        return request.auth != null
+            && request.auth.token.email_verified == true
+            && request.auth.token.email is string
+            && emailHash(email) == emailHash(request.auth.token.email);
+      }
+
+      // The same check as isOwnEmail(), but for when there is no document to
+      // read a stored inviteeEmail from — a nonexistent id reveals nothing
+      // about who it names. Security review finding on this PR: without
+      // this, the read rule's `resource == null` branch let ANY verified
+      // signed-in caller, not just the two people an offer concerns, tell
+      // apart "PERMISSION_DENIED" (a live offer exists at this id) from
+      // "empty snapshot" (it does not) for an id they can compute themselves
+      // from any eventId and any email they want to probe — a new oracle
+      // stronger than the one ADR 0007 already accepted for userDirectory,
+      // which answers identically whether an entry exists or not. This
+      // checks the id's own hash suffix against the caller's own verified
+      // email, so only "does MY invitation at this id exist" ever reaches
+      // that branch, and a third party gets the same denial either way.
+      function isOwnEmailForId(id) {
+        return request.auth != null
+            && request.auth.token.email_verified == true
+            && request.auth.token.email is string
+            && id.matches('.*_' + emailHash(request.auth.token.email));
+      }
+
+      // Document shape, mirroring isValidInvite()'s strictness. inviteeEmail
+      // is required here, unlike its optional, display-only twin in
+      // eventInvites: there is no uid yet, so the email is not a courtesy
+      // copy, it is the only handle this offer has.
+      function isValidPendingInvite(d) {
+        return d.keys().hasOnly(['eventId', 'eventTitle', 'inviteeEmail',
+                                 'invitedBy', 'invitedByName', 'role',
+                                 'createdAt'])
+            && d.keys().hasAll(['eventId', 'eventTitle', 'inviteeEmail',
+                                'invitedBy', 'role', 'createdAt'])
+            && d.eventId is string && d.eventId.size() <= 128
+            && d.eventTitle is string && d.eventTitle.size() <= 200
+            && d.inviteeEmail is string && d.inviteeEmail.size() <= 320
+            && d.invitedBy is string
+            && (!('invitedByName' in d)
+                || (d.invitedByName is string && d.invitedByName.size() <= 200))
+            && d.role in ['viewer', 'editor']
+            && d.createdAt is timestamp
+            // Pins the id to its contents, same reasoning as eventInvites:
+            // claimsPendingByEmail() looks this document up by its exact
+            // name, built from the claimer's own verified email — a
+            // mismatched id would never be findable by anyone.
+            && inviteId == d.eventId + '_' + emailHash(d.inviteeEmail);
+      }
+
+      // Only the event's owner may offer it, and only in their own name —
+      // same shape as eventInvites' create rule. What is required verified
+      // here is the INVITER's email, not the invitee's: the invitee has no
+      // account yet to verify, and T59 already denies an unverified account
+      // any use of the app, invitations included.
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && isValidPendingInvite(request.resource.data)
+                    && request.resource.data.invitedBy == uid()
+                    && request.resource.data.createdAt == request.time
+                    && eventOf(request.resource.data).userId == uid();
+
+      // Read by the two people it concerns: the owner who made the offer,
+      // and whoever can prove they own the invited address. Nobody else, and
+      // no `list` — same as userDirectory, this is a lookup by a key you
+      // already hold, not a census of who has been invited.
+      //
+      // A nonexistent document is allowed too, but ONLY for someone checking
+      // their own mailbox (isOwnEmailForId(), not isOwnEmail() — there is no
+      // resource.data to read a stored email from). Unlike eventInvites,
+      // where `resource == null` is unconditional because inviteToEvent()
+      // has to read a still-pending offer's state before deciding whether to
+      // create or re-offer, this collection has no such second state to
+      // discover: an owner never needs to read a nonexistent offer before
+      // writing one, since the create rule does not depend on what, if
+      // anything, was there before. Letting anyone else through that branch
+      // is exactly the oracle isOwnEmailForId()'s own comment explains.
+      allow read: if request.auth != null
+                  && ((resource == null && isOwnEmailForId(inviteId))
+                      || (resource != null
+                          && (resource.data.invitedBy == uid()
+                              || isOwnEmail(resource.data.inviteeEmail))));
+
+      // Deleting has two different writers for two different reasons:
+      //   - the event owner revokes an offer nobody has claimed yet;
+      //   - whoever proves they own the invited address deletes it as their
+      //     half of claiming it — the other half is creating the matching
+      //     eventInvites document, authorised there by
+      //     claimsPendingByEmail(), in the same client batch.
+      //
+      // Nothing here depends on the two halves actually arriving together:
+      // each is independently guarded, and a claimer who only deletes this
+      // document without creating the eventInvites one simply loses the
+      // offer rather than gaining anything. That is also what keeps claiming
+      // twice safe without any extra bookkeeping: the second attempt looks
+      // this exact document up by its deterministic id, finds nothing —
+      // the first claim already deleted it — and is denied right here,
+      // before it can duplicate anything.
+      //
+      // The owner's branch requires their own email verified, same as this
+      // collection's `allow create` already does — a security-auditor
+      // finding on the eventInvites fix that closed this same gap: an
+      // unverified owner had no business withdrawing an offer either, the
+      // same "no door" intent T59 stated for events. The claimer's branch
+      // needs no such addition: `isOwnEmail()` already requires
+      // `email_verified == true` of the caller.
+      allow delete: if request.auth != null
+                    && (isOwnEmail(resource.data.inviteeEmail)
+                        || (request.auth.token.email_verified == true
+                            && resource.data.invitedBy == uid()));
     }
 
     // A minimal user directory, so people can be invited by email.

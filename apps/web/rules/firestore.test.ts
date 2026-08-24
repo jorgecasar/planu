@@ -85,10 +85,19 @@ beforeEach(async () => {
 	});
 });
 
-const asAttacker = () => env.authenticatedContext(ATTACKER).firestore();
-const asVictim = () => env.authenticatedContext(VICTIM).firestore();
-const asViewer = () => env.authenticatedContext(VIEWER).firestore();
-const asEditor = () => env.authenticatedContext(EDITOR).firestore();
+// Every scenario in this file predates email verification and is about
+// ownership, membership and document shape, not about it — so every session
+// here carries a verified token by default, the same as any account that has
+// completed the (unrelated) step this file is not testing. The one exception
+// is the "email verification" describe block below, which flips this flag to
+// exercise the new condition on its own.
+const verified = (uid: string, emailVerified = true) =>
+	env.authenticatedContext(uid, { email_verified: emailVerified }).firestore();
+
+const asAttacker = (emailVerified = true) => verified(ATTACKER, emailVerified);
+const asVictim = (emailVerified = true) => verified(VICTIM, emailVerified);
+const asViewer = (emailVerified = true) => verified(VIEWER, emailVerified);
+const asEditor = (emailVerified = true) => verified(EDITOR, emailVerified);
 const asAnonymous = () => env.unauthenticatedContext().firestore();
 
 describe("privacy between users", () => {
@@ -161,6 +170,72 @@ describe("ownership", () => {
 	test("without a session nothing can be created", async () => {
 		await assertFails(
 			addDoc(collection(asAnonymous(), "events"), anEvent(ATTACKER)),
+		);
+	});
+});
+
+// ─── Mandatory email verification (T59) ─────────────────────────────────────
+//
+// Before this, a signed-in session could always create, read and edit events
+// regardless of `email_verified`; only the (separate) user directory checked
+// it. See SPEC-verificacion-email-invitaciones.md, Part A.
+describe("an unverified email cannot use events", () => {
+	test("cannot create an event", async () => {
+		await assertFails(
+			addDoc(collection(asAttacker(false), "events"), anEvent(ATTACKER)),
+		);
+	});
+
+	test("cannot read their own event", async () => {
+		await assertFails(getDoc(doc(asVictim(false), "events/victim-event")));
+	});
+
+	test("the owner cannot update their own event", async () => {
+		await assertFails(
+			updateDoc(doc(asVictim(false), "events/victim-event"), {
+				title: "Unverified edit",
+			}),
+		);
+	});
+
+	// Pins that `isVerified()` gates the whole `allow update` statement, ahead
+	// of the four OR-ed paths, rather than only the owner's branch: an editor
+	// with a valid role is denied on the same footing.
+	test("an editor with a valid role is still denied", async () => {
+		await assertFails(
+			updateDoc(doc(asEditor(false), "events/shared-event"), {
+				title: "Unverified editor edit",
+			}),
+		);
+	});
+
+	// Independently pinned in event-invites.test.ts ("an unverified guest
+	// cannot accept an invitation"), since acceptsInvite() needs a seeded
+	// invitation this file has no reason to set up.
+
+	// A legacy (phase 1) event has no `memberIds`, so `isMember()` already
+	// denies it before `isVerified()` is ever reached — see "phase 1 events
+	// deny cleanly instead of erroring" below, whose tests exercise VICTIM
+	// with a verified token by default and still deny. `isVerified()` reads
+	// only `request.auth.token`, never `resource.data`, so there is no shape
+	// of a legacy document that could change its answer; the interaction to
+	// worry about is bidirectional, and this is the other direction.
+});
+
+describe("a verified email is unaffected", () => {
+	// Google issues `email_verified: true` from account creation
+	// (session-adapter.ts:125), which is the exact same claim value a
+	// password account gets once it verifies. There is no separate code path
+	// to pin for "Google" specifically — this test IS the Google case too.
+	test("create, read and update all still succeed", async () => {
+		await assertSucceeds(
+			addDoc(collection(asAttacker(), "events"), anEvent(ATTACKER)),
+		);
+		await assertSucceeds(getDoc(doc(asVictim(), "events/victim-event")));
+		await assertSucceeds(
+			updateDoc(doc(asVictim(), "events/victim-event"), {
+				title: "Verified edit",
+			}),
 		);
 	});
 });
@@ -522,6 +597,18 @@ describe("leaving someone else's event", () => {
 			updateDoc(doc(asVictim(), "events/shared-event"), {
 				memberIds: [VIEWER, EDITOR],
 				roles: { [VIEWER]: "viewer", [EDITOR]: "editor" },
+			}),
+		);
+	});
+
+	// Pins the fourth of the four doors isVerified() closes (T59): owning,
+	// editing and accepting an invitation already had their own test each;
+	// this one was missing, flagged by the security audit of that commit.
+	test("an unverified viewer cannot leave the event", async () => {
+		await assertFails(
+			updateDoc(doc(asViewer(false), "events/shared-event"), {
+				memberIds: [VICTIM, EDITOR],
+				roles: { [EDITOR]: "editor" },
 			}),
 		);
 	});

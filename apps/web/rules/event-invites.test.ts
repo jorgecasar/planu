@@ -84,7 +84,14 @@ beforeEach(async () => {
 	});
 });
 
-const as = (uid: string) => env.authenticatedContext(uid).firestore();
+// Verified by default: this file is about the invitation life cycle, not
+// about email verification (see firestore.test.ts, "an unverified email
+// cannot use events", for that), and several of these sessions write to
+// `events/{eventId}` through `acceptsInvite()`/`leavesTheEvent()`, both
+// gated by `isVerified()` on the same `allow update` since T59. Passing
+// `false` is only for the one test here that exercises that gate directly.
+const as = (uid: string, emailVerified = true) =>
+	env.authenticatedContext(uid, { email_verified: emailVerified }).firestore();
 
 /** Seeds an invitation, bypassing the rules. Pending unless `extra` says otherwise. */
 const seedInvite = async (extra: Record<string, unknown> = {}) => {
@@ -230,8 +237,8 @@ describe("accepting an invitation", () => {
 	 * What the client writes: no read of the event needed, and the invitation
 	 * flipped to `accepted` in the same batch so it cannot be reused.
 	 */
-	const accept = (uid: string, role = "viewer") => {
-		const db = as(uid);
+	const accept = (uid: string, role = "viewer", emailVerified = true) => {
+		const db = as(uid, emailVerified);
 		const batch = writeBatch(db);
 		batch.update(doc(db, EVENT), {
 			memberIds: arrayUnion(uid),
@@ -247,6 +254,14 @@ describe("accepting an invitation", () => {
 	test("with an invitation, the guest joins the event", async () => {
 		await seedInvite();
 		await assertSucceeds(accept(GUEST));
+	});
+
+	// Pins that `isVerified()` (T59) also gates `acceptsInvite()`: a valid,
+	// still-pending invitation is not enough on its own once the email is
+	// unverified, the same as it is not enough for an owner or an editor.
+	test("an unverified guest cannot accept an invitation", async () => {
+		await seedInvite();
+		await assertFails(accept(GUEST, "viewer", false));
 	});
 
 	test("without an invitation, nobody joins", async () => {
@@ -751,5 +766,148 @@ describe("re-offering a decided invitation (inviteToEvent's real write shape)", 
 		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
 		await assertFails(reoffer({ eventId: "another-event" }));
 		await assertFails(reoffer({ inviteeUid: STRANGER }));
+	});
+});
+
+// ─── Email verification gates this collection too (security review finding) ─
+//
+// T59 required a verified email on events/{eventId}'s create/read/update, but
+// left eventInvites untouched even though it is another door onto the same
+// events:
+//
+//   - [MEDIUM] an owner whose email is unverified could still create, edit,
+//     revoke and re-offer invitations for an event they can no longer touch
+//     directly through any of those four doors.
+//   - [LOW] an unverified invitee could flip their own invitation straight to
+//     `accepted` with a lone `updateDoc`, "spending" it without ever joining
+//     the event — the real client's batch is already safe because the
+//     `events` half denies (T59), but `invitedDecides()` on its own did not.
+//
+// Both are closed the same way isVerified() already gates events/{eventId}:
+// one clause ahead of the OR-ed paths on `allow update`, and on `allow
+// create`/`allow delete` directly. Every test below was confirmed to fail
+// against the pre-fix rule before this change landed.
+describe("email verification gates the owner's and the invitee's doors too", () => {
+	test("an unverified owner cannot invite anyone, even to their own event", async () => {
+		await assertFails(setDoc(doc(as(OWNER, false), INVITE), anInvite()));
+	});
+
+	test("a verified owner still can invite, no regression", async () => {
+		await assertSucceeds(setDoc(doc(as(OWNER, true), INVITE), anInvite()));
+	});
+
+	test("an unverified owner cannot edit a pending invitation", async () => {
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(OWNER, false), INVITE), { role: "editor" }),
+		);
+	});
+
+	test("a verified owner still can edit a pending invitation, no regression", async () => {
+		await seedInvite();
+		await assertSucceeds(
+			updateDoc(doc(as(OWNER, true), INVITE), { role: "editor" }),
+		);
+	});
+
+	test("an unverified owner cannot revoke a pending invitation", async () => {
+		await seedInvite();
+		await assertFails(deleteDoc(doc(as(OWNER, false), INVITE)));
+	});
+
+	test("a verified owner still can revoke a pending invitation, no regression", async () => {
+		await seedInvite();
+		await assertSucceeds(deleteDoc(doc(as(OWNER, true), INVITE)));
+	});
+
+	test("an unverified owner cannot readmit someone", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertFails(
+			updateDoc(doc(as(OWNER, false), INVITE), {
+				status: "pending",
+				decidedAt: null,
+			}),
+		);
+	});
+
+	test("a verified owner still can readmit someone, no regression", async () => {
+		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
+		await assertSucceeds(
+			updateDoc(doc(as(OWNER, true), INVITE), {
+				status: "pending",
+				decidedAt: null,
+			}),
+		);
+	});
+
+	test("an unverified owner cannot re-offer a decided invitation", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertFails(setDoc(doc(as(OWNER, false), INVITE), anInvite()));
+	});
+
+	test("a verified owner still can re-offer a decided invitation, no regression", async () => {
+		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
+		await assertSucceeds(setDoc(doc(as(OWNER, true), INVITE), anInvite()));
+	});
+
+	// The LOW finding, attacked directly on the invitation alone: no batch,
+	// no touch of `events` at all. Before this fix this succeeded — the
+	// invitee "spent" their invitation without joining anything.
+	test("an unverified invitee cannot accept their own invitation on its own", async () => {
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(GUEST, false), INVITE), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
+			}),
+		);
+	});
+
+	test("an unverified invitee cannot decline their own invitation either", async () => {
+		await seedInvite();
+		await assertFails(
+			updateDoc(doc(as(GUEST, false), INVITE), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			}),
+		);
+	});
+
+	// The real client's write shape (apps/web/src/sharing/invitations.ts):
+	// both documents updated in one batch. A Firestore batch fails whole if
+	// either half is denied, so this test alone cannot tell which half did
+	// the denying — confirmed by a checker who removed only this fix's
+	// `isVerified()` from `eventInvites`'s `allow update` and watched this
+	// exact test keep passing, denied by the pre-existing `events` gate
+	// (T59) alone. That the `eventInvites` half denies independently is
+	// what the solo tests above ("an unverified guest cannot accept an
+	// invitation", "…cannot decline… either") already pin, each updating
+	// only `eventInvites`, with no `events` write in the same operation to
+	// hide behind. This test exists for a narrower claim: the app's real,
+	// as-shipped write shape stays blocked end to end, which is what a user
+	// actually experiences.
+	test("an unverified invitee's batched accept still fails end to end", async () => {
+		await seedInvite();
+		const db = as(GUEST, false);
+		const batch = writeBatch(db);
+		batch.update(doc(db, EVENT), {
+			memberIds: arrayUnion(GUEST),
+			[`roles.${GUEST}`]: "viewer",
+		});
+		batch.update(doc(db, INVITE), {
+			status: "accepted",
+			decidedAt: serverTimestamp(),
+		});
+		await assertFails(batch.commit());
+	});
+
+	test("a verified invitee still can decide their own invitation, no regression", async () => {
+		await seedInvite();
+		await assertSucceeds(
+			updateDoc(doc(as(GUEST, true), INVITE), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
+			}),
+		);
 	});
 });
