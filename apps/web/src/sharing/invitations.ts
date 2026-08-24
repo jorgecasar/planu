@@ -83,6 +83,16 @@ export function invitesFor(firestore: Firestore, uid: string) {
  * Offers the event to someone, or edits/re-offers an existing offer. Nothing
  * changes for them until they accept.
  *
+ * For an email with no account yet, and so no uid to point this at, see the
+ * twin `offerInviteByEmail` in `user-directory.ts` — same offer, parked by
+ * email instead of by uid. It is not here, even though it is this
+ * function's closest sibling conceptually: it needs `emailHash`, and
+ * `user-directory.ts` already imports {@link INVITES_COLLECTION} and
+ * {@link inviteId} from this file for `claimPendingInvitesByEmail`.
+ * Importing back from there would make the two modules depend on each
+ * other for no real gain — `emailHash` is a one-line SHA-256 call, not
+ * shared state — so this stays a one-way dependency instead.
+ *
  * The write's shape depends on what, if anything, is already there — the
  * rules require it, not just style:
  *

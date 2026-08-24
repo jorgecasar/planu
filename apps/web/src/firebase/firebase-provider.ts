@@ -17,6 +17,7 @@ import {
 	analyticsContext,
 	noopAnalytics,
 } from "../application/ports/analytics.js";
+import { sharingContext } from "../application/ports/sharing.js";
 import { createAccountDataAdapter } from "../infrastructure/firebase/account-data-adapter.js";
 import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
 import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
@@ -26,6 +27,7 @@ import {
 	FirebaseSessionAdapter,
 	toSessionUser,
 } from "../infrastructure/firebase/session-adapter.js";
+import { createSharingAdapter } from "../infrastructure/firebase/sharing-adapter.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
@@ -166,6 +168,12 @@ export class PlanuFirebaseProvider extends LitElement {
 		context: accountDataContext,
 	});
 
+	// `SharingPort`, built once both Firestore is ready — see
+	// `#provideDataServices()`. This is the one place allowed to import
+	// `infrastructure/firebase/sharing-adapter.js`, so components like
+	// `share-dialog.ts` and `profile-view.ts` never construct it themselves.
+	readonly #sharing = new ContextProvider(this, { context: sharingContext });
+
 	// `noopAnalytics` up front: analytics doesn't depend on the session, so
 	// there's no "still checking" state to distinguish, unlike `#user`.
 	readonly #analytics = new ContextProvider(this, {
@@ -292,6 +300,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
+			const sharing = createSharingAdapter(firestore);
+			this.#sharing.setValue(sharing);
 			this.#eventsController.setFirestore(firestore);
 			this.#publishEvents();
 
@@ -300,16 +310,18 @@ export class PlanuFirebaseProvider extends LitElement {
 			// application, so its failure does not propagate: denying someone
 			// their own data because they could not be listed would be
 			// disproportionate.
-			const { publishDirectoryEntry } = await import(
-				"../sharing/user-directory.js"
-			);
+			//
 			// Converted explicitly, not passed through as `User`: the domain type
 			// carries fields Firebase's own doesn't — `provider`, for T32 — and
 			// the two happened to structurally match well enough that TypeScript
 			// never caught the shortcut until this one didn't.
-			await publishDirectoryEntry(firestore, toSessionUser(user)).catch(
-				() => {},
-			);
+			const sessionUser = toSessionUser(user);
+			await sharing.publishDirectoryEntry(sessionUser).catch(() => {});
+			// Same two call sites as publishDirectoryEntry, deliberately: whatever
+			// makes someone invitable is exactly what makes a pending-by-email
+			// offer of theirs resolvable, and duplicating the trigger would just
+			// be a second thing that could go out of sync with the first.
+			await sharing.claimPendingInvitesByEmail(sessionUser).catch(() => {});
 		} catch {
 			this.dispatchEvent(
 				new CustomEvent("planu-data-services-failed", {

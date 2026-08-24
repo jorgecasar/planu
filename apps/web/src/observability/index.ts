@@ -112,3 +112,80 @@ export function startObservability(app: FirebaseApp): void {
 		void startPerformanceMonitoring(app).catch(() => {});
 	});
 }
+
+/**
+ * How one attempt at a background write went.
+ *
+ * `success` and `skipped` are not errors — `skipped` is for a write that was
+ * never attempted at all, e.g. `claimPendingInvitesByEmail` called with no
+ * candidates to check, which is today's documented state at both of its real
+ * call sites (see its own doc comment in `sharing/user-directory.ts`).
+ * `permission-denied` is Firestore's rule engine saying no; `failure` is
+ * everything else — offline, a timeout, anything unclassified.
+ */
+export type BackgroundWriteOutcome =
+	| "success"
+	| "skipped"
+	| "permission-denied"
+	| "failure";
+
+/**
+ * Records one attempt at a write whose caller already swallows its own
+ * failure — see `publishDirectoryEntry` and `claimPendingInvitesByEmail`
+ * in `sharing/user-directory.ts`, both called with a `.catch(() => {})` (or,
+ * for the one call site that lacks it, an outer `try`/`catch` that discards
+ * it the same way) at every real call site today. Neither caller's behaviour
+ * changes because of this: it never throws, and nothing here is awaited by
+ * the write it describes.
+ *
+ * This is what turns "reloading republishes the directory reliably" from a
+ * guess into something with evidence — see this project's own
+ * `SPEC-verificacion-email-invitaciones.md`.
+ *
+ * `success` and `skipped` become a breadcrumb: context attached to whatever
+ * error Sentry captures next, not an event of their own — one per sign-in
+ * would be noise with a bill attached. `permission-denied` and `failure`
+ * become a tagged `captureException`, queryable by `operation` and `outcome`
+ * later.
+ */
+export function recordBackgroundWrite(
+	operation: string,
+	outcome: BackgroundWriteOutcome,
+	detail?: unknown,
+): void {
+	if (import.meta.env.DEV) return;
+
+	afterMainPaint(() => {
+		void reportBackgroundWrite(operation, outcome, detail).catch(() => {
+			// Same rule as everything else in this file: observability must
+			// never become the reason something else breaks.
+		});
+	});
+}
+
+async function reportBackgroundWrite(
+	operation: string,
+	outcome: BackgroundWriteOutcome,
+	detail: unknown,
+): Promise<void> {
+	const dsn = import.meta.env.VITE_SENTRY_DSN;
+	if (!dsn) return;
+
+	const { addBreadcrumb, captureException } = await import("@sentry/browser");
+
+	if (outcome === "success" || outcome === "skipped") {
+		addBreadcrumb({
+			category: "background-write",
+			message:
+				typeof detail === "string" ? `${operation}: ${detail}` : operation,
+			data: { outcome },
+			level: "info",
+		});
+		return;
+	}
+
+	captureException(
+		detail instanceof Error ? detail : new Error(`${operation}: ${outcome}`),
+		{ tags: { operation, outcome } },
+	);
+}

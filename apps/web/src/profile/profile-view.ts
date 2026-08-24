@@ -7,7 +7,6 @@ import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
@@ -17,13 +16,11 @@ import {
 import type { AccountDataPort } from "../application/ports/account-data.js";
 import { accountDataContext } from "../application/ports/account-data.js";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import type { SharingPort } from "../application/ports/sharing.js";
+import { sharingContext } from "../application/ports/sharing.js";
 import { signOut } from "../application/sign-out.js";
 import { SessionError } from "../domain/session-error.js";
-import {
-	firestoreContext,
-	sessionContext,
-	userContext,
-} from "../firebase/context.js";
+import { sessionContext, userContext } from "../firebase/context.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
 
@@ -71,8 +68,12 @@ export class PlanuProfileView extends LitElement {
 	@state() private sent = false;
 	@state() private checking = false;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
+	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
+	// just below — this already-coupled component's directory-publishing and
+	// pending-invite-claiming calls go through a port now, built once at the
+	// composition root (`firebase-provider.ts`).
+	@consume({ context: sharingContext, subscribe: true })
+	private sharing: SharingPort | undefined;
 
 	// `AccountDataPort`, not raw `Firestore`/`FirebaseStorage`: T32 touches this
 	// already-coupled component, and the project's hexagonal-migration rule is
@@ -359,21 +360,31 @@ export class PlanuProfileView extends LitElement {
 	 * again — hence `getIdToken(true)` — before the entry can be published.
 	 */
 	async #onCheck(): Promise<void> {
-		const { session, firestore } = this;
-		if (!session || this.checking) return;
+		const { session, sharing } = this;
+		if (!session || !sharing || this.checking) return;
 
 		this.checking = true;
 		try {
 			const refreshed = await session.refreshEmailVerification();
 			if (!refreshed?.emailVerified) return;
 
-			// Manual assignment, not a new arrival via context: `@consume`
+			await sharing.publishDirectoryEntry(refreshed);
+			// Same two call sites as publishDirectoryEntry, deliberately: whatever
+			// makes someone invitable is exactly what makes a pending-by-email
+			// offer of theirs resolvable, and duplicating the trigger would just
+			// be a second thing that could go out of sync with the first.
+			await sharing.claimPendingInvitesByEmail(refreshed).catch(() => {});
+
+			// Assigned only once the directory write actually succeeded, not as
+			// soon as `refreshed.emailVerified` is true: `#renderVerificationNotice`
+			// hides the notice the moment `user.emailVerified` flips, and it is the
+			// only way back into this method. Assigning earlier — as this used to
+			// do — hid the notice even when `publishDirectoryEntry` above failed
+			// (confirmed against production: a verified account with a stale ID
+			// token got no directory entry, and no way to retry short of signing
+			// out). Manual assignment, not a new arrival via context: `@consume`
 			// doesn't intercept it, so the update has to be requested by hand.
 			this.user = refreshed;
-			const { publishDirectoryEntry } = await import(
-				"../sharing/user-directory.js"
-			);
-			await publishDirectoryEntry(firestore as Firestore, refreshed);
 			this.requestUpdate();
 		} catch {
 			// Nothing the user can act on: the notice stays put and the button can
