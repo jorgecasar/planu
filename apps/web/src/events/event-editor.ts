@@ -208,8 +208,10 @@ export class PlanuEventEditor extends LitElement {
 	#tagSuggestionSession: ReturnType<typeof createAiModelSession> | undefined;
 
 	/**
-	 * The same pattern as `#generation` in `ai-event-generator.ts`: the
-	 * editor is a single instance reused across events —`events-view.ts`
+	 * The pattern `ai-event-generator.ts` used to reuse before it stopped
+	 * being a reusable instance (it's now recreated on every mount, so it
+	 * tracks disposal with a plain `#disposed` boolean instead): this editor
+	 * is still a single instance reused across events —`events-view.ts`
 	 * toggles `.open`/`.event`/`.draft` on the same element, never
 	 * unmounting it—, so a suggestion requested for one event must not
 	 * apply if, while the model was thinking, the editor closed and
