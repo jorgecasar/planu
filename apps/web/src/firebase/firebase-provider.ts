@@ -4,7 +4,6 @@ import {
 	type Auth,
 	browserLocalPersistence,
 	connectAuthEmulator,
-	indexedDBLocalPersistence,
 	initializeAuth,
 	onAuthStateChanged,
 	type User,
@@ -74,8 +73,20 @@ export function initializeFirebase(): CoreServices {
 	// **every** visit, even if nobody pressed the Google button. It was the
 	// longest dependency chain on the page: 4.7 s. The resolver is now passed
 	// in `signInWithPopup` itself, so only whoever uses that sign-in pays for it.
+	//
+	// `persistence` is `browserLocalPersistence` only, **not**
+	// `[indexedDBLocalPersistence, browserLocalPersistence]` as this line first
+	// shipped. That combination is exactly what made `/app` stick on "Checking
+	// your session" with no error and no network call — a silent hang inside
+	// the SDK's own persistence resolution, documented in
+	// `docs/spec-ci-e2e-reliability.md` as an unconfirmed hypothesis at the
+	// time (firebase-js-sdk#8626, #8545, #5874) and confirmed here with a
+	// controlled A/B: same build, same throttled network, only this line
+	// changed — 0/25 hangs with `browserLocalPersistence` alone versus 9/25
+	// with IndexedDB in the mix. `browserLocalPersistence` still avoids
+	// `getAuth`'s resolver, so the LCP win stays; only the fragile backend goes.
 	const auth = initializeAuth(app, {
-		persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+		persistence: browserLocalPersistence,
 	});
 
 	if (import.meta.env.DEV) {
