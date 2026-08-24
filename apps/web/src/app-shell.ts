@@ -23,12 +23,20 @@ import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
 import { sessionContext, userContext } from "./firebase/context.js";
 
 /**
- * `onAuthStateChanged` normally fires within a few hundred milliseconds.
- * Measured against real production traffic it sometimes never fires at all
- * — a silent hang inside the Auth SDK's persistence resolution, not
- * reproducible against the emulator (see
- * docs/spec-ci-e2e-reliability.md). Past this many milliseconds without an
- * answer, "checking your session" stops being a truthful message.
+ * `userContext` normally resolves within a few hundred milliseconds.
+ * Measured against real production traffic it sometimes never resolved at
+ * all, with no error and no network call — first suspected to be a silent
+ * hang inside the Auth SDK's persistence resolution (see
+ * docs/spec-ci-e2e-reliability.md), later confirmed instead to be a lost
+ * `@lit/context` request: `main.ts` loads `firebase-provider.js` and
+ * `app-shell.js` in parallel, and if this element's chunk won that race and
+ * upgraded first, its one-shot context request went out before the
+ * provider had attached its listener and was never answered.
+ * `main.ts` now attaches a `ContextRoot` before either import() starts,
+ * which buffers and replays exactly that case, so this timeout should no
+ * longer fire in practice — it stays as a fallback for whatever the next
+ * one turns out to be. Past this many milliseconds without an answer,
+ * "checking your session" stops being a truthful message.
  */
 const SESSION_CHECK_TIMEOUT_MS = 8000;
 

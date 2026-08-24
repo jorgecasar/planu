@@ -489,3 +489,61 @@ Decidido con el usuario, no en solitario:
   por defecto de Playwright (30 s / 5 s). La recomendación de partir de
   60 s/10 s si esta suite vuelve a CI queda en este documento, no en
   configuración activa sin nadie que la ejecute.
+
+## Segunda causa encontrada: una carrera de `@lit/context`, no sólo el SDK de Auth
+
+Meses después, el mismo síntoma en producción —`/app` atascado en "Checking
+your session", sin error, sin llamada de red, resuelto a veces con una
+recarga— seguía apareciendo con más frecuencia de la que el fix de
+persistencia de más arriba explicaba. Instrumentar `onAuthStateChanged` con
+`console.log` y `performance.now()` directamente en el código, en vez de
+seguir tirando de trazas de red e IndexedDB, mostró algo que contradice el
+diagnóstico original: **`onAuthStateChanged` dispara en 1-2 ms, con
+`user=null`, en el 100 % de los intentos capturados — incluidos los que el
+propio navegador daba por colgados.** El SDK de Auth no era el cuello de
+botella; sólo lo parecía porque su resultado nunca llegaba a ningún sitio.
+
+La causa real está en `main.ts`: `firebase-provider.js` y `app-shell.js` se
+cargan con `import()` dinámico en paralelo (`Promise.all`), a propósito, para
+no añadir un salto de red al camino crítico. Como `<planu-firebase-provider>`
+y `<planu-app>` ya existen en el marcado estático de `app.html`, el módulo
+que termine de evaluarse primero define su custom element y lo actualiza
+**de inmediato**. Si `app-shell.js` gana esa carrera, `<planu-app>` —que
+consume `userContext` con `@consume({subscribe: true})`— dispara su
+`context-request` antes de que `<planu-firebase-provider>` haya construido
+sus `ContextProvider` y enganchado el listener que lo atendería. `@lit/context`
+no reintenta una petición que no encontró proveedor: se pierde para siempre,
+sin error, y `this.user` se queda en `undefined` de por vida — exactamente
+el síntoma observado, y tanto más frecuente cuanto más ha crecido
+`firebase-provider.ts` con la migración a arquitectura hexagonal (180 KiB a
+fecha de este hallazgo), que desplaza a su favor el resultado de la carrera.
+
+Se descartaron primero dos hipótesis con experimentos controlados antes de
+llegar a esta: la propia resolución de Auth (arriba) y el SDK de
+Analytics/Installations —una correlación que resultó ser un artefacto de
+cerrar el contexto del navegador demasiado pronto en las corridas rápidas,
+no una relación causal; repetido el experimento sin cerrar antes de una
+ventana fija, la actividad de IndexedDB aparecía igual en éxitos y
+cuelgues—.
+
+**Arreglo**: `main.ts` engancha un `ContextRoot` de `@lit/context` a
+`document.body` antes de lanzar los dos `import()`. Es el mecanismo que la
+propia librería ofrece para "el consumidor se conecta antes que su
+proveedor": guarda cualquier `context-request` con `subscribe: true` que no
+encontró quien la atendiera y la vuelve a disparar en cuanto un proveedor
+que sirve ese contexto se anuncia a través de su evento `context-provider` —
+sin reintroducir el `await` secuencial entre los dos módulos que la carga en
+paralelo evita a propósito.
+
+**Verificado** con la misma metodología de A/B contra red estrangulada
+(150-500 ms por petición) usada en este documento: build con el arreglo, 40
+intentos, **0/40 cuelgues** (dos tandas de 20), frente al 65-80 % de cuelgos
+observado contra el mismo build sin el `ContextRoot`. `SESSION_CHECK_TIMEOUT_MS`
+en `app-shell.ts` se queda como red de seguridad genérica, no porque se
+espere que vuelva a saltar por esta causa.
+
+Esto también responde a la pregunta que este documento dejaba abierta más
+arriba sobre el cuelgue de `/app/login` bajo el runner de CI: es plausible
+que fuera la misma familia de problema, aunque no se ha vuelto a intentar
+reproducir específicamente en esas condiciones — `test:e2e` sigue fuera de
+CI y esta confirmación no cambia esa decisión por sí sola.
