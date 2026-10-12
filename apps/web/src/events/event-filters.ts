@@ -37,6 +37,7 @@ export class PlanuEventFilters extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
+			flex: 1 1 100%;
 		}
 
 		form {
@@ -48,6 +49,32 @@ export class PlanuEventFilters extends LitElement {
 
 		wa-input[type="search"] {
 			flex: 1 1 16rem;
+		}
+
+		/* Responsive adjustments */
+		@media (max-width: 600px) {
+			form {
+				flex-direction: column;
+				align-items: stretch;
+			}
+			/* Make all inputs and groups full width */
+			wa-input,
+			wa-radio-group,
+			wa-checkbox-group,
+			wa-button {
+				width: 100%;
+				flex: none;
+			}
+			/* Reduce bottom margin for search input on mobile and prevent vertical stretch */
+			wa-input[type="search"] {
+				flex: none;
+				margin-bottom: var(--wa-space-xs);
+			}
+			/* Ensure groups stack vertically */
+			wa-radio-group,
+			wa-checkbox-group {
+				margin-top: var(--wa-space-s);
+			}
 		}
 	`;
 
@@ -95,37 +122,37 @@ export class PlanuEventFilters extends LitElement {
 					</wa-radio>
 				</wa-radio-group>
 
-				<wa-input
-					type="date"
-					name="from"
-					label=${msg("From")}
-					.value=${this.from}
-					@change=${this.#onFrom}
-				></wa-input>
+				<div class="date-time-group">
+					<wa-input
+						type="date"
+						name="from"
+						label=${msg("From")}
+						.value=${this.from}
+						@change=${this.#onFrom}></wa-input>
 
-				<wa-input
-					type="time"
-					name="fromTime"
-					label=${msg("From time")}
-					.value=${this.fromTime}
-					@change=${this.#onFromTime}
-				></wa-input>
+					<wa-input
+						type="time"
+						name="fromTime"
+						label=${msg("From time")}
+						.value=${this.fromTime}
+						@change=${this.#onFromTime}></wa-input>
+				</div>
 
-				<wa-input
-					type="date"
-					name="to"
-					label=${msg("To")}
-					.value=${this.to}
-					@change=${this.#onTo}
-				></wa-input>
+				<div class="date-time-group">
+					<wa-input
+						type="date"
+						name="to"
+						label=${msg("To")}
+						.value=${this.to}
+						@change=${this.#onTo}></wa-input>
 
-				<wa-input
-					type="time"
-					name="toTime"
-					label=${msg("To time")}
-					.value=${this.toTime}
-					@change=${this.#onToTime}
-				></wa-input>
+					<wa-input
+						type="time"
+						name="toTime"
+						label=${msg("To time")}
+						.value=${this.toTime}
+						@change=${this.#onToTime}></wa-input>
+				</div>
 
 				${this.#renderTags()}
 

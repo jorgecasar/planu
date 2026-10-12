@@ -5,31 +5,25 @@ import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
 import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import "@awesome.me/webawesome/dist/components/select/select.js";
 import "@awesome.me/webawesome/dist/components/skeleton/skeleton.js";
-import "../calendar/agenda-view.js";
-import "../calendar/calendar-view.js";
-import "./calendar-export.js";
-import "./empty-state.js";
-import "./event-card.js";
-import { canOffer, checkAvailability } from "../domain/ai-availability.js";
-import type { InferenceSourceName } from "../domain/ai-policy.js";
-import { sampleEventDraft } from "../domain/sample-event.js";
-import "./event-editor.js";
-import "./event-filters.js";
-import "./event-groups.js";
-import "../sharing/invitations-inbox.js";
 
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { SessionUser } from "../application/ports/session.js";
 import { buildAgenda } from "../calendar/agenda-days.js";
+import { canOffer, checkAvailability } from "../domain/ai-availability.js";
+import type { InferenceSourceName } from "../domain/ai-policy.js";
+import { sampleEventDraft } from "../domain/sample-event.js";
+import "../calendar/agenda-view.js";
+import "../calendar/calendar-view.js";
+
 import {
 	type DateRange,
 	filterEvents,
 	isNarrowed,
 	type OwnershipFilter,
 } from "../domain/filter-events.js";
+
 import {
 	groupEvents,
 	parseSortPreference,
@@ -37,65 +31,76 @@ import {
 	serializeSortPreference,
 	sortOptions,
 } from "../domain/sort-events.js";
+
 import {
 	parseViewMode,
 	type ViewMode,
 	viewOptions,
 } from "../domain/view-mode.js";
+
 import {
 	type EventsSnapshot,
 	eventsContext,
 	eventsInterestContext,
 	userContext,
 } from "../firebase/context.js";
+
 import { getLocale } from "../i18n/localization.js";
+
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
+
 import {
 	readSortPreference,
 	readViewMode,
 	writeSortPreference,
 	writeViewMode,
 } from "../lib/view-preferences.js";
+
+import "./calendar-export.js";
+import "./empty-state.js";
+import "./event-card.js";
+import "./event-editor.js";
+import "./event-filters.js";
+import "./event-groups.js";
+import "../sharing/invitations-inbox.js";
+
+import type { SessionUser } from "../application/ports/session.js";
 import type { FiltersChange } from "./event-filters.js";
 
 /** Listing of the user's events, with search and date filtering. */
 @customElement("planu-events-view")
 export class PlanuEventsView extends LitElement {
 	static override styles = css`
-		:host {
-			display: block;
-			padding: var(--wa-space-l);
-		}
+    :host {
+      display: block;
+      padding: var(--wa-space-l);
+    }
 
-		.grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
-			gap: var(--wa-space-l);
-			margin-block-start: var(--wa-space-l);
-		}
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+      gap: var(--wa-space-l);
+      margin-block-start: var(--wa-space-l);
+    }
 
-		.toolbar {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: end;
-			justify-content: space-between;
-			gap: var(--wa-space-m);
-		}
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: space-between;
+      gap: var(--wa-space-m);
+    }
 
-		planu-event-filters {
-			flex: 1 1 24rem;
-		}
+    wa-select {
+      flex: 0 1 14rem;
+    }
 
-		wa-select {
-			flex: 0 1 14rem;
-		}
-
-		.empty {
-			margin-block-start: var(--wa-space-2xl);
-			text-align: center;
-			color: var(--wa-color-text-quiet);
-		}
-	`;
+    .empty {
+      margin-block-start: var(--wa-space-2xl);
+      text-align: center;
+      color: var(--wa-color-text-quiet);
+    }
+  `;
 
 	@consume({ context: eventsContext, subscribe: true })
 	private eventsSnapshot: EventsSnapshot | undefined;
@@ -214,68 +219,70 @@ export class PlanuEventsView extends LitElement {
 		);
 
 		return html`
-			<planu-invitations-inbox></planu-invitations-inbox>
+      <planu-invitations-inbox></planu-invitations-inbox>
 
-			<div class="toolbar">
-				<planu-event-filters
-					.availableTags=${knownTags}
-					@planu-filters-change=${this.#onFilters}
-				></planu-event-filters>
+      <div class="toolbar">
+        <planu-event-filters
+          .availableTags=${knownTags}
+          @planu-filters-change=${this.#onFilters}
+        ></planu-event-filters>
 
-				<wa-radio-group
-					class="views"
-					label=${msg("View")}
-					orientation="horizontal"
-					.value=${this.view}
-					@change=${this.#onView}
-				>
-					${viewOptions().map(
+        <wa-radio-group
+          class="views"
+          label=${msg("View")}
+          orientation="horizontal"
+          .value=${this.view}
+          @change=${this.#onView}
+        >
+          ${viewOptions().map(
 						(option) =>
 							html`<wa-radio appearance="button" value=${option.value}>
-								${option.label}
-							</wa-radio>`,
+                ${option.label}
+              </wa-radio>`,
 					)}
-				</wa-radio-group>
+        </wa-radio-group>
 
-				<wa-select
-					label=${msg("Sort by")}
-					.value=${serializeSortPreference(this.sort)}
-					@change=${this.#onSort}
-				>
-					${sortOptions().map(
+        <wa-select
+          label=${msg("Sort by")}
+          .value=${serializeSortPreference(this.sort)}
+          @change=${this.#onSort}
+        >
+          ${sortOptions().map(
 						(option) =>
-							html`<wa-option value=${option.value}>${option.label}</wa-option>`,
+							html`<wa-option value=${option.value}
+                >${option.label}</wa-option
+              >`,
 					)}
-				</wa-select>
+        </wa-select>
 
-				<!-- The agenda that gets exported is the one being viewed: the
+        <!-- The agenda that gets exported is the one being viewed: the
 				     same events that already went through the filters, **before**
 				     grouping. If someone passes \`groups\` here instead of
 				     \`visible\`, the .ics ends up with a single group and
 				     nothing catches it: the unit tests use their own data and the
 				     e2e only checks that a filter reduces things down to one
 				     VEVENT. -->
-				<planu-calendar-export
-					mode="agenda"
-					.events=${visible}
-				></planu-calendar-export>
-				<wa-button variant="brand" @click=${this.#onNew}>
-					${msg("New event")}
-				</wa-button>
-			</div>
+        <planu-calendar-export
+          mode="agenda"
+          .events=${visible}
+        ></planu-calendar-export>
+        <wa-button variant="brand" @click=${this.#onNew}>
+          ${msg("New event")}
+        </wa-button>
+      </div>
 
-			${this.#renderList(visible, all)}
+      ${this.#renderList(visible, all)}
 
-			<planu-event-editor
-				.knownTags=${knownTags}
-				.open=${this.editorOpen}
-				.event=${this.editing}
-				.draft=${this.draft}
-				.draftSource=${this.draftSource}
-				?isSample=${this.draftIsSample}
-				@planu-editor-close=${this.#onEditorClose}
-			></planu-event-editor>
-		`;
+      <planu-event-editor
+        .knownTags=${knownTags}
+        .open=${this.editorOpen}
+        .event=${this.editing}
+        .draft=${this.draft}
+        .draftSource=${this.draftSource}
+        ?isSample=${this.draftIsSample}
+        @planu-editor-close=${this.#onEditorClose}
+      ></planu-event-editor>
+    `;
 	}
 
 	#onEditorClose(): void {
@@ -303,8 +310,10 @@ export class PlanuEventsView extends LitElement {
 		// have any events yet", which is exactly the wrong conclusion.
 		if (this.eventsSnapshot?.status === "error") {
 			return html`<wa-callout variant="danger" role="alert">
-				${msg("Your events could not be loaded. Check your connection and reload.")}
-			</wa-callout>`;
+        ${msg(
+					"Your events could not be loaded. Check your connection and reload.",
+				)}
+      </wa-callout>`;
 		}
 
 		// `undefined` (context not published yet) and `"loading"` both mean
@@ -356,24 +365,24 @@ export class PlanuEventsView extends LitElement {
 			// `heading-level="2"` because the page's tree is h1 planu → h2
 			// group → h3 card, and the month takes the group's place.
 			return html`<planu-calendar-view
-				heading-level="2"
-				.events=${visible}
-				.sort=${this.sort}
-				.locale=${locale}
-			></planu-calendar-view>`;
+        heading-level="2"
+        .events=${visible}
+        .sort=${this.sort}
+        .locale=${locale}
+      ></planu-calendar-view>`;
 		}
 
 		if (this.view === "agenda") {
 			return html`<planu-agenda-view
-				.agenda=${buildAgenda(visible, { now, sort: this.sort, locale })}
-				?narrowed=${this.#narrowed}
-			></planu-agenda-view>`;
+        .agenda=${buildAgenda(visible, { now, sort: this.sort, locale })}
+        ?narrowed=${this.#narrowed}
+      ></planu-agenda-view>`;
 		}
 
 		return html`<planu-event-groups
-			.groups=${groupEvents(visible, { now, sort: this.sort, locale })}
-			?narrowed=${this.#narrowed}
-		></planu-event-groups>`;
+      .groups=${groupEvents(visible, { now, sort: this.sort, locale })}
+      ?narrowed=${this.#narrowed}
+    ></planu-event-groups>`;
 	}
 
 	/**
@@ -397,11 +406,11 @@ export class PlanuEventsView extends LitElement {
 
 	#renderSkeletons() {
 		return html`<div class="grid">
-			${Array.from(
+      ${Array.from(
 				{ length: 6 },
 				() => html`<wa-skeleton style="height: 12rem"></wa-skeleton>`,
 			)}
-		</div>`;
+    </div>`;
 	}
 
 	/**
@@ -410,17 +419,17 @@ export class PlanuEventsView extends LitElement {
 	 */
 	#renderEmpty(total: number) {
 		return html`<div class="empty">
-			${
+      ${
 				total > 0
 					? html`<p>${this.#emptyFilteredMessage()}</p>`
 					: html`<planu-empty-state
-							?aiAvailable=${this.aiAvailable}
-							@planu-create-event=${this.#onNew}
-							@planu-open-generator=${this.#onNew}
-							@planu-try-sample=${this.#onEmptySample}
-						></planu-empty-state>`
+            ?aiAvailable=${this.aiAvailable}
+            @planu-create-event=${this.#onNew}
+            @planu-open-generator=${this.#onNew}
+            @planu-try-sample=${this.#onEmptySample}
+          ></planu-empty-state>`
 			}
-		</div>`;
+    </div>`;
 	}
 
 	/**
