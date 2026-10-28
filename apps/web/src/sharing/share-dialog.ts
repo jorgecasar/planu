@@ -12,16 +12,6 @@ import "@awesome.me/webawesome/dist/components/select/select.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import {
-	collection,
-	type DocumentData,
-	doc,
-	type Firestore,
-	getDocs,
-	query,
-	updateDoc,
-	where,
-} from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
@@ -30,15 +20,13 @@ import {
 	noopAnalytics,
 } from "../application/ports/analytics.js";
 import type { SessionUser } from "../application/ports/session.js";
-import { firestoreContext, userContext } from "../firebase/context.js";
-import type { EventRole, StoredEvent } from "../lib/types.js";
 import {
-	INVITES_COLLECTION,
-	inviteToEvent,
-	revokeInvite,
-} from "./invitations.js";
+	type SharingPort,
+	sharingContext,
+} from "../application/ports/sharing.js";
+import { userContext } from "../firebase/context.js";
+import type { EventRole, StoredEvent } from "../lib/types.js";
 import { canManageMembers } from "./permissions.js";
-import { findProfiles, findUserByEmail } from "./user-directory.js";
 
 /** Matches the cap in firestore.rules. */
 const MAX_GUESTS = 20;
@@ -170,8 +158,8 @@ export class PlanuShareDialog extends LitElement {
 
 	@property({ attribute: false }) event!: StoredEvent;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
+	@consume({ context: sharingContext, subscribe: true })
+	private sharing: SharingPort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -215,8 +203,8 @@ export class PlanuShareDialog extends LitElement {
 	 * readable anyway.
 	 */
 	async #load(): Promise<void> {
-		const { firestore, event, user } = this;
-		if (!firestore || !event || !user) {
+		const { sharing, event, user } = this;
+		if (!sharing || !event || !user) {
 			// Or the dialog sits on "Loading…" forever when it opens before the
 			// contexts have arrived.
 			this.loading = false;
@@ -232,34 +220,18 @@ export class PlanuShareDialog extends LitElement {
 		// accepted one would otherwise show its person twice, once as a
 		// member and once as a stale offer, and a declined one would keep
 		// offering "cancel" on something already answered.
-		const pending = await getDocs(
-			query(
-				collection(firestore, INVITES_COLLECTION),
-				where("invitedBy", "==", user.uid),
-				where("eventId", "==", event.id),
-				where("status", "==", "pending"),
-			),
-		).catch(() => null);
+		const invited = await sharing
+			.listPendingInvites(event.id, user.uid)
+			.catch(() => null);
 
 		// Swallowing this left the owner looking at a list with no pending
 		// invitations in it and no hint that any were missing — and that list is
 		// what they decide who to remove from.
-		this.incomplete = pending === null;
+		this.incomplete = invited === null;
 
-		const invited = (pending?.docs ?? []).map((row) => {
-			const data = row.data() as DocumentData;
-			return {
-				id: row.id,
-				eventId: String(data["eventId"] ?? ""),
-				inviteeUid: String(data["inviteeUid"] ?? ""),
-				inviteeEmail: String(data["inviteeEmail"] ?? ""),
-				role: (data["role"] === "editor" ? "editor" : "viewer") as EventRole,
-			};
-		});
-
-		const profiles = await findProfiles(firestore, [
+		const profiles = await sharing.findProfiles([
 			...memberUids,
-			...invited.map((row) => row.inviteeUid),
+			...(invited ?? []).map((row) => row.inviteeUid),
 		]);
 
 		const named = (uid: string) =>
@@ -281,7 +253,7 @@ export class PlanuShareDialog extends LitElement {
 				photoURL: profiles.get(uid)?.photoURL ?? "",
 				pending: false,
 			})),
-			...invited.map((row) => ({
+			...(invited ?? []).map((row) => ({
 				key: row.id,
 				uid: row.inviteeUid,
 				role: row.role,
@@ -472,8 +444,8 @@ export class PlanuShareDialog extends LitElement {
 	async #onInvite(domEvent: SubmitEvent): Promise<void> {
 		domEvent.preventDefault();
 
-		const { firestore, event, user } = this;
-		if (!firestore || !event || !user || this.busy) return;
+		const { sharing, event, user } = this;
+		if (!sharing || !event || !user || this.busy) return;
 
 		// Captured before any await: by the time the write resolves Lit has
 		// re-rendered, `domEvent.target` is null, and calling reset() on it threw
@@ -488,7 +460,7 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.busy = true;
 		try {
-			const invited = await findUserByEmail(firestore, email);
+			const invited = await sharing.findUserByEmail(email);
 
 			// With no account there is no uid to invite, and storing the
 			// invitation to apply when they sign up would need a backend.
@@ -523,7 +495,7 @@ export class PlanuShareDialog extends LitElement {
 
 			// An offer, not a membership. They join when they accept; until then
 			// nothing of this event reaches them.
-			await inviteToEvent(firestore, {
+			await sharing.inviteToEvent({
 				eventId: event.id,
 				eventTitle: event.title,
 				inviteeUid: invited.uid,
@@ -562,14 +534,14 @@ export class PlanuShareDialog extends LitElement {
 			return;
 		}
 
-		const { firestore } = this;
-		if (!firestore || this.busy) return;
+		const { sharing } = this;
+		if (!sharing || this.busy) return;
 
 		this.error = "";
 		this.notice = "";
 		this.busy = true;
 		try {
-			await updateDoc(doc(firestore, INVITES_COLLECTION, person.key), { role });
+			await sharing.changeInviteRole(person.key, role);
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
@@ -591,14 +563,14 @@ export class PlanuShareDialog extends LitElement {
 	}
 
 	async #cancelInvite(person: Person): Promise<void> {
-		const { firestore } = this;
-		if (!firestore || this.busy) return;
+		const { sharing } = this;
+		if (!sharing || this.busy) return;
 
 		this.error = "";
 		this.notice = "";
 		this.busy = true;
 		try {
-			await revokeInvite(firestore, { id: person.key });
+			await sharing.revokeInvite(person.key);
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
@@ -611,14 +583,14 @@ export class PlanuShareDialog extends LitElement {
 		memberIds: string[];
 		roles: Record<string, EventRole>;
 	}): Promise<void> {
-		const { firestore, event } = this;
-		if (!firestore || !event || this.busy) return;
+		const { sharing, event } = this;
+		if (!sharing || !event || this.busy) return;
 
 		this.error = "";
 		this.notice = "";
 		this.busy = true;
 		try {
-			await updateDoc(doc(firestore, "events", event.id), membership);
+			await sharing.updateEventMembership(event.id, membership);
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {

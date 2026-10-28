@@ -74,11 +74,8 @@
 				"apps/web/src/firebase/**",
 				"apps/web/src/infrastructure/firebase/**",
 				"apps/web/src/observability/index.ts",
-				"apps/web/src/profile/profile-view.ts",
 				"apps/web/src/sharing/invitations-inbox.ts",
-				"apps/web/src/sharing/invitations.ts",
-				"apps/web/src/sharing/share-dialog.ts",
-				"apps/web/src/sharing/user-directory.ts"
+				"apps/web/src/sharing/invitations.ts"
 			],
 			"linter": {
 				"rules": {
