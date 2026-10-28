@@ -361,17 +361,24 @@ export class PlanuProfileView extends LitElement {
 	 */
 	async #onCheck(): Promise<void> {
 		const { session, sharing } = this;
-		if (!session || this.checking) return;
+		if (!session || !sharing || this.checking) return;
 
 		this.checking = true;
 		try {
 			const refreshed = await session.refreshEmailVerification();
 			if (!refreshed?.emailVerified) return;
 
-			// Manual assignment, not a new arrival via context: `@consume`
+			await sharing.publishDirectoryEntry(refreshed);
+			// Assigned only once the directory write actually succeeded, not as
+			// soon as `refreshed.emailVerified` is true: `#renderVerificationNotice`
+			// hides the notice the moment `user.emailVerified` flips, and it is the
+			// only way back into this method. Assigning earlier — as this used to
+			// do — hid the notice even when `publishDirectoryEntry` above failed
+			// (confirmed against production: a verified account with a stale ID
+			// token got no directory entry, and no way to retry short of signing
+			// out). Manual assignment, not a new arrival via context: `@consume`
 			// doesn't intercept it, so the update has to be requested by hand.
 			this.user = refreshed;
-			await (sharing as SharingPort).publishDirectoryEntry(refreshed);
 			this.requestUpdate();
 		} catch {
 			// Nothing the user can act on: the notice stays put and the button can
