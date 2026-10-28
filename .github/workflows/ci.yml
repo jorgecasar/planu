@@ -174,3 +174,18 @@ jobs:
             echo "intento $i: $code en $url"; sleep 6
           done
           echo "::error::producción no sirve la aplicación tras el despliegue"; exit 1
+
+      # Comprueba que producción sirve las cabeceras que pide firebase.json; el
+      # test de `test:arch` sólo puede vigilar el fichero, no lo que sirve
+      # Hosting. Va el último y con `continue-on-error`: el despliegue ya está
+      # hecho, así que este paso sólo avisa y nunca marca el job en rojo.
+      - name: Comprobar cabeceras de seguridad en producción
+        continue-on-error: true
+        run: |
+          curl -sIL https://planu-app.web.app/app > /tmp/headers.txt
+          for h in content-security-policy x-frame-options referrer-policy permissions-policy; do
+            grep -qi "^$h:" /tmp/headers.txt || { echo "::warning::falta la cabecera $h en producción"; falta=1; }
+          done
+          grep -i "^content-security-policy:" /tmp/headers.txt | grep -q "frame-ancestors 'none'" \
+            || { echo "::warning::la CSP de producción no lleva frame-ancestors 'none'"; falta=1; }
+          exit ${falta:-0}
