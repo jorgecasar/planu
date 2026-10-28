@@ -2,6 +2,13 @@ import { expect, test } from "vitest";
 import { emailHash } from "./user-directory.js";
 
 /**
+ * `emailHash()` is the only logic left in this file — everything that
+ * touches Firestore moved to `infrastructure/firebase/sharing-adapter.ts`
+ * (`SharingPort`). This needs no mock at all: it is pure, and testing it
+ * directly is exactly the point of pulling it out of the adapter.
+ */
+
+/**
  * The expected values are SHA-256 digests computed outside the application.
  * They have to match what `hashing.sha256()` produces in the Firestore rules:
  * if the two ever diverge, nobody can find anybody by email.

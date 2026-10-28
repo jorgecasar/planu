@@ -7,10 +7,13 @@
  * their email.
  *
  * See docs/adr/0007-client-side-user-directory.md.
+ *
+ * The Firestore reads and writes that actually publish and look up
+ * directory entries live in `infrastructure/firebase/sharing-adapter.ts`
+ * (`SharingPort`), not here: this file keeps only what has no reason to touch
+ * Firebase at all — the hash, and the collection names both the adapter and
+ * `account-data-adapter.ts` need to agree on.
  */
-
-import { doc, type Firestore, getDoc, setDoc } from "firebase/firestore";
-import type { SessionUser } from "../application/ports/session.js";
 
 export const DIRECTORY_COLLECTION = "userDirectory";
 
@@ -25,19 +28,6 @@ export const DIRECTORY_COLLECTION = "userDirectory";
  * your address.
  */
 export const PROFILES_COLLECTION = "userProfiles";
-
-/** What is published about each user. Nothing else: the rule enforces it. */
-export interface DirectoryEntry {
-	uid: string;
-	displayName: string;
-	photoURL: string;
-}
-
-/** How a guest is shown in the list. */
-export interface PublicProfile {
-	displayName: string;
-	photoURL: string;
-}
 
 /**
  * SHA-256, hex, of the normalised email.
@@ -59,83 +49,4 @@ export async function emailHash(email: string): Promise<string> {
 	return Array.from(new Uint8Array(digest))
 		.map((byte) => byte.toString(16).padStart(2, "0"))
 		.join("");
-}
-
-/**
- * Publishes or refreshes the current user's entry.
- *
- * **Only if their email is verified.** Firebase Auth happily lets anyone
- * register with any address, so without this condition signing up with someone
- * else's email would be enough to collect their invitations. The rule enforces
- * it anyway; this just avoids a write that was going to bounce.
- */
-export async function publishDirectoryEntry(
-	firestore: Firestore,
-	user: SessionUser,
-): Promise<void> {
-	if (!user.email || !user.emailVerified) return;
-
-	const entry: DirectoryEntry = {
-		uid: user.uid,
-		displayName: user.displayName ?? "",
-		photoURL: user.photoURL ?? "",
-	};
-
-	await Promise.all([
-		setDoc(
-			doc(firestore, DIRECTORY_COLLECTION, await emailHash(user.email)),
-			entry,
-		),
-		setDoc(doc(firestore, PROFILES_COLLECTION, user.uid), {
-			displayName: entry.displayName,
-			photoURL: entry.photoURL,
-		}),
-	]);
-}
-
-/**
- * Finds who an email belongs to, or `null` if they have no account.
- *
- * A `get` by exact id, never a query: the rule forbids listing the collection,
- * which is what separates checking an address you already know from
- * downloading the whole census.
- */
-export async function findUserByEmail(
-	firestore: Firestore,
-	email: string,
-): Promise<DirectoryEntry | null> {
-	const snapshot = await getDoc(
-		doc(firestore, DIRECTORY_COLLECTION, await emailHash(email)),
-	);
-
-	return snapshot.exists() ? (snapshot.data() as DirectoryEntry) : null;
-}
-
-/**
- * How to display each of these uids.
- *
- * One `get` each rather than a query, because listing is closed. With the cap
- * of 20 guests per event that is at most 21 reads, and only when the share
- * dialog opens.
- *
- * A uid with no published profile is not an error: it is someone who has not
- * signed in again since the directory existed.
- */
-export async function findProfiles(
-	firestore: Firestore,
-	uids: readonly string[],
-): Promise<Map<string, PublicProfile>> {
-	const entries = await Promise.all(
-		uids.map(async (uid) => {
-			const snapshot = await getDoc(
-				doc(firestore, PROFILES_COLLECTION, uid),
-			).catch(() => null);
-
-			return snapshot?.exists()
-				? ([uid, snapshot.data() as PublicProfile] as const)
-				: null;
-		}),
-	);
-
-	return new Map(entries.filter((entry) => entry !== null));
 }
