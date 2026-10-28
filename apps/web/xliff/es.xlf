@@ -350,10 +350,6 @@
   <source>Only you, for now.</source>
         <target>Sólo tú, por ahora.</target>
 </trans-unit>
-<trans-unit id="secb1f12272712f35">
-  <source>Nobody with that email has an account yet. Ask them to sign up first.</source>
-        <target>Nadie con ese correo tiene cuenta todavía. Pídele que se registre primero.</target>
-</trans-unit>
 <trans-unit id="sc44766eb10f803fe">
   <source>You already own this event.</source>
         <target>Este evento ya es tuyo.</target>

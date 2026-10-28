@@ -460,26 +460,25 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.busy = true;
 		try {
+			// A rejection here — permission-denied, offline — is a real failure
+			// and falls straight to the `catch` below. Only a resolved `null`
+			// means "no account for this email", and that is not an error: it
+			// takes the pending-by-email path further down, ending in the exact
+			// same success message as inviting a known uid. Telling either of
+			// them apart from a genuine failure is deliberate: see
+			// `SharingPort.findUserByEmail`'s own doc comment.
 			const invited = await sharing.findUserByEmail(email);
 
-			// With no account there is no uid to invite, and storing the
-			// invitation to apply when they sign up would need a backend.
-			// See ADR 0007.
-			if (!invited) {
-				this.error = msg(
-					"Nobody with that email has an account yet. Ask them to sign up first.",
-				);
-				return;
-			}
+			if (invited) {
+				if (invited.uid === event.userId) {
+					this.error = msg("You already own this event.");
+					return;
+				}
 
-			if (invited.uid === event.userId) {
-				this.error = msg("You already own this event.");
-				return;
-			}
-
-			if (event.memberIds?.includes(invited.uid)) {
-				this.error = msg("That person is already in this event.");
-				return;
+				if (event.memberIds?.includes(invited.uid)) {
+					this.error = msg("That person is already in this event.");
+					return;
+				}
 			}
 
 			// Counting members alone oversubscribes: with 19 guests and 5 live
@@ -493,17 +492,34 @@ export class PlanuShareDialog extends LitElement {
 				return;
 			}
 
-			// An offer, not a membership. They join when they accept; until then
-			// nothing of this event reaches them.
-			await sharing.inviteToEvent({
-				eventId: event.id,
-				eventTitle: event.title,
-				inviteeUid: invited.uid,
-				inviteeEmail: email,
-				invitedBy: user.uid,
-				invitedByName: user.displayName ?? "",
-				role,
-			});
+			if (invited) {
+				// An offer, not a membership. They join when they accept; until
+				// then nothing of this event reaches them.
+				await sharing.inviteToEvent({
+					eventId: event.id,
+					eventTitle: event.title,
+					inviteeUid: invited.uid,
+					inviteeEmail: email,
+					invitedBy: user.uid,
+					invitedByName: user.displayName ?? "",
+					role,
+				});
+			} else {
+				// No account for this email yet. The offer is not lost: it is
+				// parked by email instead of by uid, and resolves on its own if
+				// that address ever registers and verifies — see
+				// `SharingPort.offerInviteByEmail`'s own doc comment. Whether an
+				// account exists must not be observable from here, so this ends in
+				// exactly the same success message as the branch above.
+				await sharing.offerInviteByEmail({
+					eventId: event.id,
+					eventTitle: event.title,
+					inviteeEmail: email,
+					invitedBy: user.uid,
+					invitedByName: user.displayName ?? "",
+					role,
+				});
+			}
 		} catch {
 			this.error = msg("The invitation could not be saved. Please try again.");
 			return;

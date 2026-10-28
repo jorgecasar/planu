@@ -13,6 +13,10 @@ import type { PlanuProfileView } from "./profile-view.js";
  * as `session` below, rather than mocking a module.
  */
 const publishDirectoryEntryMock = vi.fn();
+// T63's `claimPendingInvitesByEmail`, called right after `publishDirectoryEntry`
+// with its own silent `.catch(() => {})` — resolved by default so it never
+// interferes with what these tests are actually about.
+const claimPendingInvitesByEmailMock = vi.fn().mockResolvedValue(undefined);
 
 function fakeSharing(): SharingPort {
 	return {
@@ -20,10 +24,12 @@ function fakeSharing(): SharingPort {
 		findProfiles: vi.fn(),
 		listPendingInvites: vi.fn(),
 		inviteToEvent: vi.fn(),
+		offerInviteByEmail: vi.fn(),
 		changeInviteRole: vi.fn(),
 		revokeInvite: vi.fn(),
 		updateEventMembership: vi.fn(),
 		publishDirectoryEntry: publishDirectoryEntryMock,
+		claimPendingInvitesByEmail: claimPendingInvitesByEmailMock,
 	};
 }
 
@@ -117,12 +123,16 @@ test("cuenta sin verificar: se ve el aviso con el botón de comprobar", async ()
 
 test("publicación con éxito: el aviso desaparece", async () => {
 	publishDirectoryEntryMock.mockReset().mockResolvedValue(undefined);
+	claimPendingInvitesByEmailMock.mockClear();
 	const el = await mount(UNVERIFIED_USER, fakeSession(VERIFIED_USER));
 
 	checkButton(el).click();
 	await settle(el);
 
 	expect(publishDirectoryEntryMock).toHaveBeenCalledWith(VERIFIED_USER);
+	// Same trigger claims pending-by-email offers too, immediately after —
+	// see the call site's own comment in `#onCheck`.
+	expect(claimPendingInvitesByEmailMock).toHaveBeenCalledWith(VERIFIED_USER);
 	expect(notice(el)).toBeNull();
 
 	el.remove();

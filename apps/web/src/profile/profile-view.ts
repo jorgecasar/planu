@@ -69,9 +69,9 @@ export class PlanuProfileView extends LitElement {
 	@state() private checking = false;
 
 	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
-	// just below — this already-coupled component's directory-publishing call
-	// goes through a port now, built once at the composition root
-	// (`firebase-provider.ts`).
+	// just below — this already-coupled component's directory-publishing and
+	// pending-invite-claiming calls go through a port now, built once at the
+	// composition root (`firebase-provider.ts`).
 	@consume({ context: sharingContext, subscribe: true })
 	private sharing: SharingPort | undefined;
 
@@ -369,6 +369,12 @@ export class PlanuProfileView extends LitElement {
 			if (!refreshed?.emailVerified) return;
 
 			await sharing.publishDirectoryEntry(refreshed);
+			// Same two call sites as publishDirectoryEntry, deliberately: whatever
+			// makes someone invitable is exactly what makes a pending-by-email
+			// offer of theirs resolvable, and duplicating the trigger would just
+			// be a second thing that could go out of sync with the first.
+			await sharing.claimPendingInvitesByEmail(refreshed).catch(() => {});
+
 			// Assigned only once the directory write actually succeeded, not as
 			// soon as `refreshed.emailVerified` is true: `#renderVerificationNotice`
 			// hides the notice the moment `user.emailVerified` flips, and it is the

@@ -252,7 +252,6 @@ export const templates = {
 	se84761ef4e88c526: str`Acceso de ${0}`,
 	se94303bde777815d: `Tus eventos son tuyos. Nadie más los ve a menos que los invites explícitamente — y tú eliges su rol: espectador o editor.`,
 	seaad776112c86909: `Sube un cartel, folleto o captura. La IA extrae título, fecha, ubicación y descripción. Revisas, editas si hace falta y guardas.`,
-	secb1f12272712f35: `Nadie con ese correo tiene cuenta todavía. Pídele que se registre primero.`,
 	sed2237125cb33b63: `Esta página es una descripción honesta de lo que hace el producto, escrita por quienes lo construyeron — no un abogado, ni un sustituto de uno.`,
 	sed414e6f28289512: `Podemos cambiar estos términos según cambie el producto. Los cambios relevantes se reflejarán en esta página con una fecha actualizada arriba.`,
 	see2fcaedf9743ec6: `Ubicación`,

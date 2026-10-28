@@ -332,7 +332,14 @@ test("a guest can leave the event", async ({ page, browser }) => {
 	await guestPage.context().close();
 });
 
-test("cannot invite someone without an account", async ({ page }) => {
+test("inviting an email with no account still succeeds, with no hint that it has none (T64)", async ({
+	page,
+}) => {
+	// This used to answer "Nobody with that email has an account yet" —
+	// exactly the "does this address exist" oracle ADR 0007 already flagged
+	// as a known leak. T64 closes it: the offer is parked by email instead
+	// of by uid (`eventInvitesByEmail`), and the owner sees the same success
+	// message either way.
 	const owner = newEmail();
 	const title_ = newTitle("Evento");
 	await createVerifiedAccount(page, owner);
@@ -343,11 +350,12 @@ test("cannot invite someone without an account", async ({ page }) => {
 	await page.getByLabel("Invite by email").fill("nadie@example.com");
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 
+	await expect(page.getByText("Invitation sent.")).toBeVisible();
 	await expect(
 		page.getByText("Nobody with that email has an account yet.", {
 			exact: false,
 		}),
-	).toBeVisible();
+	).toHaveCount(0);
 });
 
 test("the share dialog has no accessibility violations", async ({ page }) => {

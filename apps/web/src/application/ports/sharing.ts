@@ -10,7 +10,7 @@ import type { SessionUser } from "./session.js";
  *
  * Not a general events port: like `AccountDataPort`, it is deliberately
  * narrow — one component and its two triggers, not every operation the
- * `userDirectory`/`userProfiles`/`eventInvites` collections could ever
+ * `userDirectory`/`userProfiles`/`eventInvites*` collections could ever
  * support. Widening it the day another use case needs more is fine; not
  * before.
  */
@@ -37,7 +37,7 @@ export interface PendingInviteSummary {
 	role: EventRole;
 }
 
-/** What it takes to offer an event to someone with an account. */
+/** What it takes to offer an event to a known uid, or to an email with none yet. */
 export interface InviteOffer {
 	eventId: string;
 	eventTitle: string;
@@ -51,9 +51,11 @@ export interface SharingPort {
 	/**
 	 * Finds who an email belongs to, or `null` if they have no account.
 	 *
-	 * `null` means the lookup succeeded and found nothing. A rejected promise
-	 * means the lookup itself failed and must not be mistaken for "no
-	 * account"; see `share-dialog.ts`'s `#onInvite`, the only caller.
+	 * `null` means the lookup succeeded and found nothing — the caller offers
+	 * a pending-by-email invitation instead. A rejected promise means the
+	 * lookup itself failed and must not be mistaken for "no account"; see
+	 * `share-dialog.ts`'s `#onInvite`, the only caller that has to tell the
+	 * two apart.
 	 */
 	findUserByEmail(email: string): Promise<DirectoryEntry | null>;
 
@@ -69,6 +71,9 @@ export interface SharingPort {
 	/** Offers the event to a known uid, or edits an existing pending offer. */
 	inviteToEvent(invite: InviteOffer & { inviteeUid: string }): Promise<void>;
 
+	/** The twin of `inviteToEvent`, for an email with no account yet. */
+	offerInviteByEmail(offer: InviteOffer): Promise<void>;
+
 	/** Changes the role on a pending invitation nobody has decided yet. */
 	changeInviteRole(id: string, role: EventRole): Promise<void>;
 
@@ -83,6 +88,16 @@ export interface SharingPort {
 
 	/** Publishes or refreshes the current user's directory entry. */
 	publishDirectoryEntry(user: SessionUser): Promise<void>;
+
+	/**
+	 * Turns pending-by-email offers into normal invitations, for the
+	 * `eventId`s the caller names. See `sharing-adapter.ts`'s own doc comment
+	 * for why `candidateEventIds` defaults to empty at both real call sites.
+	 */
+	claimPendingInvitesByEmail(
+		user: SessionUser,
+		candidateEventIds?: readonly string[],
+	): Promise<void>;
 }
 
 /**

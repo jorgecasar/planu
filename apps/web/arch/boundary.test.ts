@@ -185,23 +185,31 @@ const importaFirebase = (fichero: string): boolean =>
  * `share-dialog.ts` and `user-directory.ts` — and adds two under
  * `infrastructure/firebase/**`, net -1, from 29 to 28.
  *
- * A new `SharingPort` (`application/ports/sharing.ts`) covers everything
- * `share-dialog.ts` and the directory's two triggers need — lookups,
- * inviting by uid, listing and revoking invitations, changing a guest's
- * role, rewriting event membership and publishing the directory entry —
- * implemented by `infrastructure/firebase/sharing-adapter.ts`, with no
- * change in behaviour. `user-directory.ts` sheds every Firestore call and
- * keeps only `emailHash()` and the two collection name constants, all pure;
- * `share-dialog.ts` drops `firebase/firestore` entirely in favour of
- * `@consume`. `profile-view.ts` loses its own `firebase/firestore` import as
- * a direct consequence — its only remaining reason for being on this list
- * was publishing to the directory, and that now goes through the same port —
- * so it comes off too, required by the "no exime ningún fichero que no
- * importe Firebase" assertion below. Net two new files under
+ * A code review of `feat/email-verification-and-invites` found
+ * `share-dialog.ts` and `user-directory.ts` already on this list from before
+ * that branch, and that branch's own new logic —
+ * `offerInviteByEmail`, `claimPendingInvitesByEmail`, the `#onInvite`
+ * no-account path — landed straight into both without ever putting them
+ * behind a port, the exact thing this list exists to make visible instead
+ * of silent. The `SharingPort` migration fixes that, after the fact: a new `SharingPort`
+ * (`application/ports/sharing.ts`) covers everything `share-dialog.ts` and
+ * the directory's two triggers need — lookups, inviting by uid or by email,
+ * listing and revoking invitations, changing a guest's role, rewriting
+ * event membership, publishing the directory entry and claiming
+ * pending-by-email offers — implemented by
+ * `infrastructure/firebase/sharing-adapter.ts`. `user-directory.ts` sheds
+ * every Firestore call and keeps only `emailHash()` and the three
+ * collection name constants, all pure; `share-dialog.ts` drops
+ * `firebase/firestore` entirely in favour of `@consume`. `profile-view.ts`
+ * loses its own `firebase/firestore` import as a direct consequence — its
+ * only remaining reason for being on this list was publishing to the
+ * directory, and that now goes through the same port — so it comes off too,
+ * unprompted by the task but required by the "no exime ningún fichero que
+ * no importe Firebase" assertion below. Net two new files under
  * `infrastructure/firebase/**` (the adapter and its test, which — like
- * `publishDirectoryEntry`'s real decision logic — earns a unit test the way
- * `account-data-adapter.ts`'s thinner wrappers did not) against three
- * freed, for -1 overall.
+ * `publishDirectoryEntry`/`claimPendingInvitesByEmail`'s real decision
+ * logic — earns a unit test the way `account-data-adapter.ts`'s thinner
+ * wrappers did not) against three freed, for -1 overall.
  */
 const TOPE_ACOPLADOS = 28;
 

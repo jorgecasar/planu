@@ -317,6 +317,11 @@ export class PlanuFirebaseProvider extends LitElement {
 			// never caught the shortcut until this one didn't.
 			const sessionUser = toSessionUser(user);
 			await sharing.publishDirectoryEntry(sessionUser).catch(() => {});
+			// Same two call sites as publishDirectoryEntry, deliberately: whatever
+			// makes someone invitable is exactly what makes a pending-by-email
+			// offer of theirs resolvable, and duplicating the trigger would just
+			// be a second thing that could go out of sync with the first.
+			await sharing.claimPendingInvitesByEmail(sessionUser).catch(() => {});
 		} catch {
 			this.dispatchEvent(
 				new CustomEvent("planu-data-services-failed", {

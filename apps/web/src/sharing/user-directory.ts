@@ -8,7 +8,7 @@
  *
  * See docs/adr/0007-client-side-user-directory.md.
  *
- * The Firestore reads and writes that actually publish and look up
+ * The Firestore reads and writes that actually publish, look up and claim
  * directory entries live in `infrastructure/firebase/sharing-adapter.ts`
  * (`SharingPort`), not here: this file keeps only what has no reason to touch
  * Firebase at all — the hash, and the collection names both the adapter and
@@ -28,6 +28,17 @@ export const DIRECTORY_COLLECTION = "userDirectory";
  * your address.
  */
 export const PROFILES_COLLECTION = "userProfiles";
+
+/**
+ * Pending offers made to an email with no account yet — see
+ * `eventInvitesByEmail` in `firestore.rules`, added in T62. The id is
+ * deterministic, `eventId + '_' + emailHash(inviteeEmail)`, so the invitee
+ * reaches a document only by a `get()` at that exact id. An unfiltered `list`
+ * is denied on purpose, the same census {@link DIRECTORY_COLLECTION} closes;
+ * only the owner's own `invitedBy` query passes, and the invitee still cannot
+ * list.
+ */
+export const PENDING_INVITES_BY_EMAIL_COLLECTION = "eventInvitesByEmail";
 
 /**
  * SHA-256, hex, of the normalised email.
