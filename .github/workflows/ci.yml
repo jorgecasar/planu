@@ -98,6 +98,55 @@ jobs:
           path: vmstat.log
           retention-days: 7
 
+  # Informativo, no es una puerta: `continue-on-error` hace que su fallo no
+  # marque el workflow en rojo, y `deploy` no depende de él (sólo de `verify`).
+  # Vuelve para medir el cuelgue intermitente en `/app/login` con trazas en la
+  # mano en vez de a ciegas; ver docs/spec-ci-e2e-reliability.md. Cuando la
+  # suite sea fiable, se quita `continue-on-error` y se añade a `needs` de
+  # `deploy`.
+  e2e:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+
+    env:
+      VITE_FIREBASE_API_KEY: demo-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: planu-app.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: planu-app
+      VITE_FIREBASE_STORAGE_BUCKET: planu-app.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      VITE_FIREBASE_APP_ID: 1:000000000000:web:0000000000000000000000
+      VITE_AI_CLOUD_FALLBACK: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # `--trace retain-on-failure` sólo aquí: con `retries: 0` la opción del
+      # config (`on-first-retry`) no graba nunca nada.
+      - name: Tests e2e con emuladores
+        run: |
+          npx firebase emulators:exec --project planu-app \
+            --only auth,firestore,storage \
+            "npm run test:e2e --workspace @planu/web -- --trace retain-on-failure"
+
+      - name: Trazas de Playwright si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
