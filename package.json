@@ -30,7 +30,7 @@
 		"test:arch": "npm run test:arch --workspace @planu/web"
 	},
 	"engines": {
-		"node": ">=20"
+		"node": ">=24"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.6",
