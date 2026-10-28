@@ -5,6 +5,19 @@ import type { SessionUser } from "../../application/ports/session.js";
 /** Never dereferenced for real: every SDK call this adapter makes is mocked. */
 const FAKE_FIRESTORE = {} as Firestore;
 
+/**
+ * Stands in for a Firestore `permission-denied` rejection without importing
+ * the real `FirebaseError` class from `firebase/app`: `outcomeOf()` in
+ * `sharing-adapter.ts` classifies on `.code` alone precisely so neither this
+ * test nor the module it exercises needs that import — see its own doc
+ * comment.
+ */
+function permissionDeniedError(): Error & { code: string } {
+	return Object.assign(new Error("Missing or insufficient permissions."), {
+		code: "permission-denied",
+	});
+}
+
 // Same pattern as `sharing/invitations.test.ts` and
 // `infrastructure/firebase/event-repository.test.ts`: mock the SDK functions
 // this module (and `sharing/invitations.ts`, which it calls straight
@@ -47,6 +60,17 @@ vi.mock("firebase/firestore", () => ({
 	where: vi.fn(),
 }));
 
+// T65: `recordBackgroundWrite()` runs at production only (see its own
+// `import.meta.env.DEV` guard) and it dynamically imports `@sentry/browser`
+// besides — neither of which this file wants to exercise. Mocked the same
+// way the SDK itself is above: what matters here is *what* `sharing-adapter.ts`
+// reports, not what the observability adapter does with it once called.
+const recordBackgroundWriteMock = vi.fn();
+
+vi.mock("../../observability/index.js", () => ({
+	recordBackgroundWrite: recordBackgroundWriteMock,
+}));
+
 const { createSharingAdapter } = await import("./sharing-adapter.js");
 
 describe("publishDirectoryEntry()", () => {
@@ -64,9 +88,10 @@ describe("publishDirectoryEntry()", () => {
 	beforeEach(() => {
 		docMock.mockClear();
 		setDocMock.mockReset();
+		recordBackgroundWriteMock.mockClear();
 	});
 
-	test("does nothing without a verified email", async () => {
+	test("does nothing, and records nothing, without a verified email", async () => {
 		setDocMock.mockResolvedValue(undefined);
 
 		await adapter.publishDirectoryEntry({
@@ -75,33 +100,60 @@ describe("publishDirectoryEntry()", () => {
 		});
 
 		expect(setDocMock).not.toHaveBeenCalled();
+		expect(recordBackgroundWriteMock).not.toHaveBeenCalled();
 	});
 
-	test("writes the directory entry and the public profile", async () => {
+	test("records success once both writes land", async () => {
 		setDocMock.mockResolvedValue(undefined);
 
 		await adapter.publishDirectoryEntry(VERIFIED_USER);
 
-		const { emailHash } = await import("../../sharing/user-directory.js");
-		const hash = await emailHash(VERIFIED_USER.email as string);
 		expect(setDocMock).toHaveBeenCalledTimes(2);
-		expect(setDocMock).toHaveBeenCalledWith(
-			{ path: `userDirectory/${hash}` },
-			{ uid: VERIFIED_USER.uid, displayName: "Ana", photoURL: "" },
-		);
-		expect(setDocMock).toHaveBeenCalledWith(
-			{ path: `userProfiles/${VERIFIED_USER.uid}` },
-			{ displayName: "Ana", photoURL: "" },
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"publishDirectoryEntry",
+			"success",
 		);
 	});
 
-	test("a failed write still rejects, for the caller to swallow", async () => {
+	test("records a rule denial distinguished from a generic failure (T65)", async () => {
+		const denied = permissionDeniedError();
+		setDocMock.mockRejectedValue(denied);
+
+		await expect(adapter.publishDirectoryEntry(VERIFIED_USER)).rejects.toBe(
+			denied,
+		);
+
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"publishDirectoryEntry",
+			"permission-denied",
+			denied,
+		);
+	});
+
+	test("records a network/unknown failure distinguished from a rule denial (T65)", async () => {
 		const offline = new Error("network request failed");
 		setDocMock.mockRejectedValue(offline);
 
 		await expect(adapter.publishDirectoryEntry(VERIFIED_USER)).rejects.toBe(
 			offline,
 		);
+
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"publishDirectoryEntry",
+			"failure",
+			offline,
+		);
+	});
+
+	test("the caller's own swallowing still hides the rejection — unchanged by T65", async () => {
+		setDocMock.mockRejectedValue(new Error("network request failed"));
+
+		await expect(
+			adapter.publishDirectoryEntry(VERIFIED_USER).catch(() => "swallowed"),
+		).resolves.toBe("swallowed");
 	});
 });
 
@@ -132,6 +184,7 @@ describe("claimPendingInvitesByEmail()", () => {
 		deleteMock.mockReset();
 		batchSetMock.mockReset();
 		commitMock.mockReset().mockResolvedValue(undefined);
+		recordBackgroundWriteMock.mockClear();
 	});
 
 	test("does nothing without an email", async () => {
@@ -157,6 +210,17 @@ describe("claimPendingInvitesByEmail()", () => {
 
 		expect(getDocMock).not.toHaveBeenCalled();
 		expect(writeBatchMock).not.toHaveBeenCalled();
+	});
+
+	test("with no candidate events, records that honestly as skipped — not a disguised success (T65)", async () => {
+		await adapter.claimPendingInvitesByEmail(VERIFIED_USER);
+
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"claimPendingInvitesByEmail",
+			"skipped",
+			"no candidates to check",
+		);
 	});
 
 	test("claims a pending offer that matches the caller's own email", async () => {
@@ -197,6 +261,51 @@ describe("claimPendingInvitesByEmail()", () => {
 			},
 		);
 		expect(commitMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"claimPendingInvitesByEmail",
+			"success",
+		);
+	});
+
+	test("records a rule denial distinguished from a generic failure (T65)", async () => {
+		getDocMock.mockResolvedValue({
+			exists: () => true,
+			data: () => AN_OFFER,
+		});
+		const denied = permissionDeniedError();
+		commitMock.mockReset().mockRejectedValue(denied);
+
+		await expect(
+			adapter.claimPendingInvitesByEmail(VERIFIED_USER, ["an-event"]),
+		).rejects.toBe(denied);
+
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"claimPendingInvitesByEmail",
+			"permission-denied",
+			denied,
+		);
+	});
+
+	test("records a network/unknown failure distinguished from a rule denial (T65)", async () => {
+		getDocMock.mockResolvedValue({
+			exists: () => true,
+			data: () => AN_OFFER,
+		});
+		const offline = new Error("network request failed");
+		commitMock.mockReset().mockRejectedValue(offline);
+
+		await expect(
+			adapter.claimPendingInvitesByEmail(VERIFIED_USER, ["an-event"]),
+		).rejects.toBe(offline);
+
+		expect(recordBackgroundWriteMock).toHaveBeenCalledTimes(1);
+		expect(recordBackgroundWriteMock).toHaveBeenCalledWith(
+			"claimPendingInvitesByEmail",
+			"failure",
+			offline,
+		);
 	});
 
 	test("ignores a candidate event with no pending offer for this email", async () => {

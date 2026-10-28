@@ -32,6 +32,7 @@ import type {
 	SharingPort,
 } from "../../application/ports/sharing.js";
 import type { EventRole } from "../../lib/types.js";
+import { recordBackgroundWrite } from "../../observability/index.js";
 import {
 	INVITES_COLLECTION,
 	inviteId,
@@ -44,6 +45,26 @@ import {
 	PENDING_INVITES_BY_EMAIL_COLLECTION,
 	PROFILES_COLLECTION,
 } from "../../sharing/user-directory.js";
+
+/**
+ * Classifies a caught failure for {@link recordBackgroundWrite}.
+ *
+ * Duck-typed on `.code` rather than `error instanceof FirebaseError`
+ * (`firebase/app`'s own class, the pattern `session-adapter.ts` uses):
+ * importing that class here would add a real `firebase/app` import to this
+ * module's test for no gain — a rejected Firestore promise carries a `.code`
+ * regardless of which class instance it is.
+ *
+ * Only two categories matter: whether the rule engine itself said no, or
+ * anything else — offline, a timeout, anything unclassified.
+ */
+function outcomeOf(error: unknown): "permission-denied" | "failure" {
+	const code =
+		typeof error === "object" && error !== null && "code" in error
+			? (error as { code: unknown }).code
+			: undefined;
+	return code === "permission-denied" ? "permission-denied" : "failure";
+}
 
 /** The shape a pending-by-email offer is stored in. */
 interface PendingInviteByEmail {
@@ -174,6 +195,14 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 		 * someone else's email would be enough to collect their invitations.
 		 * The rule enforces it anyway; this just avoids a write that was going
 		 * to bounce.
+		 *
+		 * Every attempt is recorded via `recordBackgroundWrite()` (T65),
+		 * distinguishing success from a rule denial from anything else. Neither
+		 * this function's return value nor what it throws changes because of
+		 * it: both call sites already swallow the rejection this still
+		 * produces on failure (`firebase-provider.ts`, `profile-view.ts`), and
+		 * that stays exactly as silent as before. This only makes the silence
+		 * honest instead of blind.
 		 */
 		async publishDirectoryEntry(user: SessionUser): Promise<void> {
 			if (!user.email || !user.emailVerified) return;
@@ -184,16 +213,23 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 				photoURL: user.photoURL ?? "",
 			};
 
-			await Promise.all([
-				setDoc(
-					doc(firestore, DIRECTORY_COLLECTION, await emailHash(user.email)),
-					entry,
-				),
-				setDoc(doc(firestore, PROFILES_COLLECTION, user.uid), {
-					displayName: entry.displayName,
-					photoURL: entry.photoURL,
-				}),
-			]);
+			try {
+				await Promise.all([
+					setDoc(
+						doc(firestore, DIRECTORY_COLLECTION, await emailHash(user.email)),
+						entry,
+					),
+					setDoc(doc(firestore, PROFILES_COLLECTION, user.uid), {
+						displayName: entry.displayName,
+						photoURL: entry.photoURL,
+					}),
+				]);
+			} catch (error) {
+				recordBackgroundWrite("publishDirectoryEntry", outcomeOf(error), error);
+				throw error;
+			}
+
+			recordBackgroundWrite("publishDirectoryEntry", "success");
 		},
 
 		/**
@@ -224,6 +260,13 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 		 * nothing to iterate over, so no pending offer is ever claimed by
 		 * either real caller yet.
 		 *
+		 * That no-op is recorded honestly (T65), not as a disguised success:
+		 * called with no candidates, this reports `"skipped"` via
+		 * `recordBackgroundWrite()` — "no candidates to check" — rather than
+		 * `"success"`, which would claim an attempt that never happened. When
+		 * candidates *are* supplied, the actual write attempt is recorded as
+		 * `"success"`, `"permission-denied"`, or `"failure"` instead.
+		 *
 		 * When a candidate *is* supplied, only the offer whose id matches the
 		 * caller's own verified email can ever be found: the id this function
 		 * builds is `eventId + '_' + emailHash(user.email)`, from the caller's
@@ -243,44 +286,64 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 		): Promise<void> {
 			if (!user.email || !user.emailVerified) return;
 
-			if (candidateEventIds.length === 0) return;
+			if (candidateEventIds.length === 0) {
+				// Honest, not a disguised success: this call attempted nothing,
+				// which is today's documented state at both real call sites.
+				recordBackgroundWrite(
+					"claimPendingInvitesByEmail",
+					"skipped",
+					"no candidates to check",
+				);
+				return;
+			}
 
 			const ownEmail = user.email.trim().toLowerCase();
 			const hash = await emailHash(user.email);
 
-			await Promise.all(
-				candidateEventIds.map(async (eventId) => {
-					const offerRef = doc(
-						firestore,
-						PENDING_INVITES_BY_EMAIL_COLLECTION,
-						`${eventId}_${hash}`,
-					);
-					const offer = await getDoc(offerRef);
-					if (!offer.exists()) return;
+			try {
+				await Promise.all(
+					candidateEventIds.map(async (eventId) => {
+						const offerRef = doc(
+							firestore,
+							PENDING_INVITES_BY_EMAIL_COLLECTION,
+							`${eventId}_${hash}`,
+						);
+						const offer = await getDoc(offerRef);
+						if (!offer.exists()) return;
 
-					const data = offer.data() as PendingInviteByEmail;
-					if (data.inviteeEmail.trim().toLowerCase() !== ownEmail) return;
+						const data = offer.data() as PendingInviteByEmail;
+						if (data.inviteeEmail.trim().toLowerCase() !== ownEmail) return;
 
-					const batch = writeBatch(firestore);
-					batch.delete(offerRef);
-					batch.set(
-						doc(firestore, INVITES_COLLECTION, inviteId(eventId, user.uid)),
-						{
-							eventId,
-							eventTitle: data.eventTitle,
-							inviteeUid: user.uid,
-							inviteeEmail: data.inviteeEmail,
-							invitedBy: data.invitedBy,
-							invitedByName: data.invitedByName ?? "",
-							role: data.role,
-							status: "pending",
-							createdAt: serverTimestamp(),
-							decidedAt: null,
-						},
-					);
-					await batch.commit();
-				}),
-			);
+						const batch = writeBatch(firestore);
+						batch.delete(offerRef);
+						batch.set(
+							doc(firestore, INVITES_COLLECTION, inviteId(eventId, user.uid)),
+							{
+								eventId,
+								eventTitle: data.eventTitle,
+								inviteeUid: user.uid,
+								inviteeEmail: data.inviteeEmail,
+								invitedBy: data.invitedBy,
+								invitedByName: data.invitedByName ?? "",
+								role: data.role,
+								status: "pending",
+								createdAt: serverTimestamp(),
+								decidedAt: null,
+							},
+						);
+						await batch.commit();
+					}),
+				);
+			} catch (error) {
+				recordBackgroundWrite(
+					"claimPendingInvitesByEmail",
+					outcomeOf(error),
+					error,
+				);
+				throw error;
+			}
+
+			recordBackgroundWrite("claimPendingInvitesByEmail", "success");
 		},
 	};
 }
