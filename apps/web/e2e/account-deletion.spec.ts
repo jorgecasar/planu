@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
 
 const AUTH_EMULATOR = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
 const API_KEY = "demo-api-key";
@@ -12,72 +13,9 @@ const ADMIN = { Authorization: "Bearer owner" };
 const PIXEL_BASE64 =
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-const newEmail = () =>
-	`user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-
 /** Título único por ejecución: el emulador conserva los datos entre runs. */
 const newTitle = (base: string) =>
 	`${base} ${Math.random().toString(36).slice(2, 7)}`;
-
-/**
- * Crea una cuenta **con el email ya verificado**, vía el emulador — sin esto
- * el directorio no la muestra y no se puede invitar. Mismo patrón que
- * `sharing.spec.ts`: el emulador ignora `emailVerified` en `accounts:update`,
- * así que hay que pasar por el código real de verificación.
- */
-async function createVerifiedAccount(
-	page: Page,
-	email: string,
-	password = "secret123",
-): Promise<void> {
-	const signUp = await page.request.post(
-		`${AUTH_EMULATOR}/accounts:signUp?key=${API_KEY}`,
-		{ data: { email, password, returnSecureToken: true } },
-	);
-	expect(signUp.ok()).toBe(true);
-	const { idToken } = (await signUp.json()) as { idToken: string };
-
-	await page.request.post(
-		`${AUTH_EMULATOR}/accounts:sendOobCode?key=${API_KEY}`,
-		{ data: { requestType: "VERIFY_EMAIL", idToken } },
-	);
-
-	const inbox = await page.request.get(
-		"http://127.0.0.1:9099/emulator/v1/projects/planu-app/oobCodes",
-	);
-	const { oobCodes } = (await inbox.json()) as {
-		oobCodes: { email: string; oobCode: string; requestType: string }[];
-	};
-	const code = oobCodes
-		.filter(
-			(entry) => entry.email === email && entry.requestType === "VERIFY_EMAIL",
-		)
-		.at(-1);
-	expect(code, `no verification code for ${email}`).toBeDefined();
-
-	const applied = await page.request.post(
-		`${AUTH_EMULATOR}/accounts:update?key=${API_KEY}`,
-		{ data: { oobCode: code?.oobCode } },
-	);
-	expect(applied.ok()).toBe(true);
-	expect((await applied.json()).emailVerified).toBe(true);
-}
-
-async function signIn(
-	page: Page,
-	email: string,
-	password = "secret123",
-): Promise<void> {
-	await page.goto("/app/login");
-	const panel = page
-		.getByRole("tabpanel")
-		.filter({ hasText: "Password" })
-		.first();
-	await panel.getByLabel("Email").fill(email);
-	await panel.getByLabel("Password", { exact: true }).fill(password);
-	await panel.getByRole("button", { name: "Sign in" }).click();
-	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
-}
 
 async function createEvent(page: Page, title: string): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();

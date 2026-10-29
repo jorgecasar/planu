@@ -1,8 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-
-const newEmail = () =>
-	`user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+import { signUpVerified } from "./verified-account.js";
 
 /** PNG de 1x1 píxel, suficiente para ejercitar la subida. */
 const PIXEL = Buffer.from(
@@ -10,17 +8,14 @@ const PIXEL = Buffer.from(
 	"base64",
 );
 
+/**
+ * Verificada, no sólo creada: ADR 0011 exige un email verificado para usar
+ * eventos (docs/adr/0011-verificacion-de-email-obligatoria.md). El guard
+ * (T61) lleva al perfil a una cuenta sin verificar y, con T60, las reglas
+ * le deniegan crear, leer o editar cualquier evento.
+ */
 async function signUp(page: Page): Promise<void> {
-	await page.goto("/app/login");
-	await page.getByRole("tab", { name: "Create account" }).click();
-	const panel = page
-		.getByRole("tabpanel")
-		.filter({ hasText: "Confirm password" });
-	await panel.getByLabel("Email").fill(newEmail());
-	await panel.getByLabel("Password", { exact: true }).fill("secret123");
-	await panel.getByLabel("Confirm password").fill("secret123");
-	await panel.getByRole("button", { name: "Create account" }).click();
-	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
+	await signUpVerified(page);
 }
 
 test("con IA disponible, la imagen y el título salen a la vez en el mismo diálogo, sin menú previo", async ({

@@ -1,11 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, type Page, test } from "@playwright/test";
-
-const AUTH_EMULATOR = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
-const API_KEY = "demo-api-key";
-
-const newEmail = () =>
-	`user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
 
 /**
  * Unique titles per run: the emulator keeps data between runs, and looking up a
@@ -14,76 +9,6 @@ const newEmail = () =>
  */
 const newTitle = (base: string) =>
 	`${base} ${Math.random().toString(36).slice(2, 7)}`;
-
-/**
- * Creates an account **with its email already verified**, via the emulator.
- *
- * It is the only way to test this: the directory only accepts people whose
- * email is checked, so an account just registered through the interface is
- * invisible to anyone trying to invite it, and the interface cannot verify one
- * without opening the mail.
- *
- * It has to go through the real verification code: the emulator **ignores
- * `emailVerified` on `accounts:update`** and returns an unverified account
- * without raising any error.
- */
-async function createVerifiedAccount(
-	page: Page,
-	email: string,
-	password = "secret123",
-): Promise<void> {
-	const signUp = await page.request.post(
-		`${AUTH_EMULATOR}/accounts:signUp?key=${API_KEY}`,
-		{ data: { email, password, returnSecureToken: true } },
-	);
-	expect(signUp.ok()).toBe(true);
-	const { idToken } = (await signUp.json()) as { idToken: string };
-
-	await page.request.post(
-		`${AUTH_EMULATOR}/accounts:sendOobCode?key=${API_KEY}`,
-		{
-			data: { requestType: "VERIFY_EMAIL", idToken },
-		},
-	);
-
-	// The emulator stores the mail it would send instead of sending it.
-	const inbox = await page.request.get(
-		"http://127.0.0.1:9099/emulator/v1/projects/planu-app/oobCodes",
-	);
-	const { oobCodes } = (await inbox.json()) as {
-		oobCodes: { email: string; oobCode: string; requestType: string }[];
-	};
-	const code = oobCodes
-		.filter(
-			(entry) => entry.email === email && entry.requestType === "VERIFY_EMAIL",
-		)
-		.at(-1);
-	expect(code, `no verification code for ${email}`).toBeDefined();
-
-	const applied = await page.request.post(
-		`${AUTH_EMULATOR}/accounts:update?key=${API_KEY}`,
-		{ data: { oobCode: code?.oobCode } },
-	);
-	expect(applied.ok()).toBe(true);
-	expect((await applied.json()).emailVerified).toBe(true);
-}
-
-/** Signs in with an existing account. */
-async function signIn(
-	page: Page,
-	email: string,
-	password = "secret123",
-): Promise<void> {
-	await page.goto("/app/login");
-	const panel = page
-		.getByRole("tabpanel")
-		.filter({ hasText: "Password" })
-		.first();
-	await panel.getByLabel("Email").fill(email);
-	await panel.getByLabel("Password", { exact: true }).fill(password);
-	await panel.getByRole("button", { name: "Sign in" }).click();
-	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
-}
 
 async function createEvent(page: Page, title: string): Promise<void> {
 	await page.getByRole("button", { name: "New event" }).click();
