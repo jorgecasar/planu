@@ -2497,3 +2497,477 @@ y del plan actualizado en `plan.md`. Orden por dependencia.
       dentro de esta tarea: es un cambio de seguridad ajeno al alcance de
       T58 y, por la propia convención del repo, exigiría pasar antes por
       `security-auditor`.
+
+---
+
+## Verificación de email obligatoria e invitaciones sin revelar cuenta · T59–T66
+
+Especificado en
+[`SPEC-verificacion-email-invitaciones.md`](../SPEC-verificacion-email-invitaciones.md),
+plan en `tasks/plan.md` (sección homónima). Rama `feat/email-verification-and-invites`.
+
+- [x] **T59 · El aviso de verificación no debe ocultarse antes de publicar de verdad** · S · sin dependencias
+  - Motivo, verificado contra Firebase de producción durante el propio
+    spec: una cuenta con `emailVerified: true` real en Auth nunca llegó a
+    tener entrada en `userDirectory`, porque `profile-view.ts:372` hace
+    `this.user = refreshed` —lo que oculta el aviso, `#renderVerificationNotice`
+    en la línea 326 sólo mira `user.emailVerified`— **antes** de intentar
+    `publishDirectoryEntry` en la línea 376. Si esa publicación falla (aquí,
+    porque el token de la sesión nunca se reemitió), el aviso ya ha
+    desaparecido y con él la única vía de la interfaz para reintentarlo.
+  - Acepta: `#onCheck` no oculta el aviso hasta que `publishDirectoryEntry`
+    haya tenido éxito de verdad; si falla, el aviso sigue visible con el
+    botón "I have verified it" disponible para reintentar, en vez de
+    desaparecer para siempre. Una publicación con éxito sigue ocultándolo
+    como hoy. Sin cambio de comportamiento para quien ya está en el
+    directorio.
+  - Verifica: `npm test profile/profile-view.test.ts` (nuevo fichero) en 0,
+    con casos para éxito, fallo (mock de `publishDirectoryEntry` rechazando)
+    y reintento tras fallo.
+  - Ficheros: `apps/web/src/profile/profile-view.ts`,
+    `apps/web/src/profile/profile-view.test.ts` (nuevo)
+  - **Cerrado, maker + checker convergieron sin hallazgos.** Commit
+    `62e0fa3` en `feat/email-verification-and-invites`: la reasignación de
+    `this.user` se movió a después de que `publishDirectoryEntry` resuelva
+    con éxito, dentro del mismo `try`/`finally` que ya existía. El checker
+    (contexto nuevo, sin ver el razonamiento del maker) revirtió sólo el
+    orden de la reasignación y confirmó que los dos tests nuevos fallan con
+    el bug presente y pasan con el arreglo — no son vacuos — y probó además
+    un doble clic síncrono en "I have verified it": el guarda
+    `if (!session || this.checking) return` ya evita la re-entrada, sin
+    condición de carrera nueva. Evidencia de comandos, código de salida:
+    `npm run typecheck` → 0, `npm run lint` → 0, `npm run lint:lit` → 0,
+    `npm test profile/profile-view.test.ts` → 0 (4/4), `npm test` completo →
+    0 (584/584, repetido dos veces), `npm run test:arch` → 0 (16/16). Sin
+    push, sin PR, sin pie de atribución en el commit.
+
+- [x] **T60 · Reglas: email verificado obligatorio para crear/leer/editar eventos** · S · sin dependencias
+  - Acepta: `isVerified()` añadida a `firestore.rules`, combinada dentro de
+    los `allow` existentes de `events` (create/read/update) — nunca como un
+    `allow` aparte, por la regla de OR ya documentada en `AGENTS.md` bajo
+    "Estado de seguridad". Una cuenta email/contraseña sin verificar no
+    puede crear, leer ni editar sus propios eventos. Una cuenta verificada,
+    o de Google (verificado de fábrica), no nota ningún cambio.
+  - Verifica: `npm run test:rules` en 0, con casos nuevos en
+    `apps/web/rules/firestore.test.ts`: sin verificar deniega las tres
+    operaciones; verificada las mantiene; Google no nota fricción. Los 33
+    tests de reglas existentes, sin romperse.
+  - Ficheros: `firestore.rules`, `apps/web/rules/firestore.test.ts`,
+    `apps/web/rules/event-invites.test.ts` (fuera del alcance declarado
+    originalmente — ver evidencia)
+  - **Cerrado. Maker + checker + `security-auditor` en paralelo (zona de
+    reglas de Firestore, mandato de `AGENTS.md`), con persona presente en
+    dos puntos concretos, no sólo informada al final.**
+    - Decisión de diseño confirmada con el usuario antes de revisar: en
+      `allow update`, `isVerified()` bloquea las cuatro ramas OR-eadas
+      —propietario, editor, `leavesTheEvent()` y `acceptsInvite()`—, no sólo
+      crear/editar. Aceptado explícitamente: coherente con "verificación
+      obligatoria para usar la aplicación", ninguna vía de escritura queda
+      abierta sin verificar.
+    - Desviación de alcance también confirmada: el maker tocó
+      `event-invites.test.ts` (no estaba en la lista de ficheros) porque sin
+      eso 6+ tests que ya pasaban se rompían al fijar el nuevo default de
+      `email_verified` en sus contextos de prueba. Documentada, probada
+      (rotura deliberada → sólo esos tests fallan → restaurado).
+    - Checker de correctitud: sin hallazgos, tras romper la regla dos veces
+      a propósito (quitar `isVerified()` de `read`, de `update`) y confirmar
+      que fallan exactamente los tests esperados y sólo ésos; confirmó que
+      un claim ausente (no `false`, sino inexistente) deniega limpio; que la
+      query real de la bandeja compartida sigue pasando (no sólo un `get`
+      individual); y que las cuatro ramas de `allow update` quedan cubiertas.
+    - `security-auditor`: 0 críticos/altos/medios. Confirmó con pruebas
+      reales contra el emulador (no razonadas en abstracto) que
+      `isVerified()` es infalsificable por el cliente (claim del token, no
+      dato del documento), que sigue habiendo un único `allow` por
+      operación sin reintroducir el patrón OR, que `allow delete` no abre
+      ningún vector nuevo, y que el claim ausente deniega igual que `false`.
+      1 hallazgo LOW: faltaba el test que fija que `leavesTheEvent()`
+      también queda bloqueado sin verificar (la regla ya estaba probada
+      correcta con una prueba puntual del propio auditor; sólo faltaba
+      fijarla en la suite). Corregido en el commit `7c674be`
+      ("an unverified viewer cannot leave the event"), 186/186 en verde.
+    - Evidencia de comandos, código de salida: `npm run typecheck` → 0,
+      `npm run lint` → 0, `npm run lint:lit` → 0, `npm run test:rules` → 0
+      (186/186), `npm test` → 0 (590/590). Commit `7c674be`.
+      Sin push, sin PR.
+
+- [x] **T61 · Guard en cliente: redirigir a quien no ha verificado su email** · S · sin dependencia real de fichero con T60 (se implementó antes; sólo capa de UX, la que hace cumplir sigue siendo la regla de T60, todavía sin aterrizar)
+  - Acepta: `guardRedirect()` (`auth/guard.ts`) redirige a `/app/profile` a
+    un usuario con sesión y email sin verificar que intenta ir a cualquier
+    ruta que no sea `/app/profile` o `/app/login`. Verificado, o Google, o
+    sin sesión: sin cambios respecto a hoy.
+  - Verifica: `npm test auth/guard.test.ts` (nuevo o ampliado) en 0, cubriendo
+    las combinaciones de sesión × verificación × ruta. `npm run test:e2e`
+    sin regresión en el flujo de login normal.
+  - Ficheros: `apps/web/src/auth/guard.ts`, `apps/web/src/auth/guard.test.ts`,
+    `apps/web/src/app-shell.ts` (consumidor, revisar si necesita el nuevo
+    `PROFILE_PATH`)
+  - **Cerrado, maker + checker convergieron sin hallazgos.** Commit
+    `303b24e`: nueva `PROFILE_PATH`, condición añadida a `guardRedirect()`,
+    12 tests nuevos en `guard.test.ts`, `app-shell.ts` usa la constante en
+    vez de construir la ruta a mano. El checker rompió la condición dos
+    veces a propósito (invertida, y comentada del todo) y confirmó que los
+    tests fallan como corresponde en cada caso, luego restauró y confirmó
+    12/12 en verde — no son vacuos. También trazó a mano las transiciones
+    de redirección y confirmó que no hay bucle (login→home→profile es un
+    punto fijo, nunca profile→login). `npm run test:e2e` dio fallos
+    dispersos en ambos makers; el checker aisló la causa revirtiendo sólo
+    el diff de T61 sobre el mismo commit y reproduciendo el idéntico patrón
+    de timeouts sin el cambio presente — confirma que es la inestabilidad
+    ya documentada en `docs/spec-ci-e2e-reliability.md` (T57), no una
+    regresión de esta tarea. Evidencia de comandos: `npm run typecheck` → 0,
+    `npm run lint` → 0, `npm run lint:lit` → 0, `npm test auth/guard.test.ts`
+    → 0 (12/12), `npm test` completo → 0 (590/590). Sin push, sin PR, sin
+    pie de atribución.
+
+> **Checkpoint A** — tras T59–T61: reglas y cliente exigen email verificado
+> sin regresión, y el mecanismo para detectarlo ya no se rompe en silencio.
+> Ver criterios exactos en `tasks/plan.md`.
+
+- [x] **T62 · Reglas: colección `eventInvitesByEmail`** · M · sin dependencias
+  - Acepta: nueva colección en `firestore.rules`, mismo patrón que
+    `userDirectory`/`eventInvites`: `create` permite ofertar una invitación
+    pendiente por hash de email para un evento que se posee, sin que el
+    documento ni su denegación revelen si ese hash ya tiene cuenta; sólo
+    quien demuestre ser dueño del hash (`isOwnEmail()`, mismo patrón que
+    `userDirectory`) puede convertirla en un `eventInvites` normal; nadie
+    puede reclamar el hash de otro ni inventar una oferta de un evento que
+    no posee. Validación de forma tan estricta como `isValidInvite()`.
+  - Verifica: `npm run test:rules` en 0, con
+    `apps/web/rules/event-invites-by-email.test.ts` (nuevo) cubriendo, como
+    mínimo: ofertar en un evento propio (éxito), ofertar en uno ajeno
+    (denegado), reclamar el propio hash (éxito), reclamar el hash de otro
+    (denegado), reclamar dos veces sin duplicar membership, payload con
+    relleno (denegado) — mismo estándar de "atacar y comprobar que se
+    bloquea" que el resto de `apps/web/rules/`.
+  - Ficheros: `firestore.rules`,
+    `apps/web/rules/event-invites-by-email.test.ts` (nuevo)
+  - **Cerrado, tras una ronda de corrección real, no una convergencia
+    directa.** El "claim" se modeló como `delete` (en
+    `eventInvitesByEmail`) + `create` (en `eventInvites`) dentro de un
+    mismo batch atómico del cliente, cada mitad autorizada de forma
+    independiente por su propia regla (`claimsPendingByEmail()` en
+    `eventInvites`, `isOwnEmail()`/`isOwnEmailForId()` en
+    `eventInvitesByEmail`) — sin depender de que las dos mitades lleguen
+    siempre juntas. Commit inicial `7c674be`.
+    - `security-auditor` encontró, con pruebas reales contra el emulador
+      (no teóricas): **[MEDIUM]** la regla de lectura original permitía a
+      cualquier verificado que conociera un `eventId` probar direcciones de
+      email una a una y saber cuáles tenían invitación pendiente en ese
+      evento — un oráculo nuevo, más fuerte que el que el ADR 0007 ya
+      aceptó para `userDirectory` (que responde igual exista o no la
+      entrada); y **[LOW]** el reclamante podía escribir un `inviteeEmail`
+      arbitrario en el `eventInvites` resultante, sin relación con la
+      oferta ni con su propio token.
+    - El checker de correctitud, en paralelo y de forma independiente,
+      reprodujo los dos mismos hallazgos con sus propias pruebas antes de
+      ver el informe del auditor, y además detectó que el test
+      "no permite elegir otro rol o invitador" sólo probaba el rol.
+    - Los tres hallazgos se devolvieron al mismo maker (sesión continuada,
+      no un agente nuevo). Corrigió con `isOwnEmailForId()` (comprueba el
+      sufijo de hash del id contra el propio email verificado, para la
+      rama `resource == null`) y fijando `inviteeEmail` igual que los demás
+      campos ya fijados; añadió el caso de test que faltaba. Cada arreglo
+      verificado como "load-bearing": revertido uno a uno, confirmado que
+      el test correspondiente falla sin él, restaurado. Commit de
+      corrección `7c674be`.
+    - El mismo `security-auditor` verificó el arreglo con **pruebas propias
+      nuevas**, no las del maker: repitió sus dos PoC originales contra el
+      estado corregido (ambas ahora denegadas/cerradas), confirmó que los
+      casos legítimos siguen funcionando (comprobar la propia bandeja,
+      reclamar con el email real u omitiéndolo), y sometió
+      `isOwnEmailForId()` a un intento de falso positivo (hash truncado,
+      con relleno al final, en mayúsculas, `eventId` con guiones bajos
+      incrustados) — todos denegados, ningún hallazgo nuevo.
+    - Evidencia final, código de salida: `npm run typecheck` → 0,
+      `npm run lint` → 0, `npm run lint:lit` → 0, `npm run test:rules` → 0
+      (204/204), `npm run test:arch` → 0 (16/16), `npm test` → 0
+      (590/590). Commit `7c674be`. Sin push, sin PR.
+    - Quedan en el backlog, sin bloquear este commit (hallazgos INFO del
+      auditor): restricción de charset en `eventId` (no explotable hoy,
+      sin ningún `match` con wildcard recursivo que lo aproveche) y un
+      tope compartido de invitaciones (`eventInvites` +
+      `eventInvitesByEmail`) por evento, mismo comportamiento ya aceptado
+      hoy en `eventInvites`.
+
+- [x] **T63 · `claimPendingInvitesByEmail()`, en los mismos dos disparadores que `publishDirectoryEntry`** · M · depende de T59, T62
+  - Acepta: nueva función en `sharing/user-directory.ts`, llamada
+    inmediatamente después de `publishDirectoryEntry` en los DOS mismos
+    sitios (`firebase-provider.ts:230` y `profile-view.ts` tras el arreglo
+    de T59) y en ningún tercer disparador nuevo. Reclama sólo las ofertas
+    cuyo hash coincide con el propio email verificado. El fallo se traga
+    igual que `publishDirectoryEntry` (mismo `catch(() => {})` documentado),
+    pero pasa por la instrumentación de T65.
+  - Verifica: `npm test sharing/user-directory.test.ts` (ampliado) en 0, con
+    casos de reclamo exitoso, hash ajeno ignorado, y ninguna llamada desde
+    un tercer sitio (grep del propio test, mismo estilo que otros tests de
+    este repo que fijan invariantes estructurales).
+  - Ficheros: `apps/web/src/sharing/user-directory.ts`,
+    `apps/web/src/sharing/user-directory.test.ts`,
+    `apps/web/src/firebase/firebase-provider.ts`,
+    `apps/web/src/profile/profile-view.ts`
+  - **Cerrado, con un hallazgo de diseño real no anticipado por el spec,
+    aceptado explícitamente por el usuario, no resuelto en esta tarea.**
+    En `eventInvitesByEmail` un `list` sin filtrar se deniega a propósito
+    (T62): sólo pasa la consulta del propio dueño filtrada por `invitedBy`,
+    y el invitado sigue sin poder listar; así que quien reclama sólo puede
+    hacer `get()` de un id si ya conoce el `eventId`, y
+    ninguno de los dos disparadores tiene uno en contexto (disparan de
+    forma global). El maker, siguiendo instrucción explícita de no romper
+    esa restricción, implementó `claimPendingInvitesByEmail(firestore,
+    user, candidateEventIds = [])`: hoy se llama sin candidatos en los dos
+    sitios reales, así que **es un no-op documentado en producción**. Se
+    aceptó como hueco conocido, documentado en
+    `SPEC-verificacion-email-invitaciones.md` ("Lo que esto NO resuelve" +
+    criterio de éxito 4 tachado, no borrado),
+    y queda para una tarea futura: extender T62 con un campo indexable y
+    un `allow list` filtrado por el propio hash de email (mismo patrón que
+    `events` con `memberIds array-contains`), o algún disparador que sí
+    tenga un `eventId` a mano.
+    - Checker de correctitud: sin hallazgos, tras romper el batch del
+      cliente a propósito (`role` fijo a `"editor"` ignorando la oferta) y
+      confirmar el rechazo **contra el emulador real**, no sólo el mock;
+      confirmó además que el mock unitario también detecta ese mismo
+      desajuste por igualdad profunda exacta (`toHaveBeenCalledWith`, sin
+      `objectContaining`); y confirmó que el mock añadido a
+      `profile-view.test.ts` no oculta un bug real de `#onCheck` sino que
+      era necesario porque el mock anterior había quedado desincronizado
+      con lo que el módulo exporta ahora.
+    - Evidencia de comandos, código de salida: `npm run typecheck` → 0,
+      `npm run lint` → 0, `npm run lint:lit` → 0,
+      `npm test sharing/user-directory.test.ts` → 0 (12/12),
+      `npm test profile/profile-view.test.ts` → 0 (4/4), `npm test` → 0
+      (598/598), `npm run test:arch` → 0 (16/16). Commit `62e0fa3`. Sin
+      push, sin PR.
+
+- [x] **T64 · `share-dialog.ts`: mismo mensaje exista o no la cuenta** · M · depende de T62, T63
+  - Acepta: el mensaje de éxito al invitar es idéntico exista o no cuenta
+    para ese email. Si existe (resuelto por `findUserByEmail`), escribe en
+    `eventInvites` exactamente como hoy — sin cambio de comportamiento. Si
+    no existe, escribe una oferta pendiente en `eventInvitesByEmail` (T62)
+    en vez de fallar sin guardar nada. `findUserByEmail` distingue
+    `permission-denied` de "documento no existe" en vez de tratarlos igual,
+    para que un fallo de permisos no salga disfrazado del mensaje de "no
+    hay cuenta".
+  - Verifica: `npm test sharing/share-dialog.test.ts` (ampliado) en 0. E2e de
+    sharing existente sin regresión; si alguno afirmaba el mensaje viejo de
+    "no existe cuenta", se actualiza la aserción, no el criterio.
+  - Ficheros: `apps/web/src/sharing/share-dialog.ts`,
+    `apps/web/src/sharing/share-dialog.test.ts`,
+    `apps/web/src/sharing/user-directory.ts`,
+    `apps/web/src/sharing/invitations.ts`
+  - **Cerrado.** `offerInviteByEmail()` nueva en `user-directory.ts`, gemela
+    de `inviteToEvent()`, escribe en `eventInvitesByEmail` exactamente la
+    forma que `isValidPendingInvite()` exige. Único `msg()` de éxito
+    ("Invitation sent. They join once they accept it."), fuera del
+    `if/else` que decide a qué colección escribir — no dos cadenas
+    parecidas. `findUserByEmail()` sigue sin atrapar sus propios rechazos:
+    la distinción error-real/no-hay-cuenta es de estado de la promesa, no
+    de texto.
+    - Checker de correctitud: sin hallazgos, tras mutar el código dos
+      veces a propósito (mensaje de éxito partido en dos según la rama;
+      fallo real de `findUserByEmail` degradado a "no hay cuenta" con un
+      `.catch(() => null)`) y confirmar que un test dedicado detecta cada
+      mutación — los tests que sólo comprueban `.toContain(...)` no las
+      habrían detectado, la igualdad exacta sí.
+    - **`test:e2e` conseguido de verdad, no aceptado de palabra.** El
+      emulador compartido tenía las reglas de otro worktree anterior a T62.
+      El checker montó su propio emulador aislado (puertos remapeados) y
+      confirmó el nuevo e2e de T64 en verde dos veces; aisló la
+      inestabilidad del resto de specs multi-sesión comparando el mismo
+      montaje contra el estado del código anterior a los cambios de T64 y
+      reproduciendo el mismo patrón — confirma que es la fiabilidad ya documentada en
+      `docs/spec-ci-e2e-reliability.md`, no una regresión de esta tarea.
+    - Evidencia de comandos, código de salida: `npm run typecheck` → 0,
+      `npm run lint` → 0, `npm run lint:lit` → 0,
+      `npm test sharing/share-dialog.test.ts` → 0 (6/6), `npm test` → 0
+      (604/604), `npm run test:rules` → 0 (204/204, repetido contra dos
+      emuladores distintos), `npm run test:arch` → 0 (16/16). Commit
+      `62e0fa3`. Sin push, sin PR.
+
+> **Checkpoint B** — tras T62–T64: invitar a quien tiene cuenta no cambia;
+> invitar a quien no tiene cuenta no revela nada y no se pierde. Ver
+> criterios exactos en `tasks/plan.md`.
+
+- [x] **T65 · Instrumentación: distinguir causas de fallo silencioso** · S · depende de T59, T63
+  - Acepta: los fallos de `publishDirectoryEntry` y
+    `claimPendingInvitesByEmail` se registran con causa distinguible
+    (denegado por regla / red / desconocido) vía el adaptador de
+    observabilidad ya existente (`apps/web/src/observability/`), sin
+    bloquear ni cambiar el comportamiento de ningún flujo. Sirve además para
+    responder, con evidencia y no con suposición, la pregunta abierta del
+    spec sobre si "recargar/volver a entrar" republica de forma fiable.
+  - Verifica: test que simula un fallo de regla a propósito (mock o
+    emulador) y comprueba que se registra distinguido de un fallo de red
+    simulado por separado.
+  - Ficheros: `apps/web/src/sharing/user-directory.ts`,
+    `apps/web/src/observability/index.ts` (consumido, no modificado si ya
+    cubre el caso)
+  - **Cerrado.** `recordBackgroundWrite(operation, outcome, detail?)` nueva
+    en `observability/index.ts`, mismo patrón que el resto del fichero
+    (`import.meta.env.DEV`, guarda de DSN, import dinámico de
+    `@sentry/browser`, nunca lanza). `outcomeOf(error)` clasifica por
+    duck-typing sobre `error.code === "permission-denied"` en vez de
+    `instanceof FirebaseError`, a propósito: así el test no necesita
+    importar `firebase/app` y no rompe `test:arch`. `candidateEventIds`
+    vacío (el no-op de T63) se registra como `"skipped"`, honesto, no como
+    éxito disfrazado.
+    - Checker de correctitud: sin hallazgos de código. Corrigió una premisa
+      inexacta de mi propio encargo: no había ningún test previo de T59/T63
+      que cubriera el re-lanzado del error tras instrumentar — T65 añadió
+      esa cobertura de cero (mejora neta, no un parche que enmascare algo).
+      Confirmó además, con pruebas directas: que `error.code ===
+      "permission-denied"` es la señal real de Firestore (no una
+      aproximación, verificado en el código fuente del SDK); que
+      `outcomeOf` no revienta con errores no-objeto (`"boom"`, `undefined`,
+      `null`); que el camino de `candidateEventIds` vacío no toca la red
+      antes de registrar `"skipped"`; y que un fallo dentro de la propia
+      instrumentación (Sentry lanzando a propósito) no puede convertir un
+      éxito del llamador en un fallo observable.
+    - Evidencia de comandos, código de salida: `npm run typecheck` → 0,
+      `npm run lint` → 0, `npm run lint:lit` → 0,
+      `npm test sharing/user-directory.test.ts` → 0 (20/20), `npm test` →
+      0 (612/612), `npm run test:arch` → 0 (16/16). Commit `62e0fa3`. Sin
+      push, sin PR.
+
+- [x] **T66 · ADR(s) + cierre de fase** · S · depende de T59–T65
+  - Acepta: uno o dos ADR nuevos (verificado el número libre real en
+    `docs/adr/` en el momento de escribir, no reservado de antemano —
+    precedente de colisión real documentado en la entrada de T34 de este
+    mismo fichero) documentando: (1) verificación de email obligatoria para
+    usar la aplicación, (2) invitaciones pendientes por email sin revelar
+    cuenta, con su límite explícito (no cierra la fuga de red del ADR 0007).
+    Ninguno reescribe 0006 ni 0007. Los 6 criterios de éxito del spec
+    marcados uno a uno con evidencia. `security-auditor` y `code-reviewer`
+    lanzados en paralelo, sin hallazgos abiertos.
+  - Verifica: `ls docs/adr/00*.md` para confirmar numeración sin colisión;
+    `npm run lint && npm run typecheck && npm run lint:lit && npm test &&
+    npm run test:rules && npm run test:e2e` en 0, comprobado con `$?`.
+  - Ficheros: `docs/adr/00XX-*.md` (uno o dos, nuevos), `tasks/plan.md`
+    (marca el Checkpoint C final), este fichero (evidencia de T59–T66)
+  - **Cerrado, con una ronda de corrección real de por medio, no una
+    convergencia directa — y con un incidente de sesión que conviene dejar
+    anotado.**
+    - `ls docs/adr/` → `0011` y `0012` libres, confirmado en el momento de
+      escribir (sin colisión, a diferencia del precedente de T34).
+      Escritos [`0011-verificacion-de-email-obligatoria.md`](../docs/adr/0011-verificacion-de-email-obligatoria.md)
+      y [`0012-invitaciones-pendientes-por-email.md`](../docs/adr/0012-invitaciones-pendientes-por-email.md),
+      ninguno reescribe 0006 ni 0007 (confirmado: esos dos ficheros no
+      tienen diff en esta rama).
+    - **Incidente de sesión**: el primer maker de T66 encontró un problema
+      real (T60 rompía cinco e2e que crean cuenta sin verificarla) y lo
+      arregló bien (`apps/web/e2e/verified-account.ts`, helper que verifica
+      contra el emulador real, no un atajo), pero sus dos últimas
+      respuestas de cierre fueron incoherentes ("esperaré al monitor...",
+      sin contenido) tras cientos de llamadas a herramientas y varios
+      cientos de miles de tokens. Se dejó de reanudar esa sesión y se
+      verificó todo directamente: el trabajo de código era correcto pese al
+      informe roto — comprobado leyendo los diffs y reejecutando la
+      verificación en persona, no aceptando el "cierre" narrado. Al
+      reanudarla una vez más, sí devolvió un informe coherente y completo,
+      con dos corridas de `test:e2e` para separar señal de ruido.
+    - **Hallazgo real de seguridad, encontrado en el propio cierre de T66**:
+      `isVerified()` (T60) nunca se añadió a `eventInvites` — un propietario
+      sin verificar podía seguir gestionando invitaciones de un evento suyo,
+      y un invitado sin verificar podía "gastar" su invitación aceptándola
+      sin unirse (`updateDoc` suelto fuera del batch atómico real). La
+      atribución que el primer borrador de la ADR daba a "una ronda de
+      `security-auditor` y `code-reviewer`" no se pudo verificar como
+      ocurrida tal cual se narraba — se lanzó un `security-auditor` nuevo,
+      real, que confirmó el hallazgo con pruebas propias contra el
+      emulador antes de aceptar nada. Corregido con `isVerified()` local en
+      `match /eventInvites/{inviteId}` (create de la rama del propietario,
+      update completo incluido `invitedDecides()`, delete). Una segunda
+      pasada del mismo auditor sobre el arreglo encontró un hallazgo
+      hermano, más pequeño: `eventInvitesByEmail`'s `allow delete` (rama
+      del propietario) tenía el mismo hueco — corregido igual. Un checker de
+      correctitud, en paralelo, encontró dos huecos de *cobertura* (no de
+      seguridad): faltaba un test de "reclamante sin verificar" para
+      `claimsPendingByEmail()`, y el test del batch de "aceptar" no podía
+      aislar qué mitad denegaba — un batch atómico falla entero si
+      cualquiera de sus mitades lo hace, así que "probarlo con el batch" no
+      demuestra nada sobre una mitad en concreto. Ambos corregidos con
+      escrituras sueltas a una sola colección. Cada uno de estos cuatro
+      arreglos se confirmó "load-bearing" a mano (revertido, confirmado que
+      el test cae, restaurado) antes de comitear. Commit `7c674be`.
+      El mismo `security-auditor` reconfirmó el estado final con
+      pruebas propias nuevas, sin hallazgos.
+    - `code-reviewer` real (no un "checker" genérico) lanzado sobre el
+      diff completo de la rama contra `main`, en paralelo al cierre —
+      resultado abajo.
+    - Revisión de los 6 criterios de éxito del spec, uno a uno:
+      1. **Cumplido.** `npm run test:rules` en 0, 220/220 (los 33 originales
+         más todos los añadidos por T60/T62/T66, ninguno roto).
+      2. **Cumplido a nivel de reglas y cliente**, verificado con pruebas
+         reales contra el emulador (T60, T59): cuenta sin verificar deniega
+         las tres operaciones; verificada las mantiene; el aviso de
+         verificación sólo desaparece si la publicación al directorio tuvo
+         éxito de verdad (T59), lo que permite reintentar sin cerrar
+         sesión. **No comprobado con clics reales de una persona** — cae en
+         la misma clase que `AGENTS.md` reserva a un humano, no a un
+         agente.
+      3. **Cumplido.** Mensaje de éxito idéntico verificado con mutación
+         deliberada del código (T64) y con un `test:e2e` real conseguido en
+         emulador aislado.
+      4. **No cumplido, a sabiendas** — ya tachado en el spec desde T63:
+         `claimPendingInvitesByEmail()` es un no-op documentado en
+         producción porque en `eventInvitesByEmail` un `list` sin filtrar
+         se deniega —sólo pasa la consulta del propio dueño por
+         `invitedBy`, el invitado sigue sin poder listar— y ningún
+         disparador tiene un `eventId` en contexto.
+      5. **Cumplido.** Dos ADR nuevos, `0006`/`0007` sin tocar.
+      6. **Cumplido salvo `test:e2e`, explícitamente, no en silencio.**
+         `npm run lint`, `npm run typecheck`, `npm test` en 0. `test:e2e`
+         no llega a 0 (66/83 y 71/83 en dos corridas separadas), pero sólo 5
+         de los tests fallidos coinciden entre ambas corridas y ninguno es
+         de reglas ni de verificación — mismo patrón de inestabilidad ya
+         documentado en `docs/spec-ci-e2e-reliability.md` y aceptado con la
+         misma vara que T57/T61/T64. Aceptado explícitamente por el usuario
+         con esa evidencia, no asumido por un agente.
+    - **El `code-reviewer` real, sobre la rama completa, devolvió REQUEST
+      CHANGES la primera vez** — no convergencia directa tampoco aquí. Un
+      hallazgo Importante genuino: `profile-view.ts`, `sharing/user-directory.ts`,
+      `sharing/invitations.ts` y `sharing/share-dialog.ts` ya estaban en la
+      excepción de `firebase/**` de `biome.json` desde antes de esta rama,
+      y T59-T65 les añadió lógica sustancial sin migrarlos tras un puerto
+      — la regla "no opcional" de la sección de arquitectura hexagonal de
+      este mismo fichero. `npm run test:arch` seguía en verde porque sólo
+      vigila la forma de la lista de excepciones, no si un fichero tocado
+      migró — el hueco que ese mismo test dice que sólo detecta una
+      revisión. Confirmado con el usuario: se migra ahora, no se aplaza.
+      `sharing/user-directory.ts` y `sharing/share-dialog.ts` migrados tras
+      un `SharingPort` nuevo (`application/ports/sharing.ts`) con
+      adaptador en `infrastructure/firebase/sharing-adapter.ts`, mismo
+      patrón que `AccountDataPort` (T32); `profile-view.ts` salió de la
+      excepción como efecto colateral correcto (su único motivo para estar
+      ahí era ese import). `biome.json` y `TOPE_ACOPLADOS` actualizados
+      (29→28, recontado a mano dos veces, no de memoria); `AGENTS.md`
+      actualizado con la cifra real y la entrada en su propio historial.
+      Commit `62e0fa3`. Un checker de correctitud confirmó fidelidad de
+      comportamiento byte a byte con el código anterior (comparado T59,
+      T63, T64 y las correcciones de seguridad de T66) y que el arreglo de
+      T59 sobrevivió la migración, con mutación deliberada para probarlo.
+      El mismo `code-reviewer` reconfirmó, de forma independiente, que el
+      hallazgo Importante queda cerrado y que sus tres observaciones
+      menores (`Promise.all` en los dos disparadores, un comentario
+      huérfano preexistente en `profile-view.ts`, un test redundante en
+      `guard.test.ts`) siguen siendo exactamente eso — sugerencias, no
+      bloqueos, sin relación con esta rama la primera y la tercera.
+      También confirmó, en su primera pasada, un bug real y **ajeno a esta
+      rama** en `apps/web/e2e/events.spec.ts:378` (falla siempre, no por
+      inestabilidad: fuerza `LanguageModel.availability()` a
+      `"unavailable"` pero el Chromium real de esta máquina expone la API
+      de verdad) — queda para reportarse por separado, no se toca aquí.
+    - **Checkpoint C marcado en `tasks/plan.md`** salvo el punto que
+      depende de una persona (cuentas de producción sin verificar), que
+      queda explícitamente sin marcar ahí, no aquí.
+    - Evidencia final de comandos, código de salida (tras la migración):
+      `npm run typecheck` → 0, `npm run lint` → 0, `npm run lint:lit` → 0,
+      `npm test` → 0 (612/612), `npm run test:rules` → 0 (220/220),
+      `npm run test:arch` → 0 (16/16, 28 ficheros acoplados). `npm run
+      test:e2e` → 1, aceptado con la evidencia de arriba. Sin push, sin PR
+      abierta en ningún momento de la tarea.
+
+> **Checkpoint C (final)** — tras T65–T66: los 6 criterios de éxito del spec,
+> con evidencia; `security-auditor` y `code-reviewer` sin hallazgos abiertos;
+> suite completa en 0. Ver criterios exactos en `tasks/plan.md`.

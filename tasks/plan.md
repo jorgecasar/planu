@@ -651,3 +651,182 @@ grep -rn 'generatorOpen\|planu-generator-close\|#onEmptyGenerate\|#onCreateOptio
       `event-editor.ts`. No reproduce en producción. No se toca
       `firestore.rules` en esta tarea: es un cambio de seguridad fuera de
       alcance que exigiría `security-auditor` por delante.
+
+---
+
+# Verificación de email obligatoria e invitaciones sin revelar cuenta · T59–T66
+
+Especificación en
+[`SPEC-verificacion-email-invitaciones.md`](../SPEC-verificacion-email-invitaciones.md).
+Arrancada en su propia rama (`feat/email-verification-and-invites`) desde
+`main`, sin relación con T35–T39 ni con T57.
+
+## Por qué
+
+Verificado, no supuesto (ver el spec): una cuenta de email/contraseña puede
+crear, leer y editar eventos sin verificar nunca su correo — la verificación
+sólo gobierna hoy si esa cuenta aparece en el directorio de compartición. Y
+`share-dialog.ts` revela hoy, con un mensaje distinto, si un email invitado
+tiene cuenta o no — una fuga que el propio ADR 0007 ya documentó y dejó
+pendiente de cerrar.
+
+**Bug real encontrado durante la propia sesión de spec**, no en este plan:
+comprobado contra Firebase de producción, una cuenta verificada de verdad
+(`emailVerified: true` en Auth) nunca llegó a publicarse en `userDirectory`,
+porque `profile-view.ts` oculta el aviso de "verifica tu email" **antes** de
+que la publicación al directorio tenga éxito, y un fallo silencioso deja el
+aviso desaparecido para siempre. Es la causa por la que T59 va primero y no
+es opcional: la Parte B de este plan reclama invitaciones pendientes en los
+mismos dos disparadores que este bug rompe, así que sin arreglarlo primero,
+todo lo que se construya encima hereda el mismo agujero silencioso.
+
+## Grafo
+
+```
+T59 Arreglar el aviso de verificación   T60 Reglas: email_verified en events   T62 Reglas: eventInvitesByEmail
+ (sin dependencias — bug real,           (sin dependencias)                     (sin dependencias)
+  independiente de A y B)                       │                                      │
+        │                                       ▼                                      │
+        │                              T61 Guard en cliente                             │
+        │                                       │                                      │
+        │                             CHECKPOINT A                                      │
+        │                                                                               ▼
+        └───────────────────────────────────────────────────────────→ T63 claimPendingInvitesByEmail()
+                                                                        (depende de T59 y T62)
+                                                                               │
+                                                                               ▼
+                                                            T64 share-dialog sin revelar cuenta
+                                                                (depende de T62 y T63)
+                                                                               │
+                                                                     CHECKPOINT B
+                                                                               │
+                                                                               ▼
+                                                     T65 Instrumentación (depende de T59, T63)
+                                                                               │
+                                                                               ▼
+                                                          T66 ADRs + cierre de fase
+                                                          (depende de todas las anteriores)
+                                                                               │
+                                                                     CHECKPOINT C (final)
+```
+
+**T59, T60 y T62 no dependen entre sí y son las tres candidatas a paralelizar
+desde el primer momento** — ficheros distintos entre T59 y las otras dos;
+T60 y T62 comparten fichero (`firestore.rules`) pero secciones separadas, así
+que el riesgo es de conflicto de merge, no de dependencia lógica real. T61
+sólo tiene sentido después de T60 (el cliente debe reflejar lo que las
+reglas ya exigen, aunque no compartan fichero). T63 es el primer punto de
+convergencia real: necesita el bug de T59 corregido en el mismo fichero que
+va a tocar, y la colección de T62 ya definida en reglas.
+
+## Fases y checkpoints
+
+| Fase | Tareas | Checkpoint |
+| --- | --- | --- |
+| 1 · Verificación obligatoria | T59, T60, T61 | **A** — reglas y cliente exigen email verificado, sin regresión, y el mecanismo para detectarlo ya no se rompe en silencio |
+| 2 · Invitar sin revelar cuenta | T62, T63, T64 | **B** — invitar a quien tiene cuenta no cambia; invitar a quien no tiene cuenta no revela nada y no se pierde |
+| 3 · Cierre | T65, T66 | **C (final)** — los 6 criterios de éxito del spec, con `security-auditor` y `code-reviewer` sin hallazgos abiertos |
+
+### Checkpoint A — tras T59–T61
+
+- [x] `npm run test:rules` en 0 — 186/186 (33 anteriores + los nuevos de T60:
+      3 en `firestore.test.ts` para create/read/update sin verificar, 1 para
+      el caso editor, 1 para `acceptsInvite()` en `event-invites.test.ts`, 1
+      para `leavesTheEvent()` añadido tras el hallazgo LOW del
+      `security-auditor`). Verificado por maker, checker y security-auditor
+      de forma independiente, no una sola vez. Commit `7c674be`.
+- [x] `npm test` en 0 — 590/590, incluyendo `profile-view.test.ts` (T59) y
+      `guard.test.ts` ampliado (T61). Verificado por los tres agentes por
+      separado en distintos momentos, siempre en verde.
+- [ ] Prueba manual: una cuenta real sin verificar no puede crear un evento;
+      tras verificar y pulsar "I have verified it", sí puede, sin cerrar
+      sesión — y el aviso desaparece **sólo** si el directorio se publicó de
+      verdad. **Sin marcar**: nadie ha ejecutado esto todavía contra una
+      cuenta real (emulador o producción) con clics e inputs reales, sólo
+      contra la suite automatizada. Pendiente de quien tenga acceso para
+      hacerlo — ver la nota de `AGENTS.md` sobre por qué esta clase de
+      verificación no la cierra un agente por sí solo.
+
+### Checkpoint B — tras T62–T64
+
+- [x] Invitar a un email con cuenta existente se comporta exactamente igual
+      que hoy (regresión 0, mismo mensaje de éxito). Verificado por maker y
+      checker de T64, con mutación deliberada del código para confirmar que
+      los tests lo detectarían si dejara de ser cierto. `npm test` 604/604.
+- [x] Invitar a un email sin cuenta ya no muestra el mensaje que revela su
+      ausencia, y la oferta queda guardada en `eventInvitesByEmail` con la
+      forma exacta que exige `firestore.rules` — confirmado contra
+      `npm run test:rules` (204/204) y contra un `test:e2e` real (emulador
+      aislado, no aceptado de palabra).
+- [ ] Esa persona, si se registra con ese email, lo verifica y pasa por uno
+      de los dos disparadores de T63, ve la invitación en su bandeja sin que
+      nadie la reenvíe. **Sin marcar, a sabiendas — no es cierto todavía.**
+      T63 descubrió que en `eventInvitesByEmail` un `list` sin filtrar se
+      deniega —sólo pasa la consulta del propio dueño por `invitedBy`, el
+      invitado sigue sin poder listar— y ninguno de los dos disparadores
+      tiene un `eventId` en contexto:
+      `claimPendingInvitesByEmail()` es hoy un no-op documentado en
+      producción. Aceptado explícitamente por el usuario como hueco
+      conocido (ver `SPEC-verificacion-email-invitaciones.md`, "Lo que
+      esto NO resuelve"), pendiente de una tarea futura que reabra las
+      reglas de T62 o encuentre un disparador con `eventId` a mano.
+
+### Checkpoint C (final) — tras T65–T66
+
+- [x] Los 6 criterios de éxito de `SPEC-verificacion-email-invitaciones.md`
+      marcados uno a uno, cada uno con su evidencia — ver la entrada de T66
+      en `tasks/todo.md`. Cinco cumplidos; el 4 (reclamo automático) no
+      cumplido a sabiendas, tachado desde T63.
+- [x] `security-auditor` lanzado dos veces sobre `firestore.rules` durante
+      el cierre (hallazgo real en `eventInvites` + `eventInvitesByEmail`,
+      corregido y reconfirmado con pruebas propias) y `code-reviewer` real
+      sobre el diff completo de la rama, dos veces también (REQUEST
+      CHANGES por un hallazgo Importante de arquitectura → migrado →
+      reconfirmado cerrado, de forma independiente) — ver evidencia en la
+      entrada de T66 de `tasks/todo.md`.
+- [x] `npm run lint`, `npm run typecheck`, `npm run lint:lit`, `npm test`,
+      `npm run test:rules` en 0. `npm run test:e2e` no llega a 0
+      (inestabilidad ya documentada, aceptada explícitamente por el usuario
+      con evidencia de dos corridas — ver T66 en `tasks/todo.md`).
+- [ ] **Bloqueo sin cerrar, a propósito — no lo cierra un agente**: si ya
+      hay cuentas reales sin verificar en producción (`planu-app`) con
+      eventos creados, la Parte A las bloquearía hasta que verifiquen. No
+      comprobado — requeriría acceso de administración y una decisión de
+      quien tenga esa vista, no de quien implementó la tarea.
+- [ ] El bloqueo abierto sobre cuentas ya existentes sin verificar en
+      producción (ver "Bloqueos abiertos") está resuelto o explícitamente
+      diferido por una persona, no por un agente.
+
+## Riesgos y mitigación
+
+| Riesgo | Impacto | Mitigación |
+| --- | --- | --- |
+| Colisión de número de ADR con otra rama concurrente (ya pasó en T34, dos ficheros `0008-*.md` el mismo día) | Medio | T66 comprueba `ls docs/adr/` en el momento de escribir, no reserva `0011`/`0012` de antemano |
+| El bug de T59 no es la única causa de publicación fallida del directorio | Medio | T65 instrumenta antes de que T66 cierre la fase — no se asume "arreglado" sin evidencia nueva |
+| `firestore.rules` es zona de "luces encendidas" | Alto si se salta | `security-auditor` obligatorio en el Checkpoint final, en paralelo a `code-reviewer`, nunca en su lugar |
+| T60/T62 tocan el mismo fichero (`firestore.rules`) en paralelo | Bajo | Coordinar el orden de merge entre ambas tareas antes de abrir cualquier PR; conflicto de texto, no de lógica |
+| Cuentas reales ya existentes sin verificar en producción, con eventos creados | Alto si se despliega sin decidirlo | Bloqueo abierto explícito — ver abajo, no lo cierra un agente |
+
+## Bloqueos abiertos
+
+- **Cuentas ya existentes sin verificar en producción.** No comprobado en
+  este plan: requiere una consulta de administración más amplia que la
+  puntual ya hecha sobre una sola cuenta durante el spec, y decidir el
+  criterio (¿bloquear directamente, o avisar antes?) es de quien pidió la
+  tarea, no de un agente. Bloquea el despliegue de T60/T61, no su
+  implementación ni sus tests.
+- **Fiabilidad real de "recargar/volver a entrar" como disparador de
+  `publishDirectoryEntry`/`claimPendingInvitesByEmail`.** Ver la pregunta
+  abierta homónima del spec. T65 debe dejar evidencia de test, no una
+  suposición corregida por otra suposición.
+
+## Fuera de alcance
+
+- Cerrar del todo la fuga de "oráculo de un email" del ADR 0007 — sin
+  backend no se puede, y montar uno es justo lo que esta conversación
+  decidió no hacer ahora.
+- Cloud Functions, plan Blaze, o cualquier envío de correo real.
+- Compartir por enlace (`SPEC-compartir-por-enlace.md`, todavía sin pasar
+  por `/spec`).
+- Extraer `planu-events-toolbar` (`SPEC-events-toolbar.md`) — deprioritizada
+  frente a este trabajo en la propia conversación que generó ambos spec.
