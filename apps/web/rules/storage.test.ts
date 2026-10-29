@@ -5,7 +5,13 @@ import {
 	initializeTestEnvironment,
 	type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { getBytes, ref, uploadBytes } from "firebase/storage";
+import {
+	deleteObject,
+	getBytes,
+	listAll,
+	ref,
+	uploadBytes,
+} from "firebase/storage";
 import { afterAll, beforeAll, describe, test } from "vitest";
 
 const VICTIMA = "victima-uid";
@@ -124,6 +130,41 @@ describe("forma del fichero", () => {
 				imagen(5 * 1024 * 1024 - 1024),
 				comoPng,
 			),
+		);
+	});
+});
+
+// Account deletion sweeps the whole `events/{uid}/` folder rather than only
+// the images still referenced by an event: an upload whose event was never
+// saved would otherwise outlive the account. The sweep relies on these three.
+describe("barrido de la carpeta al borrar la cuenta", () => {
+	const seed = () =>
+		env.withSecurityRulesDisabled(async (ctx) => {
+			await uploadBytes(
+				ref(ctx.storage(), `events/${VICTIMA}/huerfana.png`),
+				imagen(),
+				comoPng,
+			);
+		});
+
+	test("el dueño lista su propia carpeta", async () => {
+		await seed();
+		await assertSucceeds(listAll(ref(comoVictima(), `events/${VICTIMA}`)));
+	});
+
+	test("nadie más lista la carpeta de otro", async () => {
+		await seed();
+		await assertFails(listAll(ref(comoAtacante(), `events/${VICTIMA}`)));
+		await assertFails(listAll(ref(sinSesion(), `events/${VICTIMA}`)));
+	});
+
+	test("el dueño borra lo que hay en su carpeta; otro no", async () => {
+		await seed();
+		await assertFails(
+			deleteObject(ref(comoAtacante(), `events/${VICTIMA}/huerfana.png`)),
+		);
+		await assertSucceeds(
+			deleteObject(ref(comoVictima(), `events/${VICTIMA}/huerfana.png`)),
 		);
 	});
 });
