@@ -1,11 +1,19 @@
 import { FirebaseError } from "firebase/app";
-import { expect, test } from "vitest";
+import { verifyBeforeUpdateEmail } from "firebase/auth";
+import { expect, test, vi } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
 import {
 	FirebaseSessionAdapter,
 	toSessionError,
 	toSessionUser,
 } from "./session-adapter.js";
+
+// Only `verifyBeforeUpdateEmail` is replaced, so `changeEmail()` can be
+// exercised without a network round trip; every other export stays real.
+vi.mock("firebase/auth", async (importOriginal) => ({
+	...(await importOriginal<typeof import("firebase/auth")>()),
+	verifyBeforeUpdateEmail: vi.fn(),
+}));
 
 // Pure and synchronous: builds the errors by hand, without touching the
 // Auth emulator. It's half of what `auth-errors.test.ts` used to test — the
@@ -173,6 +181,51 @@ test("reauthenticate() no intenta un popup de Google para un proveedor sin clasi
 	} as never);
 
 	await expect(adapter.reauthenticate()).rejects.toMatchObject({
+		code: "unknown",
+	});
+});
+
+test("los códigos de verifyBeforeUpdateEmail para una dirección inválida se traducen a invalid-email", () => {
+	expect(
+		toSessionError(new FirebaseError("auth/invalid-new-email", "")).code,
+	).toBe("invalid-email");
+	expect(
+		toSessionError(new FirebaseError("auth/missing-new-email", "")).code,
+	).toBe("invalid-email");
+	expect(
+		toSessionError(new FirebaseError("auth/requires-recent-login", "")).code,
+	).toBe("requires-recent-login");
+});
+
+test("changeEmail() manda el enlace a la dirección nueva, no cambia el email directamente", async () => {
+	const user = { uid: "u1" };
+	const adapter = new FirebaseSessionAdapter({ currentUser: user } as never);
+	vi.mocked(verifyBeforeUpdateEmail).mockResolvedValueOnce(undefined);
+
+	await adapter.changeEmail("ana@example.com");
+
+	expect(verifyBeforeUpdateEmail).toHaveBeenCalledWith(user, "ana@example.com");
+});
+
+test("changeEmail() traduce el fallo del proveedor a SessionError, sin filtrar el mensaje crudo", async () => {
+	const adapter = new FirebaseSessionAdapter({
+		currentUser: { uid: "u1" },
+	} as never);
+	vi.mocked(verifyBeforeUpdateEmail).mockRejectedValueOnce(
+		new FirebaseError("auth/requires-recent-login", "SECRET_TRACE"),
+	);
+
+	const error = await adapter.changeEmail("ana@example.com").catch((e) => e);
+
+	expect(error).toBeInstanceOf(SessionError);
+	expect(error.code).toBe("requires-recent-login");
+	expect(error.message).not.toContain("SECRET_TRACE");
+});
+
+test("changeEmail() no reporta éxito si ya no hay sesión", async () => {
+	const adapter = new FirebaseSessionAdapter({ currentUser: null } as never);
+
+	await expect(adapter.changeEmail("ana@example.com")).rejects.toMatchObject({
 		code: "unknown",
 	});
 });

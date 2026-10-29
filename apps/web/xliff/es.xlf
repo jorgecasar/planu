@@ -1066,6 +1066,42 @@
   <source>Write it by hand</source>
         <target>Escribir a mano</target>
 </trans-unit>
+<trans-unit id="sdb170fe4ed43f177">
+  <source>That is already your email.</source>
+        <target>Ese ya es tu email.</target>
+</trans-unit>
+<trans-unit id="s789adcab908a82c5">
+  <source>For your security, sign out, sign in again and retry.</source>
+        <target>Por seguridad, cierra sesión, vuelve a entrar e inténtalo de nuevo.</target>
+</trans-unit>
+<trans-unit id="sb2a807cb7b59349d">
+  <source>We sent a link to <x id="0" equiv-text="${sentTo}"/>. Open it to switch your account to that address, then sign in again with it.</source>
+        <target>Hemos enviado un enlace a <x id="0" equiv-text="${sentTo}"/>. Ábrelo para cambiar tu cuenta a esa dirección y después vuelve a entrar con ella.</target>
+</trans-unit>
+<trans-unit id="sa9f254a607f8de46">
+  <source>Wrong email? Change it</source>
+        <target>¿Email equivocado? Cámbialo</target>
+</trans-unit>
+<trans-unit id="s1076516a7f38dbe1">
+  <source>New email</source>
+        <target>Email nuevo</target>
+</trans-unit>
+<trans-unit id="s6ead281adf0d371d">
+  <source>Sending…</source>
+        <target>Enviando…</target>
+</trans-unit>
+<trans-unit id="s7fa236d26b798301">
+  <source>Send link</source>
+        <target>Enviar enlace</target>
+</trans-unit>
+<trans-unit id="s57cf5afa66b89a83">
+  <source>Your email is already verified. Reload the page to continue.</source>
+        <target>Tu email ya está verificado. Recarga la página para continuar.</target>
+</trans-unit>
+<trans-unit id="s2597eba8f45efd12">
+  <source>Use a different email</source>
+        <target>Usar otro email</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

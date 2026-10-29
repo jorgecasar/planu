@@ -9,6 +9,7 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { changeEmail } from "../application/change-email.js";
 import {
 	type DeleteAccountStep,
 	deleteAccount,
@@ -19,6 +20,7 @@ import type { SessionPort, SessionUser } from "../application/ports/session.js";
 import type { SharingPort } from "../application/ports/sharing.js";
 import { sharingContext } from "../application/ports/sharing.js";
 import { signOut } from "../application/sign-out.js";
+import { authErrorMessage } from "../domain/auth-errors.js";
 import { SessionError } from "../domain/session-error.js";
 import { sessionContext, userContext } from "../firebase/context.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
@@ -56,6 +58,19 @@ export class PlanuProfileView extends LitElement {
 		dd {
 			margin: 0;
 		}
+
+		.change-email {
+			margin-block-start: var(--wa-space-s);
+		}
+
+		.change-email-status {
+			margin: 0;
+		}
+
+		/* A focus target, not a control: no ring after a mouse click. */
+		.change-email-status:focus:not(:focus-visible) {
+			outline: none;
+		}
 	`;
 
 	@consume({ context: userContext, subscribe: true })
@@ -67,6 +82,13 @@ export class PlanuProfileView extends LitElement {
 	@state() private sending = false;
 	@state() private sent = false;
 	@state() private checking = false;
+
+	/** The mistyped-address way out; see `#renderChangeEmail()`. */
+	@state() private changingEmail = false;
+	@state() private newEmail = "";
+	@state() private sendingChangeEmail = false;
+	@state() private changeEmailSentTo = "";
+	@state() private changeEmailError = "";
 
 	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
 	// just below — this already-coupled component's directory-publishing call
@@ -343,8 +365,150 @@ export class PlanuProfileView extends LitElement {
 				>
 					${this.checking ? msg("Checking…") : msg("I have verified it")}
 				</wa-button>
+				${user.provider === "password" ? this.#renderChangeEmail() : nothing}
 			</wa-callout>
 		`;
+	}
+
+	/**
+	 * A mistyped address at sign-up can never be verified — the link goes to
+	 * an inbox nobody reads — and the notice above would only keep resending
+	 * it. This lets the person fix the address instead. Only for password
+	 * accounts: Google arrives verified and its address belongs to Google,
+	 * not to us.
+	 *
+	 * Collapsed behind a button so the common case — the address is right,
+	 * the mail just hasn't been opened yet — keeps the notice short.
+	 */
+	#renderChangeEmail() {
+		const sentTo = this.changeEmailSentTo;
+		// The status region is always in the DOM, empty until there's
+		// something to say: a live region inserted together with its text is
+		// often not announced at all.
+		return html`
+			<div class="change-email wa-stack wa-gap-s">
+				<p class="change-email-status" role="status" tabindex="-1">
+					${
+						sentTo
+							? msg(
+									str`We sent a link to ${sentTo}. Open it to switch your account to that address, then sign in again with it.`,
+								)
+							: nothing
+					}
+				</p>
+				${
+					sentTo
+						? html`<wa-button
+								appearance="plain"
+								@click=${this.#retryChangeEmail}
+							>
+								${msg("Use a different email")}
+							</wa-button>`
+						: this.changingEmail
+							? this.#renderChangeEmailForm()
+							: html`<wa-button
+									class="change-email-open"
+									appearance="plain"
+									@click=${this.#openChangeEmail}
+								>
+									${msg("Wrong email? Change it")}
+								</wa-button>`
+				}
+			</div>
+		`;
+	}
+
+	#renderChangeEmailForm() {
+		return html`
+			<form class="wa-stack wa-gap-s" @submit=${this.#onChangeEmail}>
+				<wa-input
+					type="email"
+					autocomplete="email"
+					label=${msg("New email")}
+					required
+					.value=${this.newEmail}
+					?disabled=${this.sendingChangeEmail}
+					@input=${this.#onNewEmailInput}
+				></wa-input>
+				${
+					this.changeEmailError
+						? html`<wa-callout variant="danger" role="alert">
+								${this.changeEmailError}
+							</wa-callout>`
+						: nothing
+				}
+				<div class="wa-cluster wa-gap-s">
+					<wa-button
+						type="submit"
+						variant="brand"
+						?disabled=${!this.newEmail.trim() || this.sendingChangeEmail}
+					>
+						${this.sendingChangeEmail ? msg("Sending…") : msg("Send link")}
+					</wa-button>
+					<wa-button
+						appearance="plain"
+						?disabled=${this.sendingChangeEmail}
+						@click=${this.#closeChangeEmail}
+					>
+						${msg("Cancel")}
+					</wa-button>
+				</div>
+			</form>
+		`;
+	}
+
+	async #openChangeEmail(): Promise<void> {
+		this.changingEmail = true;
+		this.newEmail = "";
+		this.changeEmailError = "";
+		// The button that was focused just disappeared; without this, focus
+		// falls back to the page and a keyboard user has to find the field.
+		await this.updateComplete;
+		this.#focus('wa-input[type="email"]');
+	}
+
+	/** A second typo deserves the same way out as the first. */
+	async #retryChangeEmail(): Promise<void> {
+		this.changeEmailSentTo = "";
+		await this.#openChangeEmail();
+	}
+
+	async #closeChangeEmail(): Promise<void> {
+		this.changingEmail = false;
+		this.changeEmailError = "";
+		// Same reason as on open: the focused Cancel button just vanished, and
+		// focus would otherwise drop to <body>.
+		await this.updateComplete;
+		this.#focus(".change-email-open");
+	}
+
+	#focus(selector: string): void {
+		this.renderRoot.querySelector<HTMLElement>(selector)?.focus();
+	}
+
+	#onNewEmailInput(event: Event): void {
+		this.newEmail = (event.target as HTMLInputElement).value;
+	}
+
+	async #onChangeEmail(event: Event): Promise<void> {
+		event.preventDefault();
+		const { session, user } = this;
+		if (!session || !user || this.sendingChangeEmail) return;
+
+		this.changeEmailError = "";
+		this.sendingChangeEmail = true;
+		try {
+			this.changeEmailSentTo = await changeEmail(session, user, this.newEmail);
+			this.changingEmail = false;
+		} catch (cause) {
+			this.changeEmailError = authErrorMessage(cause);
+			return;
+		} finally {
+			this.sendingChangeEmail = false;
+		}
+		// The form that held focus is gone; the confirmation takes its place.
+		await this.updateComplete;
+		this.#focus(".change-email-status");
 	}
 
 	/**

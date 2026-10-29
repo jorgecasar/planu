@@ -17,6 +17,7 @@ function fakeSession(): SessionPort {
 		refreshEmailVerification: vi.fn(),
 		reauthenticate: vi.fn().mockResolvedValue(undefined),
 		deleteAccount: vi.fn().mockResolvedValue(undefined),
+		changeEmail: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
