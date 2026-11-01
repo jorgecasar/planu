@@ -11,6 +11,7 @@ import type { SessionUser } from "../application/ports/session.js";
 export const APP_BASE = "/app";
 export const LOGIN_PATH = `${APP_BASE}/login`;
 export const HOME_PATH = APP_BASE;
+export const PROFILE_PATH = `${APP_BASE}/profile`;
 
 /**
  * Decides where to redirect to based on the session and the current route.
@@ -19,6 +20,12 @@ export const HOME_PATH = APP_BASE;
  * The `undefined` state —still checking— is the one that matters: treating it
  * as "no session" would send an already-authenticated user to the login
  * during the instant it takes Firebase to restore the session.
+ *
+ * This is a UX layer only, not the enforcement boundary: it runs entirely on
+ * the client, so it only decides where an unverified account lands.
+ * Enforcement belongs to `isVerified()` in `firestore.rules` (T60), not to
+ * this guard (T61); once that lands, this is what keeps the account from
+ * staring at screens that would fail on every read.
  */
 export function guardRedirect(
 	user: SessionUser | null | undefined,
@@ -30,5 +37,16 @@ export function guardRedirect(
 		return pathname === LOGIN_PATH ? null : LOGIN_PATH;
 	}
 
-	return pathname === LOGIN_PATH ? HOME_PATH : null;
+	// Accounts without an email (none exist today; every adapter requires
+	// one) have nothing to verify, so they're left alone rather than sent
+	// into a redirect loop against a notice that would never resolve.
+	const unverified = user.email !== null && !user.emailVerified;
+
+	// Straight to the profile from the login, not via home: a detour through
+	// `/app` would push two history entries — Back bounces off the profile
+	// — and start the events view loading for an account that can't use it.
+	if (pathname === LOGIN_PATH) return unverified ? PROFILE_PATH : HOME_PATH;
+	if (unverified && pathname !== PROFILE_PATH) return PROFILE_PATH;
+
+	return null;
 }
