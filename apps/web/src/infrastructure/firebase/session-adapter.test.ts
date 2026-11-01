@@ -1,5 +1,5 @@
 import { FirebaseError } from "firebase/app";
-import { verifyBeforeUpdateEmail } from "firebase/auth";
+import { reload, verifyBeforeUpdateEmail } from "firebase/auth";
 import { expect, test, vi } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
 import {
@@ -8,11 +8,12 @@ import {
 	toSessionUser,
 } from "./session-adapter.js";
 
-// Only `verifyBeforeUpdateEmail` is replaced, so `changeEmail()` can be
-// exercised without a network round trip; every other export stays real.
+// Only `verifyBeforeUpdateEmail` and `reload` are replaced, so they run
+// without a network round trip; every other export stays real.
 vi.mock("firebase/auth", async (importOriginal) => ({
 	...(await importOriginal<typeof import("firebase/auth")>()),
 	verifyBeforeUpdateEmail: vi.fn(),
+	reload: vi.fn(),
 }));
 
 // Pure and synchronous: builds the errors by hand, without touching the
@@ -228,4 +229,40 @@ test("changeEmail() no reporta éxito si ya no hay sesión", async () => {
 	await expect(adapter.changeEmail("ana@example.com")).rejects.toMatchObject({
 		code: "unknown",
 	});
+});
+
+test.each([true, false])(
+	"refreshEmailVerification() renueva el token (emailVerified %s)",
+	async (emailVerified) => {
+		const user = {
+			uid: "u1",
+			email: "ana@example.com",
+			emailVerified,
+			providerData: [],
+			getIdToken: vi.fn().mockResolvedValue("t"),
+		};
+		vi.mocked(reload).mockResolvedValueOnce(undefined);
+		const adapter = new FirebaseSessionAdapter({ currentUser: user } as never);
+
+		const refreshed = await adapter.refreshEmailVerification();
+
+		expect(reload).toHaveBeenCalledWith(user);
+		expect(user.getIdToken).toHaveBeenCalledWith(true);
+		expect(refreshed?.emailVerified).toBe(emailVerified);
+	},
+);
+
+test("refreshEmailVerification() traduce el fallo del proveedor a SessionError", async () => {
+	vi.mocked(reload).mockRejectedValueOnce(
+		new FirebaseError("auth/network-request-failed", "SECRET_TRACE"),
+	);
+	const adapter = new FirebaseSessionAdapter({
+		currentUser: { uid: "u1", getIdToken: vi.fn() },
+	} as never);
+
+	const error = await adapter.refreshEmailVerification().catch((e) => e);
+
+	expect(error).toBeInstanceOf(SessionError);
+	expect(error.code).toBe("network-error");
+	expect(error.message).not.toContain("SECRET_TRACE");
 });

@@ -1,8 +1,14 @@
 import { expect, type Page, test } from "@playwright/test";
-import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
+import {
+	API_KEY,
+	AUTH_EMULATOR,
+	createAccount,
+	createVerifiedAccount,
+	newEmail,
+	signIn,
+	submitLogin,
+} from "./verified-account.js";
 
-const AUTH_EMULATOR = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
-const API_KEY = "demo-api-key";
 const FIRESTORE_EMULATOR =
 	"http://127.0.0.1:8181/v1/projects/planu-app/databases/planu/documents";
 const STORAGE_EMULATOR = "http://127.0.0.1:9199/v0/b";
@@ -161,11 +167,19 @@ async function listEventImages(page: Page, uid: string): Promise<unknown[]> {
 	return body.items ?? [];
 }
 
+/** Signs in through the emulator's REST API. */
+function signInByApi(page: Page, email: string) {
+	return page.request.post(
+		`${AUTH_EMULATOR}/accounts:signInWithPassword?key=${API_KEY}`,
+		{ data: { email, password: "secret123", returnSecureToken: true } },
+	);
+}
+
 async function deleteAccountFromProfile(
 	page: Page,
 	email: string,
 ): Promise<void> {
-	await page.goto("/app/profile");
+	if (!page.url().endsWith("/app/profile")) await page.goto("/app/profile");
 	await page.getByRole("button", { name: "Delete account" }).click();
 	await page.getByLabel("Email").fill(email);
 	// No `getByRole("dialog")`: el botón vive en el slot `footer`, y Web
@@ -241,17 +255,9 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 
 	// B sube una portada real a Storage —con su propio idToken, no con el de
 	// administración— y con ella se crea su evento propio.
-	const signIn_ = await guestPage.request.post(
-		`${AUTH_EMULATOR}/accounts:signInWithPassword?key=${API_KEY}`,
-		{
-			data: {
-				email: deletedEmail,
-				password: "secret123",
-				returnSecureToken: true,
-			},
-		},
-	);
-	const { idToken } = (await signIn_.json()) as { idToken: string };
+	const { idToken } = (await (
+		await signInByApi(guestPage, deletedEmail)
+	).json()) as { idToken: string };
 	const imageUrl = await uploadEventImage(guestPage, uid, idToken);
 	await createOwnEventWithImageViaAdmin(guestPage, {
 		title: ownedTitle,
@@ -303,4 +309,38 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	).not.toBeVisible();
 
 	await context.close();
+});
+
+test("una cuenta sin verificar también puede borrarse: imágenes, perfil y cuenta de Auth desaparecen", async ({
+	page,
+}) => {
+	const email = newEmail();
+	const { idToken, uid } = await createAccount(page, email);
+	expect((await signInByApi(page, email)).ok()).toBe(true);
+
+	// What an unverified account can still leave behind, written with its
+	// own token: an orphan image and a `userProfiles` entry.
+	await uploadEventImage(page, uid, idToken);
+	expect(await listEventImages(page, uid)).toHaveLength(1);
+	const profile = await page.request.patch(
+		`${FIRESTORE_EMULATOR}/userProfiles/${uid}`,
+		{
+			headers: { Authorization: `Bearer ${idToken}` },
+			data: {
+				fields: {
+					displayName: { stringValue: "Ana" },
+					photoURL: { stringValue: "" },
+				},
+			},
+		},
+	);
+	expect(profile.ok(), await profile.text()).toBe(true);
+
+	await submitLogin(page, email);
+	await expect(page).toHaveURL(/\/app\/profile$/);
+	await deleteAccountFromProfile(page, email);
+
+	expect((await signInByApi(page, email)).ok()).toBe(false);
+	expect(await listEventImages(page, uid)).toEqual([]);
+	expect(await readDoc(page, "userProfiles", uid)).toBeUndefined();
 });

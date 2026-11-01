@@ -98,9 +98,8 @@ export interface SessionPort {
 	 * Refreshes the verification status against the provider and returns
 	 * the updated user, or `null` if there is no longer a session.
 	 *
-	 * Not a plain `reload()`: when the email is already verified, it also
-	 * renews the identity token, which is what's needed for Firestore rules
-	 * to see an up-to-date `email_verified`.
+	 * Not a plain `reload()`: it also renews the identity token, so the
+	 * `email_verified` the rules read matches the returned user.
 	 */
 	refreshEmailVerification(): Promise<SessionUser | null>;
 }

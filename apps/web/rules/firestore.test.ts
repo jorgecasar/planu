@@ -85,10 +85,14 @@ beforeEach(async () => {
 	});
 });
 
-const asAttacker = () => env.authenticatedContext(ATTACKER).firestore();
-const asVictim = () => env.authenticatedContext(VICTIM).firestore();
-const asViewer = () => env.authenticatedContext(VIEWER).firestore();
-const asEditor = () => env.authenticatedContext(EDITOR).firestore();
+// Verified by default; only the verification tests pass `false`.
+const as = (uid: string, emailVerified = true) =>
+	env.authenticatedContext(uid, { email_verified: emailVerified }).firestore();
+
+const asAttacker = (emailVerified = true) => as(ATTACKER, emailVerified);
+const asVictim = (emailVerified = true) => as(VICTIM, emailVerified);
+const asViewer = (emailVerified = true) => as(VIEWER, emailVerified);
+const asEditor = (emailVerified = true) => as(EDITOR, emailVerified);
 const asAnonymous = () => env.unauthenticatedContext().firestore();
 
 describe("privacy between users", () => {
@@ -161,6 +165,62 @@ describe("ownership", () => {
 	test("without a session nothing can be created", async () => {
 		await assertFails(
 			addDoc(collection(asAnonymous(), "events"), anEvent(ATTACKER)),
+		);
+	});
+});
+
+describe("an unverified email cannot use events", () => {
+	test("cannot create an event", async () => {
+		await assertFails(
+			addDoc(collection(asAttacker(false), "events"), anEvent(ATTACKER)),
+		);
+	});
+
+	test("cannot read their own event", async () => {
+		await assertFails(getDoc(doc(asVictim(false), "events/victim-event")));
+	});
+
+	test("a token without the claim cannot read either", async () => {
+		await assertFails(
+			getDoc(
+				doc(
+					env.authenticatedContext(VICTIM).firestore(),
+					"events/victim-event",
+				),
+			),
+		);
+	});
+
+	test("cannot list the events they are a member of", async () => {
+		await assertFails(
+			getDocs(
+				query(
+					collection(asViewer(false), "events"),
+					where("memberIds", "array-contains", VIEWER),
+				),
+			),
+		);
+	});
+
+	test("the owner cannot update their own event", async () => {
+		await assertFails(
+			updateDoc(doc(asVictim(false), "events/victim-event"), {
+				title: "Unverified edit",
+			}),
+		);
+	});
+
+	test("the owner can still delete their own event", async () => {
+		await assertSucceeds(
+			deleteDoc(doc(asVictim(false), "events/victim-event")),
+		);
+	});
+
+	test("an editor cannot update either", async () => {
+		await assertFails(
+			updateDoc(doc(asEditor(false), "events/shared-event"), {
+				title: "Unverified editor edit",
+			}),
 		);
 	});
 });
@@ -522,6 +582,15 @@ describe("leaving someone else's event", () => {
 			updateDoc(doc(asVictim(), "events/shared-event"), {
 				memberIds: [VIEWER, EDITOR],
 				roles: { [VIEWER]: "viewer", [EDITOR]: "editor" },
+			}),
+		);
+	});
+
+	test("an unverified viewer cannot leave the event", async () => {
+		await assertFails(
+			updateDoc(doc(asViewer(false), "events/shared-event"), {
+				memberIds: [VICTIM, EDITOR],
+				roles: { [EDITOR]: "editor" },
 			}),
 		);
 	});

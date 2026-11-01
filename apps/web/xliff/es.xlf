@@ -1042,10 +1042,6 @@
   <source>Deleting events: <x id="0" equiv-text="${step.done}"/> of <x id="1" equiv-text="${step.total}"/>…</source>
         <target>Eliminando eventos: <x id="0" equiv-text="${step.done}"/> de <x id="1" equiv-text="${step.total}"/>…</target>
 </trans-unit>
-<trans-unit id="s73a53e78c72afb43">
-  <source>Removing your entry from the directory…</source>
-        <target>Eliminando tu entrada del directorio…</target>
-</trans-unit>
 <trans-unit id="s7525c0a80cbe885f">
   <source>Deleting your account…</source>
         <target>Eliminando tu cuenta…</target>
@@ -1101,6 +1097,10 @@
 <trans-unit id="s2597eba8f45efd12">
   <source>Use a different email</source>
         <target>Usar otro email</target>
+</trans-unit>
+<trans-unit id="s102bcac29fc2df6a">
+  <source>Removing your files and directory entry…</source>
+        <target>Eliminando tus archivos y tu entrada del directorio…</target>
 </trans-unit>
 </body>
 </file>

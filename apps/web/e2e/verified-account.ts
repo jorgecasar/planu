@@ -1,7 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
-const AUTH_EMULATOR = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
-const API_KEY = "demo-api-key";
+export const AUTH_EMULATOR =
+	"http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
+export const API_KEY = "demo-api-key";
 
 /** Unique email per run: the emulator keeps accounts between runs. */
 export const newEmail = () =>
@@ -28,12 +29,7 @@ export async function createVerifiedAccount(
 	email: string,
 	password = "secret123",
 ): Promise<void> {
-	const signUp = await page.request.post(
-		`${AUTH_EMULATOR}/accounts:signUp?key=${API_KEY}`,
-		{ data: { email, password, returnSecureToken: true } },
-	);
-	expect(signUp.ok()).toBe(true);
-	const { idToken } = (await signUp.json()) as { idToken: string };
+	const { idToken } = await createAccount(page, email, password);
 
 	await page.request.post(
 		`${AUTH_EMULATOR}/accounts:sendOobCode?key=${API_KEY}`,
@@ -62,8 +58,26 @@ export async function createVerifiedAccount(
 	expect((await applied.json()).emailVerified).toBe(true);
 }
 
-/** Signs in with an existing account through the real login form. */
-export async function signIn(
+/** Creates an account through the emulator, without verifying it. */
+export async function createAccount(
+	page: Page,
+	email: string,
+	password = "secret123",
+): Promise<{ idToken: string; uid: string }> {
+	const signUp = await page.request.post(
+		`${AUTH_EMULATOR}/accounts:signUp?key=${API_KEY}`,
+		{ data: { email, password, returnSecureToken: true } },
+	);
+	expect(signUp.ok()).toBe(true);
+	const { idToken, localId } = (await signUp.json()) as {
+		idToken: string;
+		localId: string;
+	};
+	return { idToken, uid: localId };
+}
+
+/** Fills and submits the real login form. */
+export async function submitLogin(
 	page: Page,
 	email: string,
 	password = "secret123",
@@ -76,6 +90,15 @@ export async function signIn(
 	await panel.getByLabel("Email").fill(email);
 	await panel.getByLabel("Password", { exact: true }).fill(password);
 	await panel.getByRole("button", { name: "Sign in" }).click();
+}
+
+/** Signs in with an existing, verified account through the login form. */
+export async function signIn(
+	page: Page,
+	email: string,
+	password = "secret123",
+): Promise<void> {
+	await submitLogin(page, email, password);
 	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 }
 

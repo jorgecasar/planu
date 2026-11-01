@@ -133,6 +133,12 @@ describe("looking up who to invite", () => {
 		);
 	});
 
+	test("without a verified email no email resolves", async () => {
+		await assertFails(
+			getDoc(doc(as(ATTACKER, false), `userDirectory/${hash(ANA.email)}`)),
+		);
+	});
+
 	test("nobody can list the whole directory", async () => {
 		// This is what separates checking an address you already know from
 		// downloading the user census.

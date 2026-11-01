@@ -243,12 +243,13 @@ export class FirebaseSessionAdapter implements SessionPort {
 		const user = this.#auth.currentUser;
 		if (!user) return null;
 
-		// `reload()` alone isn't enough: the directory rule reads
-		// `request.auth.token.email_verified`, so the token has to be
-		// reissued — `getIdToken(true)` — before the verification counts for
-		// Firestore.
-		await reload(user);
-		if (user.emailVerified) await user.getIdToken(true);
+		try {
+			// The rules read the token's `email_verified`, not the reloaded record.
+			await reload(user);
+			await user.getIdToken(true);
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
 
 		return toSessionUser(user);
 	}

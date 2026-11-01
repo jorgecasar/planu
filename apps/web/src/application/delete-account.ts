@@ -1,3 +1,4 @@
+import { SessionError } from "../domain/session-error.js";
 import type { AccountDataPort } from "./ports/account-data.js";
 import type { SessionPort, SessionUser } from "./ports/session.js";
 
@@ -34,6 +35,10 @@ export type DeleteAccountStep =
  * session's uid — and that session stops existing the moment
  * `deleteAccount()` resolves. Reversing the order would orphan events and
  * images with no account left able to delete them.
+ *
+ * Verification is read fresh, since `user` can be stale either way. An
+ * unverified account can own no events and the rules deny it the
+ * `memberIds` query, so only its images, profile and Auth account go.
  */
 export async function deleteAccount(
 	session: SessionPort,
@@ -41,8 +46,15 @@ export async function deleteAccount(
 	user: SessionUser,
 	onProgress?: (step: DeleteAccountStep) => void,
 ): Promise<void> {
+	// First, so the caller can block a second run while the refresh is in flight.
 	onProgress?.({ phase: "listing" });
-	const events = await account.listMemberEvents(user.uid);
+	const current = await session.refreshEmailVerification();
+	// No session left, or another tab switched accounts meanwhile.
+	if (!current || current.uid !== user.uid) {
+		throw new SessionError("unknown");
+	}
+	const verified = current.emailVerified;
+	const events = verified ? await account.listMemberEvents(current.uid) : [];
 
 	for (const [index, event] of events.entries()) {
 		onProgress?.({
@@ -55,18 +67,21 @@ export async function deleteAccount(
 			if (event.imageUrl) await account.deleteEventImage(event.imageUrl);
 			await account.deleteOwnEvent(event.id);
 		} else {
-			await account.leaveEvent(event.id, user.uid);
+			await account.leaveEvent(event.id, current.uid);
 		}
 	}
 
 	// After the per-event deletions, not instead of them: those remove the
 	// images events point to, this catches anything left in the folder.
-	// Not swallowed here — every step of this use case propagates, and a
-	// retry just finds the folder (partly) empty.
-	await account.deleteAllEventImages(user.uid);
-
+	// A failure here leaves the Auth account in place for a retry.
 	onProgress?.({ phase: "deleting-directory" });
-	await account.deleteDirectoryEntries(user.uid, user.email);
+	await Promise.all([
+		account.deleteAllEventImages(current.uid),
+		account.deleteDirectoryEntries(
+			current.uid,
+			verified ? current.email : null,
+		),
+	]);
 
 	// The one step that can demand reauthentication: Firestore and Storage
 	// don't, `deleteUser()` does. Left to propagate unwrapped — a

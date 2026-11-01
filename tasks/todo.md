@@ -2971,3 +2971,31 @@ plan en `tasks/plan.md` (sección homónima). Rama `feat/email-verification-and-
 > **Checkpoint C (final)** — tras T65–T66: los 6 criterios de éxito del spec,
 > con evidencia; `security-auditor` y `code-reviewer` sin hallazgos abiertos;
 > suite completa en 0. Ver criterios exactos en `tasks/plan.md`.
+
+- [x] **T67 · Borrado de cuenta con la verificación obligatoria** · S · depende de T60, T61
+  - Problema: las reglas deniegan a un token sin verificar la consulta
+    `memberIds` con la que empieza `deleteAccount()`; una cuenta con el
+    email mal escrito no podía borrarse (RGPD, art. 17). Las reglas no se
+    relajan (decisión del responsable de producto).
+  - Hecho: `deleteAccount()` lee la verificación en fresco, se niega si la
+    sesión es ya otra cuenta y, sin verificar, borra sólo carpeta de
+    Storage, perfil y cuenta de Auth. `refreshEmailVerification()` renueva
+    siempre el token. `isVerified()` se define una vez en `firestore.rules`.
+    Previas en `main`: PR 73 (barrido de `events/{uid}/`), 74 (cambiar un
+    email mal escrito), 75 (guard).
+  - Evidencia: `npm run typecheck` → 0, `npm run lint` → 0,
+    `npm run lint:lit` → 0, `npm run test:arch` → 0 (28/28),
+    `npm test` → 0 (644/644), `npm run test:rules` → 0 (200/200),
+    `npm run test:e2e` → 0 (86/86). Reglas y e2e contra emuladores con
+    Firestore en 18181, sin comitear el cambio de puerto.
+  - Huecos aceptados: eventos creados antes de las reglas de verificación
+    no se listan sin verificar (no hay cuentas en producción); el borrado no
+    limpia `eventInvites`.
+  - Hueco aceptado: verificación revocada desde consola deja eventos y
+    entrada del directorio (inalcanzable desde la app: `verifyBeforeUpdateEmail`
+    mantiene la verificación).
+  - ADR 0011 dice que las funciones no cruzan bloques `match`; es falso:
+    `isVerified()` se define una vez en el bloque superior.
+  - Bloqueo de ADR 0011 sobre cuentas de producción: resuelto el
+    2026-10-29, «no hay cuentas en producción; se puede desplegar sin
+    comprobación previa».

@@ -793,9 +793,12 @@ va a tocar, y la colección de T62 ya definida en reglas.
       eventos creados, la Parte A las bloquearía hasta que verifiquen. No
       comprobado — requeriría acceso de administración y una decisión de
       quien tenga esa vista, no de quien implementó la tarea.
-- [ ] El bloqueo abierto sobre cuentas ya existentes sin verificar en
+      Sin marcar: la consulta no se hizo; la sustituye la casilla siguiente.
+- [x] El bloqueo abierto sobre cuentas ya existentes sin verificar en
       producción (ver "Bloqueos abiertos") está resuelto o explícitamente
-      diferido por una persona, no por un agente.
+      diferido por una persona, no por un agente. Resuelto el 2026-10-29
+      por el responsable de producto: «no hay cuentas en producción; se
+      puede desplegar sin comprobación previa» (T67).
 
 ## Riesgos y mitigación
 
@@ -809,12 +812,12 @@ va a tocar, y la colección de T62 ya definida en reglas.
 
 ## Bloqueos abiertos
 
-- **Cuentas ya existentes sin verificar en producción.** No comprobado en
+- ~~**Cuentas ya existentes sin verificar en producción.** No comprobado en
   este plan: requiere una consulta de administración más amplia que la
   puntual ya hecha sobre una sola cuenta durante el spec, y decidir el
   criterio (¿bloquear directamente, o avisar antes?) es de quien pidió la
   tarea, no de un agente. Bloquea el despliegue de T60/T61, no su
-  implementación ni sus tests.
+  implementación ni sus tests.~~ Resuelto el 2026-10-29 (T67).
 - **Fiabilidad real de "recargar/volver a entrar" como disparador de
   `publishDirectoryEntry`/`claimPendingInvitesByEmail`.** Ver la pregunta
   abierta homónima del spec. T65 debe dejar evidencia de test, no una
