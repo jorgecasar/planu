@@ -4,10 +4,10 @@ import { createContext } from "@lit/context";
  * What T32 needs to touch in Firestore and Storage to delete an account, on
  * the domain side.
  *
- * Not a general events port: it is deliberately narrow, with only the five
- * steps `deleteAccount()` runs in order — own event, image, directory, guest
- * membership. Widening it the day another use case needs more is fine; not
- * before.
+ * Not a general events port: it is deliberately narrow, with only the
+ * steps `deleteAccount()` runs in order — own event, image, image folder,
+ * directory, guest membership. Widening it the day another use case needs
+ * more is fine; not before.
  */
 
 /** The minimum an event needs to expose for deletion to work. */
@@ -36,6 +36,14 @@ export interface AccountDataPort {
 
 	/** Deletes an owned event's cover image, if `imageUrl` pointed to one. */
 	deleteEventImage(imageUrl: string): Promise<void>;
+
+	/**
+	 * Deletes everything left in the account's own image folder, referenced
+	 * by an event or not: an upload whose event was never saved would
+	 * otherwise outlive the account. Idempotent: an empty folder is not an
+	 * error.
+	 */
+	deleteAllEventImages(uid: string): Promise<void>;
 
 	/** Deletes the account's `userDirectory` and `userProfiles` entries. */
 	deleteDirectoryEntries(uid: string, email: string | null): Promise<void>;

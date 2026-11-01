@@ -59,6 +59,12 @@ export async function deleteAccount(
 		}
 	}
 
+	// After the per-event deletions, not instead of them: those remove the
+	// images events point to, this catches anything left in the folder.
+	// Not swallowed here — every step of this use case propagates, and a
+	// retry just finds the folder (partly) empty.
+	await account.deleteAllEventImages(user.uid);
+
 	onProgress?.({ phase: "deleting-directory" });
 	await account.deleteDirectoryEntries(user.uid, user.email);
 

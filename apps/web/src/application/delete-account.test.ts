@@ -26,6 +26,7 @@ function fakeAccount(events: AccountEventSummary[] = []): AccountDataPort {
 		deleteOwnEvent: vi.fn().mockResolvedValue(undefined),
 		leaveEvent: vi.fn().mockResolvedValue(undefined),
 		deleteEventImage: vi.fn().mockResolvedValue(undefined),
+		deleteAllEventImages: vi.fn().mockResolvedValue(undefined),
 		deleteDirectoryEntries: vi.fn().mockResolvedValue(undefined),
 	};
 }
@@ -192,4 +193,35 @@ test("un usuario sin email todavía borra su entrada del directorio con null", a
 	await deleteAccount(fakeSession(), account, guest);
 
 	expect(account.deleteDirectoryEntries).toHaveBeenCalledWith("u1", null);
+});
+
+test("barre la carpeta de imágenes después de los eventos", async () => {
+	// Catches uploads no event points to — an image whose event was never
+	// saved — which deleting per event would leave behind.
+	const order: string[] = [];
+	const account = fakeAccount([{ id: "e1", isOwner: true }]);
+	vi.mocked(account.deleteOwnEvent).mockImplementation(async () => {
+		order.push("event");
+	});
+	vi.mocked(account.deleteAllEventImages).mockImplementation(async () => {
+		order.push("folder");
+	});
+	vi.mocked(account.deleteDirectoryEntries).mockImplementation(async () => {
+		order.push("directory");
+	});
+
+	await deleteAccount(fakeSession(), account, USER);
+
+	expect(account.deleteAllEventImages).toHaveBeenCalledWith("u1");
+	expect(order).toEqual(["event", "folder", "directory"]);
+});
+
+test("si falla el barrido de la carpeta, no borra la cuenta", async () => {
+	const session = fakeSession();
+	const account = fakeAccount([{ id: "e1", isOwner: true }]);
+	vi.mocked(account.deleteAllEventImages).mockRejectedValue(new Error("z"));
+
+	await expect(deleteAccount(session, account, USER)).rejects.toThrow("z");
+	expect(account.deleteDirectoryEntries).not.toHaveBeenCalled();
+	expect(session.deleteAccount).not.toHaveBeenCalled();
 });

@@ -14,7 +14,7 @@ import {
 	where,
 } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
-import { deleteObject, ref } from "firebase/storage";
+import { deleteObject, listAll, ref } from "firebase/storage";
 import type {
 	AccountDataPort,
 	AccountEventSummary,
@@ -96,6 +96,13 @@ export function createAccountDataAdapter(
 				// isn't reachable without the account that uploaded it, and the
 				// rules protect it just the same.
 			}
+		},
+
+		async deleteAllEventImages(uid: string): Promise<void> {
+			// One level is enough: `storage.rules` only matches
+			// `events/{userId}/{fileName}`, so nothing can live deeper.
+			const { items } = await listAll(ref(storage, `events/${uid}`));
+			await Promise.all(items.map((item) => deleteObject(item)));
 		},
 
 		async deleteDirectoryEntries(
