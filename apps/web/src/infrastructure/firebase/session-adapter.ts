@@ -12,6 +12,7 @@ import {
 	signInWithEmailAndPassword,
 	signInWithPopup,
 	type User,
+	verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import type {
 	SessionPort,
@@ -64,6 +65,10 @@ const CODIGOS: Record<string, SessionErrorCode> = {
 	"auth/user-not-found": "invalid-credential",
 	"auth/wrong-password": "invalid-credential",
 	"auth/invalid-email": "invalid-email",
+	// What `verifyBeforeUpdateEmail()` raises for a malformed target address:
+	// to the person it is the same mistake as at sign-up.
+	"auth/invalid-new-email": "invalid-email",
+	"auth/missing-new-email": "invalid-email",
 	"auth/user-disabled": "user-disabled",
 	"auth/email-already-in-use": "email-already-in-use",
 	"auth/weak-password": "weak-password",
@@ -203,6 +208,22 @@ export class FirebaseSessionAdapter implements SessionPort {
 
 		try {
 			await deleteUser(user);
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
+	}
+
+	async changeEmail(newEmail: string): Promise<void> {
+		const user = this.#auth.currentUser;
+		// Same reasoning as `deleteAccount()`: a silent return would report a
+		// link as sent when nothing was sent.
+		if (!user) throw new SessionError("unknown");
+
+		try {
+			// Not `updateEmail()`: that switches straight away to an address
+			// nobody has proven they own. This one only mails the new address,
+			// and the switch — with `email_verified` set — happens on click.
+			await verifyBeforeUpdateEmail(user, newEmail);
 		} catch (cause) {
 			throw toSessionError(cause);
 		}

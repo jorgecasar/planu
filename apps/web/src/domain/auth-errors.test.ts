@@ -38,6 +38,12 @@ test("traduce cada código de dominio conocido", () => {
 	expect(authErrorMessage(new SessionError("too-many-requests"))).toBe(
 		"Too many attempts. Try again in a few minutes.",
 	);
+	expect(authErrorMessage(new SessionError("already-verified"))).toBe(
+		"Your email is already verified. Reload the page to continue.",
+	);
+	expect(authErrorMessage(new SessionError("requires-recent-login"))).toBe(
+		"For your security, sign out, sign in again and retry.",
+	);
 });
 
 test("cae a un mensaje genérico ante un código de dominio desconocido", () => {

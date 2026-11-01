@@ -25,5 +25,19 @@ export const signUpSchema = () =>
 			path: ["confirmPassword"],
 		});
 
+/**
+ * The new address for an account whose current one is mistyped. Refusing the
+ * current address saves a round trip that would only resend the same
+ * unclickable link.
+ */
+export const changeEmailSchema = (currentEmail: string | null) =>
+	z.object({
+		email: z
+			.email({ message: msg("Enter a valid email address.") })
+			.refine((email) => email.toLowerCase() !== currentEmail?.toLowerCase(), {
+				message: msg("That is already your email."),
+			}),
+	});
+
 export type Credentials = z.infer<ReturnType<typeof credentialsSchema>>;
 export type SignUp = z.infer<ReturnType<typeof signUpSchema>>;

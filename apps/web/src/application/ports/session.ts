@@ -77,6 +77,20 @@ export interface SessionPort {
 
 	signOut(): Promise<void>;
 
+	/**
+	 * Starts moving the account to `newEmail` — the way to fix an address
+	 * mistyped at sign-up before verifying it, since a verification link
+	 * sent to a wrong address can never be clicked. The provider mails a
+	 * link to the NEW address and switches the account only once it's
+	 * clicked, which also marks it verified; until then nothing about the
+	 * session changes.
+	 *
+	 * Rejects with `SessionError` `"invalid-email"` for an address the
+	 * provider refuses, and `"requires-recent-login"` if the session is too
+	 * old — the caller asks the person to sign in again.
+	 */
+	changeEmail(newEmail: string): Promise<void>;
+
 	/** Resends the verification email to the currently signed-in account. */
 	sendVerificationEmail(): Promise<void>;
 

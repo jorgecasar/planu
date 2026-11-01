@@ -24,6 +24,13 @@ export type SessionErrorCode =
 	 * The caller reauthenticates and retries — see `deleteAccount()`.
 	 */
 	| "requires-recent-login"
+	/**
+	 * Refused by `changeEmail()`: the account turned out to be verified
+	 * already — verified elsewhere while this view still showed it as
+	 * unverified. Switching addresses then would orphan its directory entry
+	 * under the old one, which only a token carrying that email can delete.
+	 */
+	| "already-verified"
 	| "unknown";
 
 /**

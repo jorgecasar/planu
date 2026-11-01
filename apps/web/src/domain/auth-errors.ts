@@ -48,6 +48,12 @@ export function authErrorMessage(cause: unknown): string {
 			return msg("Network error. Check your connection.");
 		case "too-many-requests":
 			return msg("Too many attempts. Try again in a few minutes.");
+		case "already-verified":
+			return msg(
+				"Your email is already verified. Reload the page to continue.",
+			);
+		case "requires-recent-login":
+			return msg("For your security, sign out, sign in again and retry.");
 		default:
 			return fallback;
 	}
