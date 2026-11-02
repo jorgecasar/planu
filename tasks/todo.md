@@ -2999,3 +2999,4 @@ plan en `tasks/plan.md` (sección homónima). Rama `feat/email-verification-and-
   - Bloqueo de ADR 0011 sobre cuentas de producción: resuelto el
     2026-10-29, «no hay cuentas en producción; se puede desplegar sin
     comprobación previa».
+  - `userProfiles`: `create`/`update` exigen `isVerified()`, `delete` no (borrado sin verificar); el e2e de borrado siembra el perfil como admin. Evidencia: `npm run test:rules` → 0 (204/204), `npm run test:e2e` → 0 (86/86); quitar la cláusula o exigirla en `delete` → 1.

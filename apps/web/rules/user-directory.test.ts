@@ -181,6 +181,51 @@ describe("the by-uid index used to show guests", () => {
 		);
 	});
 
+	test("without a verified email, cannot create a profile", async () => {
+		await assertFails(
+			setDoc(doc(as(ANA, false), `userProfiles/${ANA.uid}`), {
+				displayName: "Ana",
+				photoURL: "",
+			}),
+		);
+	});
+
+	describe("with a profile already published", () => {
+		beforeEach(async () => {
+			await env.withSecurityRulesDisabled(async (ctx) => {
+				await setDoc(doc(ctx.firestore(), `userProfiles/${ANA.uid}`), {
+					displayName: "Ana",
+					photoURL: "",
+				});
+			});
+		});
+
+		test("a verified owner updates it", async () => {
+			await assertSucceeds(
+				setDoc(doc(as(ANA), `userProfiles/${ANA.uid}`), {
+					displayName: "Ana B.",
+					photoURL: "",
+				}),
+			);
+		});
+
+		test("an unverified owner cannot update it", async () => {
+			await assertFails(
+				setDoc(doc(as(ANA, false), `userProfiles/${ANA.uid}`), {
+					displayName: "Ana B.",
+					photoURL: "",
+				}),
+			);
+		});
+
+		test("an unverified owner can still delete it", async () => {
+			// Account deletion must work before verification.
+			await assertSucceeds(
+				deleteDoc(doc(as(ANA, false), `userProfiles/${ANA.uid}`)),
+			);
+		});
+	});
+
 	test("nobody publishes someone else's profile", async () => {
 		await assertFails(
 			setDoc(doc(as(ATTACKER), `userProfiles/${ANA.uid}`), {
