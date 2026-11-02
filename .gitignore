@@ -38,3 +38,30 @@ apps/web/.vitest-attachments/
 
 # Estado local de herramientas de agente, no del proyecto.
 .wwaallrc.json
+
+# Karajan Code
+.kj/
+.agent/
+.scannerwork/
+.reviews/
+# Karajan environment (verdicts stay local; the contract is tracked)
+.claude/*.lock
+.karajan/*
+# …except the v4 environment contract, which the whole team inherits:
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
+!.karajan/hooks/post-merge
+!.karajan/hooks/prepare-commit-msg
+!.karajan/adrs/
+!.karajan/supervisor-provenance.json
+!.karajan/policy.yml
+!.karajan/policy-anchor.json
+!.karajan/supervisor-signers.json
+!.karajan/rules.yml
+!.karajan/security-level.json
+!.karajan/board.yml
+.karajan/identity.local.yml
