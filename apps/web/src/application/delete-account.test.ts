@@ -30,6 +30,8 @@ function fakeAccount(events: AccountEventSummary[] = []): AccountDataPort {
 		deleteEventImage: vi.fn().mockResolvedValue(undefined),
 		deleteAllEventImages: vi.fn().mockResolvedValue(undefined),
 		deleteDirectoryEntries: vi.fn().mockResolvedValue(undefined),
+		deleteReceivedInvitations: vi.fn().mockResolvedValue(undefined),
+		deleteSentInvitations: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
@@ -273,6 +275,9 @@ test.each([
 	});
 
 	const full = directoryEmail !== null;
+	expect(account.deleteReceivedInvitations).toHaveBeenCalledWith("u1");
+	if (full) expect(account.deleteSentInvitations).toHaveBeenCalledWith("u1");
+	else expect(account.deleteSentInvitations).not.toHaveBeenCalled();
 	expect(account.listMemberEvents).toHaveBeenCalledTimes(full ? 1 : 0);
 	expect(account.deleteOwnEvent).toHaveBeenCalledTimes(full ? 1 : 0);
 	expect(account.deleteAllEventImages).toHaveBeenCalledWith("u1");
@@ -294,24 +299,27 @@ test.each([
 	);
 });
 
-test.each(["deleteAllEventImages", "deleteDirectoryEntries"] as const)(
-	"sin verificar, si falla %s no borra la cuenta",
-	async (step) => {
-		const session = fakeSession(UNVERIFIED);
-		const account = fakeAccount([]);
-		vi.mocked(account[step]).mockRejectedValue(new Error("x"));
+test.each([
+	"deleteAllEventImages",
+	"deleteDirectoryEntries",
+	"deleteReceivedInvitations",
+] as const)("sin verificar, si falla %s no borra la cuenta", async (step) => {
+	const session = fakeSession(UNVERIFIED);
+	const account = fakeAccount([]);
+	vi.mocked(account[step]).mockRejectedValue(new Error("x"));
 
-		await expect(deleteAccount(session, account, UNVERIFIED)).rejects.toThrow(
-			"x",
-		);
-		expect(session.deleteAccount).not.toHaveBeenCalled();
-	},
-);
+	await expect(deleteAccount(session, account, UNVERIFIED)).rejects.toThrow(
+		"x",
+	);
+	expect(session.deleteAccount).not.toHaveBeenCalled();
+});
 
 function expectNothingDeleted(account: AccountDataPort, session: SessionPort) {
 	expect(account.listMemberEvents).not.toHaveBeenCalled();
 	expect(account.deleteAllEventImages).not.toHaveBeenCalled();
 	expect(account.deleteDirectoryEntries).not.toHaveBeenCalled();
+	expect(account.deleteReceivedInvitations).not.toHaveBeenCalled();
+	expect(account.deleteSentInvitations).not.toHaveBeenCalled();
 	expect(session.deleteAccount).not.toHaveBeenCalled();
 }
 
@@ -349,5 +357,38 @@ test.each([USER, UNVERIFIED])(
 			"net",
 		);
 		expectNothingDeleted(account, session);
+	},
+);
+
+test("verificada, borra las invitaciones recibidas y enviadas antes de la cuenta", async () => {
+	const order: string[] = [];
+	const session = fakeSession();
+	const account = fakeAccount([{ id: "own", isOwner: true }]);
+	vi.mocked(account.deleteReceivedInvitations).mockImplementation(async () => {
+		order.push("received");
+	});
+	vi.mocked(account.deleteSentInvitations).mockImplementation(async () => {
+		order.push("sent");
+	});
+	vi.mocked(session.deleteAccount).mockImplementation(async () => {
+		order.push("auth");
+	});
+
+	await deleteAccount(session, account, USER);
+
+	expect(account.deleteReceivedInvitations).toHaveBeenCalledWith("u1");
+	expect(account.deleteSentInvitations).toHaveBeenCalledWith("u1");
+	expect(order).toEqual(["received", "sent", "auth"]);
+});
+
+test.each(["deleteReceivedInvitations", "deleteSentInvitations"] as const)(
+	"verificada, si falla %s no borra la cuenta",
+	async (step) => {
+		const session = fakeSession();
+		const account = fakeAccount([]);
+		vi.mocked(account[step]).mockRejectedValue(new Error("inv"));
+
+		await expect(deleteAccount(session, account, USER)).rejects.toThrow("inv");
+		expect(session.deleteAccount).not.toHaveBeenCalled();
 	},
 );

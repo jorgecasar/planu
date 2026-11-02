@@ -25,6 +25,19 @@ import {
 	PROFILES_COLLECTION,
 } from "../../sharing/user-directory.js";
 
+// One query per field: the read rule matches list queries against their
+// constraints, and only `inviteeUid ==` or `invitedBy ==` pass.
+async function deleteInvitesWhere(
+	firestore: Firestore,
+	field: "inviteeUid" | "invitedBy",
+	uid: string,
+): Promise<void> {
+	const snapshot = await getDocs(
+		query(collection(firestore, "eventInvites"), where(field, "==", uid)),
+	);
+	await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+}
+
 export function createAccountDataAdapter(
 	firestore: Firestore,
 	storage: FirebaseStorage,
@@ -118,6 +131,14 @@ export function createAccountDataAdapter(
 				);
 			}
 			await Promise.all(deletions);
+		},
+
+		deleteReceivedInvitations(uid: string): Promise<void> {
+			return deleteInvitesWhere(firestore, "inviteeUid", uid);
+		},
+
+		deleteSentInvitations(uid: string): Promise<void> {
+			return deleteInvitesWhere(firestore, "invitedBy", uid);
 		},
 	};
 }

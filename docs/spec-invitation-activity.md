@@ -92,7 +92,7 @@ eventInvites/{eventId}_{inviteeUid}
 ```
 
 El documento deja de borrarse. Un `delete` sigue existiendo sólo para el dueño,
-como revocación de algo aún pendiente.
+como revocación de algo aún pendiente. Supersedido por el [ADR 0013](adr/0013-borrado-de-invitaciones-con-la-cuenta.md): cualquiera de las dos partes borra en cualquier estado.
 
 ## Reglas
 
@@ -106,7 +106,7 @@ como revocación de algo aún pendiente.
     `decidedAt` a null.
 - `read`: sin cambios; sólo sus dos partes.
 - `delete`: sólo el dueño, y sólo mientras esté `pending`. Borrar una decidida
-  destruiría el registro.
+  destruiría el registro. Supersedido por el [ADR 0013](adr/0013-borrado-de-invitaciones-con-la-cuenta.md): cualquiera de las dos partes borra en cualquier estado.
 - La rama `acceptsInvite()` de `events` pasa a exigir **`status == 'pending'`**.
 
 ## Interfaz
@@ -123,7 +123,7 @@ si la hay, fecha y sentido de la decisión. Sobre una decidida, la acción es
 
 - **Reglas**: cada transición de estado permitida y, sobre todo, las prohibidas
   — aceptar una `accepted`, cambiar el rol al decidir, que el invitado se
-  readmita solo tras ser expulsado, borrar una decidida.
+  readmita solo tras ser expulsado, borrar una decidida. Supersedido por el [ADR 0013](adr/0013-borrado-de-invitaciones-con-la-cuenta.md): cualquiera de las dos partes borra en cualquier estado.
 - **Unitarios**: agrupación y orden de la lista.
 - **E2e**: con dos sesiones, el ciclo completo — invitar, rechazar, comprobar
   que queda registrado, reconsiderar y aceptar.
@@ -144,13 +144,15 @@ si la hay, fecha y sentido de la decisión. Sobre una decidida, la acción es
 | Riesgo | Mitigación |
 | --- | --- |
 | Conservar el registro reabre la reentrada tras ser expulsado | `status == 'pending'` en la regla de aceptación, con test propio |
-| El registro crece sin límite y son datos personales | Entra en el borrado de cuenta (F14) y en la política de privacidad (F13) |
+| El registro crece sin límite y son datos personales | El borrado de cuenta elimina las recibidas y las enviadas ([ADR 0013](adr/0013-borrado-de-invitaciones-con-la-cuenta.md)); falta la política de privacidad (F13) |
 | El título copiado envejece si el evento se renombra | Aceptado: es un registro de lo que se ofreció, no un espejo del evento |
 | Una página nueva toca el enrutado, que T25 está moviendo a `/app` | Ir después de T25, o dar la ruta ya bajo `/app` |
 
 ## Preguntas abiertas
 
 1. **Retención.** ¿Se conservan las decididas para siempre, o caducan? Sin
-   backend no hay quien las borre solo.
+   backend no hay quien las borre solo. Respondida en parte por el
+   [ADR 0013](adr/0013-borrado-de-invitaciones-con-la-cuenta.md): duran hasta
+   que una de las dos partes la borra o borra su cuenta; no caducan.
 2. **Rama.** Esto amplía `eventInvites`, que vive en `feat/event-sharing` y aún
    no está fusionada. O va en esa misma rama, o encadena una rama sobre ella.

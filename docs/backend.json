@@ -82,7 +82,7 @@
     "EventInvite": {
       "$schema": "http://json-schema.org/draft-07/schema",
       "title": "EventInvite",
-      "description": "A pending offer to join an event as a guest. Deleted the moment it is decided (accepted or declined) — there is no history of past invitations yet. See docs/spec-invitation-activity.md for the planned, not-yet-built, persistent version.",
+      "description": "An offer to join an event as a guest, kept as a record once accepted or declined (docs/spec-invitation-activity.md). Either side may delete it in any status, and deleting an account erases every invite it sent or received (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).",
       "type": "object",
       "properties": {
         "eventId": {
@@ -176,7 +176,7 @@
       {
         "path": "/eventInvites/{inviteId}",
         "definition": {
-          "description": "One pending invite per (event, invitee) pair. Readable by the owner who sent it and the invitee it names; created and updated only by the event's owner; deleted by either side when the invite is decided.",
+          "description": "One invite per (event, invitee) pair, kept as a record once decided. Readable by the owner who sent it and the invitee it names; created and updated only by the event's owner; deleted in any status by either side, and erased with either side's account (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).",
           "entityName": "EventInvite",
           "schema": { "$ref": "#/entities/EventInvite" }
         }
@@ -198,6 +198,6 @@
         }
       }
     ],
-    "reasoning": "Events are private by default and shared explicitly: an event carries its own membership (memberIds) and per-guest roles (roles) instead of living in a subcollection, because memberIds as an array-contains query is required either way to power the shared listing, and reading roles out of the document avoids a billable get() per rule evaluation (see docs/adr/0006-sharing-with-invited-members.md). userDirectory and userProfiles exist only because Firebase Auth has no client-readable directory: each user publishes their own entry, split into two collections so that inviting by email (which needs the hash-keyed lookup) never has to expose that email to the other guests of a shared event (see docs/adr/0007-client-side-user-directory.md). eventInvites makes membership consensual — the owner offers, only the invitee can turn it into membership — and is deleted on decision rather than kept as a history; docs/spec-invitation-activity.md specifies the not-yet-built persistent version."
+    "reasoning": "Events are private by default and shared explicitly: an event carries its own membership (memberIds) and per-guest roles (roles) instead of living in a subcollection, because memberIds as an array-contains query is required either way to power the shared listing, and reading roles out of the document avoids a billable get() per rule evaluation (see docs/adr/0006-sharing-with-invited-members.md). userDirectory and userProfiles exist only because Firebase Auth has no client-readable directory: each user publishes their own entry, split into two collections so that inviting by email (which needs the hash-keyed lookup) never has to expose that email to the other guests of a shared event (see docs/adr/0007-client-side-user-directory.md). eventInvites makes membership consensual — the owner offers, only the invitee can turn it into membership — and is kept as a record after the decision (docs/spec-invitation-activity.md) until either side deletes it or their account (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md)."
   }
 }

@@ -359,13 +359,6 @@ describe("declining and revoking", () => {
 		await assertSucceeds(deleteDoc(doc(as(OWNER), INVITE)));
 	});
 
-	test("the invitee can no longer delete instead of declining", async () => {
-		// Deleting used to double as declining. Now the record has to survive a
-		// decision, so deleting is the owner's tool alone.
-		await seedInvite();
-		await assertFails(deleteDoc(doc(as(GUEST), INVITE)));
-	});
-
 	test("a stranger can neither delete it nor decide it", async () => {
 		await seedInvite();
 		await assertFails(deleteDoc(doc(as(STRANGER), INVITE)));
@@ -586,14 +579,6 @@ describe("deciding, reconsidering, and being readmitted", () => {
 			}),
 		);
 	});
-
-	test("deleting a decided invitation is denied: it would destroy the record", async () => {
-		await seedInvite({ status: "accepted", decidedAt: serverTimestamp() });
-		await assertFails(deleteDoc(doc(as(OWNER), INVITE)));
-
-		await seedInvite({ status: "declined", decidedAt: serverTimestamp() });
-		await assertFails(deleteDoc(doc(as(OWNER), INVITE)));
-	});
 });
 
 describe("an invitation is a single-use key", () => {
@@ -812,6 +797,85 @@ describe("an unverified email cannot touch invitations", () => {
 					status,
 					decidedAt: serverTimestamp(),
 				}),
+			);
+		},
+	);
+});
+
+// Account deletion erases both sides of every invitation (ADR 0013).
+describe("erasing an invitation", () => {
+	const STATES = [
+		["pending", {}],
+		["accepted", { status: "accepted", decidedAt: serverTimestamp() }],
+		["declined", { status: "declined", decidedAt: serverTimestamp() }],
+	] as const;
+
+	test.each(STATES)(
+		"the verified invitee deletes their own invitation while %s",
+		async (_status, seed) => {
+			await seedInvite(seed);
+			await assertSucceeds(deleteDoc(doc(as(GUEST), INVITE)));
+		},
+	);
+
+	test.each(STATES)(
+		"the unverified invitee deletes their own invitation while %s",
+		async (_status, seed) => {
+			await seedInvite(seed);
+			await assertSucceeds(deleteDoc(doc(as(GUEST, false), INVITE)));
+		},
+	);
+
+	test.each(STATES)(
+		"the verified inviter deletes the invitation while %s",
+		async (_status, seed) => {
+			await seedInvite(seed);
+			await assertSucceeds(deleteDoc(doc(as(OWNER), INVITE)));
+		},
+	);
+
+	test.each(STATES)(
+		"an unverified inviter cannot delete it while %s",
+		async (_status, seed) => {
+			await seedInvite(seed);
+			await assertFails(deleteDoc(doc(as(OWNER, false), INVITE)));
+		},
+	);
+
+	test.each(STATES)(
+		"a third user cannot delete it while %s",
+		async (_status, seed) => {
+			await seedInvite(seed);
+			await assertFails(deleteDoc(doc(as(STRANGER), INVITE)));
+		},
+	);
+
+	test("an invitee cannot delete an invitation addressed to someone else", async () => {
+		const other = `eventInvites/an-event_${STRANGER}`;
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			await setDoc(
+				doc(ctx.firestore(), other),
+				anInvite({ inviteeUid: STRANGER }),
+			);
+		});
+		await assertFails(deleteDoc(doc(as(GUEST), other)));
+		await assertFails(deleteDoc(doc(as(GUEST, false), other)));
+	});
+
+	test.each([
+		["received", "inviteeUid", GUEST],
+		["sent", "invitedBy", OWNER],
+	])(
+		"the %s query used by account deletion is allowed",
+		async (_n, field, uid) => {
+			await seedInvite();
+			await assertSucceeds(
+				getDocs(
+					query(
+						collection(as(uid, false), "eventInvites"),
+						where(field, "==", uid),
+					),
+				),
 			);
 		},
 	);

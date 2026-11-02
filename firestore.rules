@@ -455,14 +455,11 @@ service cloud.firestore {
                       || resource.data.inviteeUid == uid()
                       || resource.data.invitedBy == uid());
 
-      // The document is a record now, not a notice: it survives being decided.
-      // Deleting stays possible only for the owner, and only to revoke an
-      // offer nobody has answered yet — a decided invitation is history, and
-      // erasing it would defeat the point of keeping one.
+      // Either party may erase it in any status (GDPR art. 17, ADR 0013). The
+      // invitee needs no verification: an unverified uid can still be invited.
       allow delete: if request.auth != null
-                    && isVerified()
-                    && resource.data.invitedBy == uid()
-                    && resource.data.status == 'pending';
+                    && ((isVerified() && resource.data.invitedBy == uid())
+                        || resource.data.inviteeUid == uid());
     }
 
     // A minimal user directory, so people can be invited by email.
