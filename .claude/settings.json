@@ -1,7 +1,132 @@
 {
-	"$schema": "https://json.schemastore.org/claude-code-settings.json",
-	"attribution": {
-		"commit": "",
-		"pr": ""
-	}
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook pretooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook pretooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook pretooluse-sentinel; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook pretooluse-sentinel; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook pretooluse-rules; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; exit 2; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook posttooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook posttooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__update_card",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook posttooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__kj_rag_query",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook posttooluse; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook stop; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook sessionstart; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook sessionstart; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v kj-hook >/dev/null 2>&1; then kj-hook sessionstart; else echo \"karajan: kj-hook no está en el PATH — instala kj (npm i -g @karajan-family/code); sin él el Sentinel no gobierna esta sesión\" >&2; fi"
+          }
+        ]
+      }
+    ]
+  }
 }
