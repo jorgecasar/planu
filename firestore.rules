@@ -537,7 +537,9 @@ service cloud.firestore {
       // photoURL is pinned to hosts we render from, for the same reason the
       // event cover is: the share dialog paints it, so a free-form URL is a
       // beacon aimed at everyone who opens the guest list.
+      // Verified only, like the directory; delete stays open for unverified accounts.
       allow create, update: if isSelf()
+                            && isVerified()
                             && request.resource.data.keys()
                                  .hasOnly(['displayName', 'photoURL'])
                             && request.resource.data.keys()

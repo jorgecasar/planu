@@ -318,14 +318,14 @@ test("una cuenta sin verificar también puede borrarse: imágenes, perfil y cuen
 	const { idToken, uid } = await createAccount(page, email);
 	expect((await signInByApi(page, email)).ok()).toBe(true);
 
-	// What an unverified account can still leave behind, written with its
-	// own token: an orphan image and a `userProfiles` entry.
+	// What an unverified account can still leave behind: an orphan image
+	// (its own token) and a `userProfiles` entry (admin: rules need verified).
 	await uploadEventImage(page, uid, idToken);
 	expect(await listEventImages(page, uid)).toHaveLength(1);
 	const profile = await page.request.patch(
 		`${FIRESTORE_EMULATOR}/userProfiles/${uid}`,
 		{
-			headers: { Authorization: `Bearer ${idToken}` },
+			headers: ADMIN,
 			data: {
 				fields: {
 					displayName: { stringValue: "Ana" },
