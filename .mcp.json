@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "kj-rag": {
+      "command": "kj-rag-mcp",
+      "args": []
+    },
+    "qmd": {
+      "command": "qmd",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
