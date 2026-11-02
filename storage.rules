@@ -16,7 +16,9 @@ service firebase.storage {
       // Legible por su dueño, en coherencia con la privacidad de los eventos.
       allow read: if isOwner();
 
+      // ADR 0011: no events without a verified email, so no uploads either.
       allow write: if isOwner()
+                   && request.auth.token.email_verified == true
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
 

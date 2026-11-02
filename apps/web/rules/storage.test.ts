@@ -37,8 +37,13 @@ afterAll(async () => {
 	await env?.cleanup();
 });
 
-const comoAtacante = () => env.authenticatedContext(ATACANTE).storage();
-const comoVictima = () => env.authenticatedContext(VICTIMA).storage();
+const verificado = { email_verified: true };
+const comoAtacante = () =>
+	env.authenticatedContext(ATACANTE, verificado).storage();
+const comoVictima = () =>
+	env.authenticatedContext(VICTIMA, verificado).storage();
+const comoVictimaSinVerificar = () =>
+	env.authenticatedContext(VICTIMA, { email_verified: false }).storage();
 const sinSesion = () => env.unauthenticatedContext().storage();
 
 describe("propiedad de las imágenes", () => {
@@ -165,6 +170,53 @@ describe("barrido de la carpeta al borrar la cuenta", () => {
 		);
 		await assertSucceeds(
 			deleteObject(ref(comoVictima(), `events/${VICTIMA}/huerfana.png`)),
+		);
+	});
+
+	test("sin verificar, el dueño aún lista y borra su carpeta", async () => {
+		await seed();
+		await assertSucceeds(
+			listAll(ref(comoVictimaSinVerificar(), `events/${VICTIMA}`)),
+		);
+		await assertSucceeds(
+			deleteObject(
+				ref(comoVictimaSinVerificar(), `events/${VICTIMA}/huerfana.png`),
+			),
+		);
+	});
+});
+
+describe("email verificado para subir", () => {
+	test("sin verificar, el dueño no sube a su carpeta", async () => {
+		await assertFails(
+			uploadBytes(
+				ref(comoVictimaSinVerificar(), `events/${VICTIMA}/gratis.png`),
+				imagen(),
+				comoPng,
+			),
+		);
+	});
+
+	test("sin el claim, tampoco", async () => {
+		await assertFails(
+			uploadBytes(
+				ref(
+					env.authenticatedContext(VICTIMA).storage(),
+					`events/${VICTIMA}/gratis.png`,
+				),
+				imagen(),
+				comoPng,
+			),
+		);
+	});
+
+	test("verificado, el dueño sí sube", async () => {
+		await assertSucceeds(
+			uploadBytes(
+				ref(comoVictima(), `events/${VICTIMA}/cartel.png`),
+				imagen(),
+				comoPng,
+			),
 		);
 	});
 });

@@ -78,22 +78,22 @@ function memberIdsOf(doc: EmulatorDocument): string[] {
 }
 
 /**
- * Sube una imagen a Storage con el idToken real de su dueño, respetando las
- * reglas de verdad —no el bypass de administración—, y devuelve la URL de
+ * Sube una imagen a Storage con la cabecera `Authorization` dada —el idToken
+ * real de su dueño respeta las reglas de verdad—, y devuelve la URL de
  * descarga con la misma forma que produce el SDK contra el emulador:
  * `http://127.0.0.1:9199/...`, no `https://firebasestorage.googleapis.com/...`.
  */
 async function uploadEventImage(
 	page: Page,
 	uid: string,
-	idToken: string,
+	authorization: string,
 ): Promise<string> {
 	const path = `events/${uid}/cartel-${Math.random().toString(36).slice(2, 8)}.png`;
 	const response = await page.request.post(
 		`${STORAGE_EMULATOR}/${STORAGE_BUCKET}/o?name=${encodeURIComponent(path)}`,
 		{
 			headers: {
-				Authorization: `Firebase ${idToken}`,
+				Authorization: authorization,
 				"Content-Type": "image/png",
 			},
 			data: Buffer.from(PIXEL_BASE64, "base64"),
@@ -258,7 +258,11 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	const { idToken } = (await (
 		await signInByApi(guestPage, deletedEmail)
 	).json()) as { idToken: string };
-	const imageUrl = await uploadEventImage(guestPage, uid, idToken);
+	const imageUrl = await uploadEventImage(
+		guestPage,
+		uid,
+		`Firebase ${idToken}`,
+	);
 	await createOwnEventWithImageViaAdmin(guestPage, {
 		title: ownedTitle,
 		uid,
@@ -315,12 +319,12 @@ test("una cuenta sin verificar también puede borrarse: imágenes, perfil y cuen
 	page,
 }) => {
 	const email = newEmail();
-	const { idToken, uid } = await createAccount(page, email);
+	const { uid } = await createAccount(page, email);
 	expect((await signInByApi(page, email)).ok()).toBe(true);
 
-	// What an unverified account can still leave behind: an orphan image
-	// (its own token) and a `userProfiles` entry (admin: rules need verified).
-	await uploadEventImage(page, uid, idToken);
+	// The rules deny an unverified account both writes, so the orphan image
+	// and the `userProfiles` entry are seeded as admin.
+	await uploadEventImage(page, uid, ADMIN.Authorization);
 	expect(await listEventImages(page, uid)).toHaveLength(1);
 	const profile = await page.request.patch(
 		`${FIRESTORE_EMULATOR}/userProfiles/${uid}`,
