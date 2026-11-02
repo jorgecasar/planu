@@ -1,0 +1,66 @@
+{
+  "kj_version": "4.70.4",
+  "generated_at": "2026-11-02T02:19:53.447Z",
+  "generation": {
+    "profile": "standard",
+    "cmds": {
+      "lint": "npm run -s lint"
+    },
+    "baseBranch": "main"
+  },
+  "who": {
+    "gh": "jorgecasar",
+    "git": "948953+jorgecasar@users.noreply.github.com",
+    "grade": "declarada"
+  },
+  "files": [
+    {
+      "file": ".claude/settings.json",
+      "sha256": "d6cf5a3b8163db9f3a0a5f3b0fbd69eed3761d33e5faf57bbd54a8c7d02d647f"
+    },
+    {
+      "file": ".github/workflows/ci.yml",
+      "sha256": "8a802a33f6c7161b1ea2e4d59c8dca4208e7f36d280d7cba6591bf040c717111"
+    },
+    {
+      "file": ".github/workflows/kj-no-ai-attribution.yml",
+      "sha256": "e01c40dbd0f4a98432a205bacdd54711096572db31ccf28422ac167144121445"
+    },
+    {
+      "file": ".github/workflows/kj-quality.yml",
+      "sha256": "d30d505ef4a927ea5fa0e3189519d7d159dae188a43b42153c0eb3cd0099a7cc"
+    },
+    {
+      "file": ".karajan/hooks/commit-msg",
+      "sha256": "d5302359fe2127384874d1c653208b49acf10a240859120f16ae4d139084218b"
+    },
+    {
+      "file": ".karajan/hooks/post-merge",
+      "sha256": "a069100da9cb037badd40289494c4e64de761208e3f0c8b4fe536e2d0a5bed50"
+    },
+    {
+      "file": ".karajan/hooks/pre-commit",
+      "sha256": "7ee97dfd2026def4e8e182719d76537bda3dc34dd4252a2ca96b09a88cb74890"
+    },
+    {
+      "file": ".karajan/hooks/pre-push",
+      "sha256": "920a9ac117f8d5c7e8a5d3804584b25fee8c71539d7b1431d1329ff180bb5640"
+    },
+    {
+      "file": ".karajan/hooks/prepare-commit-msg",
+      "sha256": "ba046aefffc8f36b4d6af733e8f7a273bdbfe938746dbda18014a3dfee74ff96"
+    }
+  ],
+  "signature": {
+    "cid": "59f5b2d53e05006d45512e37f968afa6",
+    "nonce": "c39d4a5475b364a376d07a1178c29037",
+    "project": "planu",
+    "filesHash": "a7fef4c4d04f6baf66f22fcb32d1431b2ffdb10667dee02fdf2146af6b66099c",
+    "v": 2,
+    "kjVersion": "4.70.4",
+    "issuedMs": 1793585980769,
+    "expiresMs": 1793586130769,
+    "signer": "LAnR9NHeeuzEXRt2g9BnC0WNeJ/UzJIR7q1RWPAjTwE=",
+    "signature": "O2HMCbV4ZzLPdY2TUxNw44mFBHqf84OE/IRE6qE23owzH1U6xi1YvkBdGsgZfpcYZ98/k7WkFMW+xah//bVlDg=="
+  }
+}
