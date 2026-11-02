@@ -7,14 +7,15 @@ import type {
 } from "./ports/account-data.js";
 import type { SessionPort, SessionUser } from "./ports/session.js";
 
-function fakeSession(): SessionPort {
+/** `refreshed` is what the fresh read returns: the user under test by default. */
+function fakeSession(refreshed: SessionUser | null = USER): SessionPort {
 	return {
 		signIn: vi.fn(),
 		signUp: vi.fn(),
 		signInWithGoogle: vi.fn(),
 		signOut: vi.fn(),
 		sendVerificationEmail: vi.fn(),
-		refreshEmailVerification: vi.fn(),
+		refreshEmailVerification: vi.fn().mockResolvedValue(refreshed),
 		reauthenticate: vi.fn().mockResolvedValue(undefined),
 		deleteAccount: vi.fn().mockResolvedValue(undefined),
 		changeEmail: vi.fn().mockResolvedValue(undefined),
@@ -191,7 +192,7 @@ test("un usuario sin email todavía borra su entrada del directorio con null", a
 	const account = fakeAccount([]);
 	const guest: SessionUser = { ...USER, email: null };
 
-	await deleteAccount(fakeSession(), account, guest);
+	await deleteAccount(fakeSession(guest), account, guest);
 
 	expect(account.deleteDirectoryEntries).toHaveBeenCalledWith("u1", null);
 });
@@ -223,6 +224,130 @@ test("si falla el barrido de la carpeta, no borra la cuenta", async () => {
 	vi.mocked(account.deleteAllEventImages).mockRejectedValue(new Error("z"));
 
 	await expect(deleteAccount(session, account, USER)).rejects.toThrow("z");
-	expect(account.deleteDirectoryEntries).not.toHaveBeenCalled();
+	expect(account.deleteDirectoryEntries).toHaveBeenCalledOnce();
 	expect(session.deleteAccount).not.toHaveBeenCalled();
 });
+
+test("tras un fallo a medias, el reintento termina el borrado", async () => {
+	const session = fakeSession();
+	const account = fakeAccount([]);
+	vi.mocked(account.deleteAllEventImages).mockRejectedValueOnce(new Error("z"));
+
+	await expect(deleteAccount(session, account, USER)).rejects.toThrow("z");
+	await deleteAccount(session, account, USER);
+
+	expect(account.deleteAllEventImages).toHaveBeenCalledTimes(2);
+	expect(session.deleteAccount).toHaveBeenCalledOnce();
+});
+
+test("si fallan el barrido y el directorio, rechaza una sola vez", async () => {
+	const session = fakeSession();
+	const account = fakeAccount([]);
+	vi.mocked(account.deleteAllEventImages).mockRejectedValue(new Error("z"));
+	vi.mocked(account.deleteDirectoryEntries).mockRejectedValue(new Error("y"));
+
+	await expect(deleteAccount(session, account, USER)).rejects.toThrow("z");
+	expect(session.deleteAccount).not.toHaveBeenCalled();
+});
+
+const UNVERIFIED: SessionUser = { ...USER, emailVerified: false };
+const FIXED: SessionUser = { ...USER, email: "ana.fixed@example.com" };
+
+// The snapshot can be stale either way; the fresh read decides the path.
+test.each([
+	["sin verificar, confirmado", UNVERIFIED, UNVERIFIED, null],
+	["verificación revocada", USER, UNVERIFIED, null],
+	["verificada en otro dispositivo", UNVERIFIED, FIXED, FIXED.email],
+])("%s", async (_name, snapshot, refreshed, directoryEmail) => {
+	const session = fakeSession();
+	const account = fakeAccount([{ id: "own", isOwner: true }]);
+	const steps: string[] = [];
+	// "listing" must come first: the UI uses it to block a second run.
+	vi.mocked(session.refreshEmailVerification).mockImplementation(async () => {
+		steps.push("refresh");
+		return refreshed;
+	});
+
+	await deleteAccount(session, account, snapshot, (step) => {
+		steps.push(step.phase);
+	});
+
+	const full = directoryEmail !== null;
+	expect(account.listMemberEvents).toHaveBeenCalledTimes(full ? 1 : 0);
+	expect(account.deleteOwnEvent).toHaveBeenCalledTimes(full ? 1 : 0);
+	expect(account.deleteAllEventImages).toHaveBeenCalledWith("u1");
+	expect(account.deleteDirectoryEntries).toHaveBeenCalledWith(
+		"u1",
+		directoryEmail,
+	);
+	expect(session.deleteAccount).toHaveBeenCalledOnce();
+	expect(steps).toEqual(
+		full
+			? [
+					"listing",
+					"refresh",
+					"deleting-events",
+					"deleting-directory",
+					"deleting-account",
+				]
+			: ["listing", "refresh", "deleting-directory", "deleting-account"],
+	);
+});
+
+test.each(["deleteAllEventImages", "deleteDirectoryEntries"] as const)(
+	"sin verificar, si falla %s no borra la cuenta",
+	async (step) => {
+		const session = fakeSession(UNVERIFIED);
+		const account = fakeAccount([]);
+		vi.mocked(account[step]).mockRejectedValue(new Error("x"));
+
+		await expect(deleteAccount(session, account, UNVERIFIED)).rejects.toThrow(
+			"x",
+		);
+		expect(session.deleteAccount).not.toHaveBeenCalled();
+	},
+);
+
+function expectNothingDeleted(account: AccountDataPort, session: SessionPort) {
+	expect(account.listMemberEvents).not.toHaveBeenCalled();
+	expect(account.deleteAllEventImages).not.toHaveBeenCalled();
+	expect(account.deleteDirectoryEntries).not.toHaveBeenCalled();
+	expect(session.deleteAccount).not.toHaveBeenCalled();
+}
+
+test.each([
+	["sin sesión", USER, null],
+	["otra cuenta, verificada", USER, { ...USER, uid: "u2" }],
+	["otra cuenta, sin verificar", UNVERIFIED, { ...UNVERIFIED, uid: "u2" }],
+])(
+	"la lectura fresca no es esta cuenta (%s): no borra nada",
+	async (_name, snapshot, refreshed) => {
+		const session = fakeSession(refreshed);
+		const account = fakeAccount([{ id: "own", isOwner: true }]);
+		const steps: string[] = [];
+
+		await expect(
+			deleteAccount(session, account, snapshot, (step) => {
+				steps.push(step.phase);
+			}),
+		).rejects.toMatchObject({ code: "unknown" });
+		expectNothingDeleted(account, session);
+		expect(steps).toEqual(["listing"]);
+	},
+);
+
+test.each([USER, UNVERIFIED])(
+	"si la lectura fresca falla, rechaza sin borrar nada (verificada: $emailVerified)",
+	async (snapshot) => {
+		const session = fakeSession();
+		vi.mocked(session.refreshEmailVerification).mockRejectedValue(
+			new Error("net"),
+		);
+		const account = fakeAccount([{ id: "own", isOwner: true }]);
+
+		await expect(deleteAccount(session, account, snapshot)).rejects.toThrow(
+			"net",
+		);
+		expectNothingDeleted(account, session);
+	},
+);

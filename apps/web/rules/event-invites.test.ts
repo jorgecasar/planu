@@ -84,7 +84,9 @@ beforeEach(async () => {
 	});
 });
 
-const as = (uid: string) => env.authenticatedContext(uid).firestore();
+// Verified by default; only the verification tests pass `false`.
+const as = (uid: string, emailVerified = true) =>
+	env.authenticatedContext(uid, { email_verified: emailVerified }).firestore();
 
 /** Seeds an invitation, bypassing the rules. Pending unless `extra` says otherwise. */
 const seedInvite = async (extra: Record<string, unknown> = {}) => {
@@ -207,6 +209,19 @@ describe("seeing your invitations", () => {
 		);
 	});
 
+	test("an unverified invitee can still read their own", async () => {
+		await seedInvite();
+		await assertSucceeds(getDoc(doc(as(GUEST, false), INVITE)));
+		await assertSucceeds(
+			getDocs(
+				query(
+					collection(as(GUEST, false), "eventInvites"),
+					where("inviteeUid", "==", GUEST),
+				),
+			),
+		);
+	});
+
 	test("nobody lists someone else's", async () => {
 		await seedInvite();
 		await assertFails(
@@ -230,8 +245,8 @@ describe("accepting an invitation", () => {
 	 * What the client writes: no read of the event needed, and the invitation
 	 * flipped to `accepted` in the same batch so it cannot be reused.
 	 */
-	const accept = (uid: string, role = "viewer") => {
-		const db = as(uid);
+	const accept = (uid: string, role = "viewer", emailVerified = true) => {
+		const db = as(uid, emailVerified);
 		const batch = writeBatch(db);
 		batch.update(doc(db, EVENT), {
 			memberIds: arrayUnion(uid),
@@ -247,6 +262,11 @@ describe("accepting an invitation", () => {
 	test("with an invitation, the guest joins the event", async () => {
 		await seedInvite();
 		await assertSucceeds(accept(GUEST));
+	});
+
+	test("an unverified guest cannot accept an invitation", async () => {
+		await seedInvite();
+		await assertFails(accept(GUEST, "viewer", false));
 	});
 
 	test("without an invitation, nobody joins", async () => {
@@ -752,4 +772,47 @@ describe("re-offering a decided invitation (inviteToEvent's real write shape)", 
 		await assertFails(reoffer({ eventId: "another-event" }));
 		await assertFails(reoffer({ inviteeUid: STRANGER }));
 	});
+});
+
+describe("an unverified email cannot touch invitations", () => {
+	const owner = () => as(OWNER, false);
+	const guest = () => as(GUEST, false);
+
+	test.each([
+		["invite", undefined, () => setDoc(doc(owner(), INVITE), anInvite())],
+		[
+			"edit a pending invitation",
+			{},
+			() => updateDoc(doc(owner(), INVITE), { role: "editor" }),
+		],
+		["revoke a pending invitation", {}, () => deleteDoc(doc(owner(), INVITE))],
+		[
+			"readmit someone",
+			{ status: "accepted", decidedAt: serverTimestamp() },
+			() =>
+				updateDoc(doc(owner(), INVITE), { status: "pending", decidedAt: null }),
+		],
+		[
+			"re-offer a decided invitation",
+			{ status: "declined", decidedAt: serverTimestamp() },
+			() => setDoc(doc(owner(), INVITE), anInvite()),
+		],
+	] as const)("the owner cannot %s", async (_name, seed, write) => {
+		if (seed) await seedInvite(seed);
+		await assertFails(write());
+	});
+
+	// On the invitation alone, without the `events` half of the batch.
+	test.each(["accepted", "declined"])(
+		"the invitee cannot mark it %s",
+		async (status) => {
+			await seedInvite();
+			await assertFails(
+				updateDoc(doc(guest(), INVITE), {
+					status,
+					decidedAt: serverTimestamp(),
+				}),
+			);
+		},
+	);
 });

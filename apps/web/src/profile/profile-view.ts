@@ -321,7 +321,7 @@ export class PlanuProfileView extends LitElement {
 			case "deleting-events":
 				return msg(str`Deleting events: ${step.done} of ${step.total}…`);
 			case "deleting-directory":
-				return msg("Removing your entry from the directory…");
+				return msg("Removing your files and directory entry…");
 			case "deleting-account":
 				return msg("Deleting your account…");
 		}
