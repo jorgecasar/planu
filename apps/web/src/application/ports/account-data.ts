@@ -6,8 +6,8 @@ import { createContext } from "@lit/context";
  *
  * Not a general events port: it is deliberately narrow, with only the
  * steps `deleteAccount()` runs in order — own event, image, image folder,
- * directory, guest membership. Widening it the day another use case needs
- * more is fine; not before.
+ * directory, guest membership, invitations. Widening it the day another use
+ * case needs more is fine; not before.
  */
 
 /** The minimum an event needs to expose for deletion to work. */
@@ -47,6 +47,15 @@ export interface AccountDataPort {
 
 	/** Deletes the account's `userDirectory` and `userProfiles` entries. */
 	deleteDirectoryEntries(uid: string, email: string | null): Promise<void>;
+
+	/** Deletes every `eventInvites` document addressed to the account. Idempotent. */
+	deleteReceivedInvitations(uid: string): Promise<void>;
+
+	/**
+	 * Deletes every `eventInvites` document the account sent. Idempotent.
+	 * The rules require a verified token for this one.
+	 */
+	deleteSentInvitations(uid: string): Promise<void>;
 }
 
 /**

@@ -127,7 +127,7 @@ async function uploadEventImage(
 async function createOwnEventWithImageViaAdmin(
 	page: Page,
 	{ title, uid, imageUrl }: { title: string; uid: string; imageUrl: string },
-): Promise<void> {
+): Promise<string> {
 	const response = await page.request.post(`${FIRESTORE_EMULATOR}/events`, {
 		headers: ADMIN,
 		data: {
@@ -143,6 +143,8 @@ async function createOwnEventWithImageViaAdmin(
 		},
 	});
 	expect(response.ok(), await response.text()).toBe(true);
+	const { name } = (await response.json()) as { name: string };
+	return name.split("/").pop() as string;
 }
 
 async function readDoc(
@@ -263,7 +265,7 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 		uid,
 		`Firebase ${idToken}`,
 	);
-	await createOwnEventWithImageViaAdmin(guestPage, {
+	const ownedId = await createOwnEventWithImageViaAdmin(guestPage, {
 		title: ownedTitle,
 		uid,
 		imageUrl,
@@ -274,9 +276,40 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 		.poll(() => listEventImages(guestPage, uid).then((items) => items.length))
 		.toBe(1);
 
+	// La invitación recibida (aceptada) ya existe; la enviada se siembra con
+	// la forma de `isValidInvite()`, porque el evento propio de B no pasa por
+	// la interfaz.
+	const sharedId = (sharedBefore as EmulatorDocument).name.split("/").pop();
+	const receivedInvite = `${sharedId}_${uid}`;
+	const sentInvite = `${ownedId}_${ownerUid}`;
+	const seeded = await page.request.patch(
+		`${FIRESTORE_EMULATOR}/eventInvites/${sentInvite}`,
+		{
+			headers: ADMIN,
+			data: {
+				fields: {
+					eventId: { stringValue: ownedId },
+					eventTitle: { stringValue: ownedTitle },
+					inviteeUid: { stringValue: ownerUid },
+					invitedBy: { stringValue: uid },
+					role: { stringValue: "viewer" },
+					status: { stringValue: "pending" },
+					createdAt: { timestampValue: new Date().toISOString() },
+					decidedAt: { nullValue: null },
+				},
+			},
+		},
+	);
+	expect(seeded.ok(), await seeded.text()).toBe(true);
+	expect(await readDoc(page, "eventInvites", receivedInvite)).toBeDefined();
+
 	// B borra su cuenta desde la interfaz — el mismo camino que seguiría una
 	// persona real, no un atajo por la API de administración.
 	await deleteAccountFromProfile(guestPage, deletedEmail);
+
+	// 0) Sus invitaciones, recibidas y enviadas, han desaparecido.
+	expect(await readDoc(page, "eventInvites", receivedInvite)).toBeUndefined();
+	expect(await readDoc(page, "eventInvites", sentInvite)).toBeUndefined();
 
 	// 1) El evento propio de B ha desaparecido de Firestore.
 	await expect

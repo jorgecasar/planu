@@ -3001,3 +3001,24 @@ plan en `tasks/plan.md` (sección homónima). Rama `feat/email-verification-and-
     comprobación previa».
   - `userProfiles`: `create`/`update` exigen `isVerified()`, `delete` no (borrado sin verificar); el e2e de borrado siembra el perfil como admin. Evidencia: `npm run test:rules` → 0 (204/204), `npm run test:e2e` → 0 (86/86); quitar la cláusula o exigirla en `delete` → 1.
 - [x] **Storage: email verificado para subir** · `storage.rules` exige `email_verified` en `write`; `read`/`delete` siguen sólo de dueño (barrido del borrado). Evidencia: `typecheck`, `lint`, `lint:lit`, `test:arch` (28/28), `npm test` (644/644), `test:rules` (204/204), `test:e2e` (86/86) → 0; mutaciones: sin la cláusula fallan 2, con ella en `delete` falla 1.
+
+- [x] **T68 · El borrado de cuenta elimina sus `eventInvites`** · S · depende de T67
+  - Problema: el hueco de T67, «el borrado no limpia `eventInvites`» (RGPD,
+    art. 17). Las reglas sólo dejaban borrar a quien invita, y sólo pendiente.
+  - Hecho: `allow delete` admite a quien invita (verificado) y a quien es
+    invitado (sin exigir verificación), en cualquier estado; aprobado por el
+    responsable de producto, ver [ADR 0013](../docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).
+    `deleteAccount()` llama a `deleteReceivedInvitations()` en ambos caminos
+    y a `deleteSentInvitations()` sólo verificada, antes de la cuenta de Auth.
+    Actualizados `spec-invitation-activity.md` y `backend.json`.
+  - Evidencia: `npm run typecheck` → 0, `npm run lint` → 0,
+    `npm run lint:lit` → 0, `npm run test:arch` → 0 (28/28, 28 ficheros
+    acoplados), `npm test` → 0 (648/648), `npm run test:rules` → 0
+    (216/216), `npm run test:e2e` → 0 (86/86). Emuladores con Firestore en 18181,
+    sin comitear el cambio de puerto.
+  - Mutaciones de la regla, cada una → 1 en `test:rules`: sin la rama del
+    invitado, sin `isVerified()` en la de quien invita, abierta a cualquier
+    sesión, invitado exigiendo verificación, quien invita sólo en `pending`.
+    Sin la llamada en `deleteAccount()`: unit → 1 y `account-deletion.spec.ts` → 1.
+  - Hueco aceptado: con la verificación revocada quedan las enviadas (las
+    reglas exigen verificación para borrarlas), igual que los eventos.

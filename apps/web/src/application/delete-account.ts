@@ -17,7 +17,8 @@ export type DeleteAccountStep =
 /**
  * Deletes the account and everything it owns, in the order T32 fixes: owned
  * events and their images, the directory entry, membership in events owned
- * by someone else, and finally the Auth account.
+ * by someone else, invitations received and sent, and finally the Auth
+ * account.
  *
  * **Genuinely resumable, not just "can be called again."** Every step is a
  * Firestore/Storage/Auth operation that's already idempotent on its own:
@@ -38,7 +39,8 @@ export type DeleteAccountStep =
  *
  * Verification is read fresh, since `user` can be stale either way. An
  * unverified account can own no events and the rules deny it the
- * `memberIds` query, so only its images, profile and Auth account go.
+ * `memberIds` query, so only its images, profile, received invitations and
+ * Auth account go.
  */
 export async function deleteAccount(
 	session: SessionPort,
@@ -74,8 +76,12 @@ export async function deleteAccount(
 	// After the per-event deletions, not instead of them: those remove the
 	// images events point to, this catches anything left in the folder.
 	// A failure here leaves the Auth account in place for a retry.
+	// Invitations can go in any order relative to events: their delete rule
+	// never reads the event. Sent ones need a verified token, like events.
 	onProgress?.({ phase: "deleting-directory" });
 	await Promise.all([
+		account.deleteReceivedInvitations(current.uid),
+		...(verified ? [account.deleteSentInvitations(current.uid)] : []),
 		account.deleteAllEventImages(current.uid),
 		account.deleteDirectoryEntries(
 			current.uid,
