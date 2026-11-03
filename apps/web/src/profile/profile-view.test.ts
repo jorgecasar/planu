@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import type { SharingPort } from "../application/ports/sharing.js";
 import { SessionError } from "../domain/session-error.js";
 import "./profile-view.js";
 import type { PlanuProfileView } from "./profile-view.js";
@@ -244,4 +245,62 @@ test("cancelar devuelve el foco al botón que abrió el formulario", async () =>
 	expect(el.shadowRoot?.activeElement).toBe(
 		button(el, "Wrong email? Change it"),
 	);
+});
+
+/** Only what `#onCheck` calls; the rest of the port is never reached. */
+function fakeSharing(
+	publish: SharingPort["publishDirectoryEntry"],
+): SharingPort {
+	return {
+		publishDirectoryEntry: publish,
+	} as Partial<SharingPort> as SharingPort;
+}
+
+/** Presses "I have verified it" and waits for the `calls`-th publish to settle. */
+async function check(el: PlanuProfileView, publish: unknown, calls: number) {
+	button(el, "I have verified it")?.click();
+	await vi.waitFor(() => {
+		expect(publish).toHaveBeenCalledTimes(calls);
+		if (button(el, "Checking…")) throw new Error("still checking");
+	});
+	await el.updateComplete;
+}
+
+async function mountVerifying(publish: SharingPort["publishDirectoryEntry"]) {
+	const session = fakeSession();
+	vi.mocked(session.refreshEmailVerification).mockResolvedValue({
+		...UNVERIFIED,
+		emailVerified: true,
+	});
+	const el = await mount(UNVERIFIED, session);
+	Object.assign(el, { sharing: fakeSharing(publish) });
+	await el.updateComplete;
+	return el;
+}
+
+test("al comprobar la verificación, el aviso se va cuando el directorio se publica", async () => {
+	const publish = vi.fn().mockResolvedValue(undefined);
+	const el = await mountVerifying(publish);
+
+	await check(el, publish, 1);
+
+	expect(publish).toHaveBeenCalledWith({ ...UNVERIFIED, emailVerified: true });
+	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
+});
+
+test("si publicar en el directorio falla, el aviso se queda para reintentar", async () => {
+	const publish = vi
+		.fn()
+		.mockRejectedValueOnce(new Error("permission-denied"))
+		.mockResolvedValueOnce(undefined);
+	const el = await mountVerifying(publish);
+
+	await check(el, publish, 1);
+	expect(el.shadowRoot?.querySelector("wa-callout")).not.toBeNull();
+	expect(button(el, "I have verified it")?.hasAttribute("disabled")).toBe(
+		false,
+	);
+
+	await check(el, publish, 2);
+	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
 });

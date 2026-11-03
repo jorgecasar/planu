@@ -525,17 +525,17 @@ export class PlanuProfileView extends LitElement {
 	 */
 	async #onCheck(): Promise<void> {
 		const { session, sharing } = this;
-		if (!session || this.checking) return;
+		if (!session || !sharing || this.checking) return;
 
 		this.checking = true;
 		try {
 			const refreshed = await session.refreshEmailVerification();
 			if (!refreshed?.emailVerified) return;
 
-			// Manual assignment, not a new arrival via context: `@consume`
-			// doesn't intercept it, so the update has to be requested by hand.
+			await sharing.publishDirectoryEntry(refreshed);
+			// Only after publishing: the notice hides once `user` is verified and
+			// is the only way to retry. `@consume` doesn't see this assignment.
 			this.user = refreshed;
-			await (sharing as SharingPort).publishDirectoryEntry(refreshed);
 			this.requestUpdate();
 		} catch {
 			// Nothing the user can act on: the notice stays put and the button can
