@@ -16,4 +16,11 @@ describe("scripts", () => {
 	test.each(scripts)("%s no lanza procesos con shell", (name) => {
 		expect(read(name)).not.toMatch(/shell\s*:/);
 	});
+
+	test("build-landing corre el typecheck antes de vite", () => {
+		const source = read("build-landing.js");
+		const typecheck = source.indexOf("[TSC_BIN");
+		expect(typecheck).toBeGreaterThan(-1);
+		expect(source.indexOf("[VITE_BIN")).toBeGreaterThan(typecheck);
+	});
 });

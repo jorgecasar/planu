@@ -32,6 +32,7 @@ const WEB = resolve(ROOT, "apps/web");
 const requireFromWeb = createRequire(resolve(WEB, "package.json"));
 const binOf = (pkg, bin) =>
 	resolve(dirname(requireFromWeb.resolve(`${pkg}/package.json`)), bin);
+const TSC_BIN = binOf("typescript", "bin/tsc");
 const VITE_BIN = binOf("vite", "bin/vite.js");
 const DIST = resolve(ROOT, "dist");
 const APP_DIST = resolve(ROOT, "apps/web/dist");
@@ -96,13 +97,22 @@ function minifyCss(css) {
 async function buildLanding() {
 	console.log("🏗️  Building landing page...");
 
+	// firebase.json's predeploy runs this; don't rely on CI having typechecked.
+	console.log("  → Typechecking web app...");
+	const typecheck = spawnSync(process.execPath, [TSC_BIN, "--noEmit"], {
+		cwd: WEB,
+		stdio: "inherit",
+	});
+	if (typecheck.status !== 0) {
+		throw new Error("Typecheck failed");
+	}
+
 	// Clean dist directory
 	if (existsSync(DIST)) {
 		rmSync(DIST, { recursive: true, force: true });
 	}
 
-	// Build the web app first (vite build only, skip typecheck due to pre-existing test issues)
-	console.log("  → Building web app (vite only)...");
+	console.log("  → Building web app...");
 	const buildResult = spawnSync(process.execPath, [VITE_BIN, "build"], {
 		cwd: WEB,
 		stdio: "inherit",
