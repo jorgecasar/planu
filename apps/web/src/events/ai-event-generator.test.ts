@@ -1,5 +1,8 @@
-import type { FirebaseApp } from "firebase/app";
 import { expect, test, vi } from "vitest";
+import type {
+	AiModelPort,
+	AiModelRequest,
+} from "../application/ports/ai-model.js";
 import type { SessionUser } from "../application/ports/session.js";
 import type { ModelAvailability } from "../domain/ai-availability.js";
 import type {
@@ -11,31 +14,32 @@ import {
 	progressHint,
 	progressMessage,
 } from "./ai-event-generator.js";
-import { GenerationError } from "./generate-event.js";
+import type { ModelLike } from "./ai-model-session.js";
+import { GenerationError, RESPONSE_JSON_SCHEMA } from "./generate-event.js";
 import { TextInputError } from "./generate-from-text.js";
 
-// Mock the Firebase AI SDK at the module level
 interface FakeModelResponse {
 	response: { text: () => string; inferenceSource: string };
 }
 
-const { generateContent, warmUp } = vi.hoisted(() => ({
-	generateContent: vi.fn(
-		async (): Promise<FakeModelResponse> => ({
-			response: {
-				text: () => '{"title":"Test Event","start":"2026-01-15T10:00:00"}',
-				inferenceSource: "on_device",
-			},
+const generateContent = vi.fn(
+	async (): Promise<FakeModelResponse> => ({
+		response: {
+			text: () => '{"title":"Test Event","start":"2026-01-15T10:00:00"}',
+			inferenceSource: "on_device",
+		},
+	}),
+);
+
+/** A fake `AiModelPort`: no SDK, no emulator. */
+const aiModel = {
+	build: vi.fn(
+		async (_request: AiModelRequest): Promise<ModelLike> => ({
+			initializeDeviceModel: async () => {},
+			generateContent,
 		}),
 	),
-	warmUp: vi.fn(async (): Promise<void> => {}),
-}));
-
-vi.mock("firebase/ai", () => ({
-	getAI: vi.fn(() => ({})),
-	getGenerativeModel: vi.fn(() => ({ generateContent, warmUp })),
-	GoogleAIBackend: vi.fn(),
-}));
+} satisfies AiModelPort;
 
 // Mock LanguageModel global so checkAvailability returns "available"
 (
@@ -216,8 +220,6 @@ test("usa el puerto ImageStorePort para subir la portada, no firebase/storage di
 		emailVerified: true,
 		provider: "password",
 	};
-	const app = {} as FirebaseApp;
-
 	// Import the component module to ensure it's registered
 	await import("./ai-event-generator.js");
 
@@ -228,9 +230,9 @@ test("usa el puerto ImageStorePort para subir la portada, no firebase/storage di
 	// Inject the port and dependencies
 	setState(el, "imageStore", store);
 	setState(el, "user", user);
-	setState(el, "app", app);
+	setState(el, "aiModel", aiModel);
 
-	// connectedCallback runs and calls #warmUp which uses our mocked firebase/ai
+	// connectedCallback runs and calls #warmUp, which uses the fake port.
 	document.body.append(el);
 	await el.updateComplete;
 
@@ -291,8 +293,8 @@ async function mountGenerator(
 	) as PlanuAiEventGenerator;
 	setState(el, "imageStore", store);
 	setState(el, "user", DEFAULT_USER);
-	setState(el, "app", {} as FirebaseApp);
-	// connectedCallback runs and calls #warmUp, which uses our mocked firebase/ai.
+	setState(el, "aiModel", aiModel);
+	// connectedCallback runs and calls #warmUp, which uses the fake port.
 	document.body.append(el);
 	await el.updateComplete;
 	return { el, store };
@@ -409,8 +411,7 @@ test("desconectar durante la generación no emite el borrador ni sube la portada
 	el.addEventListener("planu-event-generated", generated);
 
 	selectFile(el, new File(["test"], "cover.png", { type: "image/png" }));
-	// Waits for warm-up (fails silently against the mocked model) and for
-	// the generation to reach the pending mocked response.
+	// Waits for warm-up and for the generation to reach the pending response.
 	await new Promise((resolve) => setTimeout(resolve, 20));
 
 	el.remove();
@@ -424,4 +425,41 @@ test("desconectar durante la generación no emite el borrador ni sube la portada
 
 	expect(generated).not.toHaveBeenCalled();
 	expect(store.calls).toHaveLength(0);
+});
+
+// --- AI model port ----------------------------------------------------------
+
+test("pide al puerto un modelo de texto e imagen, con el esquema y el modo de ai-policy", async () => {
+	aiModel.build.mockClear();
+	const { el } = await mountGenerator();
+	await vi.waitFor(() => expect(aiModel.build).toHaveBeenCalled());
+
+	expect(aiModel.build).toHaveBeenCalledWith({
+		// Cloud is closed by default: ai-policy resolves on-device.
+		mode: "only_on_device",
+		inputs: ["text", "image"],
+		responseConstraint: RESPONSE_JSON_SCHEMA,
+	});
+
+	el.remove();
+});
+
+test("sin puerto de IA no prepara ni genera nada", async () => {
+	await import("./ai-event-generator.js");
+	const el = document.createElement("planu-ai-event-generator");
+	const generated = vi.fn();
+	el.addEventListener("planu-event-generated", generated);
+	document.body.append(el);
+	await el.updateComplete;
+
+	setState(el, "text", "Cena de equipo el viernes");
+	await el.updateComplete;
+	findButton(el, "Generate from text").click();
+	await new Promise((resolve) => setTimeout(resolve, 20));
+
+	// Without the guard it would try and fail, showing an error.
+	expect((el as unknown as Record<string, unknown>)["error"]).toBe("");
+	expect(generated).not.toHaveBeenCalled();
+
+	el.remove();
 });

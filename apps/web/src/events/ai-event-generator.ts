@@ -8,9 +8,12 @@ import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { FirebaseApp } from "firebase/app";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import {
+	type AiModelPort,
+	aiModelContext,
+} from "../application/ports/ai-model.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
@@ -23,20 +26,12 @@ import {
 	type ModelAvailability,
 	needsDownload,
 } from "../domain/ai-availability.js";
-import type {
-	InferenceModeName,
-	InferenceSourceName,
-} from "../domain/ai-policy.js";
-import {
-	appContext,
-	imageStoreContext,
-	userContext,
-} from "../firebase/context.js";
+import type { InferenceSourceName } from "../domain/ai-policy.js";
+import { imageStoreContext, userContext } from "../firebase/context.js";
 import type { PlanuEvent } from "../lib/types.js";
 import {
 	type AiModelSession,
 	createAiModelSession,
-	type ModelLike,
 	type TokenClaims,
 } from "./ai-model-session.js";
 import {
@@ -234,8 +229,8 @@ export class PlanuAiEventGenerator extends LitElement {
 		}
 	`;
 
-	@consume({ context: appContext, subscribe: true })
-	private app: FirebaseApp | undefined;
+	@consume({ context: aiModelContext, subscribe: true })
+	private aiModel: AiModelPort | undefined;
 
 	@consume({ context: imageStoreContext, subscribe: true })
 	private imageStore: ImageStorePort | undefined;
@@ -305,7 +300,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	/** Prepares the model in the background. Errors wait until generation. */
 	async #warmUp(): Promise<void> {
 		this.availability = await checkAvailability();
-		if (!this.app) return;
+		if (!this.aiModel) return;
 
 		this.preparing = true;
 		try {
@@ -447,32 +442,6 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	/**
-	 * Builds the actual model. It's the only function in this component that
-	 * knows the SDK; `ai-model-session.ts` deliberately doesn't import it, so
-	 * as not to add a new coupled file to the boundary in
-	 * `arch/boundary.test.ts`.
-	 */
-	async #buildModel(mode: InferenceModeName): Promise<ModelLike> {
-		// Dynamic import: the AI SDK weighs hundreds of kB and most sessions
-		// never use it. It must not be part of the startup bundle.
-		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
-			"firebase/ai"
-		);
-
-		// biome-ignore lint/style/noNonNullAssertion: only called with app set
-		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
-		return getGenerativeModel(ai, {
-			mode,
-			onDeviceParams: {
-				createOptions: {
-					expectedInputs: [{ type: "text" }, { type: "image" }],
-				},
-				promptOptions: { responseConstraint: RESPONSE_JSON_SCHEMA },
-			},
-		});
-	}
-
-	/**
 	 * `SessionUser.getIdTokenResult` is optional — not every adapter can
 	 * resolve it — and `TokenClaims` requires it. With no user or no such
 	 * method, there's no claim to read: cloud AI treats that the same as
@@ -490,7 +459,16 @@ export class PlanuAiEventGenerator extends LitElement {
 	#session(): AiModelSession {
 		this.#modelSession ??= createAiModelSession({
 			getUser: () => this.#claims(),
-			buildModel: (mode) => this.#buildModel(mode),
+			// Only reached with the port set: every entry point checks it first.
+			buildModel: async (mode) => {
+				const { aiModel } = this;
+				if (!aiModel) throw new Error("AiModelPort not provided");
+				return aiModel.build({
+					mode,
+					inputs: ["text", "image"],
+					responseConstraint: RESPONSE_JSON_SCHEMA,
+				});
+			},
 			// What's promised to the user while they wait comes from here, not
 			// from an assumption written into the template.
 			onInferenceMode: (mode) => {
@@ -507,7 +485,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
 		const input = domEvent.target as HTMLInputElement;
 		const file = input.files?.[0];
-		if (!file || !this.app) return;
+		if (!file || !this.aiModel) return;
 
 		this.#revokePreview();
 		this.preview = URL.createObjectURL(file);
@@ -541,7 +519,7 @@ export class PlanuAiEventGenerator extends LitElement {
 	}
 
 	async #onGenerateText(): Promise<void> {
-		if (!this.app) return;
+		if (!this.aiModel) return;
 
 		await this.#generate({
 			on: "text",

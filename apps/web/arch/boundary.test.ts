@@ -202,8 +202,15 @@ const importaFirebase = (fichero: string): boolean =>
  * `publishDirectoryEntry`'s real decision logic — earns a unit test the way
  * `account-data-adapter.ts`'s thinner wrappers did not) against three
  * freed, for -1 overall.
+ *
+ * The `AiModelPort` migration (#107) frees two files —
+ * `ai-event-generator.ts` and its test— and adds one,
+ * `infrastructure/firebase/ai-model-adapter.ts`, net -1, from 28 to 27. No
+ * adapter test, same reason as `account-data-adapter.ts`: it only forwards
+ * to `getAI`/`getGenerativeModel`. The component test drives a fake port
+ * instead of mocking `firebase/ai`.
  */
-const TOPE_ACOPLADOS = 28;
+const TOPE_ACOPLADOS = 27;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
