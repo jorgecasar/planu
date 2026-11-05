@@ -15,21 +15,22 @@ const docMock = vi.fn((_db: unknown, collection: string, id: string) => ({
 	path: `${collection}/${id}`,
 }));
 const setDocMock = vi.fn();
+const deleteDocMock = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
 	doc: docMock,
 	setDoc: setDocMock,
+	deleteDoc: deleteDocMock,
+	serverTimestamp: () => "SERVER_TIME",
 	// Unused by the tests below, but this module imports from
 	// `invitations.ts`, which imports these too — the mock replaces the whole
 	// module, so every export either file needs at import time has to exist
 	// here, even the ones these tests never call.
 	arrayUnion: vi.fn(),
 	collection: vi.fn(),
-	deleteDoc: vi.fn(),
 	getDoc: vi.fn(),
 	getDocs: vi.fn(),
 	query: vi.fn(),
-	serverTimestamp: vi.fn(),
 	updateDoc: vi.fn(),
 	where: vi.fn(),
 	writeBatch: vi.fn(),
@@ -90,5 +91,66 @@ describe("publishDirectoryEntry()", () => {
 		await expect(adapter.publishDirectoryEntry(VERIFIED_USER)).rejects.toBe(
 			offline,
 		);
+	});
+});
+
+describe("offerInviteByEmail()", () => {
+	const adapter = createSharingAdapter(FAKE_FIRESTORE);
+	const OFFER = {
+		eventId: "e1",
+		eventTitle: "Concert",
+		inviteeEmail: " NewComer@Example.com",
+		invitedBy: "owner-uid",
+		invitedByName: "Ana",
+		role: "viewer" as const,
+	};
+
+	beforeEach(() => {
+		setDocMock.mockReset();
+		deleteDocMock.mockReset();
+	});
+
+	async function offerPath() {
+		const { emailHash } = await import("../../sharing/user-directory.js");
+		return `eventInvitesByEmail/e1_${await emailHash("newcomer@example.com")}`;
+	}
+
+	test("writes the offer at its deterministic id, with a normalised email", async () => {
+		setDocMock.mockResolvedValue(undefined);
+
+		await adapter.offerInviteByEmail(OFFER);
+
+		expect(setDocMock).toHaveBeenCalledExactlyOnceWith(
+			{ path: await offerPath() },
+			{
+				...OFFER,
+				inviteeEmail: "newcomer@example.com",
+				createdAt: "SERVER_TIME",
+			},
+		);
+		expect(deleteDocMock).not.toHaveBeenCalled();
+	});
+
+	test("re-offering replaces the existing offer: delete, then write again", async () => {
+		setDocMock
+			.mockRejectedValueOnce(new Error("permission-denied"))
+			.mockResolvedValueOnce(undefined);
+		deleteDocMock.mockResolvedValue(undefined);
+
+		await adapter.offerInviteByEmail(OFFER);
+
+		expect(deleteDocMock).toHaveBeenCalledExactlyOnceWith({
+			path: await offerPath(),
+		});
+		expect(setDocMock).toHaveBeenCalledTimes(2);
+	});
+
+	test("with nothing to replace, the original failure stands", async () => {
+		const denied = new Error("permission-denied");
+		setDocMock.mockRejectedValue(denied);
+		deleteDocMock.mockRejectedValue(new Error("not found"));
+
+		await expect(adapter.offerInviteByEmail(OFFER)).rejects.toBe(denied);
+		expect(setDocMock).toHaveBeenCalledTimes(1);
 	});
 });

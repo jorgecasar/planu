@@ -37,7 +37,7 @@ export interface PendingInviteSummary {
 	role: EventRole;
 }
 
-/** What it takes to offer an event to someone with an account. */
+/** What it takes to offer an event, to a uid or to an email with no account. */
 export interface InviteOffer {
 	eventId: string;
 	eventTitle: string;
@@ -68,6 +68,12 @@ export interface SharingPort {
 
 	/** Offers the event to a known uid, or edits an existing pending offer. */
 	inviteToEvent(invite: InviteOffer & { inviteeUid: string }): Promise<void>;
+
+	/**
+	 * Offers the event to an email with no account yet, replacing any offer
+	 * already made to it (ADR 0012).
+	 */
+	offerInviteByEmail(offer: InviteOffer): Promise<void>;
 
 	/** Changes the role on a pending invitation nobody has decided yet. */
 	changeInviteRole(id: string, role: EventRole): Promise<void>;
