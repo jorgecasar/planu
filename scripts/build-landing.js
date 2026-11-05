@@ -19,12 +19,20 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "@lit-labs/ssr";
+import { build as esbuild } from "esbuild";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+const WEB = resolve(ROOT, "apps/web");
+// Run CLIs' JS entries with this node: no shell, and no `.cmd` shim on Windows.
+const requireFromWeb = createRequire(resolve(WEB, "package.json"));
+const binOf = (pkg, bin) =>
+	resolve(dirname(requireFromWeb.resolve(`${pkg}/package.json`)), bin);
+const VITE_BIN = binOf("vite", "bin/vite.js");
 const DIST = resolve(ROOT, "dist");
 const APP_DIST = resolve(ROOT, "apps/web/dist");
 const ASSETS_LANDING = resolve(ROOT, "apps/web/public/assets/landing");
@@ -95,10 +103,9 @@ async function buildLanding() {
 
 	// Build the web app first (vite build only, skip typecheck due to pre-existing test issues)
 	console.log("  → Building web app (vite only)...");
-	const buildResult = spawnSync("npx", ["vite", "build"], {
-		cwd: resolve(ROOT, "apps/web"),
+	const buildResult = spawnSync(process.execPath, [VITE_BIN, "build"], {
+		cwd: WEB,
 		stdio: "inherit",
-		shell: true,
 	});
 	if (buildResult.status !== 0) {
 		throw new Error("Web app build failed");
@@ -131,27 +138,23 @@ async function buildLanding() {
 		"utf-8",
 	);
 	const waOut = resolve(DIST, "_wa.css");
-	const waResult = spawnSync(
-		"npx",
-		[
-			"esbuild",
-			waEntry,
-			"--bundle",
-			"--minify",
-			"--loader:.woff2=empty",
-			`--outfile=${waOut}`,
-		],
-		{
-			cwd: waStyles,
-			stdio: "inherit",
-			shell: true,
-		},
-	);
-	// El temporal se borra pase lo que pase: vive dentro de `node_modules` y
-	// dejarlo ahí ensuciaría el paquete para el resto del build.
-	rmSync(waEntry, { force: true });
-	if (waResult.status !== 0) {
-		throw new Error("esbuild falló compilando la hoja de Web Awesome");
+	try {
+		await esbuild({
+			absWorkingDir: waStyles,
+			entryPoints: [waEntry],
+			bundle: true,
+			minify: true,
+			loader: { ".woff2": "empty" },
+			outfile: waOut,
+		});
+	} catch (err) {
+		throw new Error("esbuild falló compilando la hoja de Web Awesome", {
+			cause: err,
+		});
+	} finally {
+		// El temporal se borra pase lo que pase: vive dentro de `node_modules` y
+		// dejarlo ahí ensuciaría el paquete para el resto del build.
+		rmSync(waEntry, { force: true });
 	}
 	const webawesomeCss = readFileSync(waOut, "utf-8");
 	rmSync(waOut, { force: true });
@@ -199,26 +202,18 @@ async function buildLanding() {
 		["apps/web/src/landing/legal.ts", "dist/legal.js"],
 		["apps/web/src/generated/locales/locale-codes.ts", "dist/locale-codes.js"],
 	]) {
-		const esbuildResult = spawnSync(
-			"npx",
-			[
-				"esbuild",
-				entry,
-				"--platform=node",
-				"--format=esm",
-				"--bundle",
-				`--outfile=${outfile}`,
-				"--external:@lit/localize",
-				"--external:lit",
-			],
-			{
-				cwd: ROOT,
-				stdio: "inherit",
-				shell: true,
-			},
-		);
-		if (esbuildResult.status !== 0) {
-			throw new Error(`esbuild falló compilando ${entry}`);
+		try {
+			await esbuild({
+				absWorkingDir: ROOT,
+				entryPoints: [entry],
+				platform: "node",
+				format: "esm",
+				bundle: true,
+				outfile,
+				external: ["@lit/localize", "lit"],
+			});
+		} catch (err) {
+			throw new Error(`esbuild falló compilando ${entry}`, { cause: err });
 		}
 	}
 

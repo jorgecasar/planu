@@ -26,6 +26,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,10 +47,17 @@ if (existsSync(join(DATOS, "firebase-export-metadata.json"))) {
 	);
 }
 
-const emuladores = spawn("firebase", args, {
+// The CLI's JS entry run with this node, so Windows needs no shell for `.cmd`.
+const FIREBASE_BIN = resolve(
+	dirname(
+		createRequire(import.meta.url).resolve("firebase-tools/package.json"),
+	),
+	"lib/bin/firebase.js",
+);
+
+const emuladores = spawn(process.execPath, [FIREBASE_BIN, ...args], {
 	cwd: RAIZ,
 	stdio: "inherit",
-	shell: process.platform === "win32",
 });
 
 emuladores.on("exit", (code, signal) => {
