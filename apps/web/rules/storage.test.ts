@@ -118,6 +118,32 @@ describe("forma del fichero", () => {
 		);
 	});
 
+	test("rechaza SVG aunque se declare como imagen", async () => {
+		await assertFails(
+			uploadBytes(
+				ref(comoVictima(), `events/${VICTIMA}/cartel.svg`),
+				imagen(),
+				{
+					contentType: "image/svg+xml",
+				},
+			),
+		);
+	});
+
+	test.each([
+		"image/png",
+		"image/jpeg",
+		"image/webp",
+		"image/gif",
+		"image/avif",
+	])("acepta %s", async (contentType) => {
+		await assertSucceeds(
+			uploadBytes(ref(comoVictima(), `events/${VICTIMA}/cartel`), imagen(), {
+				contentType,
+			}),
+		);
+	});
+
 	test("rechaza ficheros de 5 MB o más", async () => {
 		await assertFails(
 			uploadBytes(
