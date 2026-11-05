@@ -473,10 +473,39 @@ service cloud.firestore {
             && resource.data.invitedBy == request.auth.uid;
       }
 
+      // Same hash as userDirectory, so both ids agree on one address.
+      function emailHash(email) {
+        return hashing.sha256(email.lower()).toHexString().lower();
+      }
+
+      // No hasAll: every field but invitedByName is checked below or in
+      // `allow create`, and a missing one fails that check.
+      function isValidOffer(d) {
+        return d.keys().hasOnly(['eventId', 'eventTitle', 'inviteeEmail',
+                                 'invitedBy', 'invitedByName', 'role',
+                                 'createdAt'])
+            && d.eventId is string && d.eventId.size() <= 128
+            && d.eventTitle is string && d.eventTitle.size() <= 200
+            && d.inviteeEmail is string && d.inviteeEmail.size() <= 320
+            && (!('invitedByName' in d)
+                || (d.invitedByName is string && d.invitedByName.size() <= 200))
+            && d.role in ['viewer', 'editor']
+            && inviteId == d.eventId + '_' + emailHash(d.inviteeEmail);
+      }
+
       // get and list alike: a query passes only if it filters on the
       // caller's own `invitedBy`, which account deletion needs.
       allow read: if isSender();
 
+      // Only the event's verified owner, in their own name, at server time.
+      allow create: if request.auth != null
+                    && isVerified()
+                    && isValidOffer(request.resource.data)
+                    && request.resource.data.invitedBy == request.auth.uid
+                    && request.resource.data.createdAt == request.time
+                    && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.userId == request.auth.uid;
+
+      // No update: re-offering is delete + create, so `createdAt` stays honest.
       allow delete: if isSender();
     }
 

@@ -141,6 +141,27 @@
       "required": ["uid"],
       "$comment": "Document id is the lowercase hex SHA-256 of the user's trimmed, lowercased, verified email — see emailHash() in apps/web/src/sharing/user-directory.ts. The collection cannot be listed (allow list: if false); only a get by exact hash is allowed."
     },
+    "PendingInviteByEmail": {
+      "$schema": "http://json-schema.org/draft-07/schema",
+      "title": "PendingInviteByEmail",
+      "description": "An offer to join an event made to an email with no account yet (docs/adr/0012-invitaciones-pendientes-por-email.md). Never updated: re-offering deletes and recreates it. No expiry yet; erased with the sender's account.",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "maxLength": 128 },
+        "eventTitle": { "type": "string", "maxLength": 200 },
+        "inviteeEmail": {
+          "type": "string",
+          "maxLength": 320,
+          "description": "The only handle the offer has: there is no uid yet."
+        },
+        "invitedBy": { "type": "string", "description": "The event owner's uid." },
+        "invitedByName": { "type": "string", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["viewer", "editor"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server time." }
+      },
+      "required": ["eventId", "eventTitle", "inviteeEmail", "invitedBy", "role", "createdAt"],
+      "$comment": "Document id is `{eventId}_{sha256(lowercased email)}`, the same hash userDirectory uses."
+    },
     "PublicProfile": {
       "$schema": "http://json-schema.org/draft-07/schema",
       "title": "PublicProfile",
@@ -179,6 +200,14 @@
           "description": "One invite per (event, invitee) pair, kept as a record once decided. Readable by the owner who sent it and the invitee it names; created and updated only by the event's owner; deleted in any status by either side, and erased with either side's account (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).",
           "entityName": "EventInvite",
           "schema": { "$ref": "#/entities/EventInvite" }
+        }
+      },
+      {
+        "path": "/eventInvitesByEmail/{inviteId}",
+        "definition": {
+          "description": "Offers to an email with no account. Created by the event's verified owner; read and deleted by that sender; never listable except the sender's own `invitedBy ==` query.",
+          "entityName": "PendingInviteByEmail",
+          "schema": { "$ref": "#/entities/PendingInviteByEmail" }
         }
       },
       {
