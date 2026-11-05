@@ -235,8 +235,14 @@ describe("the by-uid index used to show guests", () => {
 		);
 	});
 
-	test("anyone signed in can resolve one specific uid", async () => {
+	test("anyone verified can resolve one specific uid", async () => {
 		await assertSucceeds(getDoc(doc(as(ATTACKER), `userProfiles/${ANA.uid}`)));
+	});
+
+	test("without a verified email no uid resolves", async () => {
+		await assertFails(
+			getDoc(doc(as(ATTACKER, false), `userProfiles/${ANA.uid}`)),
+		);
 	});
 
 	test("nobody can list the profiles", async () => {
