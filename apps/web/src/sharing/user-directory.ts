@@ -29,6 +29,9 @@ export const DIRECTORY_COLLECTION = "userDirectory";
  */
 export const PROFILES_COLLECTION = "userProfiles";
 
+/** Offers to an email with no account yet; see ADR 0012. */
+export const PENDING_INVITES_BY_EMAIL_COLLECTION = "eventInvitesByEmail";
+
 /**
  * SHA-256, hex, of the normalised email.
  *
