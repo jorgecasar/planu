@@ -11,9 +11,12 @@ import "./ai-event-generator.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { FirebaseApp } from "firebase/app";
 import { css, html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import {
+	type AiModelPort,
+	aiModelContext,
+} from "../application/ports/ai-model.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
@@ -25,7 +28,6 @@ import type { SessionUser } from "../application/ports/session.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
 	describeInferenceSource,
-	type InferenceModeName,
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
 import { toInputDate, toInputTime } from "../domain/format-dates.js";
@@ -38,7 +40,6 @@ import {
 	tagHue,
 } from "../domain/tags.js";
 import {
-	appContext,
 	eventRepositoryContext,
 	imageStoreContext,
 	userContext,
@@ -49,11 +50,7 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
-import {
-	createAiModelSession,
-	type ModelLike,
-	type TokenClaims,
-} from "./ai-model-session.js";
+import { createAiModelSession, type TokenClaims } from "./ai-model-session.js";
 import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 import { tagChipStyles } from "./tag-styles.js";
 
@@ -142,8 +139,8 @@ export class PlanuEventEditor extends LitElement {
 	 */
 	@property({ type: Boolean }) isSample = false;
 
-	@consume({ context: appContext, subscribe: true })
-	private app: FirebaseApp | undefined;
+	@consume({ context: aiModelContext, subscribe: true })
+	private aiModel: AiModelPort | undefined;
 
 	@consume({ context: eventRepositoryContext, subscribe: true })
 	private eventRepository: EventRepositoryPort | undefined;
@@ -846,7 +843,8 @@ export class PlanuEventEditor extends LitElement {
 	 * without any, just like before this button existed.
 	 */
 	async #onSuggestTags(): Promise<void> {
-		if (!this.app) return;
+		const { aiModel } = this;
+		if (!aiModel) return;
 
 		const token = this.#tagGeneration;
 		this.suggestingTags = true;
@@ -855,7 +853,7 @@ export class PlanuEventEditor extends LitElement {
 			// needed: whoever clicks the button has already explicitly
 			// requested the AI, just like with "Generate with AI", so forcing
 			// the first-time wait isn't a surprise.
-			await this.#tagSession().warmUp((percent) => {
+			await this.#tagSession(aiModel).warmUp((percent) => {
 				if (token !== this.#tagGeneration) return;
 				this.tagSuggestionDownloading = true;
 				this.tagSuggestionProgress = percent;
@@ -865,7 +863,7 @@ export class PlanuEventEditor extends LitElement {
 
 			const suggestions = await suggestTagsWithAi(
 				(parts) =>
-					this.#tagSession()
+					this.#tagSession(aiModel)
 						.generate(parts)
 						.then((response) => response.text),
 				{
@@ -898,26 +896,6 @@ export class PlanuEventEditor extends LitElement {
 	}
 
 	/**
-	 * Builds the model for suggesting tags. Text only: unlike the event
-	 * generator, there's no image to analyze here.
-	 */
-	async #buildTagModel(mode: InferenceModeName): Promise<ModelLike> {
-		const { getAI, getGenerativeModel, GoogleAIBackend } = await import(
-			"firebase/ai"
-		);
-
-		// biome-ignore lint/style/noNonNullAssertion: only called with app set
-		const ai = getAI(this.app!, { backend: new GoogleAIBackend() });
-		return getGenerativeModel(ai, {
-			mode,
-			onDeviceParams: {
-				createOptions: { expectedInputs: [{ type: "text" }] },
-				promptOptions: { responseConstraint: TAG_SUGGESTION_SCHEMA },
-			},
-		});
-	}
-
-	/**
 	 * `SessionUser.getIdTokenResult` is optional — not every adapter can
 	 * resolve it — and `TokenClaims` requires it. With no user or no such
 	 * method, there's no claim to read: cloud AI treats that the same as
@@ -929,10 +907,16 @@ export class PlanuEventEditor extends LitElement {
 	}
 
 	/** Lazy: creating it doesn't download anything on its own. */
-	#tagSession() {
+	#tagSession(aiModel: AiModelPort) {
+		// Text only: unlike the event generator, there's no image to analyze.
 		this.#tagSuggestionSession ??= createAiModelSession({
 			getUser: () => this.#claims(),
-			buildModel: (mode) => this.#buildTagModel(mode),
+			buildModel: (mode) =>
+				aiModel.build({
+					mode,
+					inputs: ["text"],
+					responseConstraint: TAG_SUGGESTION_SCHEMA,
+				}),
 		});
 		return this.#tagSuggestionSession;
 	}
