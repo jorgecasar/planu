@@ -586,6 +586,68 @@ describe("leaving someone else's event", () => {
 		);
 	});
 
+	/** A half-migrated event: memberIds, but no roles field. */
+	const seedHalfMigrated = (memberIds: string[]) =>
+		env.withSecurityRulesDisabled(async (ctx) => {
+			const { roles: _, ...withoutRoles } = anEvent(VICTIM, { memberIds });
+			await setDoc(doc(ctx.firestore(), "events/half-migrated"), withoutRoles);
+		});
+
+	const leaveHalfMigrated = (
+		db: ReturnType<typeof asViewer>,
+		data: Record<string, unknown>,
+	) => updateDoc(doc(db, "events/half-migrated"), data);
+
+	test("a guest can leave a half-migrated event that has no roles", async () => {
+		// Without rolesOf, reading `roles` straight off the document would raise
+		// an error, deny the write and strand the guest.
+		await seedHalfMigrated([VICTIM, VIEWER]);
+		await assertSucceeds(
+			leaveHalfMigrated(asViewer(), { memberIds: [VICTIM], roles: {} }),
+		);
+	});
+
+	test("leaving a half-migrated event cannot grant a role", async () => {
+		await seedHalfMigrated([VICTIM, VIEWER]);
+		await assertFails(
+			leaveHalfMigrated(asViewer(), {
+				memberIds: [VICTIM],
+				roles: { [VIEWER]: "editor" },
+			}),
+		);
+	});
+
+	test("leaving a half-migrated event cannot smuggle in a content change", async () => {
+		await seedHalfMigrated([VICTIM, VIEWER]);
+		await assertFails(
+			leaveHalfMigrated(asViewer(), {
+				memberIds: [VICTIM],
+				roles: {},
+				title: "Colado al salir",
+			}),
+		);
+	});
+
+	test("a non-member cannot empty a half-migrated event", async () => {
+		await seedHalfMigrated([VICTIM, VIEWER]);
+		await assertFails(
+			leaveHalfMigrated(asAttacker(), { memberIds: [VICTIM], roles: {} }),
+		);
+	});
+
+	test("only the last guest can leave a half-migrated event until the roles backfill", async () => {
+		// Deliberate limit: with a guest left behind, `roles: {}` breaks the
+		// membership invariant, and naming their role would touch someone else's
+		// entry. The backfill is what unblocks this, not the rules.
+		await seedHalfMigrated([VICTIM, VIEWER, EDITOR]);
+		await assertFails(
+			leaveHalfMigrated(asViewer(), {
+				memberIds: [VICTIM, EDITOR],
+				roles: {},
+			}),
+		);
+	});
+
 	test("an unverified viewer cannot leave the event", async () => {
 		await assertFails(
 			updateDoc(doc(asViewer(false), "events/shared-event"), {
