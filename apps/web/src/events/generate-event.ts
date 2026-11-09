@@ -6,6 +6,7 @@
  * Nano on the device if it is available, Gemini in the cloud if not.
  */
 
+import type { EventPart } from "../application/ports/ai-model.js";
 import { toInputDate } from "../domain/format-dates.js";
 
 export interface GeneratedEvent {
@@ -23,9 +24,7 @@ export interface GeneratedEvent {
 	allDay: boolean;
 }
 
-export type EventPart =
-	| { text: string }
-	| { inlineData: { mimeType: string; data: string } };
+export type { EventPart };
 
 /**
  * The only thing this module needs: something that receives the message

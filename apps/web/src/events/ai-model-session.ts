@@ -23,12 +23,12 @@
  * all in T23 for that exact reason.
  */
 
+import type { EventPart, ModelLike } from "../application/ports/ai-model.js";
 import {
 	type InferenceModeName,
 	type InferenceSourceName,
 	resolveInferenceMode,
 } from "../domain/ai-policy.js";
-import type { EventPart } from "./generate-event.js";
 
 /**
  * The minimum a user session needs: the premium claim. Duck typing instead
@@ -38,15 +38,7 @@ export interface TokenClaims {
 	getIdTokenResult(): Promise<{ claims: Record<string, unknown> }>;
 }
 
-/** The minimum a generative model needs, without the SDK's real type. */
-export interface ModelLike {
-	initializeDeviceModel(onProgress: (progress: number) => void): Promise<void>;
-	// The real SDK restricts `role` to a union of literals; here only "user"
-	// is needed, which is the only one this module ever sends.
-	generateContent(input: {
-		contents: Array<{ role: "user"; parts: EventPart[] }>;
-	}): Promise<{ response: { text(): string; inferenceSource?: string } }>;
-}
+export type { ModelLike };
 
 export interface GeneratedResponse {
 	text: string;

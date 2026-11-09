@@ -13,12 +13,14 @@ import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { accountDataContext } from "../application/ports/account-data.js";
+import { aiModelContext } from "../application/ports/ai-model.js";
 import {
 	analyticsContext,
 	noopAnalytics,
 } from "../application/ports/analytics.js";
 import { sharingContext } from "../application/ports/sharing.js";
 import { createAccountDataAdapter } from "../infrastructure/firebase/account-data-adapter.js";
+import { createAiModelAdapter } from "../infrastructure/firebase/ai-model-adapter.js";
 import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
 import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
 import { EventsController } from "../infrastructure/firebase/events-controller.js";
@@ -208,6 +210,10 @@ export class PlanuFirebaseProvider extends LitElement {
 		new ContextProvider(this, {
 			context: appContext,
 			initialValue: this.#core.app,
+		});
+		new ContextProvider(this, {
+			context: aiModelContext,
+			initialValue: createAiModelAdapter(this.#core.app),
 		});
 		new ContextProvider(this, {
 			context: sessionContext,
