@@ -484,9 +484,7 @@ test("escribir una hora de inicio guarda el evento con allDay: false", async () 
 	await fillTitle(el, "Cena de prueba");
 	await setField(el, "startDate", "2026-07-04");
 	await setField(el, "startTime", "19:30");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	expect(repository.calls[0]?.values).toMatchObject({ allDay: false });
@@ -509,9 +507,7 @@ test("escribir sólo una hora de fin también guarda el evento con allDay: false
 	await fillTitle(el, "Cena de prueba");
 	await setField(el, "endDate", "2026-07-04");
 	await setField(el, "endTime", "23:00");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	expect(repository.calls[0]?.values).toMatchObject({ allDay: false });
@@ -532,9 +528,7 @@ test("una hora sin ninguna fecha no declara el evento con hora", async () => {
 
 	await fillTitle(el, "Algo pendiente");
 	await setField(el, "startTime", "09:00");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	expect(repository.calls[0]?.values).toMatchObject({ allDay: true });
@@ -578,9 +572,7 @@ test("wasFirstEvent en la respuesta del repositorio dispara la analítica de pri
 	});
 
 	await fillTitle(el, "Primer evento");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(analytics.trackFirstEventCreated).toHaveBeenCalledOnce();
 
@@ -598,9 +590,7 @@ test("wasFirstEvent: false no dispara la analítica de primer evento", async () 
 	});
 
 	await fillTitle(el, "Segundo evento");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(analytics.trackFirstEventCreated).not.toHaveBeenCalled();
 
@@ -630,9 +620,7 @@ test("día completo con día de origen justo cuando la medianoche local no exist
 	});
 
 	await setField(el, "startTime", "");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	const saved = repository.calls[0]?.values as { startDate: Date };
@@ -662,9 +650,7 @@ test("borrar las dos horas devuelve el evento a día completo", async () => {
 
 	await setField(el, "startTime", "");
 	await setField(el, "endTime", "");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	expect(repository.calls[0]?.values).toMatchObject({ allDay: true });
@@ -686,9 +672,7 @@ test("de día completo, las fechas se guardan al comienzo del día local", async
 	await fillTitle(el, "Vacaciones");
 	await setField(el, "startDate", "2026-08-01");
 	await setField(el, "endDate", "2026-08-15");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	const saved = repository.calls[0]?.values as {
@@ -722,9 +706,7 @@ test("una hora de fin sin su propia fecha no inventa una: sigue sin fin declarad
 	await setField(el, "startDate", "2026-07-04");
 	await setField(el, "startTime", "09:00");
 	await setField(el, "endTime", "17:00");
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 
 	expect(repository.calls).toHaveLength(1);
 	const saved = repository.calls[0]?.values as { endDate: Date | null };
@@ -771,6 +753,22 @@ async function fillTitle(el: PlanuEventEditor, value: string): Promise<void> {
 function submit(el: PlanuEventEditor): void {
 	const form = el.shadowRoot?.querySelector("form") as HTMLFormElement;
 	form.requestSubmit();
+}
+
+/**
+ * Submits the form and resolves once the editor closes itself. A successful
+ * save always ends in `#close()`, which dispatches `planu-editor-close` after
+ * the repository call and the first-event analytics have run, so that event
+ * is the editor's own "saved" signal. If the save never succeeds, the test
+ * times out instead of asserting on a half-finished save.
+ */
+async function submitAndWaitForClose(el: PlanuEventEditor): Promise<void> {
+	const closed = new Promise<void>((resolve) => {
+		el.addEventListener("planu-editor-close", () => resolve(), { once: true });
+	});
+	submit(el);
+	await closed;
+	await el.updateComplete;
 }
 
 test("una sugerencia de la IA se pinta con etiqueta propia, distinta del autocompletado", async () => {
@@ -852,12 +850,13 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 	// A rejecting fake repository, not a rejecting fake Firestore: `create()`
 	// (T48) is what `#save` awaits now, and the real adapter's own
 	// `getCountFromServer()` for `first_event_created` (T31) lives inside it,
-	// out of the editor's reach. The margin below is defensive, matching the
-	// other submit tests in this file rather than a specific await depth.
-	await new Promise((resolve) => setTimeout(resolve, 10));
-	await el.updateComplete;
-
-	expect(errorText(el)).toBe("The event could not be saved. Please try again.");
+	// out of the editor's reach. A failed save closes nothing and dispatches
+	// nothing, so the only signal is the error callout itself.
+	await vi.waitFor(() =>
+		expect(errorText(el)).toBe(
+			"The event could not be saved. Please try again.",
+		),
+	);
 	expect(aiSuggested(el)).toEqual([]);
 
 	el.remove();
@@ -903,9 +902,9 @@ test("pulsarlo sin puerto de IA no hace nada, y no deja el botón colgado", asyn
 	const boton = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
 		(b) => b.textContent?.includes("Suggest tags with AI"),
 	) as HTMLElement;
+	// With no port, `#onSuggestTags` returns before its first `await`: by the
+	// time `click()` returns there is nothing left in flight to wait for.
 	boton.click();
-	await el.updateComplete;
-	await new Promise((resolve) => setTimeout(resolve, 20));
 	await el.updateComplete;
 
 	expect(errorText(el)).toBe("");
@@ -942,13 +941,12 @@ test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", a
 	) as HTMLElement;
 	boton.click();
 
-	for (let i = 0; i < 40 && aiSuggested(el).length === 0; i++) {
-		await new Promise((resolve) => setTimeout(resolve, 10));
-		await el.updateComplete;
-	}
-
+	// The suggestion chain (warm-up, generation, parsing) emits no event of
+	// its own; the rendered list is the first observable result.
 	// "cena" doesn't appear: it was already added to the event.
-	expect(aiSuggested(el)).toEqual(["trabajo", "equipo"]);
+	await vi.waitFor(() =>
+		expect(aiSuggested(el)).toEqual(["trabajo", "equipo"]),
+	);
 	expect(aiModel.build).toHaveBeenCalledWith({
 		// Cloud is closed by default: ai-policy resolves on-device.
 		mode: "only_on_device",
@@ -968,12 +966,16 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 	// reopen right after warming up the model and before the model
 	// answers.
 	let resuelveGeneracion: ((value: FakeModelResponse) => void) | undefined;
-	generateContent.mockImplementationOnce(
-		() =>
-			new Promise((resolve) => {
-				resuelveGeneracion = resolve;
-			}),
-	);
+	let generationStarted: (() => void) | undefined;
+	const started = new Promise<void>((resolve) => {
+		generationStarted = resolve;
+	});
+	generateContent.mockImplementationOnce(() => {
+		generationStarted?.();
+		return new Promise((resolve) => {
+			resuelveGeneracion = resolve;
+		});
+	});
 
 	const el = await mount((editor) => {
 		setState(editor, "aiModel", aiModel);
@@ -988,8 +990,8 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 	) as HTMLElement;
 	boton.click();
 	// Waits for the (fast) download to finish and the generation to be
-	// left in flight, before reopening.
-	await new Promise((resolve) => setTimeout(resolve, 20));
+	// left in flight, before reopening: the mocked call itself says so.
+	await started;
 	await el.updateComplete;
 	expect(el.shadowRoot?.textContent).toContain("Suggesting tags");
 
@@ -1002,14 +1004,17 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 	el.open = true;
 	await el.updateComplete;
 
-	// Now the old request's generation is allowed to resolve.
+	// Now the old request's generation is allowed to resolve. Discarding it
+	// changes nothing on screen, so there is no positive result to wait for;
+	// what can be waited for is the editor reading the late response, which
+	// happens only after the model's promise resolves. `vi.waitFor` polls on
+	// a timer, so by the time it sees the read, the rest of the chain
+	// (parsing, the stale-token check) has run as well.
+	const lateText = vi.fn(() => JSON.stringify({ tags: ["tarde"] }));
 	resuelveGeneracion?.({
-		response: {
-			text: () => JSON.stringify({ tags: ["tarde"] }),
-			inferenceSource: "on_device",
-		},
+		response: { text: lateText, inferenceSource: "on_device" },
 	});
-	await new Promise((resolve) => setTimeout(resolve, 50));
+	await vi.waitFor(() => expect(lateText).toHaveBeenCalled());
 	await el.updateComplete;
 
 	expect(aiSuggested(el)).toEqual([]);
@@ -1189,9 +1194,7 @@ test("tras guardar un evento generado por la IA, reabrir para uno nuevo vuelve a
 	await el.updateComplete;
 	expect(field(el, "title").value).toBe("Feria del libro");
 
-	submit(el);
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	await el.updateComplete;
+	await submitAndWaitForClose(el);
 	expect(repository.calls).toHaveLength(1);
 	expect(el.open).toBe(false);
 
@@ -1221,8 +1224,10 @@ test("con el bloque de IA visible, pulsar sus botones no envía el formulario de
 	// igualmente, tal y como lo pide el plan.
 	aiButton(el, "Generate from text").click();
 	aiButton(el, "Write it by hand").click();
+	// Known not to discriminate: with the title empty the schema rejects
+	// before any repository call, and these buttons live in the generator's
+	// shadow root, so this passes even with a `type="submit"` button; see #126.
 	await el.updateComplete;
-	await new Promise((resolve) => setTimeout(resolve, 20));
 
 	expect(repository.calls).toHaveLength(0);
 
