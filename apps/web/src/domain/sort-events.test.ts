@@ -6,6 +6,7 @@ import {
 	groupOf,
 	OFFERED_SORTS,
 	parseSortPreference,
+	sameSortPreference,
 	serializeSortPreference,
 	shouldRevealPast,
 	sortEvents,
@@ -446,6 +447,13 @@ test("las cadenas guardadas son exactamente éstas", () => {
 	expect(
 		serializeSortPreference({ field: "createdAt", direction: "desc" }),
 	).toBe("createdAt:desc");
+});
+
+test("dos órdenes son el mismo sólo si coinciden campo y dirección", () => {
+	const asc = { field: "startDate", direction: "asc" } as const;
+	expect(sameSortPreference(asc, { ...asc })).toBe(true);
+	expect(sameSortPreference(asc, { ...asc, direction: "desc" })).toBe(false);
+	expect(sameSortPreference(asc, { ...asc, field: "title" })).toBe(false);
 });
 
 test("el selector ofrece los cuatro órdenes de la aceptación", () => {

@@ -147,3 +147,18 @@ export function suggestTags(
 		})
 		.slice(0, limit);
 }
+
+/**
+ * Every distinct tag across `events`, alphabetically.
+ *
+ * The tags on offer come from the events the user already has, not from a
+ * separate collection: that way there's nothing to keep in sync and no
+ * extra query to pay for.
+ */
+export function collectTags(
+	events: readonly { tags: readonly string[] }[],
+): string[] {
+	return [...new Set(events.flatMap((event) => event.tags))].sort((a, b) =>
+		a.localeCompare(b),
+	);
+}
