@@ -112,3 +112,40 @@ export function startObservability(app: FirebaseApp): void {
 		void startPerformanceMonitoring(app).catch(() => {});
 	});
 }
+
+function codeOf(error: unknown): string {
+	const { code } = Object(error) as { code?: unknown };
+	return code === undefined ? "unknown" : String(code);
+}
+
+/**
+ * A write whose callers swallow failure (T65): success is a breadcrumb, a
+ * failure a synthetic exception tagged `operation`, `outcome` and `code`.
+ */
+export function recordBackgroundWrite(
+	operation: string,
+	outcome: "success" | "permission-denied" | "failure",
+	error?: unknown,
+): void {
+	if (import.meta.env.DEV || !import.meta.env.VITE_SENTRY_DSN) return;
+
+	afterMainPaint(() => {
+		void import("@sentry/browser")
+			.then(({ addBreadcrumb, captureException }) => {
+				if (outcome === "success") {
+					addBreadcrumb({
+						category: "background-write",
+						message: operation,
+						level: "info",
+					});
+				} else {
+					// Never the original: Firestore messages can embed the document
+					// path, `userDirectory/<email hash>` or `userProfiles/<uid>`.
+					captureException(new Error(`${operation}: ${outcome}`), {
+						tags: { operation, outcome, code: codeOf(error) },
+					});
+				}
+			})
+			.catch(() => {});
+	});
+}
