@@ -93,7 +93,7 @@ describe("adaptador de Firebase Analytics", () => {
 		);
 	});
 
-	test("si logEvent lanza, el método lo traga sin propagar", async () => {
+	test("si logEvent lanza, cada método lo traga sin propagar", async () => {
 		isSupportedMock.mockResolvedValue(true);
 		logEventMock.mockImplementation(() => {
 			throw new Error("network down");
@@ -102,6 +102,10 @@ describe("adaptador de Firebase Analytics", () => {
 
 		const port = await createAnalyticsAdapter(FAKE_APP);
 
+		expect(() => port.trackSignUp()).not.toThrow();
+		expect(() => port.trackFirstEventCreated()).not.toThrow();
+		expect(() => port.trackShare({ editable: true })).not.toThrow();
 		expect(() => port.trackAiUsed({ fromImage: true })).not.toThrow();
+		expect(logEventMock).toHaveBeenCalledTimes(4);
 	});
 });

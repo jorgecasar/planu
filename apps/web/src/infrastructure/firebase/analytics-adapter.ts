@@ -36,29 +36,27 @@ export async function createAnalyticsAdapter(
 		if (!(await isSupported())) return noopAnalytics;
 
 		const analytics = getAnalytics(app);
+		const safely = (log: () => void) => {
+			try {
+				log();
+			} catch {
+				// Analytics never takes the app down with it; see the file header.
+			}
+		};
 		return {
 			trackSignUp() {
-				try {
-					logEvent(analytics, "sign_up");
-				} catch {
-					// Nunca tira de la aplicación consigo. Ver el comentario del
-					// fichero.
-				}
+				safely(() => logEvent(analytics, "sign_up"));
 			},
 			trackFirstEventCreated() {
-				try {
-					logEvent(analytics, "first_event_created", { totalEvents: 1 });
-				} catch {}
+				safely(() =>
+					logEvent(analytics, "first_event_created", { totalEvents: 1 }),
+				);
 			},
 			trackShare({ editable }) {
-				try {
-					logEvent(analytics, "share", { editable });
-				} catch {}
+				safely(() => logEvent(analytics, "share", { editable }));
 			},
 			trackAiUsed({ fromImage }) {
-				try {
-					logEvent(analytics, "ai_used", { fromImage });
-				} catch {}
+				safely(() => logEvent(analytics, "ai_used", { fromImage }));
 			},
 		};
 	} catch {
