@@ -52,8 +52,9 @@ export interface AccountDataPort {
 	deleteReceivedInvitations(uid: string): Promise<void>;
 
 	/**
-	 * Deletes every `eventInvites` document the account sent. Idempotent.
-	 * The rules require a verified token for this one.
+	 * Deletes every invitation the account sent, to a uid (`eventInvites`) or
+	 * to an email (`eventInvitesByEmail`). Idempotent. The rules require a
+	 * verified token for this one.
 	 */
 	deleteSentInvitations(uid: string): Promise<void>;
 }

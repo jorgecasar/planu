@@ -303,6 +303,17 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	expect(seeded.ok(), await seeded.text()).toBe(true);
 	expect(await readDoc(page, "eventInvites", receivedInvite)).toBeDefined();
 
+	// Y una oferta a un email sin cuenta (ADR 0012), también enviada por B.
+	const sentOffer = `${ownedId}_offer`;
+	const offered = await page.request.patch(
+		`${FIRESTORE_EMULATOR}/eventInvitesByEmail/${sentOffer}`,
+		{
+			headers: ADMIN,
+			data: { fields: { invitedBy: { stringValue: uid } } },
+		},
+	);
+	expect(offered.ok(), await offered.text()).toBe(true);
+
 	// B borra su cuenta desde la interfaz — el mismo camino que seguiría una
 	// persona real, no un atajo por la API de administración.
 	await deleteAccountFromProfile(guestPage, deletedEmail);
@@ -310,6 +321,7 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	// 0) Sus invitaciones, recibidas y enviadas, han desaparecido.
 	expect(await readDoc(page, "eventInvites", receivedInvite)).toBeUndefined();
 	expect(await readDoc(page, "eventInvites", sentInvite)).toBeUndefined();
+	expect(await readDoc(page, "eventInvitesByEmail", sentOffer)).toBeUndefined();
 
 	// 1) El evento propio de B ha desaparecido de Firestore.
 	await expect

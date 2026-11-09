@@ -462,6 +462,24 @@ service cloud.firestore {
                         || resource.data.inviteeUid == uid());
     }
 
+    // Offers to an email with no account yet (ADR 0012): no uid to address an
+    // eventInvites document to. The id `{eventId}_{emailHash}` needs no query
+    // and holds one offer per address. No expiry: retention is undecided.
+    match /eventInvitesByEmail/{inviteId} {
+
+      function isSender() {
+        return request.auth != null
+            && isVerified()
+            && resource.data.invitedBy == request.auth.uid;
+      }
+
+      // get and list alike: a query passes only if it filters on the
+      // caller's own `invitedBy`, which account deletion needs.
+      allow read: if isSender();
+
+      allow delete: if isSender();
+    }
+
     // A minimal user directory, so people can be invited by email.
     //
     // Firebase Auth exposes no directory to clients, so each user publishes

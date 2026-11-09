@@ -22,6 +22,7 @@ import type {
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
+	PENDING_INVITES_BY_EMAIL_COLLECTION,
 	PROFILES_COLLECTION,
 } from "../../sharing/user-directory.js";
 
@@ -31,9 +32,10 @@ async function deleteInvitesWhere(
 	firestore: Firestore,
 	field: "inviteeUid" | "invitedBy",
 	uid: string,
+	path = "eventInvites",
 ): Promise<void> {
 	const snapshot = await getDocs(
-		query(collection(firestore, "eventInvites"), where(field, "==", uid)),
+		query(collection(firestore, path), where(field, "==", uid)),
 	);
 	await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
 }
@@ -137,8 +139,18 @@ export function createAccountDataAdapter(
 			return deleteInvitesWhere(firestore, "inviteeUid", uid);
 		},
 
-		deleteSentInvitations(uid: string): Promise<void> {
-			return deleteInvitesWhere(firestore, "invitedBy", uid);
+		async deleteSentInvitations(uid: string): Promise<void> {
+			// No expiry for unclaimed offers yet (open decision); this is all
+			// that erases them.
+			await Promise.all([
+				deleteInvitesWhere(firestore, "invitedBy", uid),
+				deleteInvitesWhere(
+					firestore,
+					"invitedBy",
+					uid,
+					PENDING_INVITES_BY_EMAIL_COLLECTION,
+				),
+			]);
 		},
 	};
 }
