@@ -38,6 +38,3 @@ export const changeEmailSchema = (currentEmail: string | null) =>
 				message: msg("That is already your email."),
 			}),
 	});
-
-export type Credentials = z.infer<ReturnType<typeof credentialsSchema>>;
-export type SignUp = z.infer<ReturnType<typeof signUpSchema>>;
