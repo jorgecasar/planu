@@ -4,6 +4,12 @@ import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { formatEventTime } from "../domain/format-dates.js";
+import {
+	keyTarget,
+	sameMonth,
+	shiftMonth,
+	startOfMonth,
+} from "../domain/grid-keyboard.js";
 import type { SortPreference } from "../domain/sort-events.js";
 import { getLocale } from "../i18n/localization.js";
 import type { StoredEvent } from "../lib/types.js";
@@ -13,11 +19,6 @@ import {
 	firstDayOfWeek,
 	type MonthCell,
 } from "./month-grid.js";
-
-/** First day of the month of a date, which is how a month is identified here. */
-function startOfMonth(date: Date): Date {
-	return new Date(date.getFullYear(), date.getMonth(), 1);
-}
 
 /**
  * Month grid: a month, its complete weeks, and each day's events.
@@ -237,10 +238,7 @@ export class PlanuCalendarView extends LitElement {
 	}
 
 	#sameMonth(date: Date): boolean {
-		return (
-			date.getFullYear() === this.month.getFullYear() &&
-			date.getMonth() === this.month.getMonth()
-		);
+		return sameMonth(date, this.month);
 	}
 
 	override render() {
@@ -258,14 +256,14 @@ export class PlanuCalendarView extends LitElement {
 			<div class="toolbar">
 				<wa-button
 					appearance="plain"
-					@click=${() => this.#shiftMonth(-1)}
+					@click=${() => this.#focus(shiftMonth(this.focused, this.month, -1))}
 				>${msg("Previous month")}</wa-button>
 
 				${this.#renderTitle(grid.title)}
 
 				<wa-button
 					appearance="plain"
-					@click=${() => this.#shiftMonth(1)}
+					@click=${() => this.#focus(shiftMonth(this.focused, this.month, 1))}
 				>${msg("Next month")}</wa-button>
 			</div>
 
@@ -458,95 +456,18 @@ export class PlanuCalendarView extends LitElement {
 			?.focus();
 	}
 
+	/** Where the focus lands is decided in `grid-keyboard.ts`; here it's moved. */
 	#onKeydown(domEvent: KeyboardEvent): void {
-		// With a modifier it isn't our key. `Ctrl+Home` means "go to the start
-		// of the document" and `Shift`+arrow means selection: going through the
-		// `Home` or arrow branch would swallow them with `preventDefault()`. The
-		// APG also reserve `Shift`+`Page Up/Down` for changing year, which isn't
-		// here: better to do nothing than to do something else.
-		if (
-			domEvent.ctrlKey ||
-			domEvent.metaKey ||
-			domEvent.altKey ||
-			domEvent.shiftKey
-		) {
-			return;
-		}
-
-		const steps: Record<string, number> = {
-			ArrowRight: 1,
-			ArrowLeft: -1,
-			ArrowDown: 7,
-			ArrowUp: -7,
-		};
-
-		const step = steps[domEvent.key];
-		if (step !== undefined) {
-			this.#moveBy(step);
-		} else if (domEvent.key === "Home") {
-			this.#moveBy(-this.#offsetInWeek());
-		} else if (domEvent.key === "End") {
-			this.#moveBy(6 - this.#offsetInWeek());
-		} else if (domEvent.key === "PageUp") {
-			this.#shiftMonth(-1);
-		} else if (domEvent.key === "PageDown") {
-			this.#shiftMonth(1);
-		} else {
-			return;
-		}
+		const first = firstDayOfWeek(this.locale || getLocale());
+		const target = keyTarget(domEvent, this.focused, this.month, first);
+		if (!target) return;
+		this.#focus(target);
 
 		// Only after having recognized the key: the arrows scroll the page and
 		// `Page Down` skips it entirely, and both things happening at once is
 		// disorienting.
 		domEvent.preventDefault();
 		this.#refocus = true;
-	}
-
-	/** Days between the focused day and the first day of its week, according to the locale. */
-	#offsetInWeek(): number {
-		const first = firstDayOfWeek(this.locale || getLocale());
-		return (this.focused.getDay() - first + 7) % 7;
-	}
-
-	/**
-	 * Moves forward or backward by days.
-	 *
-	 * With `setDate()`, never by adding milliseconds: a day doesn't always
-	 * last 24 hours, and the day of the time change would leave the focus on
-	 * the neighboring cell.
-	 */
-	#moveBy(days: number): void {
-		const target = new Date(this.focused.getTime());
-		target.setDate(target.getDate() + days);
-		this.#focus(target);
-	}
-
-	/**
-	 * Changes month while keeping the day.
-	 *
-	 * It's clamped to the destination month's last day: from January 31,
-	 * `Page Down` leads to February 28. Without clamping, `Date`'s overflow
-	 * would skip past February entirely and land in March.
-	 */
-	#shiftMonth(delta: number): void {
-		const target = new Date(
-			this.month.getFullYear(),
-			this.month.getMonth() + delta,
-			1,
-		);
-		const length = new Date(
-			target.getFullYear(),
-			target.getMonth() + 1,
-			0,
-		).getDate();
-
-		this.#focus(
-			new Date(
-				target.getFullYear(),
-				target.getMonth(),
-				Math.min(this.focused.getDate(), length),
-			),
-		);
 	}
 
 	/** Moves the focus to a day, changing the month and announcing it if needed. */
