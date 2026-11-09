@@ -3,14 +3,6 @@ import type { PlanuEvent } from "../../lib/types.js";
 /** What `create()` resolves with. */
 export interface CreatedEvent {
 	id: string;
-	/**
-	 * Whether the owner had zero visible events right before this write.
-	 * T31's `trackFirstEventCreated()` needs it, and the count it depends
-	 * on — `getCountFromServer` against the same `memberIds` query the
-	 * listing uses — is a Firestore detail: the editor shouldn't have to
-	 * know how "first event" gets decided, only whether it happened.
-	 */
-	wasFirstEvent: boolean;
 }
 
 /** An event already read from the repository, with its identifier. */

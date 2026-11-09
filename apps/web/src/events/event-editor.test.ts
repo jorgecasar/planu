@@ -51,13 +51,13 @@ async function mount(
  * is what these tests exercise; `update` tags along in case a future test
  * opens the editor in edit mode.
  */
-function fakeRepository(wasFirstEvent = false) {
+function fakeRepository() {
 	const calls: { values: unknown; ownerUid?: string; id?: string }[] = [];
 	return {
 		calls,
 		create: async (values: unknown, ownerUid: string) => {
 			calls.push({ values, ownerUid });
-			return { id: "new-id", wasFirstEvent };
+			return { id: "new-id" };
 		},
 		update: async (id: string, values: unknown) => {
 			calls.push({ values, id });
@@ -561,15 +561,55 @@ test("reabrir con una sola hora guardada la muestra sólo en su campo", async ()
 	el.remove();
 });
 
-test("wasFirstEvent en la respuesta del repositorio dispara la analítica de primer evento", async () => {
-	const repository = fakeRepository(true);
+test("isFirstEvent dispara la analítica de primer evento una sola vez, no en cada alta (GH-94)", async () => {
+	const repository = fakeRepository();
 	const analytics = fakeAnalytics();
 	const el = await mount((editor) => {
 		setState(editor, "eventRepository", repository);
 		setState(editor, "user", { uid: "abc" });
 		setState(editor, "analytics", analytics);
+		editor.isFirstEvent = true;
 		editor.open = true;
 	});
+
+	await fillTitle(el, "Primer evento");
+	await submitAndWaitForClose(el);
+
+	expect(analytics.trackFirstEventCreated).toHaveBeenCalledOnce();
+
+	// What the view does once its listing holds the new event.
+	el.isFirstEvent = false;
+	el.open = true;
+	await el.updateComplete;
+	await fillTitle(el, "Segundo evento");
+	await submitAndWaitForClose(el);
+
+	expect(repository.calls).toHaveLength(2);
+	expect(analytics.trackFirstEventCreated).toHaveBeenCalledOnce();
+
+	el.remove();
+});
+
+test("isFirstEvent se lee antes de escribir: el listado ya trae el evento nuevo cuando create() resuelve", async () => {
+	// Firestore's latency compensation fires the listing's snapshot with the
+	// new event before `addDoc` resolves, so the view clears the flag mid-write.
+	const analytics = fakeAnalytics();
+	let editor: PlanuEventEditor | undefined;
+	const repository = {
+		create: async () => {
+			if (editor) editor.isFirstEvent = false;
+			return { id: "new-id" };
+		},
+		update: async () => {},
+	};
+	const el = await mount((created) => {
+		setState(created, "eventRepository", repository);
+		setState(created, "user", { uid: "abc" });
+		setState(created, "analytics", analytics);
+		created.isFirstEvent = true;
+		created.open = true;
+	});
+	editor = el;
 
 	await fillTitle(el, "Primer evento");
 	await submitAndWaitForClose(el);
@@ -579,8 +619,8 @@ test("wasFirstEvent en la respuesta del repositorio dispara la analítica de pri
 	el.remove();
 });
 
-test("wasFirstEvent: false no dispara la analítica de primer evento", async () => {
-	const repository = fakeRepository(false);
+test("sin isFirstEvent no se dispara la analítica de primer evento", async () => {
+	const repository = fakeRepository();
 	const analytics = fakeAnalytics();
 	const el = await mount((editor) => {
 		setState(editor, "eventRepository", repository);
@@ -592,6 +632,7 @@ test("wasFirstEvent: false no dispara la analítica de primer evento", async () 
 	await fillTitle(el, "Segundo evento");
 	await submitAndWaitForClose(el);
 
+	expect(repository.calls).toHaveLength(1);
 	expect(analytics.trackFirstEventCreated).not.toHaveBeenCalled();
 
 	el.remove();
@@ -848,10 +889,8 @@ test("guardar no depende en nada de la sugerencia: ni la mira, ni espera por ell
 	await fillTitle(el, "Cena de prueba");
 	submit(el);
 	// A rejecting fake repository, not a rejecting fake Firestore: `create()`
-	// (T48) is what `#save` awaits now, and the real adapter's own
-	// `getCountFromServer()` for `first_event_created` (T31) lives inside it,
-	// out of the editor's reach. A failed save closes nothing and dispatches
-	// nothing, so the only signal is the error callout itself.
+	// (T48) is what `#save` awaits now. A failed save closes nothing and
+	// dispatches nothing, so the only signal is the error callout itself.
 	await vi.waitFor(() =>
 		expect(errorText(el)).toBe(
 			"The event could not be saved. Please try again.",

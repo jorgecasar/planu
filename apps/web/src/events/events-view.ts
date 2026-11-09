@@ -280,6 +280,7 @@ export class PlanuEventsView extends LitElement {
         .draft=${this.draft}
         .draftSource=${this.draftSource}
         ?isSample=${this.draftIsSample}
+        ?isFirstEvent=${this.eventsSnapshot?.status === "ready" && all.length === 0}
         @planu-editor-close=${this.#onEditorClose}
       ></planu-event-editor>
     `;
