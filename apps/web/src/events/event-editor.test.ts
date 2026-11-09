@@ -1067,9 +1067,9 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 // `event-editor.ts` mounts `<planu-ai-event-generator>` as the first child of
 // its own `<form>` when `#showAiBlock` says it's worth offering. These tests
 // only exercise that wiring — visibility, the two events the block can emit,
-// and the type="button" regression guard —; the block's own generation
-// machinery (image path, text path, cancellation) is already covered end to
-// end in `ai-event-generator.test.ts`.
+// and that neither its buttons nor its events save the event —; the block's
+// own generation machinery (image path, text path, cancellation) is already
+// covered end to end in `ai-event-generator.test.ts`.
 
 function aiBlock(el: PlanuEventEditor): Element | null {
 	return el.shadowRoot?.querySelector("planu-ai-event-generator") ?? null;
@@ -1246,11 +1246,15 @@ test("tras guardar un evento generado por la IA, reabrir para uno nuevo vuelve a
 	el.remove();
 });
 
-test("con el bloque de IA visible, pulsar sus botones no envía el formulario de evento", async () => {
-	// El riesgo funcional más serio de esta migración: al vivir dentro de
-	// <form id="event-form">, cualquiera de los dos botones sin un
-	// type="button" explícito enviaría el formulario de evento, todavía casi
-	// vacío, en vez de hacer lo suyo.
+test("con el bloque de IA visible y un título válido, pulsar sus botones no guarda el evento", async () => {
+	// What this guards is behaviour, not the buttons' `type`: neither click
+	// may save the event. A `type="submit"` there is harmless today and this
+	// test can't catch it (#126): `wa-button` submits through
+	// `ElementInternals.form`, and form ownership doesn't cross shadow roots,
+	// so a button inside the generator's shadow root has no form owner even
+	// though the generator sits inside <form id="event-form">. What it guards
+	// is the editor's handlers for the block (dismiss here, generated in the
+	// next test): neither may submit or save.
 	const repository = fakeRepository();
 	const el = await mount((editor) => {
 		setState(editor, "eventRepository", repository);
@@ -1258,17 +1262,70 @@ test("con el bloque de IA visible, pulsar sus botones no envía el formulario de
 		setState(editor, "aiAvailable", true);
 		editor.open = true;
 	});
+	// A valid title, so a stray submit would get past the schema and reach
+	// the repository instead of being rejected for an empty form.
+	await setField(el, "title", "Cena de equipo");
+	const form = el.shadowRoot?.querySelector("form") as HTMLFormElement;
+	let submits = 0;
+	form.addEventListener("submit", () => submits++);
+	// Some text so "Generate from text" is enabled: a disabled `wa-button`
+	// swallows the click before it could ever reach a form.
+	const generator = aiBlock(el) as unknown as {
+		text: string;
+		updateComplete: Promise<boolean>;
+	};
+	generator.text = "Cena el viernes";
+	await generator.updateComplete;
 
-	// Con el textarea vacío el botón de texto sale deshabilitado; se pulsa
-	// igualmente, tal y como lo pide el plan.
 	aiButton(el, "Generate from text").click();
 	aiButton(el, "Write it by hand").click();
-	// Known not to discriminate: with the title empty the schema rejects
-	// before any repository call, and these buttons live in the generator's
-	// shadow root, so this passes even with a `type="submit"` button; see #126.
 	await el.updateComplete;
 
+	expect(submits).toBe(0);
 	expect(repository.calls).toHaveLength(0);
+
+	// Control: the same form, submitted for real, does save; the zeros above
+	// are not because nothing could have been saved.
+	await submitAndWaitForClose(el);
+	expect(submits).toBe(1);
+	expect(repository.calls).toHaveLength(1);
+
+	el.remove();
+});
+
+test("un evento generado por la IA rellena el formulario sin guardarlo, aunque el título ya sea válido", async () => {
+	// The draft is for the user to review ("Nothing is saved until you review
+	// it"): handling `planu-event-generated` must not submit or save.
+	const repository = fakeRepository();
+	const el = await mount((editor) => {
+		setState(editor, "eventRepository", repository);
+		setState(editor, "user", { uid: "abc" });
+		setState(editor, "aiAvailable", true);
+		editor.open = true;
+	});
+	await setField(el, "title", "Cena de equipo");
+	const form = el.shadowRoot?.querySelector("form") as HTMLFormElement;
+	let submits = 0;
+	form.addEventListener("submit", () => submits++);
+
+	// Dispatched as the generator's `#emit()` does.
+	aiBlock(el)?.dispatchEvent(
+		new CustomEvent("planu-event-generated", {
+			detail: {
+				event: { title: "Feria del libro", location: "Retiro" },
+				source: "on_device",
+			},
+			bubbles: true,
+			composed: true,
+		}),
+	);
+	await el.updateComplete;
+
+	expect(submits).toBe(0);
+	expect(repository.calls).toHaveLength(0);
+	expect(el.open).toBe(true);
+	expect(field(el, "title").value).toBe("Feria del libro");
+	expect(field(el, "location").value).toBe("Retiro");
 
 	el.remove();
 });
