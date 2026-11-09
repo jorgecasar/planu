@@ -6,7 +6,6 @@ import {
 	deleteField,
 	doc,
 	type Firestore,
-	getCountFromServer,
 	getDocs,
 	query,
 	serverTimestamp,
@@ -139,24 +138,6 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 	}
 
 	async create(values: PlanuEvent, ownerUid: string): Promise<CreatedEvent> {
-		// The count runs *before* the write, not after: `first_event_created`
-		// (T31) needs to know whether this account had zero events, and asking
-		// afterward would always see at least one — the one just created. A
-		// count, not a listing: it stays a lightweight aggregation query
-		// regardless of how many events the account already has.
-		//
-		// `memberIds array-contains`, not `userId ==`: the rules deny every
-		// other shape for this collection (see the same filter in
-		// events-view.ts), so this counts events the account can see — its own
-		// plus anything shared with it — not strictly ones it created. Close
-		// enough for an activation metric, and the only shape the rules allow.
-		const before = await getCountFromServer(
-			query(
-				collection(this.#firestore, "events"),
-				where("memberIds", "array-contains", ownerUid),
-			),
-		);
-
 		// An event is born with its creator as sole member and no guests: the
 		// rules reject any other way of starting.
 		const created = await addDoc(collection(this.#firestore, "events"), {
@@ -166,7 +147,7 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 			roles: {},
 			createdAt: serverTimestamp(),
 		});
-		return { id: created.id, wasFirstEvent: before.data().count === 0 };
+		return { id: created.id };
 	}
 
 	async update(id: string, values: PlanuEvent): Promise<void> {

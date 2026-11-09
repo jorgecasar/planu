@@ -126,56 +126,18 @@ describe("FirebaseEventRepository", () => {
 		collectionMock.mockClear();
 	});
 
-	test("create() cuenta antes de escribir, no después", async () => {
-		// The order matters: `first_event_created` needs the count of events
-		// that existed *before* this write, and asking afterward would always
-		// see at least one — the one just created.
-		const order: string[] = [];
-		getCountFromServerMock.mockImplementation(async () => {
-			order.push("count");
-			return { data: () => ({ count: 0 }) };
-		});
-		addDocMock.mockImplementation(async () => {
-			order.push("addDoc");
-			return { id: "new-id" };
-		});
-
-		await repository.create(BASE_VALUES, "owner-1");
-
-		expect(order).toEqual(["count", "addDoc"]);
-	});
-
-	test("create() cuenta con memberIds array-contains el uid del dueño, no userId ==", () => {
-		getCountFromServerMock.mockResolvedValue({ data: () => ({ count: 0 }) });
-
-		void repository.create(BASE_VALUES, "owner-1");
-
-		expect(whereMock).toHaveBeenCalledWith(
-			"memberIds",
-			"array-contains",
-			"owner-1",
-		);
-	});
-
-	test("create() devuelve wasFirstEvent: true cuando el recuento previo es cero", async () => {
-		getCountFromServerMock.mockResolvedValue({ data: () => ({ count: 0 }) });
-
+	test("create() escribe sin contar antes: ni getCountFromServer ni query (GH-94)", async () => {
+		// The first-event signal comes from the listing the view already has
+		// loaded; an aggregation here was a serial, billed round trip per save.
 		const created = await repository.create(BASE_VALUES, "owner-1");
 
-		expect(created).toEqual({ id: "new-id", wasFirstEvent: true });
-	});
-
-	test("create() devuelve wasFirstEvent: false cuando ya había eventos", async () => {
-		getCountFromServerMock.mockResolvedValue({ data: () => ({ count: 3 }) });
-
-		const created = await repository.create(BASE_VALUES, "owner-1");
-
-		expect(created.wasFirstEvent).toBe(false);
+		expect(getCountFromServerMock).not.toHaveBeenCalled();
+		expect(queryMock).not.toHaveBeenCalled();
+		expect(addDocMock).toHaveBeenCalledOnce();
+		expect(created).toEqual({ id: "new-id" });
 	});
 
 	test("create() escribe al dueño como único miembro, sin invitados", async () => {
-		getCountFromServerMock.mockResolvedValue({ data: () => ({ count: 0 }) });
-
 		await repository.create(BASE_VALUES, "owner-1");
 
 		expect(addDocMock).toHaveBeenCalledWith(

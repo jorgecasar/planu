@@ -139,6 +139,15 @@ export class PlanuEventEditor extends LitElement {
 	 */
 	@property({ type: Boolean }) isSample = false;
 
+	/**
+	 * Whether the account has no events yet, so creating one now is its
+	 * first (T31's `first_event_created`). Decided by the view from the
+	 * listing it already holds, not by a count on every save (GH-94).
+	 * Biased on purpose: while that listing is loading or errored this stays
+	 * false, so no signal is sent rather than a false one.
+	 */
+	@property({ type: Boolean }) isFirstEvent = false;
+
 	@consume({ context: aiModelContext, subscribe: true })
 	private aiModel: AiModelPort | undefined;
 
@@ -807,14 +816,12 @@ export class PlanuEventEditor extends LitElement {
 		}
 
 		// An event is born with its creator as sole member and no guests: the
-		// rules reject any other way of starting. Whether this was the
-		// account's first is the repository's call — it's the one running the
-		// `getCountFromServer` aggregation against Firestore (T31's
-		// `first_event_created`) — so it reports back and this stays a
-		// one-line decision instead of a second query the editor has no
-		// business making now that it doesn't know Firestore exists (T48).
+		// rules reject any other way of starting. The flag is read before the
+		// write: latency compensation updates the listing — and clears it —
+		// before `create()` resolves.
+		const isFirst = this.isFirstEvent;
 		const created = await eventRepository.create(normalized, user.uid);
-		if (created.wasFirstEvent) {
+		if (isFirst) {
 			this.analytics.trackFirstEventCreated();
 		}
 		return created.id;
