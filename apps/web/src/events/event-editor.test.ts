@@ -1,33 +1,37 @@
 import { expect, test, vi } from "vitest";
+import type {
+	AiModelPort,
+	AiModelRequest,
+	ModelLike,
+} from "../application/ports/ai-model.js";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "../domain/tags.js";
 import "./event-editor.js";
 import type { PlanuEventEditor } from "./event-editor.js";
+import { TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 
 /**
- * The only point where this file touches Firebase for real: the AI SDK
- * that `#buildTagModel` dynamically imports. `vi.hoisted` because
- * `vi.mock`'s factory gets hoisted above this `const` and needs it to
- * already exist. `generateContent` is what each test reconfigures with
+ * `generateContent` is what each test reconfigures with
  * `mockResolvedValueOnce` to simulate a specific model response.
  */
 interface FakeModelResponse {
 	response: { text: () => string; inferenceSource: string };
 }
 
-const { generateContent, initializeDeviceModel } = vi.hoisted(() => ({
-	generateContent: vi.fn(
-		async (): Promise<FakeModelResponse> => ({
-			response: { text: () => '{"tags":[]}', inferenceSource: "on_device" },
+const generateContent = vi.fn(
+	async (): Promise<FakeModelResponse> => ({
+		response: { text: () => '{"tags":[]}', inferenceSource: "on_device" },
+	}),
+);
+
+/** A fake `AiModelPort`: no SDK, no emulator. */
+const aiModel = {
+	build: vi.fn(
+		async (_request: AiModelRequest): Promise<ModelLike> => ({
+			initializeDeviceModel: async () => {},
+			generateContent,
 		}),
 	),
-	initializeDeviceModel: vi.fn(async (): Promise<void> => {}),
-}));
-
-vi.mock("firebase/ai", () => ({
-	getAI: vi.fn(() => ({})),
-	getGenerativeModel: vi.fn(() => ({ initializeDeviceModel, generateContent })),
-	GoogleAIBackend: vi.fn(),
-}));
+} satisfies AiModelPort;
 
 const IMAGEN =
 	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -888,10 +892,9 @@ test("con la IA disponible, el botón aparece", async () => {
 	el.remove();
 });
 
-test("pulsarlo sin Firebase configurado no hace nada, y no deja el botón colgado", async () => {
-	// Without `appContext`, `this.app` is `undefined`: the editor doesn't
-	// even try. It's the same silence T24 asks for when the AI isn't
-	// available, applied to this branch too.
+test("pulsarlo sin puerto de IA no hace nada, y no deja el botón colgado", async () => {
+	// Without `aiModelContext` the editor doesn't even try: the same
+	// silence T24 asks for when the AI isn't available.
 	const el = await mount((editor) => {
 		setState(editor, "aiAvailable", true);
 		editor.open = true;
@@ -913,8 +916,8 @@ test("pulsarlo sin Firebase configurado no hace nada, y no deja el botón colgad
 
 test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", async () => {
 	// The only test that goes through the whole path: button →
-	// #onSuggestTags → suggestTagsWithAi → ai-model-session → the AI SDK,
-	// mocked at the real boundary and not at some point in between. It
+	// #onSuggestTags → suggestTagsWithAi → ai-model-session → AiModelPort,
+	// faked at the boundary and not at some point in between. It
 	// also serves to check end-to-end the exclusion of already-added
 	// tags, not only at the level of `suggest-tags.test.ts`.
 	generateContent.mockResolvedValueOnce({
@@ -925,7 +928,7 @@ test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", a
 	});
 
 	const el = await mount((editor) => {
-		setState(editor, "app", {});
+		setState(editor, "aiModel", aiModel);
 		setState(editor, "user", { uid: "abc" });
 		setState(editor, "aiAvailable", true);
 		editor.draft = { tags: ["cena"] };
@@ -946,6 +949,12 @@ test("pulsar el botón sugiere de verdad, sin repetir lo que ya está puesto", a
 
 	// "cena" doesn't appear: it was already added to the event.
 	expect(aiSuggested(el)).toEqual(["trabajo", "equipo"]);
+	expect(aiModel.build).toHaveBeenCalledWith({
+		// Cloud is closed by default: ai-policy resolves on-device.
+		mode: "only_on_device",
+		inputs: ["text"],
+		responseConstraint: TAG_SUGGESTION_SCHEMA,
+	});
 
 	el.remove();
 });
@@ -967,7 +976,7 @@ test("reabrir el editor olvida una sugerencia en vuelo, no sólo una ya mostrada
 	);
 
 	const el = await mount((editor) => {
-		setState(editor, "app", {});
+		setState(editor, "aiModel", aiModel);
 		setState(editor, "user", { uid: "abc" });
 		setState(editor, "aiAvailable", true);
 		editor.open = true;

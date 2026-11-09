@@ -209,8 +209,11 @@ const importaFirebase = (fichero: string): boolean =>
  * adapter test, same reason as `account-data-adapter.ts`: it only forwards
  * to `getAI`/`getGenerativeModel`. The component test drives a fake port
  * instead of mocking `firebase/ai`.
+ *
+ * #106 frees `event-editor.ts`, from 27 to 26: tag suggestion builds its
+ * model through the same `AiModelPort`. No new file.
  */
-const TOPE_ACOPLADOS = 27;
+const TOPE_ACOPLADOS = 26;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
