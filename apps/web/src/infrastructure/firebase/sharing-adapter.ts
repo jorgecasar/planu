@@ -12,11 +12,13 @@
 
 import {
 	collection,
+	deleteDoc,
 	doc,
 	type Firestore,
 	getDoc,
 	getDocs,
 	query,
+	serverTimestamp,
 	setDoc,
 	updateDoc,
 	where,
@@ -38,6 +40,7 @@ import {
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
+	PENDING_INVITES_BY_EMAIL_COLLECTION,
 	PROFILES_COLLECTION,
 } from "../../sharing/user-directory.js";
 
@@ -97,6 +100,36 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 			invite: InviteOffer & { inviteeUid: string },
 		): Promise<void> {
 			await inviteToEventInCollection(firestore, invite);
+		},
+
+		async offerInviteByEmail(offer: InviteOffer): Promise<void> {
+			const ref = doc(
+				firestore,
+				PENDING_INVITES_BY_EMAIL_COLLECTION,
+				`${offer.eventId}_${await emailHash(offer.inviteeEmail)}`,
+			);
+			const write = () =>
+				setDoc(ref, {
+					eventId: offer.eventId,
+					eventTitle: offer.eventTitle,
+					inviteeEmail: offer.inviteeEmail.trim().toLowerCase(),
+					invitedBy: offer.invitedBy,
+					invitedByName: offer.invitedByName,
+					role: offer.role,
+					createdAt: serverTimestamp(),
+				});
+
+			// The rules allow no update and hide a missing offer even from its
+			// sender, so a re-offer shows up as a denied overwrite. If the delete
+			// fails too, nothing was there and the first error stands.
+			try {
+				await write();
+			} catch (error) {
+				await deleteDoc(ref).catch(() => {
+					throw error;
+				});
+				await write();
+			}
 		},
 
 		async changeInviteRole(id: string, role: EventRole): Promise<void> {
