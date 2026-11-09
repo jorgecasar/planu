@@ -38,8 +38,10 @@ service cloud.firestore {
       //
       // `rolesOf` is safe because isEditor() is only ever reached on a write,
       // never during a query. It covers the half-migrated case: a document with
-      // memberIds but no roles, where a guest could otherwise neither edit nor
-      // leave, with the error swallowing both branches of the `||`.
+      // memberIds but no roles, where the error would otherwise swallow every
+      // branch of the `||`. Even so, only a sole guest can leave such an event:
+      // with others still in it, the result breaks the membership invariant.
+      // The rest waits for the roles backfill.
       function rolesOf(d) {
         return 'roles' in d && d.roles is map ? d.roles : {};
       }
@@ -136,7 +138,7 @@ service cloud.firestore {
         return isMember()
             && uid() != resource.data.userId
             && request.resource.data.memberIds == resource.data.memberIds.removeAll([uid()])
-            && request.resource.data.roles.diff(resource.data.roles)
+            && request.resource.data.roles.diff(rolesOf(resource.data))
                  .affectedKeys().hasOnly([uid()].toSet())
             && request.resource.data.diff(resource.data)
                  .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
