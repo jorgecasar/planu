@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+	collectTags,
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
 	normalizeTag,
@@ -226,4 +227,19 @@ test("un término más largo que el máximo no rompe la sugerencia", () => {
 	// `normalizeTag` returns null here; without the fallback, the term would
 	// be lost and every tag would be offered instead of none.
 	expect(suggestTags(["cine"], "z".repeat(MAX_TAG_LENGTH + 1))).toEqual([]);
+});
+
+// --- collectTags ----------------------------------------------------------
+
+test("reúne las etiquetas de todos los eventos, sin repetir y en orden", () => {
+	const events = [
+		{ tags: ["música", "cine"] },
+		{ tags: [] },
+		{ tags: ["cine", "arte"] },
+	];
+	expect(collectTags(events)).toEqual(["arte", "cine", "música"]);
+});
+
+test("sin eventos no hay etiquetas que ofrecer", () => {
+	expect(collectTags([])).toEqual([]);
 });

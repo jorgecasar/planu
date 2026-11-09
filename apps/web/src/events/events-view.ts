@@ -13,7 +13,9 @@ import { customElement, state } from "lit/decorators.js";
 import { buildAgenda } from "../calendar/agenda-days.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import type { InferenceSourceName } from "../domain/ai-policy.js";
+import { type ListingState, listingState } from "../domain/listing-state.js";
 import { sampleEventDraft } from "../domain/sample-event.js";
+import { collectTags } from "../domain/tags.js";
 import "../calendar/agenda-view.js";
 import "../calendar/calendar-view.js";
 
@@ -28,6 +30,7 @@ import {
 	groupEvents,
 	parseSortPreference,
 	type SortPreference,
+	sameSortPreference,
 	serializeSortPreference,
 	sortOptions,
 } from "../domain/sort-events.js";
@@ -181,11 +184,6 @@ export class PlanuEventsView extends LitElement {
 	constructor() {
 		super();
 		// The card doesn't know about the editor: it emits and this view decides.
-		this.addEventListener("planu-edit-event", (domEvent) => {
-			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
-			this.editorOpen = true;
-		});
-
 		// The monthly grid emits `planu-event-picked` when the user picks one
 		// of the undated events that don't fit any cell, and it deliberately
 		// doesn't decide what to do with it. Here it's decided: **open the
@@ -194,10 +192,12 @@ export class PlanuEventsView extends LitElement {
 		// month— doesn't exist: an undated event has no month to go to, and
 		// giving it one is exactly what the user would have to decide in the
 		// editor.
-		this.addEventListener("planu-event-picked", (domEvent) => {
-			this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
-			this.editorOpen = true;
-		});
+		for (const type of ["planu-edit-event", "planu-event-picked"]) {
+			this.addEventListener(type, (domEvent) => {
+				this.editing = (domEvent as CustomEvent<StoredEvent>).detail;
+				this.editorOpen = true;
+			});
+		}
 	}
 
 	override render() {
@@ -211,12 +211,7 @@ export class PlanuEventsView extends LitElement {
 			this.tags,
 		);
 
-		// The tags on offer come from the events the user already has, not
-		// from a separate collection: that way there's nothing to keep in
-		// sync and no extra query to pay for.
-		const knownTags = [...new Set(all.flatMap((event) => event.tags))].sort(
-			(a, b) => a.localeCompare(b),
-		);
+		const knownTags = collectTags(all);
 
 		return html`
       <planu-invitations-inbox></planu-invitations-inbox>
@@ -306,30 +301,22 @@ export class PlanuEventsView extends LitElement {
 	}
 
 	#renderList(visible: StoredEvent[], all: StoredEvent[]) {
-		// The error comes before anything else: without this, a permissions
-		// or quota failure left the list empty and the user read "you don't
-		// have any events yet", which is exactly the wrong conclusion.
-		if (this.eventsSnapshot?.status === "error") {
+		const state = listingState({
+			status: this.eventsSnapshot?.status,
+			total: all.length,
+			visible: visible.length,
+			ownership: this.ownership,
+			narrowed: this.#narrowed,
+		});
+		if (state === "error") {
 			return html`<wa-callout variant="danger" role="alert">
         ${msg(
 					"Your events could not be loaded. Check your connection and reload.",
 				)}
       </wa-callout>`;
 		}
-
-		// `undefined` (context not published yet) and `"loading"` both mean
-		// the same thing here: Firestore may still be travelling through its
-		// dynamic import, or the subscription's first snapshot may not have
-		// arrived. Without this check the view would conclude "you don't have
-		// any events yet" on every cold start, indistinguishable from a
-		// genuinely empty list.
-		if (!this.eventsSnapshot || this.eventsSnapshot.status === "loading") {
-			return this.#renderSkeletons();
-		}
-
-		// Need total for the empty state message
-		const total = all.length;
-		if (visible.length === 0) return this.#renderEmpty(total);
+		if (state === "loading") return this.#renderSkeletons();
+		if (state !== "list") return this.#renderEmpty(state);
 
 		// `visible`, not `all`: **the filter belongs to the screen, not to
 		// the card grid**. All three views hang off this same line and
@@ -418,11 +405,11 @@ export class PlanuEventsView extends LitElement {
 	 * "You don't have any events" and "your search finds nothing" are
 	 * different problems, and so is the way out of each one.
 	 */
-	#renderEmpty(total: number) {
+	#renderEmpty(state: ListingState) {
 		return html`<div class="empty">
       ${
-				total > 0
-					? html`<p>${this.#emptyFilteredMessage()}</p>`
+				state !== "no-events"
+					? html`<p>${this.#emptyFilteredMessage(state)}</p>`
 					: html`<planu-empty-state
             ?aiAvailable=${this.aiAvailable}
             @planu-create-event=${this.#onNew}
@@ -433,20 +420,12 @@ export class PlanuEventsView extends LitElement {
     </div>`;
 	}
 
-	/**
-	 * With the inbox narrowed, "no results" is explained by the filter that
-	 * actually caused it. Telling someone who simply has nothing shared to
-	 * check their search sends them looking in the wrong place.
-	 */
-	#emptyFilteredMessage(): string {
-		// Only when the inbox filter is the sole cause. With a search on top,
-		// "you have not created any events" would be plainly false.
-		const inboxOnly = !this.#narrowed;
-
-		if (inboxOnly && this.ownership === "shared") {
+	/** "No results", explained by the filter that caused it: see `listingState`. */
+	#emptyFilteredMessage(state: ListingState): string {
+		if (state === "none-shared") {
 			return msg("Nobody has shared an event with you yet.");
 		}
-		if (inboxOnly && this.ownership === "mine") {
+		if (state === "none-mine") {
 			return msg("You have not created any events yet.");
 		}
 		return msg("No events match your search, tags or date filter.");
@@ -469,11 +448,7 @@ export class PlanuEventsView extends LitElement {
 	#onSort(domEvent: Event): void {
 		const select = domEvent.target as HTMLElement & { value?: string };
 		const chosen = parseSortPreference(select.value);
-		if (
-			serializeSortPreference(chosen) === serializeSortPreference(this.sort)
-		) {
-			return;
-		}
+		if (sameSortPreference(chosen, this.sort)) return;
 
 		this.sort = chosen;
 		writeSortPreference(chosen);

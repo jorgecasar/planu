@@ -80,6 +80,14 @@ export function serializeSortPreference(preference: SortPreference): string {
 	return `${preference.field}:${preference.direction}`;
 }
 
+/** Whether two preferences sort the same way. */
+export function sameSortPreference(
+	a: SortPreference,
+	b: SortPreference,
+): boolean {
+	return serializeSortPreference(a) === serializeSortPreference(b);
+}
+
 /**
  * Reads what was saved, without trusting it.
  *
