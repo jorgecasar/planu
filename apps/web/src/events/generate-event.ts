@@ -24,8 +24,6 @@ export interface GeneratedEvent {
 	allDay: boolean;
 }
 
-export type { EventPart };
-
 /**
  * The only thing this module needs: something that receives the message
  * parts and returns text.

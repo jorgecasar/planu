@@ -1,26 +1,5 @@
 import { type DocumentData, Timestamp } from "firebase/firestore";
-import {
-	eventSchema,
-	type PlanuEvent,
-	type StoredEvent,
-} from "../../lib/types.js";
-
-/**
- * An event as it lives in Firestore: dates are `Timestamp`, not `Date`.
- * `domain/` never sees this shape — `eventSchema()` already works in `Date`
- * via `z.coerce.date()`, which is what lets `toStoredEvent()` below hand it
- * a plain object and stay the only place that knows `Timestamp` exists.
- */
-export type PlanuEventDocument = Omit<
-	PlanuEvent,
-	"id" | "startDate" | "endDate" | "createdAt"
-> & {
-	startDate: Timestamp | null;
-	endDate: Timestamp | null;
-	createdAt?: Timestamp | null;
-	imageUrl?: string | null;
-	allDay: boolean;
-};
+import { eventSchema, type StoredEvent } from "../../lib/types.js";
 
 /**
  * Converts a Firestore document into an event, validating it.

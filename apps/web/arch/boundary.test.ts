@@ -168,8 +168,8 @@ const importaFirebase = (fichero: string): boolean =>
  *
  * What that live listing needs — the query, `onSnapshot`, and the
  * `Timestamp`↔`Date` mapping `toEvent()` used to do — didn't disappear, it
- * moved: `event-mapper.ts` (`toStoredEvent()` and the relocated
- * `PlanuEventDocument`) and `events-controller.ts` (the query-building and
+ * moved: `event-mapper.ts` (`toStoredEvent()`; the relocated
+ * `PlanuEventDocument` was later deleted as dead, GH-98) and `events-controller.ts` (the query-building and
  * subscription logic, called from `firebase-provider.ts`, which is what
  * turns its `.snapshot` into `eventsContext`'s value — the same shape
  * `onAuthStateChanged` already gets turned into `SessionUser` there). Two
