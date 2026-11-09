@@ -542,7 +542,8 @@ service cloud.firestore {
         return request.auth != null && request.auth.uid == profileUid;
       }
 
-      allow get: if request.auth != null;
+      // Same bar as the directory: otherwise an unverified account resolves any uid to a name and photo.
+      allow get: if request.auth != null && isVerified();
       allow list: if false;
 
       // `hasAll` before touching the fields: without it, a create carrying only
