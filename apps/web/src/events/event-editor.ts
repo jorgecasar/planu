@@ -354,7 +354,7 @@ export class PlanuEventEditor extends LitElement {
 						<input
 							id="cover"
 							type="file"
-							accept="image/*"
+							accept="image/png, image/jpeg, image/webp, image/gif, image/avif"
 							?disabled=${this.uploading}
 							@change=${this.#onFile}
 						/>

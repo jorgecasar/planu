@@ -20,7 +20,8 @@ service firebase.storage {
       allow write: if isOwner()
                    && request.auth.token.email_verified == true
                    && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+                   // Raster only: an SVG can carry script that runs from its download URL.
+                   && request.resource.contentType.matches('image/(png|jpeg|webp|gif|avif)');
 
       allow delete: if isOwner();
     }
