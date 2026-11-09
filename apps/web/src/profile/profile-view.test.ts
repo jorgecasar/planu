@@ -130,8 +130,22 @@ test("enviar el formulario pide el cambio por el puerto y confirma a qué direcc
 	const status = el.shadowRoot?.querySelector('[role="status"]');
 	expect(status?.textContent).toContain("ana@example.com");
 	expect(el.shadowRoot?.querySelector('[role="alert"]')).toBeNull();
-	// The form that had focus is gone: focus moves to the confirmation.
-	expect(el.shadowRoot?.activeElement).toBe(status);
+});
+
+test("tras enviar, el foco va al botón que sustituye al formulario, no a la región viva", async () => {
+	// Focusing a live region makes screen readers read its text twice.
+	const el = await mount(UNVERIFIED, fakeSession());
+
+	await openAndFill(el, "ana@example.com");
+	await submit(el);
+
+	const status = el.shadowRoot?.querySelector('[role="status"]');
+	expect(status?.textContent).toContain("ana@example.com");
+	expect(status?.hasAttribute("tabindex")).toBe(false);
+	expect(el.shadowRoot?.activeElement).not.toBe(status);
+	expect(el.shadowRoot?.activeElement).toBe(
+		button(el, "Use a different email"),
+	);
 });
 
 test("si el proveedor exige un inicio de sesión reciente, lo dice en vez de dar el enlace por enviado", async () => {

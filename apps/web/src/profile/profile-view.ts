@@ -66,11 +66,6 @@ export class PlanuProfileView extends LitElement {
 		.change-email-status {
 			margin: 0;
 		}
-
-		/* A focus target, not a control: no ring after a mouse click. */
-		.change-email-status:focus:not(:focus-visible) {
-			outline: none;
-		}
 	`;
 
 	@consume({ context: userContext, subscribe: true })
@@ -384,10 +379,11 @@ export class PlanuProfileView extends LitElement {
 		const sentTo = this.changeEmailSentTo;
 		// The status region is always in the DOM, empty until there's
 		// something to say: a live region inserted together with its text is
-		// often not announced at all.
+		// often not announced at all. Not focusable: focusing a live region
+		// gets its text read twice, once as focus and once as the update.
 		return html`
 			<div class="change-email wa-stack wa-gap-s">
-				<p class="change-email-status" role="status" tabindex="-1">
+				<p class="change-email-status" role="status">
 					${
 						sentTo
 							? msg(
@@ -399,6 +395,7 @@ export class PlanuProfileView extends LitElement {
 				${
 					sentTo
 						? html`<wa-button
+								class="change-email-retry"
 								appearance="plain"
 								@click=${this.#retryChangeEmail}
 							>
@@ -506,9 +503,11 @@ export class PlanuProfileView extends LitElement {
 		} finally {
 			this.sendingChangeEmail = false;
 		}
-		// The form that held focus is gone; the confirmation takes its place.
+		// The form that held focus is gone. The status region announces the
+		// confirmation by itself; focus goes to the control that replaced the
+		// form, not to the region, so the text is not read twice.
 		await this.updateComplete;
-		this.#focus(".change-email-status");
+		this.#focus(".change-email-retry");
 	}
 
 	/**
