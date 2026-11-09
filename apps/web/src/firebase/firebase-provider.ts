@@ -306,7 +306,12 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
-			const sharing = createSharingAdapter(firestore);
+			const sharing = createSharingAdapter(firestore, (...write) => {
+				// Lazy, like `main.ts`: a static import adds a chunk to sign-in.
+				void import("../observability/index.js")
+					.then(({ recordBackgroundWrite }) => recordBackgroundWrite(...write))
+					.catch(() => {});
+			});
 			this.#sharing.setValue(sharing);
 			this.#eventsController.setFirestore(firestore);
 			this.#publishEvents();

@@ -44,7 +44,23 @@ import {
 	PROFILES_COLLECTION,
 } from "../../sharing/user-directory.js";
 
-export function createSharingAdapter(firestore: Firestore): SharingPort {
+/** Where `publishDirectoryEntry` reports how it went; wired by the provider. */
+export type WriteRecorder = (
+	operation: string,
+	outcome: "success" | "permission-denied" | "failure",
+	error?: unknown,
+) => void;
+
+/** A rule denial versus anything else; offline isn't one: `setDoc` waits. */
+function outcomeOf(error: unknown): "permission-denied" | "failure" {
+	const { code } = Object(error) as { code?: unknown };
+	return code === "permission-denied" ? "permission-denied" : "failure";
+}
+
+export function createSharingAdapter(
+	firestore: Firestore,
+	record: WriteRecorder = () => {},
+): SharingPort {
 	return {
 		async findUserByEmail(email: string): Promise<DirectoryEntry | null> {
 			const snapshot = await getDoc(
@@ -163,16 +179,23 @@ export function createSharingAdapter(firestore: Firestore): SharingPort {
 				photoURL: user.photoURL ?? "",
 			};
 
-			await Promise.all([
-				setDoc(
-					doc(firestore, DIRECTORY_COLLECTION, await emailHash(user.email)),
-					entry,
-				),
-				setDoc(doc(firestore, PROFILES_COLLECTION, user.uid), {
-					displayName: entry.displayName,
-					photoURL: entry.photoURL,
-				}),
-			]);
+			try {
+				await Promise.all([
+					setDoc(
+						doc(firestore, DIRECTORY_COLLECTION, await emailHash(user.email)),
+						entry,
+					),
+					setDoc(doc(firestore, PROFILES_COLLECTION, user.uid), {
+						displayName: entry.displayName,
+						photoURL: entry.photoURL,
+					}),
+				]);
+			} catch (error) {
+				// Both callers swallow this rejection; the record is all that's left.
+				record("publishDirectoryEntry", outcomeOf(error), error);
+				throw error;
+			}
+			record("publishDirectoryEntry", "success");
 		},
 	};
 }

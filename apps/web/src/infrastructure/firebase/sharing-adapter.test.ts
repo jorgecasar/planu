@@ -48,14 +48,16 @@ describe("publishDirectoryEntry()", () => {
 		provider: "password",
 	};
 
-	const adapter = createSharingAdapter(FAKE_FIRESTORE);
+	const recordMock = vi.fn();
+	const adapter = createSharingAdapter(FAKE_FIRESTORE, recordMock);
 
 	beforeEach(() => {
 		docMock.mockClear();
 		setDocMock.mockReset();
+		recordMock.mockClear();
 	});
 
-	test("does nothing without a verified email", async () => {
+	test("does nothing without a verified email, and records nothing", async () => {
 		setDocMock.mockResolvedValue(undefined);
 
 		await adapter.publishDirectoryEntry({
@@ -64,6 +66,7 @@ describe("publishDirectoryEntry()", () => {
 		});
 
 		expect(setDocMock).not.toHaveBeenCalled();
+		expect(recordMock).not.toHaveBeenCalled();
 	});
 
 	test("writes the directory entry and the public profile", async () => {
@@ -85,11 +88,46 @@ describe("publishDirectoryEntry()", () => {
 	});
 
 	test("a failed write still rejects, for the caller to swallow", async () => {
-		const offline = new Error("network request failed");
-		setDocMock.mockRejectedValue(offline);
+		const failed = new Error("quota exceeded");
+		setDocMock.mockRejectedValue(failed);
 
 		await expect(adapter.publishDirectoryEntry(VERIFIED_USER)).rejects.toBe(
-			offline,
+			failed,
+		);
+	});
+
+	test("records a write that throws before it is sent", async () => {
+		const invalid = new Error("invalid data");
+		setDocMock.mockImplementation(() => {
+			throw invalid;
+		});
+		await expect(adapter.publishDirectoryEntry(VERIFIED_USER)).rejects.toBe(
+			invalid,
+		);
+		expect(recordMock).toHaveBeenCalledWith(
+			"publishDirectoryEntry",
+			"failure",
+			invalid,
+		);
+	});
+
+	test("records a success, and a rule denial apart from other failures", async () => {
+		setDocMock.mockResolvedValue(undefined);
+		await adapter.publishDirectoryEntry(VERIFIED_USER);
+		expect(recordMock).toHaveBeenLastCalledWith(
+			"publishDirectoryEntry",
+			"success",
+		);
+
+		const denied = Object.assign(new Error("denied"), {
+			code: "permission-denied",
+		});
+		setDocMock.mockRejectedValue(denied);
+		await adapter.publishDirectoryEntry(VERIFIED_USER).catch(() => {});
+		expect(recordMock).toHaveBeenLastCalledWith(
+			"publishDirectoryEntry",
+			"permission-denied",
+			denied,
 		);
 	});
 });
