@@ -30,7 +30,7 @@ import {
 	describeInferenceSource,
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
-import { toInputDate, toInputTime } from "../domain/format-dates.js";
+import { fromDateFields, toDateFields } from "../domain/date-fields.js";
 import {
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
@@ -341,6 +341,7 @@ export class PlanuEventEditor extends LitElement {
 	 * event's values.
 	 */
 	#renderForm(initial: Partial<PlanuEvent>) {
+		const dates = toDateFields(initial);
 		return html`
 			<form id="event-form" @submit=${this.#onSubmit}>
 					${
@@ -411,28 +412,26 @@ export class PlanuEventEditor extends LitElement {
 							type="date"
 							name="startDate"
 							label=${msg("Start date")}
-							.value=${toInputDate(initial.startDate)}
+							.value=${dates.startDate}
 						></wa-input>
 						<wa-input
 							type="time"
 							name="startTime"
 							label=${msg("Start time")}
-							.value=${
-								(initial.allDay ?? true) ? "" : toInputTime(initial.startDate)
-							}
+							.value=${dates.startTime}
 						></wa-input>
 						<wa-input
 							type="date"
 							name="endDate"
 							label=${msg("End date")}
-							.value=${toInputDate(initial.endDate)}
+							.value=${dates.endDate}
 						></wa-input>
 						<wa-input
 							type="time"
 							name="endTime"
 							label=${msg("End time")}
 							enterkeyhint="done"
-							.value=${(initial.allDay ?? true) ? "" : toInputTime(initial.endDate)}
+							.value=${dates.endTime}
 						></wa-input>
 					</div>
 				</form>
@@ -728,33 +727,19 @@ export class PlanuEventEditor extends LitElement {
 
 		const data = new FormData(domEvent.target as HTMLFormElement);
 		const text = (key: string) => String(data.get(key) ?? "").trim();
-		const startTime = text("startTime");
-		const endTime = text("endTime");
-		// Decision 4 of the hours spec: the flag belongs to the whole event,
-		// not to each endpoint. Writing either time declares it timed;
-		// clearing both returns it to all-day.
-		//
-		// The second clause guards a case the four fields don't prevent:
-		// typing only a time with no date at all. With no date, allDay
-		// "doesn't mean anything — it's saved as true and never read" (spec's
-		// data model section), so a date-less submission stays all-day
-		// regardless of what's in the time fields.
-		const allDay =
-			(startTime === "" && endTime === "") ||
-			(text("startDate") === "" && text("endDate") === "");
-		const date = (dateKey: string, timeKey: string) => {
-			const value = text(dateKey);
-			if (value === "") return null;
-			const time = text(timeKey);
-			return new Date(`${value}T${time === "" ? "00:00" : time}:00`);
-		};
+		const { startDate, endDate, allDay } = fromDateFields({
+			startDate: text("startDate"),
+			startTime: text("startTime"),
+			endDate: text("endDate"),
+			endTime: text("endTime"),
+		});
 
 		const parsed = eventSchema().safeParse({
 			title: text("title"),
 			description: text("description"),
 			location: text("location"),
-			startDate: date("startDate", "startTime"),
-			endDate: date("endDate", "endTime"),
+			startDate,
+			endDate,
 			allDay,
 			imageUrl: this.imageUrl,
 			userId: user.uid,
@@ -783,11 +768,10 @@ export class PlanuEventEditor extends LitElement {
 	 * event doesn't drag along a leftover time from whenever it had one — and
 	 * lets `toIcsDate()` keep reading local components.
 	 *
-	 * A no-op today on the create path: `date()` above already defaults an
-	 * empty time to `"00:00"`, and `allDay` is only true when both time
-	 * fields are empty. The real-world case is reopening a previously timed
-	 * event and clearing both times — there, `startDate`/`endDate` still
-	 * carry the old hour until this runs.
+	 * A no-op on the submit path: `fromDateFields()` already builds every
+	 * date at `"00:00"` when its time is empty, and `allDay` implies that.
+	 * It stays as a guard for any other caller that hands `#save` an all-day
+	 * event with a time still on it.
 	 */
 	#normalize(values: PlanuEvent): PlanuEvent {
 		if (!values.allDay) return values;
