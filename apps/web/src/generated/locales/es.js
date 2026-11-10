@@ -10,6 +10,7 @@ export const templates = {
 	s02253dffcabdc0e2: `Cena con amigos`,
 	s03aa3cfb08dff960: `Etiquetas`,
 	s045c3b86aae073c1: `Eliminar cuenta`,
+	s04926efbde7e1431: `Vista previa de la portada`,
 	s04c7d3999270fae3: `No se pudo guardar el evento. Inténtalo de nuevo.`,
 	s04dc16aea8ff5276: `Míos`,
 	s060297aed1f61104: `¿Por qué planu?`,

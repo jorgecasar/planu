@@ -357,7 +357,7 @@ export class PlanuEventEditor extends LitElement {
 					}
 					<div class="cover">
 						<label for="cover">${msg("Cover image")}</label>
-						${this.imageUrl ? html`<img src=${this.imageUrl} alt="" />` : nothing}
+						${this.imageUrl ? html`<img src=${this.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
 						<input
 							id="cover"
 							type="file"

@@ -243,6 +243,22 @@ function selectFile(el: PlanuAiEventGenerator, file: File): void {
 	input.dispatchEvent(event);
 }
 
+test("la vista previa de la imagen elegida tiene un texto alternativo descriptivo", async () => {
+	const { el } = await mountGenerator();
+
+	setState(
+		el,
+		"preview",
+		"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+	);
+	await el.updateComplete;
+
+	const img = el.shadowRoot?.querySelector(".drop img");
+	expect(img?.getAttribute("alt")).toBe("Cover image preview");
+
+	el.remove();
+});
+
 test("generar desde imagen emite el borrador con título, fuente y portada", async () => {
 	const { el, store } = await mountGenerator();
 
