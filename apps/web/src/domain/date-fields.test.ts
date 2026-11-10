@@ -45,6 +45,21 @@ test("sólo fechas: día completo, a medianoche local", () => {
 	});
 });
 
+test("el día del cambio de hora, sin medianoche, sigue siendo ese día", () => {
+	// The test script pins TZ=America/Santiago: on 2026-09-06 clocks jump from
+	// 00:00 to 01:00, so local midnight doesn't exist that day.
+	const { startDate, allDay } = fromDateFields({
+		...empty,
+		startDate: "2026-09-06",
+	});
+	expect(allDay).toBe(true);
+	expect([
+		startDate?.getFullYear(),
+		startDate?.getMonth(),
+		startDate?.getDate(),
+	]).toEqual([2026, 8, 6]);
+});
+
 test("con hora de inicio el evento entero pasa a tener hora", () => {
 	expect(
 		fromDateFields({
