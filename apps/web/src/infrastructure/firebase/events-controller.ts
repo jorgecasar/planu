@@ -93,6 +93,8 @@ export class EventsController {
 						// By membership rather than ownership, so events other people
 						// shared arrive too. The rules deny every other way of
 						// querying this collection, filtering by `userId` included.
+						// No limit(): search, filters, the calendar, the .ics export
+						// and the first-event signal all need every event (#93).
 						where("memberIds", "array-contains", this.#uid),
 					)
 				: null,

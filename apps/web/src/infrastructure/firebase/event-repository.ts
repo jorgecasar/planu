@@ -6,18 +6,14 @@ import {
 	deleteField,
 	doc,
 	type Firestore,
-	getDocs,
-	query,
 	serverTimestamp,
 	setDoc,
 	Timestamp,
 	updateDoc,
-	where,
 } from "firebase/firestore";
 import type {
 	CreatedEvent,
 	EventRepositoryPort,
-	StoredEvent,
 } from "../../application/ports/event-repository.js";
 import type { PlanuEvent } from "../../lib/types.js";
 
@@ -39,92 +35,6 @@ export function toContent(values: PlanuEvent) {
 		tags: values.tags,
 	};
 }
-
-/**
- * Converts a Firestore document into a StoredEvent, validating it.
- * The rules already enforce types, but the client shouldn't trust that a
- * document complies: the ones inherited from the prototype never went
- * through them. Without validation, a numeric `description` would blow
- * up `.toLowerCase()` inside `render()`, and Lit doesn't catch that: it
- * broke the whole listing, not a single card.
- *
- * Returns `null` for whatever doesn't fit, which gets discarded.
- */
-export function toStoredEvent(document: {
-	id: string;
-	data: () => Record<string, unknown>;
-}): StoredEvent | null {
-	const raw = document.data();
-	const asDate = (value: unknown): Date | null =>
-		value instanceof Timestamp ? value.toDate() : null;
-
-	const parsed = PlanuEventSchema.safeParse({
-		title: raw["title"],
-		description: raw["description"],
-		location: raw["location"],
-		imageUrl: raw["imageUrl"],
-		userId: raw["userId"],
-		memberIds: raw["memberIds"],
-		roles: raw["roles"],
-		startDate: asDate(raw["startDate"]),
-		endDate: asDate(raw["endDate"]),
-		createdAt: asDate(raw["createdAt"]),
-		tags: raw["tags"],
-		allDay: raw["allDay"],
-	});
-
-	if (!parsed.success) {
-		console.warn("Evento descartado por no validar:", document.id);
-		return null;
-	}
-
-	return { ...parsed.data, id: document.id };
-}
-
-/**
- * Zod schema for validating stored events. Defined here (infrastructure)
- * because it knows about `Timestamp` from Firestore.
- */
-import { z } from "zod";
-import { normalizeTags } from "../../domain/tags.js";
-
-const PlanuEventSchema = z
-	.object({
-		id: z.string().optional(),
-		title: z.string().min(3),
-		description: z.string().optional(),
-		location: z.string().optional(),
-		startDate: z.coerce.date().nullable().optional(),
-		endDate: z.coerce.date().nullable().optional(),
-		imageUrl: z.string().url().optional().or(z.literal("")),
-		userId: z.string().optional(),
-		memberIds: z.array(z.string()).default([]),
-		roles: z.record(z.string(), z.enum(["viewer", "editor"])).default({}),
-		createdAt: z.coerce.date().nullable().optional(),
-		allDay: z.boolean().default(true),
-		tags: z
-			.unknown()
-			.optional()
-			.transform((value) =>
-				normalizeTags(
-					Array.isArray(value)
-						? value.filter((item): item is string => typeof item === "string")
-						: [],
-				),
-			),
-	})
-	.refine(
-		(data) => {
-			if (data.startDate && data.endDate) {
-				return data.startDate <= data.endDate;
-			}
-			return true;
-		},
-		{
-			message: "End date cannot be earlier than start date.",
-			path: ["endDate"],
-		},
-	);
 
 /**
  * The only event-repository adapter the editor and views use: they know
@@ -174,21 +84,5 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 			memberIds: arrayRemove(uid),
 			[`roles.${uid}`]: deleteField(),
 		});
-	}
-
-	async *listFor(uid: string): AsyncIterable<StoredEvent> {
-		const q = query(
-			collection(this.#firestore, "events"),
-			where("memberIds", "array-contains", uid),
-		);
-
-		const snapshot = await getDocs(q);
-		for (const docSnap of snapshot.docs) {
-			const event = toStoredEvent({
-				id: docSnap.id,
-				data: () => docSnap.data(),
-			});
-			if (event) yield event;
-		}
 	}
 }

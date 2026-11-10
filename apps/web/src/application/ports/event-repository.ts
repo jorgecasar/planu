@@ -43,12 +43,6 @@ export interface EventRepositoryPort {
 	delete(id: string): Promise<void>;
 
 	/**
-	 * Lists events for a member. The query shape is fixed by the rules:
-	 * `memberIds array-contains uid`. The repository decides the ordering.
-	 */
-	listFor(uid: string): AsyncIterable<StoredEvent>;
-
-	/**
 	 * Removes `uid` from the event's `memberIds` and `roles`, and nothing
 	 * else — the way a guest leaves an event that isn't theirs.
 	 *
