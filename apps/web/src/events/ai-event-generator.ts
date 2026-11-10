@@ -347,7 +347,7 @@ export class PlanuAiEventGenerator extends LitElement {
 
 				<div class="drop">
 					<label for="ai-image">${msg("Event image")}</label>
-					${this.preview ? html`<img src=${this.preview} alt="" />` : nothing}
+					${this.preview ? html`<img src=${this.preview} alt=${msg("Cover image preview")} />` : nothing}
 					<input
 						id="ai-image"
 						type="file"

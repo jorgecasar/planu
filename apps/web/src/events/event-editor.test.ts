@@ -175,6 +175,18 @@ test("el borrador de la IA aporta la portada del evento", async () => {
 	el.remove();
 });
 
+test("la vista previa de la portada tiene un texto alternativo descriptivo", async () => {
+	const el = await mount((editor) => {
+		editor.draft = { title: "Feria del libro", imageUrl: IMAGEN };
+		editor.open = true;
+	});
+
+	const img = el.shadowRoot?.querySelector(".cover img");
+	expect(img?.getAttribute("alt")).toBe("Cover image preview");
+
+	el.remove();
+});
+
 test("el borrador prerrellena los campos del formulario", async () => {
 	const el = await mount((editor) => {
 		editor.draft = { title: "Feria del libro", location: "Retiro" };

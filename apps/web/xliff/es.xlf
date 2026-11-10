@@ -1102,6 +1102,10 @@
   <source>Removing your files and directory entry…</source>
         <target>Eliminando tus archivos y tu entrada del directorio…</target>
 </trans-unit>
+<trans-unit id="s04926efbde7e1431">
+  <source>Cover image preview</source>
+        <target>Vista previa de la portada</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
