@@ -257,22 +257,46 @@ test("a guest can leave the event", async ({ page, browser }) => {
 	await guestPage.context().close();
 });
 
-test("cannot invite someone without an account", async ({ page }) => {
+test("inviting an email with no account reads as success, twice, and keeps one offer", async ({
+	page,
+}) => {
 	const owner = newEmail();
-	const title_ = newTitle("Evento");
+	const nobody = newEmail();
 	await createVerifiedAccount(page, owner);
 	await signIn(page, owner);
-	await createEvent(page, title_);
+	await createEvent(page, newTitle("Evento"));
 
 	await page.getByRole("button", { name: "Share" }).click();
-	await page.getByLabel("Invite by email").fill("nadie@example.com");
-	await page.getByRole("button", { name: "Invite", exact: true }).click();
+	// The second one replaces the first offer instead of failing.
+	for (let i = 0; i < 2; i++) {
+		await page.getByLabel("Invite by email").fill(nobody);
+		await page.getByRole("button", { name: "Invite", exact: true }).click();
+		await expect(
+			page.getByText("Invitation sent. They join once they accept it."),
+		).toBeVisible();
+	}
+	await expect(page.getByText("could not be saved")).toHaveCount(0);
 
-	await expect(
-		page.getByText("Nobody with that email has an account yet.", {
-			exact: false,
-		}),
-	).toBeVisible();
+	const offers = async () => {
+		const response = await page.request.post(`${FIRESTORE_EMULATOR}:runQuery`, {
+			headers: { Authorization: "Bearer owner" },
+			data: {
+				structuredQuery: {
+					from: [{ collectionId: "eventInvitesByEmail" }],
+					where: {
+						fieldFilter: {
+							field: { fieldPath: "inviteeEmail" },
+							op: "EQUAL",
+							value: { stringValue: nobody.toLowerCase() },
+						},
+					},
+				},
+			},
+		});
+		const rows = (await response.json()) as { document?: unknown }[];
+		return rows.filter((row) => row.document).length;
+	};
+	await expect.poll(offers).toBe(1);
 });
 
 test("the share dialog has no accessibility violations", async ({ page }) => {

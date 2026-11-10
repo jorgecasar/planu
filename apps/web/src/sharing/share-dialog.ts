@@ -460,24 +460,16 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.busy = true;
 		try {
+			// A rejection is a failed lookup, not "no account": it lands in the
+			// catch below.
 			const invited = await sharing.findUserByEmail(email);
 
-			// With no account there is no uid to invite, and storing the
-			// invitation to apply when they sign up would need a backend.
-			// See ADR 0007.
-			if (!invited) {
-				this.error = msg(
-					"Nobody with that email has an account yet. Ask them to sign up first.",
-				);
-				return;
-			}
-
-			if (invited.uid === event.userId) {
+			if (invited?.uid === event.userId) {
 				this.error = msg("You already own this event.");
 				return;
 			}
 
-			if (event.memberIds?.includes(invited.uid)) {
+			if (invited && event.memberIds?.includes(invited.uid)) {
 				this.error = msg("That person is already in this event.");
 				return;
 			}
@@ -494,16 +486,22 @@ export class PlanuShareDialog extends LitElement {
 			}
 
 			// An offer, not a membership. They join when they accept; until then
-			// nothing of this event reaches them.
-			await sharing.inviteToEvent({
+			// nothing of this event reaches them. With no account the offer waits
+			// by email, and the notice below is the same either way so it does
+			// not reveal whether the address is registered (ADR 0012).
+			const offer = {
 				eventId: event.id,
 				eventTitle: event.title,
-				inviteeUid: invited.uid,
 				inviteeEmail: email,
 				invitedBy: user.uid,
 				invitedByName: user.displayName ?? "",
 				role,
-			});
+			};
+			if (invited) {
+				await sharing.inviteToEvent({ ...offer, inviteeUid: invited.uid });
+			} else {
+				await sharing.offerInviteByEmail(offer);
+			}
 		} catch {
 			this.error = msg("The invitation could not be saved. Please try again.");
 			return;
