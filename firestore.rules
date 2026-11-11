@@ -125,7 +125,15 @@ service cloud.firestore {
             && request.resource.data.roles.diff(rolesOf(resource.data))
                  .affectedKeys().hasOnly([uid()].toSet())
             && request.resource.data.diff(resource.data)
-                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
+                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet())
+            // Joining spends any email offer to the caller's address for this
+            // event (GH-147). Left behind, it lets them back in after being
+            // removed: they erase their own record (ADR 0013) and claim it.
+            && !('email' in request.auth.token
+                 && request.auth.token.email is string
+                 && existsAfter(/databases/$(database)/documents/eventInvitesByEmail/$(
+                      eventId + '_'
+                        + hashing.sha256(request.auth.token.email.lower()).toHexString().lower())));
       }
 
       // The one exception to "only the owner touches membership": anyone may
