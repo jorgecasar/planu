@@ -358,3 +358,21 @@ test("sin puerto de IA no prepara ni genera nada", async () => {
 
 	el.remove();
 });
+
+test("el shadow root aplica la hoja de estilos de su propio módulo", async () => {
+	// The sheet lives in `ai-event-generator-styles.ts`: this fails if the
+	// component stops adopting its sheet.
+	await import("./ai-event-generator.js");
+	const { aiEventGeneratorStyles } = await import(
+		"./ai-event-generator-styles.js"
+	);
+	const el = document.createElement("planu-ai-event-generator");
+	document.body.append(el);
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.adoptedStyleSheets ?? []).toContain(
+		aiEventGeneratorStyles.styleSheet,
+	);
+
+	el.remove();
+});
