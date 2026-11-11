@@ -4,13 +4,12 @@
  *
  * Moved here from `sharing/user-directory.ts`, which used to call Firestore
  * directly — see docs/adr/0007-client-side-user-directory.md for why a
- * client-side directory exists at all. `sharing/invitations.ts` stays where
- * it is and keeps its own `firebase/**` exemption: it is not this task's
- * scope, and `inviteToEvent`/`revokeInvite` below just call straight through
- * to it with the `Firestore` instance this adapter already holds.
+ * client-side directory exists at all. The invitation writes moved here from
+ * `sharing/invitations.ts`.
  */
 
 import {
+	arrayUnion,
 	collection,
 	deleteDoc,
 	doc,
@@ -22,6 +21,7 @@ import {
 	setDoc,
 	updateDoc,
 	where,
+	writeBatch,
 } from "firebase/firestore";
 import type { SessionUser } from "../../application/ports/session.js";
 import type {
@@ -29,14 +29,11 @@ import type {
 	InviteOffer,
 	PendingInviteSummary,
 	PublicProfile,
+	ReceivedInvite,
 	SharingPort,
 } from "../../application/ports/sharing.js";
 import type { EventRole } from "../../lib/types.js";
-import {
-	INVITES_COLLECTION,
-	inviteToEvent as inviteToEventInCollection,
-	revokeInvite as revokeInviteInCollection,
-} from "../../sharing/invitations.js";
+import { INVITES_COLLECTION, inviteId } from "../../sharing/invitations.js";
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
@@ -112,10 +109,52 @@ export function createSharingAdapter(
 			});
 		},
 
+		/**
+		 * The write's shape depends on what, if anything, is already there —
+		 * the rules require it, not just style:
+		 *
+		 * - No prior invitation, or one already decided (`accepted`/`declined`):
+		 *   a fresh `pending` offer with `createdAt` set by the server. Inviting
+		 *   someone who already declined, or re-inviting after removing them,
+		 *   both start a new offer with its own date rather than resurrecting
+		 *   the old one — matched on the rule side by `ownerReoffers()`, which
+		 *   likewise pins `createdAt` to `request.time`.
+		 * - A `pending` invitation already sitting there: this is an edit, not
+		 *   a new offer, so `createdAt` carries over unchanged.
+		 *   `ownerEditsWhilePending()` enforces exactly that — a full replace
+		 *   with a fresh timestamp would deny the write, since a client-chosen
+		 *   `createdAt` can never match what the rule expects. Skipping the
+		 *   read here and letting `setDoc` collide with a still-pending row is
+		 *   what silently broke "invite someone twice to fix a typo'd role"
+		 *   before this fix: `PERMISSION_DENIED` on every retry, because a
+		 *   fresh timestamp never equals the stored one.
+		 */
 		async inviteToEvent(
 			invite: InviteOffer & { inviteeUid: string },
 		): Promise<void> {
-			await inviteToEventInCollection(firestore, invite);
+			const ref = doc(
+				firestore,
+				INVITES_COLLECTION,
+				inviteId(invite.eventId, invite.inviteeUid),
+			);
+			const existing = await getDoc(ref);
+			const createdAt =
+				existing.exists() && existing.data()["status"] === "pending"
+					? existing.data()["createdAt"]
+					: serverTimestamp();
+
+			await setDoc(ref, {
+				eventId: invite.eventId,
+				eventTitle: invite.eventTitle,
+				inviteeUid: invite.inviteeUid,
+				inviteeEmail: invite.inviteeEmail,
+				invitedBy: invite.invitedBy,
+				invitedByName: invite.invitedByName,
+				role: invite.role,
+				status: "pending",
+				createdAt,
+				decidedAt: null,
+			});
 		},
 
 		async offerInviteByEmail(offer: InviteOffer): Promise<void> {
@@ -153,7 +192,29 @@ export function createSharingAdapter(
 		},
 
 		async revokeInvite(id: string): Promise<void> {
-			await revokeInviteInCollection(firestore, { id });
+			await deleteDoc(doc(firestore, INVITES_COLLECTION, id));
+		},
+
+		/**
+		 * Updating the invitation rather than deleting it is what turns a
+		 * decision into a record. It also has to happen in the same batch as
+		 * the membership write: the rule requires the invitation to already
+		 * read `accepted` by the time the event write is evaluated, or the
+		 * whole batch is denied — see `acceptsInvite()` in `firestore.rules`.
+		 */
+		async acceptInvite(invite: ReceivedInvite): Promise<void> {
+			const batch = writeBatch(firestore);
+
+			batch.update(doc(firestore, "events", invite.eventId), {
+				memberIds: arrayUnion(invite.inviteeUid),
+				[`roles.${invite.inviteeUid}`]: invite.role,
+			});
+			batch.update(doc(firestore, INVITES_COLLECTION, invite.id), {
+				status: "accepted",
+				decidedAt: serverTimestamp(),
+			});
+
+			await batch.commit();
 		},
 
 		async updateEventMembership(

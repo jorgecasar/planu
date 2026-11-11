@@ -7,15 +7,14 @@ import type { DocumentData, Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { SessionUser } from "../application/ports/session.js";
+import {
+	type SharingPort,
+	sharingContext,
+} from "../application/ports/sharing.js";
 import { CollectionController } from "../firebase/collection-controller.js";
 import { firestoreContext, userContext } from "../firebase/context.js";
 import type { EventRole } from "../lib/types.js";
-import {
-	acceptInvite,
-	declineInvite,
-	type EventInvite,
-	invitesFor,
-} from "./invitations.js";
+import { declineInvite, type EventInvite, invitesFor } from "./invitations.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")
@@ -43,6 +42,9 @@ export class PlanuInvitationsInbox extends LitElement {
 
 	@consume({ context: firestoreContext, subscribe: true })
 	private firestore: Firestore | undefined;
+
+	@consume({ context: sharingContext, subscribe: true })
+	private sharing: SharingPort | undefined;
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
@@ -116,9 +118,7 @@ export class PlanuInvitationsInbox extends LitElement {
 	}
 
 	async #accept(invite: EventInvite): Promise<void> {
-		await this.#run(invite, async (firestore) => {
-			await acceptInvite(firestore, invite);
-		});
+		await this.#run(invite, (_, sharing) => sharing.acceptInvite(invite));
 	}
 
 	async #decline(invite: EventInvite): Promise<void> {
@@ -129,15 +129,15 @@ export class PlanuInvitationsInbox extends LitElement {
 
 	async #run(
 		invite: EventInvite,
-		action: (firestore: Firestore) => Promise<void>,
+		action: (firestore: Firestore, sharing: SharingPort) => Promise<void>,
 	): Promise<void> {
-		const { firestore } = this;
-		if (!firestore || this.busyWith) return;
+		const { firestore, sharing } = this;
+		if (!firestore || !sharing || this.busyWith) return;
 
 		this.error = "";
 		this.busyWith = invite.id;
 		try {
-			await action(firestore);
+			await action(firestore, sharing);
 		} catch {
 			this.error = msg("That did not work. Please try again.");
 		} finally {

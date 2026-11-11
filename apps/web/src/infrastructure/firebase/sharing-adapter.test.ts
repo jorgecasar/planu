@@ -5,35 +5,35 @@ import type { SessionUser } from "../../application/ports/session.js";
 /** Never dereferenced for real: every SDK call this adapter makes is mocked. */
 const FAKE_FIRESTORE = {} as Firestore;
 
-// Same pattern as `sharing/invitations.test.ts` and
-// `infrastructure/firebase/event-repository.test.ts`: mock the SDK functions
-// this module (and `sharing/invitations.ts`, which it calls straight
-// through to for `inviteToEvent`/`revokeInvite`) calls, so
-// `publishDirectoryEntry()`'s decisions are tested without an emulator.
+// Same pattern as `event-repository.test.ts`: mock the SDK functions this
+// module calls, so its decisions are tested without an emulator.
 
 const docMock = vi.fn((_db: unknown, collection: string, id: string) => ({
 	path: `${collection}/${id}`,
 }));
 const setDocMock = vi.fn();
 const deleteDocMock = vi.fn();
+const getDocMock = vi.fn();
+const batchUpdateMock = vi.fn();
+const commitMock = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
 	doc: docMock,
 	setDoc: setDocMock,
 	deleteDoc: deleteDocMock,
+	getDoc: getDocMock,
 	serverTimestamp: () => "SERVER_TIME",
+	arrayUnion: (value: string) => ({ arrayUnion: value }),
+	writeBatch: () => ({ update: batchUpdateMock, commit: commitMock }),
 	// Unused by the tests below, but this module imports from
 	// `invitations.ts`, which imports these too — the mock replaces the whole
 	// module, so every export either file needs at import time has to exist
 	// here, even the ones these tests never call.
-	arrayUnion: vi.fn(),
 	collection: vi.fn(),
-	getDoc: vi.fn(),
 	getDocs: vi.fn(),
 	query: vi.fn(),
 	updateDoc: vi.fn(),
 	where: vi.fn(),
-	writeBatch: vi.fn(),
 }));
 
 const { createSharingAdapter } = await import("./sharing-adapter.js");
@@ -190,5 +190,91 @@ describe("offerInviteByEmail()", () => {
 
 		await expect(adapter.offerInviteByEmail(OFFER)).rejects.toBe(denied);
 		expect(setDocMock).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("inviteToEvent()", () => {
+	const adapter = createSharingAdapter(FAKE_FIRESTORE);
+	const AN_OFFER = {
+		eventId: "an-event",
+		eventTitle: "Concert",
+		inviteeUid: "guest-uid",
+		inviteeEmail: "guest@example.com",
+		invitedBy: "owner-uid",
+		invitedByName: "Ana",
+		role: "viewer" as const,
+	};
+
+	function existing(data?: Record<string, unknown>) {
+		getDocMock.mockResolvedValue({ exists: () => !!data, data: () => data });
+	}
+
+	function written() {
+		return setDocMock.mock.calls[0]?.[1] as Record<string, unknown>;
+	}
+
+	beforeEach(() => {
+		getDocMock.mockReset();
+		setDocMock.mockReset().mockResolvedValue(undefined);
+	});
+
+	test("with a pending invitation already there, reuses its stored createdAt", async () => {
+		// `ownerEditsWhilePending()` pins `createdAt`: a fresh one denies retries.
+		const storedCreatedAt = { seconds: 1700000000, nanoseconds: 0 };
+		existing({ status: "pending", createdAt: storedCreatedAt });
+
+		await adapter.inviteToEvent({ ...AN_OFFER, role: "editor" });
+
+		expect(written()["createdAt"]).toBe(storedCreatedAt);
+		expect(written()["role"]).toBe("editor");
+	});
+
+	test("with none or a decided one, sends a fresh createdAt, pending and undecided", async () => {
+		// `ownerReoffers()` pins `createdAt` to `request.time` here too.
+		const spent = { seconds: 1, nanoseconds: 0 };
+		for (const status of [undefined, "accepted", "declined"]) {
+			existing(status ? { status, createdAt: spent } : undefined);
+			setDocMock.mockClear();
+
+			await adapter.inviteToEvent(AN_OFFER);
+
+			expect(written()).toMatchObject({
+				createdAt: "SERVER_TIME",
+				status: "pending",
+				decidedAt: null,
+			});
+		}
+	});
+});
+
+describe("acceptInvite()", () => {
+	beforeEach(() => {
+		batchUpdateMock.mockReset();
+		commitMock.mockReset().mockResolvedValue(undefined);
+	});
+
+	test("joins the event and marks the invitation accepted in one batch", async () => {
+		await createSharingAdapter(FAKE_FIRESTORE).acceptInvite({
+			id: "e1_guest",
+			eventId: "e1",
+			eventTitle: "Concert",
+			inviteeUid: "guest",
+			invitedByName: "Ana",
+			role: "editor",
+		});
+
+		expect(batchUpdateMock.mock.calls).toEqual([
+			[
+				{ path: "events/e1" },
+				{ memberIds: { arrayUnion: "guest" }, "roles.guest": "editor" },
+			],
+			[
+				{ path: "eventInvites/e1_guest" },
+				{ status: "accepted", decidedAt: "SERVER_TIME" },
+			],
+		]);
+		expect(commitMock).toHaveBeenCalledOnce();
+		const lastUpdate = Math.max(...batchUpdateMock.mock.invocationCallOrder);
+		expect(commitMock.mock.invocationCallOrder[0]).toBeGreaterThan(lastUpdate);
 	});
 });

@@ -8,7 +8,7 @@ const fakes = vi.hoisted(() => ({
 }));
 
 // Firestore is the boundary: the inbox gets its pending invitations and
-// decides them through these two modules, so both are replaced here.
+// declines them through these two modules; it accepts through SHARING.
 vi.mock("../firebase/collection-controller.js", () => ({
 	CollectionController: class {
 		get data() {
@@ -19,7 +19,6 @@ vi.mock("../firebase/collection-controller.js", () => ({
 }));
 vi.mock("./invitations.js", () => ({
 	invitesFor: () => ({}),
-	acceptInvite: fakes.acceptInvite,
 	declineInvite: fakes.declineInvite,
 }));
 
@@ -36,6 +35,7 @@ const USER: SessionUser = {
 };
 
 const FIRESTORE = { fake: "firestore" };
+const SHARING = { acceptInvite: fakes.acceptInvite };
 
 function invite(id: string, eventTitle: string, role = "viewer") {
 	return {
@@ -52,7 +52,7 @@ function invite(id: string, eventTitle: string, role = "viewer") {
 
 async function mount(): Promise<PlanuInvitationsInbox> {
 	const el = document.createElement("planu-invitations-inbox");
-	Object.assign(el, { firestore: FIRESTORE, user: USER });
+	Object.assign(el, { firestore: FIRESTORE, sharing: SHARING, user: USER });
 	document.body.append(el);
 	await el.updateComplete;
 	return el;
@@ -115,7 +115,6 @@ test("aceptar decide esa invitación y no otra, y no la rechaza", async () => {
 
 	expect(fakes.acceptInvite).toHaveBeenCalledTimes(1);
 	expect(fakes.acceptInvite).toHaveBeenCalledWith(
-		FIRESTORE,
 		expect.objectContaining({
 			id: "inv-2",
 			eventId: "event-inv-2",
