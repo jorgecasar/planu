@@ -23,7 +23,13 @@
  * all in T23 for that exact reason.
  */
 
-import type { EventPart, ModelLike } from "../application/ports/ai-model.js";
+import type {
+	AiModelPort,
+	AiModelRequest,
+	EventPart,
+	ModelLike,
+} from "../application/ports/ai-model.js";
+import type { SessionUser } from "../application/ports/session.js";
 import {
 	type InferenceModeName,
 	type InferenceSourceName,
@@ -149,4 +155,47 @@ export function createAiModelSession(
 			};
 		},
 	};
+}
+
+/**
+ * `SessionUser.getIdTokenResult` is optional — not every adapter can
+ * resolve it — and `TokenClaims` requires it. With no user or no such
+ * method, there's no claim to read: cloud AI treats that the same as
+ * "not premium", which is the safe default.
+ */
+export function claimsOf(
+	user: SessionUser | null | undefined,
+): TokenClaims | null {
+	const getIdTokenResult = user?.getIdTokenResult;
+	return getIdTokenResult ? { getIdTokenResult } : null;
+}
+
+export interface PortModelSessionOptions {
+	/** Read on every build, so a port provided later is still picked up. */
+	getAiModel: () => AiModelPort | undefined;
+	/** Read on every build, for the same reason as `getAiModel` above. */
+	getUser: () => SessionUser | null | undefined;
+	/** Everything the port needs besides the resolved mode. */
+	request: Omit<AiModelRequest, "mode">;
+	onInferenceMode: (mode: InferenceModeName) => void;
+}
+
+/**
+ * A session wired to an `AiModelPort` and a `SessionUser`: what a component
+ * with those two contexts would otherwise spell out by hand. Lazy: building
+ * it doesn't download anything by itself, `warmUp()`/`generate()` do.
+ */
+export function createPortModelSession(
+	options: PortModelSessionOptions,
+): AiModelSession {
+	return createAiModelSession({
+		getUser: () => claimsOf(options.getUser()),
+		// Only reached with the port set: every entry point checks it first.
+		buildModel: async (mode) => {
+			const aiModel = options.getAiModel();
+			if (!aiModel) throw new Error("AiModelPort not provided");
+			return aiModel.build({ mode, ...options.request });
+		},
+		onInferenceMode: options.onInferenceMode,
+	});
 }

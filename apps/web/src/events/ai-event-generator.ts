@@ -38,8 +38,7 @@ import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";
 import {
 	type AiModelSession,
-	createAiModelSession,
-	type TokenClaims,
+	createPortModelSession,
 } from "./ai-model-session.js";
 import {
 	type GenerateContent,
@@ -297,33 +296,14 @@ export class PlanuAiEventGenerator extends LitElement {
 		`;
 	}
 
-	/**
-	 * `SessionUser.getIdTokenResult` is optional — not every adapter can
-	 * resolve it — and `TokenClaims` requires it. With no user or no such
-	 * method, there's no claim to read: cloud AI treats that the same as
-	 * "not premium", which is the safe default.
-	 */
-	#claims(): TokenClaims | null {
-		const getIdTokenResult = this.user?.getIdTokenResult;
-		return getIdTokenResult ? { getIdTokenResult } : null;
-	}
-
-	/**
-	 * Creates the session with the model, on-device only. Lazy: building it
-	 * doesn't download anything by itself, `warmUp()`/`generate()` do.
-	 */
+	/** The session with the model, on-device only; see `ai-model-session.ts`. */
 	#session(): AiModelSession {
-		this.#modelSession ??= createAiModelSession({
-			getUser: () => this.#claims(),
-			// Only reached with the port set: every entry point checks it first.
-			buildModel: async (mode) => {
-				const { aiModel } = this;
-				if (!aiModel) throw new Error("AiModelPort not provided");
-				return aiModel.build({
-					mode,
-					inputs: ["text", "image"],
-					responseConstraint: RESPONSE_JSON_SCHEMA,
-				});
+		this.#modelSession ??= createPortModelSession({
+			getAiModel: () => this.aiModel,
+			getUser: () => this.user,
+			request: {
+				inputs: ["text", "image"],
+				responseConstraint: RESPONSE_JSON_SCHEMA,
 			},
 			// What's promised to the user while they wait comes from here, not
 			// from an assumption written into the template.
