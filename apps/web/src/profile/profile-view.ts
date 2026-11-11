@@ -570,14 +570,19 @@ export class PlanuProfileView extends LitElement {
 		this.deleteError = "";
 	}
 
-	#cancelDelete(): void {
+	#cancelDelete(event?: Event): void {
 		// Doesn't cancel mid-deletion or mid-reauthentication: dismissing the
 		// dialog while either is in flight would let it keep running in the
 		// background — including a successful reauthentication sliding
 		// straight into `#runDelete()` — with nobody watching. The dialog's
 		// own Cancel button is disabled for both cases already; this guards
-		// the other way in, `@wa-hide` firing from Escape or a backdrop click.
-		if (this.deleteStep || this.reauthenticating) return;
+		// the other way in, `@wa-hide` from Escape or the header close button.
+		// Returning isn't enough there: Web Awesome closes the dialog unless
+		// the `wa-hide` is cancelled.
+		if (this.deleteStep || this.reauthenticating) {
+			event?.preventDefault();
+			return;
+		}
 		this.confirmingDelete = false;
 		this.needsReauth = false;
 		this.reauthPassword = "";
