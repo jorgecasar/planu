@@ -139,7 +139,8 @@ const importaFirebase = (fichero: string): boolean =>
  * `toSessionUser()`/`toSessionError()` earned `session-adapter.ts` one —
  * everything here is a thin wrapper around real Firestore/Storage calls,
  * verified by T32's end-to-end test against the emulators instead, same as
- * `event-card.ts` and the rest of `events/` already are.
+ * `event-card.ts` and the rest of `events/` already are. #100 later gave it
+ * a unit test after all; see the last paragraph.
  *
  * T38 raises it once more, from 27 to 28: the migration of `ai-event-generator.ts`
  * and its test to consume `ImageStorePort` instead of `firebase/storage` is
@@ -206,8 +207,7 @@ const importaFirebase = (fichero: string): boolean =>
  * The `AiModelPort` migration (#107) frees two files —
  * `ai-event-generator.ts` and its test— and adds one,
  * `infrastructure/firebase/ai-model-adapter.ts`, net -1, from 28 to 27. No
- * adapter test, same reason as `account-data-adapter.ts`: it only forwards
- * to `getAI`/`getGenerativeModel`. The component test drives a fake port
+ * adapter test: it only forwards to `getAI`/`getGenerativeModel`. The component test drives a fake port
  * instead of mocking `firebase/ai`.
  *
  * #106 frees `event-editor.ts`, from 27 to 26: tag suggestion builds its
@@ -216,8 +216,13 @@ const importaFirebase = (fichero: string): boolean =>
  * #105 frees `sharing/invitations.ts` and `invitations-inbox.ts`, from 26 to
  * 24: their reads and writes move into `sharing-adapter.ts` behind
  * `SharingPort`. No new file.
+ *
+ * #100 adds `account-data-adapter.test.ts`, from 24 to 25: it mocks
+ * `firebase/*` to check account deletion's paths, queries and error
+ * handling without an emulator, which T32's end-to-end test could not
+ * isolate.
  */
-const TOPE_ACOPLADOS = 24;
+const TOPE_ACOPLADOS = 25;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
