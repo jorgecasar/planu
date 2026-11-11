@@ -2,10 +2,10 @@
  * `SharingPort` adapter: the one file, along with its test, that knows
  * inviting, listing and managing an event's people touches Firestore.
  *
- * Moved here from `sharing/user-directory.ts`, which used to call Firestore
- * directly — see docs/adr/0007-client-side-user-directory.md for why a
- * client-side directory exists at all. The invitation writes moved here from
- * `sharing/invitations.ts`.
+ * Moved here from `sharing/user-directory.ts` and `sharing/invitations.ts`,
+ * which used to call Firestore directly — see
+ * docs/adr/0007-client-side-user-directory.md for why a client-side
+ * directory exists at all.
  */
 
 import {
@@ -16,6 +16,7 @@ import {
 	type Firestore,
 	getDoc,
 	getDocs,
+	onSnapshot,
 	query,
 	serverTimestamp,
 	setDoc,
@@ -195,6 +196,32 @@ export function createSharingAdapter(
 			await deleteDoc(doc(firestore, INVITES_COLLECTION, id));
 		},
 
+		watchReceivedInvites(uid, onChange) {
+			return onSnapshot(
+				query(
+					collection(firestore, INVITES_COLLECTION),
+					where("inviteeUid", "==", uid),
+					where("status", "==", "pending"),
+				),
+				(snapshot) => {
+					onChange(
+						snapshot.docs.map((row) => {
+							const data = row.data();
+							return {
+								id: row.id,
+								eventId: String(data["eventId"] ?? ""),
+								eventTitle: String(data["eventTitle"] ?? ""),
+								inviteeUid: String(data["inviteeUid"] ?? ""),
+								invitedByName: String(data["invitedByName"] ?? ""),
+								role: data["role"] === "editor" ? "editor" : "viewer",
+							};
+						}),
+					);
+				},
+				() => {},
+			);
+		},
+
 		/**
 		 * Updating the invitation rather than deleting it is what turns a
 		 * decision into a record. It also has to happen in the same batch as
@@ -215,6 +242,13 @@ export function createSharingAdapter(
 			});
 
 			await batch.commit();
+		},
+
+		async declineInvite(id: string): Promise<void> {
+			await updateDoc(doc(firestore, INVITES_COLLECTION, id), {
+				status: "declined",
+				decidedAt: serverTimestamp(),
+			});
 		},
 
 		async updateEventMembership(

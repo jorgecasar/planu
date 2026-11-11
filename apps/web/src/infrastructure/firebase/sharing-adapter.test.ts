@@ -14,26 +14,27 @@ const docMock = vi.fn((_db: unknown, collection: string, id: string) => ({
 const setDocMock = vi.fn();
 const deleteDocMock = vi.fn();
 const getDocMock = vi.fn();
+const updateDocMock = vi.fn();
 const batchUpdateMock = vi.fn();
 const commitMock = vi.fn();
+const onSnapshotMock = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
 	doc: docMock,
 	setDoc: setDocMock,
 	deleteDoc: deleteDocMock,
 	getDoc: getDocMock,
+	updateDoc: updateDocMock,
+	onSnapshot: onSnapshotMock,
 	serverTimestamp: () => "SERVER_TIME",
 	arrayUnion: (value: string) => ({ arrayUnion: value }),
 	writeBatch: () => ({ update: batchUpdateMock, commit: commitMock }),
-	// Unused by the tests below, but this module imports from
-	// `invitations.ts`, which imports these too — the mock replaces the whole
-	// module, so every export either file needs at import time has to exist
-	// here, even the ones these tests never call.
-	collection: vi.fn(),
+	collection: (_db: unknown, path: string) => ({ path }),
+	query: (from: unknown, ...clauses: unknown[]) => ({ from, clauses }),
+	where: (...clause: unknown[]) => clause,
+	// Unused by the tests below, but the mock replaces the whole module, so
+	// every export needed at import time has to exist.
 	getDocs: vi.fn(),
-	query: vi.fn(),
-	updateDoc: vi.fn(),
-	where: vi.fn(),
 }));
 
 const { createSharingAdapter } = await import("./sharing-adapter.js");
@@ -276,5 +277,62 @@ describe("acceptInvite()", () => {
 		expect(commitMock).toHaveBeenCalledOnce();
 		const lastUpdate = Math.max(...batchUpdateMock.mock.invocationCallOrder);
 		expect(commitMock.mock.invocationCallOrder[0]).toBeGreaterThan(lastUpdate);
+	});
+});
+
+describe("declineInvite()", () => {
+	test("marks it declined and keeps the record", async () => {
+		updateDocMock.mockReset().mockResolvedValue(undefined);
+
+		await createSharingAdapter(FAKE_FIRESTORE).declineInvite("e1_guest");
+
+		expect(updateDocMock).toHaveBeenCalledExactlyOnceWith(
+			{ path: "eventInvites/e1_guest" },
+			{ status: "declined", decidedAt: "SERVER_TIME" },
+		);
+	});
+});
+
+describe("watchReceivedInvites()", () => {
+	test("listens to the user's pending invitations and maps each row", () => {
+		const unsubscribe = () => {};
+		onSnapshotMock.mockReset().mockReturnValue(unsubscribe);
+		const onChange = vi.fn();
+		const adapter = createSharingAdapter(FAKE_FIRESTORE);
+
+		expect(adapter.watchReceivedInvites("guest", onChange)).toBe(unsubscribe);
+		const [listened, onNext] = onSnapshotMock.mock.calls[0] as [
+			unknown,
+			(snapshot: unknown) => void,
+		];
+		expect(listened).toEqual({
+			from: { path: "eventInvites" },
+			clauses: [
+				["inviteeUid", "==", "guest"],
+				["status", "==", "pending"],
+			],
+		});
+
+		const row = (id: string, data: object) => ({ id, data: () => data });
+		const e1 = {
+			eventId: "e1",
+			eventTitle: "Concert",
+			inviteeUid: "guest",
+			invitedByName: "Ana",
+			role: "editor",
+		};
+		onNext({ docs: [row("e1_guest", e1), row("e2_guest", { role: "owner" })] });
+
+		expect(onChange).toHaveBeenCalledExactlyOnceWith([
+			{ id: "e1_guest", ...e1 },
+			{
+				id: "e2_guest",
+				eventId: "",
+				eventTitle: "",
+				inviteeUid: "",
+				invitedByName: "",
+				role: "viewer",
+			},
+		]);
 	});
 });

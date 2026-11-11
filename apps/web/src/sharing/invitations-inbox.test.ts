@@ -1,29 +1,16 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { SessionUser } from "../application/ports/session.js";
-
-const fakes = vi.hoisted(() => ({
-	invites: [] as Record<string, unknown>[],
-	acceptInvite: vi.fn(),
-	declineInvite: vi.fn(),
-}));
-
-// Firestore is the boundary: the inbox gets its pending invitations and
-// declines them through these two modules; it accepts through SHARING.
-vi.mock("../firebase/collection-controller.js", () => ({
-	CollectionController: class {
-		get data() {
-			return fakes.invites;
-		}
-		setQuery(): void {}
-	},
-}));
-vi.mock("./invitations.js", () => ({
-	invitesFor: () => ({}),
-	declineInvite: fakes.declineInvite,
-}));
-
+import type { ReceivedInvite } from "../application/ports/sharing.js";
 import "./invitations-inbox.js";
 import type { PlanuInvitationsInbox } from "./invitations-inbox.js";
+
+// The sharing port is the boundary: the inbox watches its pending
+// invitations and decides them through it, so `mount` hands it SHARING.
+const fakes = {
+	invites: [] as ReceivedInvite[],
+	acceptInvite: vi.fn(),
+	declineInvite: vi.fn(),
+};
 
 const USER: SessionUser = {
 	uid: "u2",
@@ -34,8 +21,11 @@ const USER: SessionUser = {
 	provider: "password",
 };
 
-const FIRESTORE = { fake: "firestore" };
-const SHARING = { acceptInvite: fakes.acceptInvite };
+const SHARING = {
+	watchReceivedInvites: vi.fn(),
+	acceptInvite: fakes.acceptInvite,
+	declineInvite: fakes.declineInvite,
+};
 
 function invite(id: string, eventTitle: string, role = "viewer") {
 	return {
@@ -43,16 +33,14 @@ function invite(id: string, eventTitle: string, role = "viewer") {
 		eventId: `event-${id}`,
 		eventTitle,
 		inviteeUid: "u2",
-		invitedBy: "u1",
 		invitedByName: "Ana",
 		role,
-		status: "pending",
-	};
+	} as ReceivedInvite;
 }
 
 async function mount(): Promise<PlanuInvitationsInbox> {
 	const el = document.createElement("planu-invitations-inbox");
-	Object.assign(el, { firestore: FIRESTORE, sharing: SHARING, user: USER });
+	Object.assign(el, { sharing: SHARING, user: USER });
 	document.body.append(el);
 	await el.updateComplete;
 	return el;
@@ -78,6 +66,10 @@ function alertText(el: PlanuInvitationsInbox): string {
 
 beforeEach(() => {
 	fakes.invites = [invite("inv-1", "Cena"), invite("inv-2", "Viaje", "editor")];
+	SHARING.watchReceivedInvites.mockReset().mockImplementation((_uid, next) => {
+		next(fakes.invites);
+		return () => {};
+	});
 	fakes.acceptInvite.mockReset().mockResolvedValue(undefined);
 	fakes.declineInvite.mockReset().mockResolvedValue(undefined);
 });
@@ -89,6 +81,7 @@ afterEach(() => {
 test("muestra cada invitación pendiente con quién invita y con qué rol, sin decidir ninguna: el consentimiento es explícito", async () => {
 	const el = await mount();
 
+	expect(SHARING.watchReceivedInvites.mock.calls[0]?.[0]).toBe("u2");
 	expect(fakes.acceptInvite).not.toHaveBeenCalled();
 	expect(fakes.declineInvite).not.toHaveBeenCalled();
 
@@ -130,10 +123,7 @@ test("rechazar decide esa invitación y no otra, y no la acepta", async () => {
 	button(el, "Cena", "Decline").click();
 
 	expect(fakes.declineInvite).toHaveBeenCalledTimes(1);
-	expect(fakes.declineInvite).toHaveBeenCalledWith(
-		FIRESTORE,
-		expect.objectContaining({ id: "inv-1", eventId: "event-inv-1" }),
-	);
+	expect(fakes.declineInvite).toHaveBeenCalledWith("inv-1");
 	expect(fakes.acceptInvite).not.toHaveBeenCalled();
 });
 

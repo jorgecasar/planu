@@ -53,6 +53,14 @@ export interface ReceivedInvite {
 export interface InviteOffer {
 	eventId: string;
 	eventTitle: string;
+	/**
+	 * The address the owner typed, shown back to them.
+	 *
+	 * It lives on the invitation and not on the public profile because only two
+	 * people ever read one: the owner, who already knows the address because
+	 * they wrote it, and its recipient. On `userProfiles` it would instead hand
+	 * every guest of an event the addresses of all the others.
+	 */
 	inviteeEmail: string;
 	invitedBy: string;
 	invitedByName: string;
@@ -93,8 +101,20 @@ export interface SharingPort {
 	/** Revokes an invitation nobody has answered yet. */
 	revokeInvite(id: string): Promise<void>;
 
+	/**
+	 * Watches the pending invitations addressed to `uid`, live. Returns the
+	 * unsubscribe. A failed listen leaves the last list in place.
+	 */
+	watchReceivedInvites(
+		uid: string,
+		onChange: (invites: ReceivedInvite[]) => void,
+	): () => void;
+
 	/** Joins the event and marks the invitation accepted, atomically. */
 	acceptInvite(invite: ReceivedInvite): Promise<void>;
+
+	/** Declines invitation `id`. The record stays, so it can be reconsidered later. */
+	declineInvite(id: string): Promise<void>;
 
 	/** Rewrites an event's membership — adding, removing or re-roling a guest. */
 	updateEventMembership(
