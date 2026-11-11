@@ -82,10 +82,6 @@ export class PlanuProfileView extends LitElement {
 	@state() private sent = false;
 	@state() private checking = false;
 
-	/** The mistyped-address way out; see `#renderChangeEmail()`. */
-	@state() private changingEmail = false;
-	@state() private changeEmailSentTo = "";
-
 	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
 	// just below — this already-coupled component's directory-publishing call
 	// goes through a port now, built once at the composition root
@@ -312,97 +308,16 @@ export class PlanuProfileView extends LitElement {
 				>
 					${this.checking ? msg("Checking…") : msg("I have verified it")}
 				</wa-button>
-				${user.provider === "password" ? this.#renderChangeEmail() : nothing}
+				${
+					user.provider === "password"
+						? html`<planu-change-email-form
+								.user=${user}
+								.session=${this.session}
+							></planu-change-email-form>`
+						: nothing
+				}
 			</wa-callout>
 		`;
-	}
-
-	/**
-	 * A mistyped address at sign-up can never be verified — the link goes to
-	 * an inbox nobody reads — and the notice above would only keep resending
-	 * it. This lets the person fix the address instead. Only for password
-	 * accounts: Google arrives verified and its address belongs to Google,
-	 * not to us.
-	 *
-	 * Collapsed behind a button so the common case — the address is right,
-	 * the mail just hasn't been opened yet — keeps the notice short.
-	 */
-	#renderChangeEmail() {
-		const sentTo = this.changeEmailSentTo;
-		// The status region is always in the DOM, empty until there's
-		// something to say: a live region inserted together with its text is
-		// often not announced at all. Not focusable: focusing a live region
-		// gets its text read twice, once as focus and once as the update.
-		return html`
-			<div class="change-email wa-stack wa-gap-s">
-				<p class="change-email-status" role="status">
-					${
-						sentTo
-							? msg(
-									str`We sent a link to ${sentTo}. Open it to switch your account to that address, then sign in again with it.`,
-								)
-							: nothing
-					}
-				</p>
-				${
-					sentTo
-						? html`<wa-button
-								class="change-email-retry"
-								appearance="plain"
-								@click=${this.#retryChangeEmail}
-							>
-								${msg("Use a different email")}
-							</wa-button>`
-						: this.changingEmail
-							? html`<planu-change-email-form
-									.user=${this.user ?? undefined}
-									.session=${this.session}
-									@change-email-sent=${this.#onChangeEmailSent}
-									@change-email-cancel=${this.#closeChangeEmail}
-								></planu-change-email-form>`
-							: html`<wa-button
-									class="change-email-open"
-									appearance="plain"
-									@click=${this.#openChangeEmail}
-								>
-									${msg("Wrong email? Change it")}
-								</wa-button>`
-				}
-			</div>
-		`;
-	}
-
-	/** The form focuses its own field; see `PlanuChangeEmailForm`. */
-	#openChangeEmail(): void {
-		this.changingEmail = true;
-	}
-
-	/** A second typo deserves the same way out as the first. */
-	#retryChangeEmail(): void {
-		this.changeEmailSentTo = "";
-		this.#openChangeEmail();
-	}
-
-	async #closeChangeEmail(): Promise<void> {
-		this.changingEmail = false;
-		// The focused Cancel button just vanished, and focus would otherwise
-		// drop to <body>.
-		await this.updateComplete;
-		this.#focus(".change-email-open");
-	}
-
-	#focus(selector: string): void {
-		this.renderRoot.querySelector<HTMLElement>(selector)?.focus();
-	}
-
-	async #onChangeEmailSent(event: CustomEvent<string>): Promise<void> {
-		this.changeEmailSentTo = event.detail;
-		this.changingEmail = false;
-		// The form that held focus is gone. The status region announces the
-		// confirmation by itself; focus goes to the control that replaced the
-		// form, not to the region, so the text is not read twice.
-		await this.updateComplete;
-		this.#focus(".change-email-retry");
 	}
 
 	/**
