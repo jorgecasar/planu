@@ -197,7 +197,7 @@
       {
         "path": "/eventInvites/{inviteId}",
         "definition": {
-          "description": "One invite per (event, invitee) pair, kept as a record once decided. Readable by the owner who sent it and the invitee it names; created and updated only by the event's owner; deleted in any status by either side, and erased with either side's account (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).",
+          "description": "One invite per (event, invitee) pair, kept as a record once decided. Readable by the owner who sent it and the invitee it names; created and updated by the event's owner, or created by the invitee redeeming an offer by email, copied from it; deleted in any status by either side, and erased with either side's account (docs/adr/0013-borrado-de-invitaciones-con-la-cuenta.md).",
           "entityName": "EventInvite",
           "schema": { "$ref": "#/entities/EventInvite" }
         }
@@ -205,7 +205,7 @@
       {
         "path": "/eventInvitesByEmail/{inviteId}",
         "definition": {
-          "description": "Offers to an email with no account. Created by the event's verified owner; read and deleted by that sender; never listable except the sender's own `invitedBy ==` query.",
+          "description": "Offers to an email with no account. Created by the event's verified owner; read and deleted by that sender or by whoever holds the address verified, who may also read a missing id ending in their own hash; never listable except the sender's own `invitedBy ==` query. Claimed by deleting it in the same batch that creates the matching eventInvites document.",
           "entityName": "PendingInviteByEmail",
           "schema": { "$ref": "#/entities/PendingInviteByEmail" }
         }
