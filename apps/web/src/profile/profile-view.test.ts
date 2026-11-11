@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
+import type { AccountDataPort } from "../application/ports/account-data.js";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
 import type { SharingPort } from "../application/ports/sharing.js";
 import { SessionError } from "../domain/session-error.js";
@@ -317,4 +318,166 @@ test("si publicar en el directorio falla, el aviso se queda para reintentar", as
 
 	await check(el, publish, 2);
 	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
+});
+
+function fakeAccount(): AccountDataPort {
+	return {
+		listMemberEvents: vi.fn().mockResolvedValue([]),
+		deleteOwnEvent: vi.fn().mockResolvedValue(undefined),
+		leaveEvent: vi.fn().mockResolvedValue(undefined),
+		deleteEventImage: vi.fn().mockResolvedValue(undefined),
+		deleteAllEventImages: vi.fn().mockResolvedValue(undefined),
+		deleteDirectoryEntries: vi.fn().mockResolvedValue(undefined),
+		deleteReceivedInvitations: vi.fn().mockResolvedValue(undefined),
+		deleteSentInvitations: vi.fn().mockResolvedValue(undefined),
+	};
+}
+
+/** Never settles: keeps a step in flight for as long as the test needs. */
+const pending = () => new Promise<never>(() => {});
+
+async function mountDeletable(session: SessionPort = fakeSession()) {
+	const el = await mount(UNVERIFIED, session);
+	Object.assign(el, { account: fakeAccount() });
+	await el.updateComplete;
+	return el;
+}
+
+function deleteDialog(el: PlanuProfileView): HTMLElement & { open: boolean } {
+	const dialog = el.shadowRoot?.querySelector<HTMLElement & { open: boolean }>(
+		"wa-dialog",
+	);
+	if (!dialog) throw new Error("No delete dialog");
+	return dialog;
+}
+
+function dialogButton(el: PlanuProfileView, label: string) {
+	return [...deleteDialog(el).querySelectorAll<HTMLElement>("wa-button")].find(
+		(b) => b.textContent?.trim() === label,
+	);
+}
+
+/** Opens the delete dialog, types the email and presses its "Delete account". */
+async function startDelete(el: PlanuProfileView) {
+	button(el, "Delete account")?.click();
+	await el.updateComplete;
+	const input = deleteDialog(el).querySelector<HTMLInputElement>("wa-input");
+	if (!input) throw new Error("No confirmation field");
+	input.value = UNVERIFIED.email ?? "";
+	input.dispatchEvent(new Event("input"));
+	await el.updateComplete;
+	dialogButton(el, "Delete account")?.click();
+	await el.updateComplete;
+}
+
+/** Runs the delete into the reauthentication step, with the password typed. */
+async function reachReauth(session: SessionPort, el: PlanuProfileView) {
+	vi.mocked(session.refreshEmailVerification).mockResolvedValue(UNVERIFIED);
+	vi.mocked(session.deleteAccount).mockRejectedValue(
+		new SessionError("requires-recent-login"),
+	);
+	await startDelete(el);
+	const password = await vi.waitFor(() => {
+		const field = deleteDialog(el).querySelector<HTMLInputElement>(
+			'wa-input[type="password"]',
+		);
+		if (!field) throw new Error("no reauth step yet");
+		return field;
+	});
+	password.value = "secret";
+	password.dispatchEvent(new Event("input"));
+	await el.updateComplete;
+	return password;
+}
+
+/**
+ * Presses Escape the way Web Awesome hears it — its document listener, which
+ * calls `requestClose` — not a synthetic `wa-hide`, which skips the check
+ * that matters. Waits for the hide or pulse animation that starts to end,
+ * and returns whether the `wa-hide` was cancelled.
+ */
+async function pressEscape(el: PlanuProfileView): Promise<boolean> {
+	const dialog = deleteDialog(el);
+	await vi.waitFor(() => expect(dialog.open).toBe(true));
+	let prevented: boolean | undefined;
+	dialog.addEventListener(
+		"wa-hide",
+		(event) => {
+			prevented = event.defaultPrevented;
+		},
+		{ once: true },
+	);
+	document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+	const inner = dialog.shadowRoot?.querySelector("dialog");
+	await vi.waitFor(() => {
+		if (
+			inner?.classList.contains("hide") ||
+			inner?.classList.contains("pulse")
+		) {
+			throw new Error("still animating");
+		}
+	});
+	await el.updateComplete;
+	if (prevented === undefined) throw new Error("wa-hide never fired");
+	return prevented;
+}
+
+test("Escape no cierra el diálogo con el borrado en curso", async () => {
+	const session = fakeSession();
+	vi.mocked(session.refreshEmailVerification).mockReturnValue(pending());
+	const el = await mountDeletable(session);
+	await startDelete(el);
+	expect(dialogButton(el, "Deleting…")).toBeDefined();
+
+	expect(await pressEscape(el)).toBe(true);
+
+	expect(deleteDialog(el).open).toBe(true);
+	expect(dialogButton(el, "Deleting…")).toBeDefined();
+});
+
+test("Escape no cierra el diálogo con la reautenticación en curso", async () => {
+	const session = fakeSession();
+	const el = await mountDeletable(session);
+	await reachReauth(session, el);
+	vi.mocked(session.reauthenticate).mockReturnValue(pending());
+	dialogButton(el, "Confirm and delete")?.click();
+	await el.updateComplete;
+	expect(dialogButton(el, "Confirming…")).toBeDefined();
+
+	expect(await pressEscape(el)).toBe(true);
+
+	expect(deleteDialog(el).open).toBe(true);
+	expect(dialogButton(el, "Confirming…")).toBeDefined();
+});
+
+test("sin nada en curso, Escape cierra el diálogo de borrar cuenta", async () => {
+	const el = await mountDeletable();
+	button(el, "Delete account")?.click();
+	await el.updateComplete;
+
+	expect(await pressEscape(el)).toBe(false);
+
+	await vi.waitFor(() => expect(deleteDialog(el).open).toBe(false));
+});
+
+test("una reautenticación rechazada lo dice y deja reintentar o cancelar", async () => {
+	const session = fakeSession();
+	const el = await mountDeletable(session);
+	const password = await reachReauth(session, el);
+	vi.mocked(session.reauthenticate).mockRejectedValue(
+		new SessionError("invalid-credential"),
+	);
+
+	dialogButton(el, "Confirm and delete")?.click();
+	await vi.waitFor(() => {
+		if (dialogButton(el, "Confirming…")) throw new Error("still confirming");
+		expect(
+			deleteDialog(el).querySelector('[role="alert"]')?.textContent?.trim(),
+		).toBe("That did not work. Please try again.");
+	});
+	await el.updateComplete;
+
+	expect(password.hasAttribute("disabled")).toBe(false);
+	expect(dialogButton(el, "Cancel")?.hasAttribute("disabled")).toBe(false);
+	expect(session.deleteAccount).toHaveBeenCalledTimes(1);
 });
