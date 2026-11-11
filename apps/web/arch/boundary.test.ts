@@ -212,8 +212,12 @@ const importaFirebase = (fichero: string): boolean =>
  *
  * #106 frees `event-editor.ts`, from 27 to 26: tag suggestion builds its
  * model through the same `AiModelPort`. No new file.
+ *
+ * #105 frees `sharing/invitations.ts` and `invitations-inbox.ts`, from 26 to
+ * 24: their reads and writes move into `sharing-adapter.ts` behind
+ * `SharingPort`. No new file.
  */
-const TOPE_ACOPLADOS = 26;
+const TOPE_ACOPLADOS = 24;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

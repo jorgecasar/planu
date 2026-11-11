@@ -3,18 +3,15 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import type { DocumentData, Firestore } from "firebase/firestore";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { SessionUser } from "../application/ports/session.js";
 import {
+	type ReceivedInvite,
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
-import { CollectionController } from "../firebase/collection-controller.js";
-import { firestoreContext, userContext } from "../firebase/context.js";
-import type { EventRole } from "../lib/types.js";
-import { declineInvite, type EventInvite, invitesFor } from "./invitations.js";
+import { userContext } from "../firebase/context.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")
@@ -40,9 +37,6 @@ export class PlanuInvitationsInbox extends LitElement {
 		}
 	`;
 
-	@consume({ context: firestoreContext, subscribe: true })
-	private firestore: Firestore | undefined;
-
 	@consume({ context: sharingContext, subscribe: true })
 	private sharing: SharingPort | undefined;
 
@@ -51,25 +45,45 @@ export class PlanuInvitationsInbox extends LitElement {
 
 	@state() private busyWith = "";
 	@state() private error = "";
+	@state() private invites: ReceivedInvite[] = [];
 
-	readonly #invites = new CollectionController<DocumentData>(this);
-
-	/** Rebuilding the query on every update would resubscribe in a loop. */
+	/** Resubscribing on every update would loop. */
 	#queryKey: string | undefined;
+	#unsubscribe: (() => void) | undefined;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		// After a reconnect, `willUpdate` has to listen again.
+		this.#queryKey = undefined;
+		this.requestUpdate();
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.#unsubscribe?.();
+		this.#unsubscribe = undefined;
+		this.invites = [];
+	}
 
 	override willUpdate(): void {
-		const { firestore, user } = this;
-		const key = firestore && user ? user.uid : "";
+		const { sharing, user } = this;
+		const key = sharing && user ? user.uid : "";
 		if (key === this.#queryKey) return;
 		this.#queryKey = key;
 
-		this.#invites.setQuery(
-			firestore && user ? invitesFor(firestore, user.uid) : null,
-		);
+		this.#unsubscribe?.();
+		this.#unsubscribe = undefined;
+		if (!sharing || !user) {
+			this.invites = [];
+			return;
+		}
+		this.#unsubscribe = sharing.watchReceivedInvites(user.uid, (invites) => {
+			this.invites = invites;
+		});
 	}
 
 	override render() {
-		const invites = this.#invites.data.map(toInvite);
+		const { invites } = this;
 		if (invites.length === 0) return nothing;
 
 		return html`
@@ -84,7 +98,7 @@ export class PlanuInvitationsInbox extends LitElement {
 		`;
 	}
 
-	#renderInvite(invite: EventInvite) {
+	#renderInvite(invite: ReceivedInvite) {
 		const who = invite.invitedByName || msg("Someone");
 		const busy = this.busyWith === invite.id;
 
@@ -117,55 +131,31 @@ export class PlanuInvitationsInbox extends LitElement {
 		`;
 	}
 
-	async #accept(invite: EventInvite): Promise<void> {
-		await this.#run(invite, (_, sharing) => sharing.acceptInvite(invite));
+	async #accept(invite: ReceivedInvite): Promise<void> {
+		await this.#run(invite, (sharing) => sharing.acceptInvite(invite));
 	}
 
-	async #decline(invite: EventInvite): Promise<void> {
-		await this.#run(invite, async (firestore) => {
-			await declineInvite(firestore, invite);
-		});
+	async #decline(invite: ReceivedInvite): Promise<void> {
+		await this.#run(invite, (sharing) => sharing.declineInvite(invite.id));
 	}
 
 	async #run(
-		invite: EventInvite,
-		action: (firestore: Firestore, sharing: SharingPort) => Promise<void>,
+		invite: ReceivedInvite,
+		action: (sharing: SharingPort) => Promise<void>,
 	): Promise<void> {
-		const { firestore, sharing } = this;
-		if (!firestore || !sharing || this.busyWith) return;
+		const { sharing } = this;
+		if (!sharing || this.busyWith) return;
 
 		this.error = "";
 		this.busyWith = invite.id;
 		try {
-			await action(firestore, sharing);
+			await action(sharing);
 		} catch {
 			this.error = msg("That did not work. Please try again.");
 		} finally {
 			this.busyWith = "";
 		}
 	}
-}
-
-/**
- * Firestore hands back loose data; only well-formed invitations are shown.
- *
- * The query already filters to `status == 'pending'`, so this inbox never
- * needs to render a decided one — that view belongs to the invitations page.
- */
-function toInvite(document: DocumentData & { id: string }): EventInvite {
-	return {
-		id: document["id"],
-		eventId: String(document["eventId"] ?? ""),
-		eventTitle: String(document["eventTitle"] ?? ""),
-		inviteeUid: String(document["inviteeUid"] ?? ""),
-		inviteeEmail: String(document["inviteeEmail"] ?? ""),
-		invitedBy: String(document["invitedBy"] ?? ""),
-		invitedByName: String(document["invitedByName"] ?? ""),
-		role: document["role"] === "editor" ? "editor" : ("viewer" as EventRole),
-		status: "pending",
-		createdAt: (document["createdAt"] as EventInvite["createdAt"]) ?? null,
-		decidedAt: (document["decidedAt"] as EventInvite["decidedAt"]) ?? null,
-	};
 }
 
 declare global {
