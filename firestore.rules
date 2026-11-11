@@ -557,13 +557,23 @@ service cloud.firestore {
                  || (resource != null && (isSender() || isInvitee()));
       allow list: if isSender();
 
+      // An offer to someone already in the event is never spent by joining,
+      // and the owner cannot spend it on removal: members' addresses are not
+      // shown to them. So it would outlive the removal (GH-147).
+      function isToAMember(d) {
+        let entry = /databases/$(database)/documents/userDirectory/$(emailHash(d.inviteeEmail));
+        return exists(entry)
+            && get(entry).data.uid in get(/databases/$(database)/documents/events/$(d.eventId)).data.get('memberIds', []);
+      }
+
       // Only the event's verified owner, in their own name, at server time.
       allow create: if request.auth != null
                     && isVerified()
                     && isValidOffer(request.resource.data)
                     && request.resource.data.invitedBy == request.auth.uid
                     && request.resource.data.createdAt == request.time
-                    && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.userId == request.auth.uid;
+                    && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.userId == request.auth.uid
+                    && !isToAMember(request.resource.data);
 
       // No update: re-offering is delete + create, so `createdAt` stays honest.
       // The invitee deletes it to decline, or in the claim's own batch.
