@@ -1,6 +1,12 @@
 import { expect, test, vi } from "vitest";
+import type { AiModelPort } from "../application/ports/ai-model.js";
+import type { SessionUser } from "../application/ports/session.js";
 import type { ModelLike, TokenClaims } from "./ai-model-session.js";
-import { createAiModelSession } from "./ai-model-session.js";
+import {
+	claimsOf,
+	createAiModelSession,
+	createPortModelSession,
+} from "./ai-model-session.js";
 
 /** A fake model: there is no SDK to simulate, only the shape the session uses. */
 function fakeModel(
@@ -188,4 +194,72 @@ test("sin la nube abierta, no se llega ni a mirar el claim de premium", async ()
 	await session.generate([{ text: "x" }]);
 
 	expect(getIdTokenResult).not.toHaveBeenCalled();
+});
+
+// --- Wired to the ports -----------------------------------------------------
+
+const request = { inputs: ["text" as const], responseConstraint: {} };
+
+const someone: SessionUser = {
+	uid: "u1",
+	email: null,
+	displayName: null,
+	photoURL: null,
+	emailVerified: true,
+	provider: "unknown",
+};
+
+test("sin usuario o sin getIdTokenResult no hay claims que leer", () => {
+	expect(claimsOf(undefined)).toBeNull();
+	expect(claimsOf(null)).toBeNull();
+	expect(claimsOf(someone)).toBeNull();
+
+	const getIdTokenResult = async () => ({ claims: {} });
+	expect(claimsOf({ ...someone, getIdTokenResult })).toEqual({
+		getIdTokenResult,
+	});
+});
+
+test("el puerto recibe el modo resuelto y la petición tal cual", async () => {
+	const build = vi.fn(async () => fakeModel());
+	const onInferenceMode = vi.fn();
+	const session = createPortModelSession({
+		getAiModel: () => ({ build }) satisfies AiModelPort,
+		getUser: () => null,
+		request,
+		onInferenceMode,
+	});
+
+	await session.generate([{ text: "x" }]);
+
+	expect(build).toHaveBeenCalledWith({ mode: "only_on_device", ...request });
+	expect(onInferenceMode).toHaveBeenCalledWith("only_on_device");
+});
+
+test("puerto y usuario se leen al construir, no al crear la sesión", async () => {
+	vi.stubEnv("VITE_AI_CLOUD_FALLBACK", "true");
+	try {
+		let aiModel: AiModelPort | undefined;
+		const getIdTokenResult = vi.fn(async () => ({ claims: {} }));
+		let user: SessionUser | null = null;
+		const session = createPortModelSession({
+			getAiModel: () => aiModel,
+			getUser: () => user,
+			request,
+			onInferenceMode: () => {},
+		});
+
+		// Without the port the build fails, and the failure isn't memoised.
+		await expect(session.generate([{ text: "x" }])).rejects.toThrow(
+			"AiModelPort not provided",
+		);
+
+		aiModel = { build: async () => fakeModel() };
+		user = { ...someone, getIdTokenResult };
+		await session.generate([{ text: "x" }]);
+
+		expect(getIdTokenResult).toHaveBeenCalledTimes(1);
+	} finally {
+		vi.unstubAllEnvs();
+	}
 });
