@@ -1,10 +1,12 @@
 import { expect, test } from "vitest";
 import {
+	addTag,
 	collectTags,
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
 	normalizeTag,
 	normalizeTags,
+	removeTag,
 	suggestTags,
 	tagHue,
 } from "./tags.js";
@@ -242,4 +244,49 @@ test("reúne las etiquetas de todos los eventos, sin repetir y en orden", () => 
 
 test("sin eventos no hay etiquetas que ofrecer", () => {
 	expect(collectTags([])).toEqual([]);
+});
+
+// --- addTag / removeTag ---------------------------------------------------
+
+test("añade la etiqueta normalizada al final", () => {
+	expect(addTag(["cine"], "  Teatro   Clásico ")).toEqual({
+		kind: "added",
+		tags: ["cine", "teatro clásico"],
+	});
+});
+
+test("un campo vacío o en blanco no hace nada ni avisa", () => {
+	expect(addTag([], "")).toEqual({ kind: "empty" });
+	expect(addTag([], "   ")).toEqual({ kind: "empty" });
+});
+
+test("una etiqueta demasiado larga se rechaza para avisar, sin recortarla", () => {
+	expect(addTag([], "a".repeat(MAX_TAG_LENGTH + 1))).toEqual({
+		kind: "too-long",
+	});
+});
+
+test("una repetida, aunque cambie de mayúsculas, no se añade", () => {
+	expect(addTag(["cine"], "CINE")).toEqual({ kind: "unchanged" });
+});
+
+test("con el máximo de etiquetas no se añade ninguna más", () => {
+	const full = Array.from({ length: MAX_TAGS }, (_, i) => `t${i}`);
+	expect(addTag(full, "nueva")).toEqual({ kind: "unchanged" });
+	expect(addTag(full.slice(1), "nueva")).toEqual({
+		kind: "added",
+		tags: [...full.slice(1), "nueva"],
+	});
+});
+
+test("la coma no separa: forma parte de la etiqueta", () => {
+	expect(addTag([], "rock, pop")).toEqual({
+		kind: "added",
+		tags: ["rock, pop"],
+	});
+});
+
+test("quitar una etiqueta conserva el orden de las demás", () => {
+	expect(removeTag(["a", "b", "c"], "b")).toEqual(["a", "c"]);
+	expect(removeTag(["a"], "z")).toEqual(["a"]);
 });

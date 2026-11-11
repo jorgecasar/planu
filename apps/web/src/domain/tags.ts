@@ -149,6 +149,39 @@ export function suggestTags(
 }
 
 /**
+ * What typing `raw` into an event's tag field does to `tags`.
+ *
+ * - `empty`: nothing was typed. An Enter on the empty field is a gesture,
+ *   not an error, so nothing changes and nothing is said.
+ * - `too-long`: there was text, but it doesn't amount to a tag. The caller
+ *   warns and keeps the draft so the user can shorten it.
+ * - `unchanged`: already there, or the event already has `MAX_TAGS`. The
+ *   draft is consumed without a warning.
+ * - `added`: `tags` with the normalised tag appended at the end.
+ */
+export type AddTagResult =
+	| { kind: "empty" }
+	| { kind: "too-long" }
+	| { kind: "unchanged" }
+	| { kind: "added"; tags: string[] };
+
+export function addTag(tags: readonly string[], raw: string): AddTagResult {
+	const tag = normalizeTag(raw);
+	if (tag === null) {
+		return { kind: raw.trim() === "" ? "empty" : "too-long" };
+	}
+	if (tags.includes(tag) || tags.length >= MAX_TAGS) {
+		return { kind: "unchanged" };
+	}
+	return { kind: "added", tags: [...tags, tag] };
+}
+
+/** `tags` without `tag`; the others keep their order. */
+export function removeTag(tags: readonly string[], tag: string): string[] {
+	return tags.filter((each) => each !== tag);
+}
+
+/**
  * Every distinct tag across `events`, alphabetically.
  *
  * The tags on offer come from the events the user already has, not from a

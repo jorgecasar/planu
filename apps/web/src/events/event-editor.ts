@@ -32,10 +32,11 @@ import {
 } from "../domain/ai-policy.js";
 import { fromDateFields, toDateFields } from "../domain/date-fields.js";
 import {
+	addTag,
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
-	normalizeTag,
 	normalizeTags,
+	removeTag,
 	suggestTags,
 	tagHue,
 } from "../domain/tags.js";
@@ -649,27 +650,22 @@ export class PlanuEventEditor extends LitElement {
 		return msg(str`A tag must be ${MAX_TAG_LENGTH} characters or fewer.`);
 	}
 
+	/** The rules live in `addTag()`; this only maps its outcome to the UI. */
 	#addTag(raw: string): void {
-		const tag = normalizeTag(raw);
-		if (tag === null) {
-			// It only warns if there was something to add: an Enter on the
-			// empty field is a gesture, not an error.
-			if (raw.trim() !== "") {
-				this.error = this.#tagLengthError();
-			}
+		const result = addTag(this.tags, raw);
+		if (result.kind === "empty") return;
+		if (result.kind === "too-long") {
+			this.error = this.#tagLengthError();
 			return;
 		}
-		if (this.tags.includes(tag) || this.tags.length >= MAX_TAGS) {
-			this.tagDraft = "";
-			return;
-		}
-		this.tags = [...this.tags, tag];
 		this.tagDraft = "";
+		if (result.kind === "unchanged") return;
+		this.tags = result.tags;
 		if (this.error === this.#tagLengthError()) this.error = "";
 	}
 
 	#removeTag(tag: string): void {
-		this.tags = this.tags.filter((each) => each !== tag);
+		this.tags = removeTag(this.tags, tag);
 	}
 
 	#addAiSuggestedTag(tag: string): void {
