@@ -786,6 +786,12 @@ function setState(el: PlanuEventEditor, key: string, value: unknown): void {
 	(el as unknown as Record<string, unknown>)[key] = value;
 }
 
+/** Same principle, one level down: the AI's tags live in its controller. */
+function seedAiSuggestions(el: PlanuEventEditor, tags: string[]): void {
+	const host = el as unknown as { tagSuggestions: { suggested: string[] } };
+	host.tagSuggestions.suggested = tags;
+}
+
 const aiSuggested = (el: PlanuEventEditor): string[] =>
 	[
 		...(el.shadowRoot?.querySelectorAll("ul.ai-suggestions wa-button") ?? []),
@@ -829,7 +835,7 @@ test("una sugerencia de la IA se pinta con etiqueta propia, distinta del autocom
 		editor.open = true;
 	});
 
-	setState(el, "aiSuggestedTags", ["música", "verano"]);
+	seedAiSuggestions(el, ["música", "verano"]);
 	await el.updateComplete;
 
 	expect(aiSuggested(el)).toEqual(["música", "verano"]);
@@ -844,7 +850,7 @@ test("aceptar una sugerencia la añade y la quita de la lista, sin tocar las dem
 		editor.open = true;
 	});
 
-	setState(el, "aiSuggestedTags", ["música", "verano", "amigos"]);
+	seedAiSuggestions(el, ["música", "verano", "amigos"]);
 	await el.updateComplete;
 
 	const boton = [
@@ -864,7 +870,7 @@ test("reabrir el editor olvida las sugerencias de la vez anterior", async () => 
 		editor.draft = { tags: ["cine"] };
 		editor.open = true;
 	});
-	setState(el, "aiSuggestedTags", ["música"]);
+	seedAiSuggestions(el, ["música"]);
 	await el.updateComplete;
 	expect(aiSuggested(el)).toEqual(["música"]);
 
