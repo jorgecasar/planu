@@ -455,7 +455,7 @@ describe("deciding, reconsidering, and being readmitted", () => {
 		// *event* side instead, in `acceptsInvite()`'s `get`/`getAfter` check,
 		// which blocks joining without flipping the invite but not the other
 		// way around. This is safe today only because the real client,
-		// `acceptInvite()` in `apps/web/src/sharing/invitations.ts`, always
+		// `acceptInvite()` in `apps/web/src/infrastructure/firebase/sharing-adapter.ts`, always
 		// batches both writes together — nothing here enforces that a future
 		// caller must. If `invitedDecides()` is ever tightened to close this,
 		// this test should start failing and can be deleted; until then it

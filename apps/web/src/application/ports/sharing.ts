@@ -6,10 +6,11 @@ import type { SessionUser } from "./session.js";
  * What `share-dialog.ts` needs to invite, list and manage the people on an
  * event, plus the two triggers that keep the directory current
  * (`firebase-provider.ts`'s `onAuthStateChanged` and `profile-view.ts`'s "I
- * have verified it" button).
+ * have verified it" button), and what `invitations-inbox.ts` needs to answer
+ * the invitations someone received.
  *
  * Not a general events port: like `AccountDataPort`, it is deliberately
- * narrow — one component and its two triggers, not every operation the
+ * narrow — two components and two triggers, not every operation the
  * `userDirectory`/`userProfiles`/`eventInvites` collections could ever
  * support. Widening it the day another use case needs more is fine; not
  * before.
@@ -34,6 +35,17 @@ export interface PendingInviteSummary {
 	eventId: string;
 	inviteeUid: string;
 	inviteeEmail: string;
+	role: EventRole;
+}
+
+/** A pending invitation addressed to the current user — what the inbox shows. */
+export interface ReceivedInvite {
+	id: string;
+	eventId: string;
+	/** Carried on the invitation because the invitee cannot read the event yet. */
+	eventTitle: string;
+	inviteeUid: string;
+	invitedByName: string;
 	role: EventRole;
 }
 
@@ -80,6 +92,9 @@ export interface SharingPort {
 
 	/** Revokes an invitation nobody has answered yet. */
 	revokeInvite(id: string): Promise<void>;
+
+	/** Joins the event and marks the invitation accepted, atomically. */
+	acceptInvite(invite: ReceivedInvite): Promise<void>;
 
 	/** Rewrites an event's membership — adding, removing or re-roling a guest. */
 	updateEventMembership(

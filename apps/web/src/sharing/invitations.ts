@@ -17,19 +17,14 @@
  */
 
 import {
-	arrayUnion,
 	collection,
-	deleteDoc,
 	doc,
 	type Firestore,
-	getDoc,
 	query,
 	serverTimestamp,
-	setDoc,
 	type Timestamp,
 	updateDoc,
 	where,
-	writeBatch,
 } from "firebase/firestore";
 import type { EventRole } from "../lib/types.js";
 
@@ -79,84 +74,6 @@ export function invitesFor(firestore: Firestore, uid: string) {
 	);
 }
 
-/**
- * Offers the event to someone, or edits/re-offers an existing offer. Nothing
- * changes for them until they accept.
- *
- * The write's shape depends on what, if anything, is already there — the
- * rules require it, not just style:
- *
- * - No prior invitation, or one already decided (`accepted`/`declined`):
- *   a fresh `pending` offer with `createdAt` set by the server. Inviting
- *   someone who already declined, or re-inviting after removing them, both
- *   start a new offer with its own date rather than resurrecting the old
- *   one — matched on the rule side by `ownerReoffers()`, which likewise
- *   pins `createdAt` to `request.time`.
- * - A `pending` invitation already sitting there: this is an edit, not a
- *   new offer, so `createdAt` carries over unchanged. `ownerEditsWhilePending()`
- *   enforces exactly that — a full replace with a fresh timestamp would
- *   deny the write, since a client-chosen `createdAt` can never match what
- *   the rule expects. Skipping the read here and letting `setDoc` collide
- *   with a still-pending row is what silently broke "invite someone twice
- *   to fix a typo'd role" before this fix: `PERMISSION_DENIED` on every
- *   retry, because a fresh timestamp never equals the stored one.
- */
-export async function inviteToEvent(
-	firestore: Firestore,
-	invite: Omit<EventInvite, "id" | "status" | "createdAt" | "decidedAt">,
-): Promise<void> {
-	const ref = doc(
-		firestore,
-		INVITES_COLLECTION,
-		inviteId(invite.eventId, invite.inviteeUid),
-	);
-	const existing = await getDoc(ref);
-	const createdAt =
-		existing.exists() && existing.data()["status"] === "pending"
-			? existing.data()["createdAt"]
-			: serverTimestamp();
-
-	await setDoc(ref, {
-		eventId: invite.eventId,
-		eventTitle: invite.eventTitle,
-		inviteeUid: invite.inviteeUid,
-		inviteeEmail: invite.inviteeEmail,
-		invitedBy: invite.invitedBy,
-		invitedByName: invite.invitedByName,
-		role: invite.role,
-		status: "pending",
-		createdAt,
-		decidedAt: null,
-	});
-}
-
-/**
- * Joins the event and marks the invitation accepted, atomically.
- *
- * Updating the invitation rather than deleting it is what turns a decision
- * into a record. It also has to happen in the same batch as the membership
- * write: the rule requires the invitation to already read `accepted` by the
- * time the event write is evaluated, or the whole batch is denied — see
- * `acceptsInvite()` in `firestore.rules`.
- */
-export async function acceptInvite(
-	firestore: Firestore,
-	invite: EventInvite,
-): Promise<void> {
-	const batch = writeBatch(firestore);
-
-	batch.update(doc(firestore, "events", invite.eventId), {
-		memberIds: arrayUnion(invite.inviteeUid),
-		[`roles.${invite.inviteeUid}`]: invite.role,
-	});
-	batch.update(doc(firestore, INVITES_COLLECTION, invite.id), {
-		status: "accepted",
-		decidedAt: serverTimestamp(),
-	});
-
-	await batch.commit();
-}
-
 /** Declines it. The record stays, so it can be reconsidered later. */
 export async function declineInvite(
 	firestore: Firestore,
@@ -166,23 +83,4 @@ export async function declineInvite(
 		status: "declined",
 		decidedAt: serverTimestamp(),
 	});
-}
-
-/** Moves a declined invitation back to pending, so it can be decided again. */
-export async function reconsiderInvite(
-	firestore: Firestore,
-	invite: Pick<EventInvite, "id">,
-): Promise<void> {
-	await updateDoc(doc(firestore, INVITES_COLLECTION, invite.id), {
-		status: "pending",
-		decidedAt: null,
-	});
-}
-
-/** Revokes an invitation nobody has answered yet. Only the owner may call this. */
-export async function revokeInvite(
-	firestore: Firestore,
-	invite: Pick<EventInvite, "id">,
-): Promise<void> {
-	await deleteDoc(doc(firestore, INVITES_COLLECTION, invite.id));
 }
