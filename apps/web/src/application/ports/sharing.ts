@@ -110,8 +110,12 @@ export interface SharingPort {
 		onChange: (invites: ReceivedInvite[]) => void,
 	): () => void;
 
-	/** Joins the event and marks the invitation accepted, atomically. */
-	acceptInvite(invite: ReceivedInvite): Promise<void>;
+	/**
+	 * Joins the event and marks the invitation accepted, atomically. With the
+	 * invitee's `email`, also spends any email offer of the same event to it:
+	 * the rules refuse a join that leaves one behind (GH-147).
+	 */
+	acceptInvite(invite: ReceivedInvite, email?: string): Promise<void>;
 
 	/** Declines invitation `id`. The record stays, so it can be reconsidered later. */
 	declineInvite(id: string): Promise<void>;

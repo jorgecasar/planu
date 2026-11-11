@@ -132,7 +132,8 @@ export class PlanuInvitationsInbox extends LitElement {
 	}
 
 	async #accept(invite: ReceivedInvite): Promise<void> {
-		await this.#run(invite, (sharing) => sharing.acceptInvite(invite));
+		const email = this.user?.email ?? undefined;
+		await this.#run(invite, (sharing) => sharing.acceptInvite(invite, email));
 	}
 
 	async #decline(invite: ReceivedInvite): Promise<void> {
