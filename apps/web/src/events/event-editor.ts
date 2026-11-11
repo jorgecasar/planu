@@ -51,9 +51,8 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
-import { createAiModelSession, type TokenClaims } from "./ai-model-session.js";
-import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 import { tagChipStyles } from "./tag-styles.js";
+import { TagSuggestionController } from "./tag-suggestion-controller.js";
 
 /** Matches the limit in storage.rules; checking it here gives a better message. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -179,21 +178,11 @@ export class PlanuEventEditor extends LitElement {
 	/** The ones the user already uses in other events, for autocomplete. */
 	@property({ attribute: false }) knownTags: readonly string[] = [];
 
-	/**
-	 * Up to three tags proposed by the AI when clicking "Suggest tags with
-	 * AI". They appear unchecked and are never applied on their own (T24).
-	 */
-	@state() private aiSuggestedTags: string[] = [];
-	@state() private suggestingTags = false;
-
-	/**
-	 * Whether downloading the model is part of the current wait. Different
-	 * from `suggestingTags` because the button says something different in
-	 * each case: this one can take minutes the first time, and without it,
-	 * it would look frozen.
-	 */
-	@state() private tagSuggestionDownloading = false;
-	@state() private tagSuggestionProgress = 0;
+	/** "Suggest tags with AI" (T24). Not `#private` so tests can seed it. */
+	private readonly tagSuggestions = new TagSuggestionController(this, {
+		getAiModel: () => this.aiModel,
+		getUser: () => this.user,
+	});
 
 	/**
 	 * Whether it's worth showing the button. Same as `aiAvailable` in
@@ -210,23 +199,6 @@ export class PlanuEventEditor extends LitElement {
 	 * empty form, not to remember the choice across a whole session.
 	 */
 	@state() private aiBlockDismissed = false;
-
-	/** Lazy: building it doesn't call the model on its own. */
-	#tagSuggestionSession: ReturnType<typeof createAiModelSession> | undefined;
-
-	/**
-	 * The pattern `ai-event-generator.ts` used to reuse before it stopped
-	 * being a reusable instance (it's now recreated on every mount, so it
-	 * tracks disposal with a plain `#disposed` boolean instead): this editor
-	 * is still a single instance reused across events —`events-view.ts`
-	 * toggles `.open`/`.event`/`.draft` on the same element, never
-	 * unmounting it—, so a suggestion requested for one event must not
-	 * apply if, while the model was thinking, the editor closed and
-	 * reopened for another. A review found exactly this kind of bug in the
-	 * earlier design —the two-phase save gate— before this button replaced
-	 * it.
-	 */
-	#tagGeneration = 0;
 
 	override willUpdate(changed: Map<string, unknown>): void {
 		// On opening, the form starts from what's being edited or from what
@@ -247,14 +219,10 @@ export class PlanuEventEditor extends LitElement {
 			this.tagDraft = "";
 			this.error = "";
 			this.progress = 0;
-			this.aiSuggestedTags = [];
-			this.suggestingTags = false;
-			this.tagSuggestionDownloading = false;
-			this.tagSuggestionProgress = 0;
 			this.aiBlockDismissed = false;
 			// Counts as a close: a suggestion requested before reopening —for
 			// the same event or for another— must not apply when it resolves.
-			this.#tagGeneration++;
+			this.tagSuggestions.reset();
 			void this.#refreshAiAvailability();
 		}
 	}
@@ -547,13 +515,13 @@ export class PlanuEventEditor extends LitElement {
 								type="button"
 								size="small"
 								appearance="outlined"
-								?disabled=${this.suggestingTags || full}
+								?disabled=${this.tagSuggestions.suggesting || full}
 								@click=${this.#onSuggestTags}
 							>
 								${
-									this.tagSuggestionDownloading
+									this.tagSuggestions.downloading
 										? msg("Downloading the AI model…")
-										: this.suggestingTags
+										: this.tagSuggestions.suggesting
 											? msg("Suggesting tags…")
 											: msg("Suggest tags with AI")
 								}
@@ -561,9 +529,9 @@ export class PlanuEventEditor extends LitElement {
 						: nothing
 				}
 				${
-					this.tagSuggestionDownloading
+					this.tagSuggestions.downloading
 						? html`<wa-progress-bar
-								value=${this.tagSuggestionProgress}
+								value=${this.tagSuggestions.progress}
 							></wa-progress-bar>`
 						: nothing
 				}
@@ -576,7 +544,7 @@ export class PlanuEventEditor extends LitElement {
 				${this.#renderTagList(
 					"ai-suggestions",
 					msg("Tags suggested by AI"),
-					this.aiSuggestedTags,
+					this.tagSuggestions.suggested,
 					(tag) => html`
 						<wa-button
 							type="button"
@@ -673,7 +641,7 @@ export class PlanuEventEditor extends LitElement {
 		// It doesn't disappear from winning one: if the AI proposed three,
 		// accepting the first one shouldn't force repeating the save to get
 		// to the second.
-		this.aiSuggestedTags = this.aiSuggestedTags.filter((each) => each !== tag);
+		this.tagSuggestions.accept(tag);
 	}
 
 	async #onFile(domEvent: globalThis.Event): Promise<void> {
@@ -829,89 +797,19 @@ export class PlanuEventEditor extends LitElement {
 	 * depend on saving either: it can be requested, ignored and saved
 	 * without any, just like before this button existed.
 	 */
-	async #onSuggestTags(): Promise<void> {
-		const { aiModel } = this;
-		if (!aiModel) return;
-
-		const token = this.#tagGeneration;
-		this.suggestingTags = true;
-		try {
-			// Unlike the earlier gate, here the model does get downloaded if
-			// needed: whoever clicks the button has already explicitly
-			// requested the AI, just like with "Generate with AI", so forcing
-			// the first-time wait isn't a surprise.
-			await this.#tagSession(aiModel).warmUp((percent) => {
-				if (token !== this.#tagGeneration) return;
-				this.tagSuggestionDownloading = true;
-				this.tagSuggestionProgress = percent;
-			});
-			if (token !== this.#tagGeneration) return;
-			this.tagSuggestionDownloading = false;
-
-			const suggestions = await suggestTagsWithAi(
-				(parts) =>
-					this.#tagSession(aiModel)
-						.generate(parts)
-						.then((response) => response.text),
-				{
-					title: this.#fieldValue("title"),
-					description: this.#fieldValue("description"),
-					location: this.#fieldValue("location"),
-					knownTags: this.knownTags,
-					// The ones already on this event aren't proposed again.
-					chosenTags: this.tags,
-				},
-			);
-
-			// The editor is a single instance reused across events: if it was
-			// closed and reopened while the model was thinking —for the same
-			// event or for another—, this response no longer belongs to
-			// anyone.
-			if (token !== this.#tagGeneration) return;
-			this.aiSuggestedTags = suggestions;
-		} catch {
-			// `suggestTagsWithAi()` already swallows its own failures; the only
-			// thing that can land here is a `warmUp()` failure —an interrupted
-			// download—, and silence is the right response for that too:
-			// nobody asked for more than "try it".
-		} finally {
-			if (token === this.#tagGeneration) {
-				this.suggestingTags = false;
-				this.tagSuggestionDownloading = false;
-			}
-		}
-	}
-
-	/**
-	 * `SessionUser.getIdTokenResult` is optional — not every adapter can
-	 * resolve it — and `TokenClaims` requires it. With no user or no such
-	 * method, there's no claim to read: cloud AI treats that the same as
-	 * "not premium", which is the safe default.
-	 */
-	#claims(): TokenClaims | null {
-		const getIdTokenResult = this.user?.getIdTokenResult;
-		return getIdTokenResult ? { getIdTokenResult } : null;
-	}
-
-	/** Lazy: creating it doesn't download anything on its own. */
-	#tagSession(aiModel: AiModelPort) {
-		// Text only: unlike the event generator, there's no image to analyze.
-		this.#tagSuggestionSession ??= createAiModelSession({
-			getUser: () => this.#claims(),
-			buildModel: (mode) =>
-				aiModel.build({
-					mode,
-					inputs: ["text"],
-					responseConstraint: TAG_SUGGESTION_SCHEMA,
-				}),
-		});
-		return this.#tagSuggestionSession;
+	#onSuggestTags(): Promise<void> {
+		return this.tagSuggestions.suggest(() => ({
+			title: this.#fieldValue("title"),
+			description: this.#fieldValue("description"),
+			location: this.#fieldValue("location"),
+			knownTags: this.knownTags,
+			chosenTags: this.tags,
+		}));
 	}
 
 	#close(): void {
-		// See the comment on `#tagGeneration`: closing invalidates any
-		// suggestion that was still thinking.
-		this.#tagGeneration++;
+		// Closing invalidates any suggestion that was still thinking.
+		this.tagSuggestions.invalidate();
 		this.open = false;
 		// This instance is never unmounted, and the parent's own binding on
 		// `.draft`/`.draftSource` only ever changes when it goes from one
