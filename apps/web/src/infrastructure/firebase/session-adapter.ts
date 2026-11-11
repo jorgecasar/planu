@@ -197,14 +197,19 @@ export class FirebaseSessionAdapter implements SessionPort {
 		}
 	}
 
-	async deleteAccount(): Promise<void> {
+	async deleteAccount(expectedUid: string): Promise<void> {
 		const user = this.#auth.currentUser;
 		// Not a silent `return`: that would report success without deleting
 		// anything. It can genuinely happen — the session got invalidated in
 		// another tab while the deletion was in flight — and the caller needs
 		// to tell that apart from a real deletion, so it doesn't announce the
 		// account as gone while the Auth record still exists.
-		if (!user) throw new SessionError("unknown");
+		// A different uid means another tab signed in as someone else
+		// meanwhile: `currentUser` is no longer the account whose data was
+		// just deleted, and deleting it would delete the wrong person (#154).
+		if (!user || user.uid !== expectedUid) {
+			throw new SessionError("unknown");
+		}
 
 		try {
 			await deleteUser(user);

@@ -1,5 +1,5 @@
 import { FirebaseError } from "firebase/app";
-import { reload, verifyBeforeUpdateEmail } from "firebase/auth";
+import { deleteUser, reload, verifyBeforeUpdateEmail } from "firebase/auth";
 import { expect, test, vi } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
 import {
@@ -8,12 +8,13 @@ import {
 	toSessionUser,
 } from "./session-adapter.js";
 
-// Only `verifyBeforeUpdateEmail` and `reload` are replaced, so they run
-// without a network round trip; every other export stays real.
+// Only `verifyBeforeUpdateEmail`, `reload` and `deleteUser` are replaced, so
+// they run without a network round trip; every other export stays real.
 vi.mock("firebase/auth", async (importOriginal) => ({
 	...(await importOriginal<typeof import("firebase/auth")>()),
 	verifyBeforeUpdateEmail: vi.fn(),
 	reload: vi.fn(),
+	deleteUser: vi.fn(),
 }));
 
 // Pure and synchronous: builds the errors by hand, without touching the
@@ -165,9 +166,34 @@ test("deleteAccount() no reporta éxito si ya no hay sesión: lanza en vez de de
 	// from T32's security audit.
 	const adapter = new FirebaseSessionAdapter({ currentUser: null } as never);
 
-	await expect(adapter.deleteAccount()).rejects.toMatchObject({
+	await expect(adapter.deleteAccount("u1")).rejects.toMatchObject({
 		code: "unknown",
 	});
+	expect(deleteUser).not.toHaveBeenCalled();
+});
+
+test("deleteAccount() no borra a otro usuario si la sesión cambió de uid a mitad del borrado", async () => {
+	// Another tab signed in as someone else after the use case verified "u1":
+	// deleting `currentUser` then would delete the wrong account (#154).
+	vi.mocked(deleteUser).mockClear();
+	const adapter = new FirebaseSessionAdapter({
+		currentUser: { uid: "u2" },
+	} as never);
+
+	await expect(adapter.deleteAccount("u1")).rejects.toMatchObject({
+		code: "unknown",
+	});
+	expect(deleteUser).not.toHaveBeenCalled();
+});
+
+test("deleteAccount() borra el usuario actual si es el uid verificado", async () => {
+	vi.mocked(deleteUser).mockClear().mockResolvedValueOnce(undefined);
+	const user = { uid: "u1" };
+	const adapter = new FirebaseSessionAdapter({ currentUser: user } as never);
+
+	await adapter.deleteAccount("u1");
+
+	expect(deleteUser).toHaveBeenCalledExactlyOnceWith(user);
 });
 
 test("reauthenticate() no intenta un popup de Google para un proveedor sin clasificar", async () => {

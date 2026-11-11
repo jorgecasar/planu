@@ -63,8 +63,12 @@ export interface SessionPort {
 	 * Rejects with `SessionError` `"requires-recent-login"` if the session
 	 * is too old; the caller is expected to call `reauthenticate()` and
 	 * retry, not to reauthenticate on its behalf.
+	 *
+	 * `expectedUid` is the account the caller verified and emptied: rejects
+	 * with `"unknown"`, deleting nothing, if the current session is gone or
+	 * belongs to another uid by now.
 	 */
-	deleteAccount(): Promise<void>;
+	deleteAccount(expectedUid: string): Promise<void>;
 
 	/**
 	 * Creates the account and, if the provider allows it, sends the

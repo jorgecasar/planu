@@ -66,7 +66,9 @@ export async function deleteAccount(
 		});
 
 		if (event.isOwner) {
-			if (event.imageUrl) await account.deleteEventImage(event.imageUrl);
+			if (event.imageUrl) {
+				await account.deleteEventImage(event.imageUrl, current.uid);
+			}
 			await account.deleteOwnEvent(event.id);
 		} else {
 			await account.leaveEvent(event.id, current.uid);
@@ -96,5 +98,5 @@ export async function deleteAccount(
 	// and retry; everything else in this use case is already deleted by the
 	// time this happens, so a retry lists (empty) and lands here directly.
 	onProgress?.({ phase: "deleting-account" });
-	await session.deleteAccount();
+	await session.deleteAccount(current.uid);
 }
