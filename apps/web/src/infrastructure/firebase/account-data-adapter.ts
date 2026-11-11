@@ -3,6 +3,7 @@
  * knows account deletion touches Firestore and Storage.
  */
 
+import { FirebaseError } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import {
 	collection,
@@ -13,7 +14,7 @@ import {
 	updateDoc,
 	where,
 } from "firebase/firestore";
-import type { FirebaseStorage } from "firebase/storage";
+import type { FirebaseStorage, StorageReference } from "firebase/storage";
 import { deleteObject, listAll, ref } from "firebase/storage";
 import type {
 	AccountDataPort,
@@ -101,15 +102,51 @@ export function createAccountDataAdapter(
 			});
 		},
 
-		async deleteEventImage(imageUrl: string): Promise<void> {
+		async deleteEventImage(imageUrl: string, uid: string): Promise<void> {
+			// Only the account's own prefix in this app's bucket. An editor's
+			// cover on an owned event lives under the editor's uid, which the
+			// rules won't let this account delete: failing on it would let any
+			// editor block the owner's deletion for good. A URL that doesn't
+			// parse points at nothing this account can delete either.
+			let target: StorageReference;
 			try {
-				await deleteObject(ref(storage, imageUrl));
+				target = ref(storage, imageUrl);
 			} catch {
-				// Already deleted, or the URL no longer resolves to anything:
-				// not a reason to leave the rest of the deletion unfinished. The
-				// account gets deleted either way; an orphaned image in Storage
-				// isn't reachable without the account that uploaded it, and the
-				// rules protect it just the same.
+				return;
+			}
+			// Only names the app itself creates under `events/{uid}/`: `ref()`
+			// doesn't normalise, so `..`, subfolders or an encoded `/` would
+			// pass a looser check and still be denied. Anything skipped here is
+			// still swept by `deleteAllEventImages(uid)`.
+			const prefix = `events/${uid}/`;
+			const name = target.fullPath.slice(prefix.length);
+			if (
+				target.bucket !== ref(storage).bucket ||
+				!target.fullPath.startsWith(prefix) ||
+				// Allowed shape comes from `uploadFile()` in `firebase/storage.ts`.
+				!/^[A-Za-z0-9._-]+$/.test(name) ||
+				name === "." ||
+				name === ".." ||
+				// Production's 1024-byte name cap; ASCII-only here, so chars = bytes.
+				target.fullPath.length > 1024
+			) {
+				return;
+			}
+
+			try {
+				await deleteObject(target);
+			} catch (cause) {
+				// Already deleted: not a reason to leave the rest of the deletion
+				// unfinished, and what makes a retry resumable. Anything else —
+				// denied, network — propagates, so the Auth account survives for
+				// a retry instead of leaving the image orphaned (#154).
+				if (
+					cause instanceof FirebaseError &&
+					cause.code === "storage/object-not-found"
+				) {
+					return;
+				}
+				throw cause;
 			}
 		},
 

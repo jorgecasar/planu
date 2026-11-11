@@ -34,8 +34,12 @@ export interface AccountDataPort {
 	/** Removes the account from `memberIds`/`roles` of a guest event, nothing else. */
 	leaveEvent(eventId: string, uid: string): Promise<void>;
 
-	/** Deletes an owned event's cover image, if `imageUrl` pointed to one. */
-	deleteEventImage(imageUrl: string): Promise<void>;
+	/**
+	 * Deletes an owned event's cover image, if `imageUrl` points to one under
+	 * `uid`'s own folder. Anything else — another uploader's folder, another
+	 * bucket, an unparseable URL — is skipped, not an error.
+	 */
+	deleteEventImage(imageUrl: string, uid: string): Promise<void>;
 
 	/**
 	 * Deletes everything left in the account's own image folder, referenced

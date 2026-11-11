@@ -61,6 +61,14 @@ test("sin eventos, borra el directorio y la cuenta, y nada más", async () => {
 	expect(session.deleteAccount).toHaveBeenCalledOnce();
 });
 
+test("pasa al puerto el uid verificado al empezar, para que no borre otra sesión", async () => {
+	const session = fakeSession();
+
+	await deleteAccount(session, fakeAccount([]), USER);
+
+	expect(session.deleteAccount).toHaveBeenCalledExactlyOnceWith("u1");
+});
+
 test("un evento propio con imagen: la imagen se borra antes que el evento", async () => {
 	const order: string[] = [];
 	const account = fakeAccount([
@@ -77,6 +85,7 @@ test("un evento propio con imagen: la imagen se borra antes que el evento", asyn
 
 	expect(account.deleteEventImage).toHaveBeenCalledWith(
 		"https://example.com/e1.png",
+		"u1",
 	);
 	expect(account.deleteOwnEvent).toHaveBeenCalledWith("e1");
 	expect(account.leaveEvent).not.toHaveBeenCalled();
