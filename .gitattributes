@@ -1,0 +1,3 @@
+# Written by lit-localize, not by hand: kj leaves these out of the Sonar
+# requirement and the PR size budget, and GitHub folds them in diffs.
+apps/web/src/generated/** linguist-generated
