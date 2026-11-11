@@ -25,6 +25,7 @@ import {
 import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
+import { saveEvent } from "../application/save-event.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import {
 	describeInferenceSource,
@@ -717,62 +718,18 @@ export class PlanuEventEditor extends LitElement {
 
 		this.saving = true;
 		try {
-			await this.#save(eventRepository, user, parsed.data);
+			await saveEvent(eventRepository, this.analytics, {
+				values: parsed.data,
+				ownerUid: user.uid,
+				editingId: this.event?.id,
+				isFirstEvent: () => this.isFirstEvent,
+			});
 			this.#close();
 		} catch {
 			this.error = msg("The event could not be saved. Please try again.");
 		} finally {
 			this.saving = false;
 		}
-	}
-
-	/**
-	 * Decision 5 of the spec: for an all-day event, dates get normalised to
-	 * local midnight before saving. That keeps the data honest — an all-day
-	 * event doesn't drag along a leftover time from whenever it had one — and
-	 * lets `toIcsDate()` keep reading local components.
-	 *
-	 * A no-op on the submit path: `fromDateFields()` already builds every
-	 * date at `"00:00"` when its time is empty, and `allDay` implies that.
-	 * It stays as a guard for any other caller that hands `#save` an all-day
-	 * event with a time still on it.
-	 */
-	#normalize(values: PlanuEvent): PlanuEvent {
-		if (!values.allDay) return values;
-		const startOfDay = (found: Date) =>
-			new Date(found.getFullYear(), found.getMonth(), found.getDate());
-		return {
-			...values,
-			startDate: values.startDate ? startOfDay(values.startDate) : null,
-			endDate: values.endDate ? startOfDay(values.endDate) : null,
-		};
-	}
-
-	async #save(
-		eventRepository: EventRepositoryPort,
-		user: SessionUser,
-		values: PlanuEvent,
-	): Promise<unknown> {
-		const normalized = this.#normalize(values);
-
-		// Editing sends content only. Resending the editor's uid would cost an
-		// invited editor their permission, because to the rules that is
-		// transferring ownership; and membership is not touched from here, which
-		// is what the share dialog is for.
-		if (this.event) {
-			return eventRepository.update(this.event.id, normalized);
-		}
-
-		// An event is born with its creator as sole member and no guests: the
-		// rules reject any other way of starting. The flag is read before the
-		// write: latency compensation updates the listing — and clears it —
-		// before `create()` resolves.
-		const isFirst = this.isFirstEvent;
-		const created = await eventRepository.create(normalized, user.uid);
-		if (isFirst) {
-			this.analytics.trackFirstEventCreated();
-		}
-		return created.id;
 	}
 
 	/**
