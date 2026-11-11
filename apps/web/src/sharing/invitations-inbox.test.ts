@@ -171,3 +171,44 @@ for (const [label, fake] of [
 		expect(fakes[fake]).toHaveBeenCalledTimes(2);
 	});
 }
+
+test("escucha sólo mientras está en la página y suelta cada escucha una única vez", async () => {
+	const stops: ReturnType<typeof vi.fn>[] = [];
+	SHARING.watchReceivedInvites.mockImplementation((_uid, next) => {
+		next(fakes.invites);
+		const stop = vi.fn();
+		stops.push(stop);
+		return stop;
+	});
+	// `@consume` fields are plain properties: assigning them does not render.
+	async function set(el: PlanuInvitationsInbox, user: SessionUser | null) {
+		Object.assign(el, { user });
+		el.requestUpdate();
+		await el.updateComplete;
+	}
+	const el = await mount();
+	expect(stops).toHaveLength(1);
+
+	el.remove();
+	expect(stops[0]).toHaveBeenCalledOnce();
+
+	document.body.append(el);
+	await el.updateComplete;
+	expect(SHARING.watchReceivedInvites).toHaveBeenCalledTimes(2);
+	expect(stops[1]).not.toHaveBeenCalled();
+
+	await set(el, { ...USER, uid: "u3" });
+	expect(SHARING.watchReceivedInvites).toHaveBeenLastCalledWith(
+		"u3",
+		expect.any(Function),
+	);
+	expect(stops[1]).toHaveBeenCalledOnce();
+
+	await set(el, null);
+	expect(stops[2]).toHaveBeenCalledOnce();
+	expect(el.shadowRoot?.querySelector("li")).toBeNull();
+	expect(SHARING.watchReceivedInvites).toHaveBeenCalledTimes(3);
+
+	el.remove();
+	for (const stop of stops) expect(stop).toHaveBeenCalledOnce();
+});
