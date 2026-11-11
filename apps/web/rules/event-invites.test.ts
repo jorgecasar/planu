@@ -126,6 +126,10 @@ describe("creating an invitation", () => {
 				invitedBy: STRANGER,
 			}),
 		);
+		// In their own name, to someone else: only event ownership stops it.
+		await assertFails(
+			setDoc(doc(as(STRANGER), INVITE), anInvite({ invitedBy: STRANGER })),
+		);
 	});
 
 	test("nobody can forge an invitation on someone else's behalf", async () => {

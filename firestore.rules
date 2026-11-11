@@ -414,18 +414,45 @@ service cloud.firestore {
             && request.resource.data.createdAt == request.time;
       }
 
-      // Only the owner of the event may offer it, and only in their own name.
-      // The dates are the server's to set, not the client's: a forged
-      // creation time would misorder the invitee's own history of who invited
-      // them and when.
+      // The offer by email made to the caller's own verified address (ADR
+      // 0012). The path comes from the token, never from the payload.
+      function offerPath(d) {
+        return /databases/$(database)/documents/eventInvitesByEmail/$(
+          d.eventId + '_'
+            + hashing.sha256(request.auth.token.email.lower()).toHexString().lower());
+      }
+
+      // Redeeming that offer: copied field for field, since the role and the
+      // inviter were the owner's decisions, and deleted in the same batch so
+      // it cannot be redeemed twice. With no offer, or no email in the token,
+      // the get fails and so does the rule. Single use also rests on the
+      // offer's delete rule: only its sender or invitee may spend it.
+      function claimsOffer(d) {
+        let offer = get(offerPath(d)).data;
+        return d.inviteeUid == uid()
+            && d.eventId == offer.eventId
+            && !existsAfter(offerPath(d))
+            && d.role == offer.role
+            && d.invitedBy == offer.invitedBy
+            && eventOf(d).userId == offer.invitedBy
+            && d.eventTitle == offer.eventTitle
+            && d.get('inviteeEmail', '') == offer.inviteeEmail
+            && d.get('invitedByName', '') == offer.get('invitedByName', '');
+      }
+
+      // Only the owner of the event may offer it, and only in their own name,
+      // unless the invitee redeems an offer by email. The dates are the
+      // server's to set, not the client's: a forged creation time would
+      // misorder the invitee's own history of who invited them and when.
       allow create: if request.auth != null
                     && isVerified()
                     && isValidInvite(request.resource.data)
-                    && request.resource.data.invitedBy == uid()
                     && request.resource.data.status == 'pending'
                     && request.resource.data.createdAt == request.time
                     && request.resource.data.decidedAt == null
-                    && eventOf(request.resource.data).userId == uid();
+                    && ((request.resource.data.invitedBy == uid()
+                         && eventOf(request.resource.data).userId == uid())
+                        || claimsOffer(request.resource.data));
 
       // One rule per operation, the three paths OR-ed inside it: splitting
       // them into separate `allow update` statements would combine with OR at
@@ -495,9 +522,32 @@ service cloud.firestore {
             && inviteId == d.eventId + '_' + emailHash(d.inviteeEmail);
       }
 
-      // get and list alike: a query passes only if it filters on the
-      // caller's own `invitedBy`, which account deletion needs.
-      allow read: if isSender();
+      // Whoever holds the address, verified. Registering with someone else's
+      // email is trivial; verifying it is not.
+      function isInvitee() {
+        return request.auth != null
+            && isVerified()
+            && request.auth.token.email is string
+            && emailHash(resource.data.inviteeEmail)
+                 == emailHash(request.auth.token.email);
+      }
+
+      // A missing id is readable only if it ends in the caller's own hash, so
+      // nobody can probe which addresses hold an offer.
+      function isOwnMissingId() {
+        return request.auth != null
+            && isVerified()
+            && request.auth.token.email is string
+            && inviteId.matches('.+_' + emailHash(request.auth.token.email));
+      }
+
+      // The invitee gets ids they already know. A list passes only if it
+      // filters on the caller's own `invitedBy`, which account deletion needs;
+      // granting the invitee a list filtered on their own address is ADR
+      // 0012's open option (a), not decided here.
+      allow get: if (resource == null && isOwnMissingId())
+                 || (resource != null && (isSender() || isInvitee()));
+      allow list: if isSender();
 
       // Only the event's verified owner, in their own name, at server time.
       allow create: if request.auth != null
@@ -508,7 +558,8 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.userId == request.auth.uid;
 
       // No update: re-offering is delete + create, so `createdAt` stays honest.
-      allow delete: if isSender();
+      // The invitee deletes it to decline, or in the claim's own batch.
+      allow delete: if isSender() || isInvitee();
     }
 
     // A minimal user directory, so people can be invited by email.

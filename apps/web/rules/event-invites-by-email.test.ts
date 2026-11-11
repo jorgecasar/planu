@@ -18,6 +18,7 @@ import {
 	Timestamp,
 	updateDoc,
 	where,
+	writeBatch,
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
 
@@ -163,5 +164,94 @@ describe("the sender's side of an offer", () => {
 		await assertFails(own(as(STRANGER)));
 		await assertFails(getDocs(collection(as(OWNER), "eventInvitesByEmail")));
 		await assertFails(deleteDoc(doc(as(STRANGER), SEEDED)));
+	});
+});
+
+const INVITEE = "newcomer-uid";
+const holder = (email = SEEDED_EMAIL, email_verified = true, uid = INVITEE) =>
+	env.authenticatedContext(uid, { email, email_verified }).firestore();
+
+describe("the invitee's side of an offer", () => {
+	test("the verified holder of the address reads and declines it", async () => {
+		await assertSucceeds(getDoc(doc(holder("Seeded@Example.com"), SEEDED)));
+		await assertSucceeds(deleteDoc(doc(holder(), SEEDED)));
+	});
+
+	test("a missing id reads only if it ends in the caller's own hash", async () => {
+		const mine = pathOf(SEEDED_EMAIL, "another-event");
+		await assertSucceeds(getDoc(doc(holder(), mine)));
+		await assertFails(getDoc(doc(holder(), pathOf(EMAIL, "another-event"))));
+		await assertFails(getDoc(doc(holder(SEEDED_EMAIL, false), mine)));
+	});
+
+	test("an unverified holder or another address cannot", async () => {
+		await assertFails(getDoc(doc(holder(SEEDED_EMAIL, false), SEEDED)));
+		await assertFails(deleteDoc(doc(holder(SEEDED_EMAIL, false), SEEDED)));
+		await assertFails(getDoc(doc(holder(EMAIL), SEEDED)));
+		await assertFails(deleteDoc(doc(holder(EMAIL), SEEDED)));
+	});
+
+	test("nor list offers, even filtered on their own address", async () => {
+		const mine = query(
+			collection(holder(), "eventInvitesByEmail"),
+			where("inviteeEmail", "==", SEEDED_EMAIL),
+		);
+		await assertFails(getDocs(mine));
+	});
+});
+
+describe("claiming an offer as an invitation", () => {
+	const INVITE = `eventInvites/an-event_${INVITEE}`;
+	const anInvite = (extra: Record<string, unknown> = {}) => ({
+		eventId: "an-event",
+		eventTitle: "Concert",
+		inviteeUid: INVITEE,
+		inviteeEmail: SEEDED_EMAIL,
+		invitedBy: OWNER,
+		invitedByName: "Ana",
+		role: "viewer",
+		status: "pending",
+		createdAt: serverTimestamp(),
+		decidedAt: null,
+		...extra,
+	});
+	const claim = (db = holder(), extra = {}, invite = INVITE) => {
+		const batch = writeBatch(db);
+		batch.delete(doc(db, SEEDED));
+		batch.set(doc(db, invite), anInvite(extra));
+		return batch.commit();
+	};
+
+	test("the verified holder turns it into an invitation, once", async () => {
+		await assertSucceeds(claim());
+		await assertFails(claim());
+	});
+
+	test("only while spending the offer in the same batch", async () => {
+		await assertFails(setDoc(doc(holder(), INVITE), anInvite()));
+	});
+
+	test("only by the verified holder, for themselves", async () => {
+		await assertFails(claim(holder(SEEDED_EMAIL, false)));
+		await assertFails(claim(holder(EMAIL)));
+		const other = "eventInvites/an-event_someone";
+		await assertFails(claim(holder(), { inviteeUid: "someone" }, other));
+	});
+
+	test.each([
+		["another role", { role: "editor" }],
+		["another inviter", { invitedBy: STRANGER }],
+		["another title", { eventTitle: "Other" }],
+		["another address", { inviteeEmail: EMAIL }],
+		["another inviter name", { invitedByName: "Eve" }],
+	])("copies the offer exactly, not with %s", async (_name, extra) => {
+		await assertFails(claim(holder(), extra));
+	});
+
+	test("not once the inviter no longer owns the event", async () => {
+		await env.withSecurityRulesDisabled((ctx) =>
+			setDoc(doc(ctx.firestore(), "events/an-event"), { userId: STRANGER }),
+		);
+		await assertFails(claim());
 	});
 });
