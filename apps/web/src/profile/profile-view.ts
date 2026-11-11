@@ -24,6 +24,7 @@ import { sessionContext, userContext } from "../firebase/context.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
 import "./change-email-form.js";
+import { ReauthStep } from "./reauth-step.js";
 
 /** Account details and sign out. */
 @customElement("planu-profile-view")
@@ -106,8 +107,7 @@ export class PlanuProfileView extends LitElement {
 	@state() private deleteError = "";
 	/** The one step that needs to ask for credentials again. */
 	@state() private needsReauth = false;
-	@state() private reauthPassword = "";
-	@state() private reauthenticating = false;
+	readonly #reauth = new ReauthStep(this);
 
 	override render() {
 		const user = this.user;
@@ -182,7 +182,12 @@ export class PlanuProfileView extends LitElement {
 			>
 				${
 					this.needsReauth
-						? this.#renderReauthStep()
+						? this.#reauth.render(
+								this.user,
+								this.deleteError,
+								this.#cancelDelete,
+								this.#reauthenticateAndRetry,
+							)
 						: html`
 								<p>
 									${msg(
@@ -234,59 +239,6 @@ export class PlanuProfileView extends LitElement {
 							`
 				}
 			</wa-dialog>
-		`;
-	}
-
-	#renderReauthStep() {
-		const passwordProvider = this.user?.provider === "password";
-		return html`
-			<p>
-				${msg(
-					"This takes a moment: please confirm it's you before we delete your account.",
-				)}
-			</p>
-			${
-				passwordProvider
-					? html`<wa-input
-							type="password"
-							label=${msg("Password")}
-							.value=${this.reauthPassword}
-							?disabled=${this.reauthenticating}
-							@input=${this.#onReauthPasswordInput}
-						></wa-input>`
-					: nothing
-			}
-			${
-				this.deleteError
-					? html`<wa-callout variant="danger" role="alert">
-							${this.deleteError}
-						</wa-callout>`
-					: nothing
-			}
-			<wa-button
-				slot="footer"
-				appearance="outlined"
-				?disabled=${this.reauthenticating}
-				@click=${this.#cancelDelete}
-			>
-				${msg("Cancel")}
-			</wa-button>
-			<wa-button
-				slot="footer"
-				variant="danger"
-				?disabled=${
-					(passwordProvider && !this.reauthPassword) || this.reauthenticating
-				}
-				@click=${this.#reauthenticateAndRetry}
-			>
-				${
-					this.reauthenticating
-						? msg("Confirming…")
-						: passwordProvider
-							? msg("Confirm and delete")
-							: msg("Continue with Google")
-				}
-			</wa-button>
 		`;
 	}
 
@@ -522,21 +474,17 @@ export class PlanuProfileView extends LitElement {
 		// the other way in, `@wa-hide` from Escape or the header close button.
 		// Returning isn't enough there: Web Awesome closes the dialog unless
 		// the `wa-hide` is cancelled.
-		if (this.deleteStep || this.reauthenticating) {
+		if (this.deleteStep || this.#reauth.busy) {
 			event?.preventDefault();
 			return;
 		}
 		this.confirmingDelete = false;
 		this.needsReauth = false;
-		this.reauthPassword = "";
+		this.#reauth.reset();
 	}
 
 	#onConfirmEmailInput(event: Event): void {
 		this.confirmEmail = (event.target as HTMLInputElement).value;
-	}
-
-	#onReauthPasswordInput(event: Event): void {
-		this.reauthPassword = (event.target as HTMLInputElement).value;
 	}
 
 	async #confirmDelete(): Promise<void> {
@@ -589,24 +537,22 @@ export class PlanuProfileView extends LitElement {
 	async #reauthenticateAndRetry(): Promise<void> {
 		// Same reason as in `#confirmDelete()`: a second click while the first
 		// is still in flight must not fire a second reauthentication.
-		if (this.reauthenticating || this.deleteStep) return;
+		if (this.#reauth.busy || this.deleteStep) return;
 		const { session, account, user } = this;
 		if (!session || !account || !user) return;
 
 		this.deleteError = "";
-		this.reauthenticating = true;
-		try {
-			await session.reauthenticate(
-				user.provider === "password" ? this.reauthPassword : undefined,
-			);
-			this.needsReauth = false;
-			this.reauthPassword = "";
-			await this.#runDelete(session, account, user);
-		} catch {
-			this.deleteError = msg("That did not work. Please try again.");
-		} finally {
-			this.reauthenticating = false;
-		}
+		await this.#reauth.confirm(
+			session,
+			user,
+			async () => {
+				this.needsReauth = false;
+				await this.#runDelete(session, account, user);
+			},
+			() => {
+				this.deleteError = msg("That did not work. Please try again.");
+			},
+		);
 	}
 }
 
