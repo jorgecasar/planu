@@ -59,6 +59,31 @@ export function createSharingAdapter(
 	firestore: Firestore,
 	record: WriteRecorder = () => {},
 ): SharingPort {
+	/**
+	 * The owner's own email offer for this event and address, if one is there.
+	 * Left in place it outlives a uid invite and a removal: the removed guest
+	 * erases their own record (ADR 0013) and claims it to get back in (GH-147).
+	 * Listed rather than read: the rules hide a missing offer even from its
+	 * sender, and deleting a missing one is denied, which would sink the batch.
+	 */
+	async function emailOfferTo(
+		eventId: string,
+		invitedBy: string,
+		email: string,
+	) {
+		const id = `${eventId}_${await emailHash(email)}`;
+		const snapshot = await getDocs(
+			query(
+				collection(firestore, PENDING_INVITES_BY_EMAIL_COLLECTION),
+				where("invitedBy", "==", invitedBy),
+				where("eventId", "==", eventId),
+			),
+		);
+		// Not `documentId() == id`: a single-id query is checked against that
+		// one document, and with no offer there the rule denies it.
+		return snapshot.docs.find((row) => row.id === id)?.ref;
+	}
+
 	return {
 		async findUserByEmail(email: string): Promise<DirectoryEntry | null> {
 			const snapshot = await getDoc(
@@ -138,13 +163,18 @@ export function createSharingAdapter(
 				INVITES_COLLECTION,
 				inviteId(invite.eventId, invite.inviteeUid),
 			);
-			const existing = await getDoc(ref);
+			const [existing, offer] = await Promise.all([
+				getDoc(ref),
+				emailOfferTo(invite.eventId, invite.invitedBy, invite.inviteeEmail),
+			]);
 			const createdAt =
 				existing.exists() && existing.data()["status"] === "pending"
 					? existing.data()["createdAt"]
 					: serverTimestamp();
 
-			await setDoc(ref, {
+			const batch = writeBatch(firestore);
+			if (offer) batch.delete(offer);
+			batch.set(ref, {
 				eventId: invite.eventId,
 				eventTitle: invite.eventTitle,
 				inviteeUid: invite.inviteeUid,
@@ -156,6 +186,7 @@ export function createSharingAdapter(
 				createdAt,
 				decidedAt: null,
 			});
+			await batch.commit();
 		},
 
 		async offerInviteByEmail(offer: InviteOffer): Promise<void> {
