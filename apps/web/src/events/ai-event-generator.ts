@@ -8,7 +8,7 @@ import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import { css, html, LitElement, nothing } from "lit";
+import { html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
 	type AiModelPort,
@@ -34,6 +34,7 @@ import {
 } from "../domain/ai-progress.js";
 import { imageStoreContext, userContext } from "../firebase/context.js";
 import type { PlanuEvent } from "../lib/types.js";
+import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";
 import {
 	type AiModelSession,
@@ -82,69 +83,7 @@ export interface GeneratedDraft {
  */
 @customElement("planu-ai-event-generator")
 export class PlanuAiEventGenerator extends LitElement {
-	static override styles = css`
-		fieldset {
-			display: flex;
-			flex-direction: column;
-			gap: var(--wa-space-s);
-			margin: 0;
-			padding: 0;
-			border: none;
-		}
-
-		legend {
-			padding: 0;
-			font-weight: var(--wa-font-weight-semibold);
-		}
-
-		.drop {
-			display: flex;
-			flex-direction: column;
-			gap: var(--wa-space-s);
-		}
-
-		img {
-			inline-size: 100%;
-			block-size: 12rem;
-			object-fit: contain;
-		}
-
-		.working {
-			display: flex;
-			align-items: center;
-			gap: var(--wa-space-s);
-		}
-
-		.working p {
-			margin: 0;
-		}
-
-		.what {
-			font-weight: var(--wa-font-weight-semibold);
-		}
-
-		.why {
-			color: var(--wa-color-text-quiet);
-			font-size: var(--wa-font-size-s);
-		}
-
-		.count {
-			margin: 0;
-			color: var(--wa-color-text-quiet);
-			font-size: var(--wa-font-size-s);
-		}
-
-		.count[data-over] {
-			color: var(--wa-color-danger-on-quiet);
-		}
-
-		.paste {
-			display: flex;
-			flex-direction: column;
-			align-items: start;
-			gap: var(--wa-space-s);
-		}
-	`;
+	static override styles = aiEventGeneratorStyles;
 
 	@consume({ context: aiModelContext, subscribe: true })
 	private aiModel: AiModelPort | undefined;
