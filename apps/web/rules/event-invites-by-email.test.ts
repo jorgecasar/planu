@@ -99,6 +99,22 @@ describe("offering an event to an email", () => {
 		await assertFails(offer(as(OWNER), gone, pathOf(EMAIL, "gone")));
 	});
 
+	// Joining would never spend it, and the owner can't see a member's address
+	// to spend it on removal (GH-147, T5).
+	test("not to an address that is already a member", async () => {
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			const db = ctx.firestore();
+			await setDoc(doc(db, `userDirectory/${hash(EMAIL)}`), { uid: "x" });
+			const members = { userId: OWNER, memberIds: [OWNER, "x"] };
+			await setDoc(doc(db, "events/an-event"), members);
+		});
+		await assertFails(offer());
+		await env.withSecurityRulesDisabled((ctx) =>
+			setDoc(doc(ctx.firestore(), "events/an-event"), { userId: OWNER }),
+		);
+		await assertSucceeds(offer());
+	});
+
 	test("the id is the event plus the hash of the stored address", async () => {
 		await assertFails(offer(as(OWNER), {}, pathOf("someone@example.com")));
 		await assertFails(offer(as(OWNER), {}, pathOf(EMAIL, "theirs")));
