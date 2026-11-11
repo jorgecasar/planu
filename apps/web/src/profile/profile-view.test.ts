@@ -481,3 +481,76 @@ test("una reautenticación rechazada lo dice y deja reintentar o cancelar", asyn
 	expect(dialogButton(el, "Cancel")?.hasAttribute("disabled")).toBe(false);
 	expect(session.deleteAccount).toHaveBeenCalledTimes(1);
 });
+
+test("la contraseña habilita confirmar; mientras se reautentica no se puede cancelar", async () => {
+	const session = fakeSession();
+	const el = await mountDeletable(session);
+	let finish = () => {};
+	vi.mocked(session.reauthenticate).mockReturnValue(
+		new Promise<void>((resolve) => {
+			finish = resolve;
+		}),
+	);
+	await reachReauth(session, el);
+	const confirm = dialogButton(el, "Confirm and delete");
+	expect(confirm?.hasAttribute("disabled")).toBe(false);
+
+	confirm?.click();
+	await el.updateComplete;
+	expect(dialogButton(el, "Cancel")?.hasAttribute("disabled")).toBe(true);
+
+	finish();
+	await vi.waitFor(() =>
+		expect(session.deleteAccount).toHaveBeenCalledTimes(2),
+	);
+	await vi.waitFor(() =>
+		expect(dialogButton(el, "Confirming…")).toBeUndefined(),
+	);
+	expect(session.reauthenticate).toHaveBeenCalledWith("secret");
+	expect(dialogButton(el, "Cancel")?.hasAttribute("disabled")).toBe(false);
+});
+
+test("con Google, reautenticarse no pide contraseña", async () => {
+	const session = fakeSession();
+	const google: SessionUser = { ...UNVERIFIED, provider: "google.com" };
+	vi.mocked(session.refreshEmailVerification).mockResolvedValue(google);
+	vi.mocked(session.deleteAccount).mockRejectedValueOnce(
+		new SessionError("requires-recent-login"),
+	);
+	const el = await mount(google, session);
+	Object.assign(el, { account: fakeAccount() });
+	await startDelete(el);
+	const proceed = await vi.waitFor(() => {
+		const found = dialogButton(el, "Continue with Google");
+		if (!found) throw new Error("no reauth step yet");
+		return found;
+	});
+
+	expect(
+		deleteDialog(el).querySelector('wa-input[type="password"]'),
+	).toBeNull();
+	expect(proceed.hasAttribute("disabled")).toBe(false);
+	proceed.click();
+	await vi.waitFor(() =>
+		expect(session.deleteAccount).toHaveBeenCalledTimes(2),
+	);
+	expect(session.reauthenticate).toHaveBeenCalledWith(undefined);
+});
+
+test("cancelar la reautenticación olvida la contraseña tecleada", async () => {
+	const session = fakeSession();
+	const el = await mountDeletable(session);
+	await reachReauth(session, el);
+	dialogButton(el, "Cancel")?.click();
+	await el.updateComplete;
+
+	await startDelete(el);
+	const password = await vi.waitFor(() => {
+		const field = deleteDialog(el).querySelector<HTMLInputElement>(
+			'wa-input[type="password"]',
+		);
+		if (!field) throw new Error("no reauth step yet");
+		return field;
+	});
+	expect(password.value).toBe("");
+});
