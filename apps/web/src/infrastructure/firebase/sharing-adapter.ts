@@ -229,8 +229,21 @@ export function createSharingAdapter(
 		 * read `accepted` by the time the event write is evaluated, or the
 		 * whole batch is denied — see `acceptsInvite()` in `firestore.rules`.
 		 */
-		async acceptInvite(invite: ReceivedInvite): Promise<void> {
+		async acceptInvite(invite: ReceivedInvite, email?: string): Promise<void> {
 			const batch = writeBatch(firestore);
+
+			// The invitee may read their own offer id even when it is missing,
+			// but deleting a missing one would deny the batch.
+			if (email) {
+				const offer = await getDoc(
+					doc(
+						firestore,
+						PENDING_INVITES_BY_EMAIL_COLLECTION,
+						`${invite.eventId}_${await emailHash(email)}`,
+					),
+				);
+				if (offer.exists()) batch.delete(offer.ref);
+			}
 
 			batch.update(doc(firestore, "events", invite.eventId), {
 				memberIds: arrayUnion(invite.inviteeUid),

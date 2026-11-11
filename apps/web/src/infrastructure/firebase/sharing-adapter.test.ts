@@ -16,6 +16,7 @@ const deleteDocMock = vi.fn();
 const getDocMock = vi.fn();
 const updateDocMock = vi.fn();
 const batchUpdateMock = vi.fn();
+const batchDeleteMock = vi.fn();
 const commitMock = vi.fn();
 const onSnapshotMock = vi.fn();
 
@@ -28,7 +29,11 @@ vi.mock("firebase/firestore", () => ({
 	onSnapshot: onSnapshotMock,
 	serverTimestamp: () => "SERVER_TIME",
 	arrayUnion: (value: string) => ({ arrayUnion: value }),
-	writeBatch: () => ({ update: batchUpdateMock, commit: commitMock }),
+	writeBatch: () => ({
+		update: batchUpdateMock,
+		delete: batchDeleteMock,
+		commit: commitMock,
+	}),
 	collection: (_db: unknown, path: string) => ({ path }),
 	query: (from: unknown, ...clauses: unknown[]) => ({ from, clauses }),
 	where: (...clause: unknown[]) => clause,
@@ -38,6 +43,8 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 const { createSharingAdapter } = await import("./sharing-adapter.js");
+const directory = await import("../../sharing/user-directory.js");
+const hashOf = () => directory.emailHash("guest@example.com");
 
 describe("publishDirectoryEntry()", () => {
 	const VERIFIED_USER: SessionUser = {
@@ -277,6 +284,28 @@ describe("acceptInvite()", () => {
 		expect(commitMock).toHaveBeenCalledOnce();
 		const lastUpdate = Math.max(...batchUpdateMock.mock.invocationCallOrder);
 		expect(commitMock.mock.invocationCallOrder[0]).toBeGreaterThan(lastUpdate);
+	});
+
+	test("spends the invitee's own email offer when there is one (GH-147)", async () => {
+		const offer = { path: `eventInvitesByEmail/e1_${await hashOf()}` };
+		const invite = {
+			id: "e1_guest",
+			eventId: "e1",
+			eventTitle: "Concert",
+			inviteeUid: "guest",
+			invitedByName: "Ana",
+			role: "viewer" as const,
+		};
+		const adapter = createSharingAdapter(FAKE_FIRESTORE);
+		for (const exists of [true, false]) {
+			getDocMock
+				.mockReset()
+				.mockResolvedValue({ exists: () => exists, ref: offer });
+			batchDeleteMock.mockReset();
+			await adapter.acceptInvite(invite, " Guest@Example.com");
+			expect(getDocMock).toHaveBeenCalledExactlyOnceWith(offer);
+			expect(batchDeleteMock.mock.calls).toEqual(exists ? [[offer]] : []);
+		}
 	});
 });
 

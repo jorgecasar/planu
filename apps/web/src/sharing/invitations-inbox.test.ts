@@ -113,6 +113,8 @@ test("aceptar decide esa invitación y no otra, y no la rechaza", async () => {
 			eventId: "event-inv-2",
 			role: "editor",
 		}),
+		// So the email offer to the same address is spent too (GH-147).
+		"bea@example.com",
 	);
 	expect(fakes.declineInvite).not.toHaveBeenCalled();
 });
