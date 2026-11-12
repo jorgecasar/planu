@@ -1,4 +1,4 @@
-import type { ReactiveControllerHost } from "lit";
+import { html, type ReactiveControllerHost, render } from "lit";
 import { expect, test, vi } from "vitest";
 import type { AiModelPort, ModelLike } from "../application/ports/ai-model.js";
 import {
@@ -192,4 +192,68 @@ test("cada cambio de estado pide al host que vuelva a pintar", async () => {
 	changed();
 	controller.reset();
 	changed();
+});
+
+function paint(
+	controller: TagSuggestionController,
+	view: Partial<Parameters<TagSuggestionController["render"]>[0]> = {},
+) {
+	const root = document.createElement("div");
+	const onSuggest = vi.fn();
+	const onAccept = vi.fn();
+	render(
+		html`${controller.render({ available: true, full: false, onSuggest, onAccept, ...view })}`,
+		root,
+	);
+	const button = () => root.querySelector<HTMLElement>(":scope > wa-button");
+	return { root, button, onSuggest, onAccept };
+}
+
+test("sin IA no hay botón; con ella avisa al pulsarlo y, lleno, se deshabilita", () => {
+	const { controller } = setup();
+	expect(paint(controller, { available: false }).button()).toBeNull();
+	const full = paint(controller, { full: true }).button();
+	expect(full?.hasAttribute("disabled")).toBe(true);
+
+	const { button, onSuggest } = paint(controller);
+	expect(button()?.textContent?.trim()).toBe("Suggest tags with AI");
+	expect(button()?.hasAttribute("disabled")).toBe(false);
+	button()?.dispatchEvent(new Event("click"));
+	expect(onSuggest).toHaveBeenCalledOnce();
+});
+
+test("mientras descarga lo dice, enseña el progreso y no deja repetir", async () => {
+	const { controller, model } = setup();
+	const done = controller.suggest(input);
+	await model.started;
+	expect(paint(controller).button()?.textContent?.trim()).toBe(
+		"Suggesting tags…",
+	);
+
+	model.progress(0.4);
+	const { root, button } = paint(controller);
+	expect(button()?.textContent?.trim()).toBe("Downloading the AI model…");
+	expect(button()?.hasAttribute("disabled")).toBe(true);
+	expect(root.querySelector("wa-progress-bar")?.getAttribute("value")).toBe(
+		"40",
+	);
+
+	model.finish();
+	await done;
+	expect(paint(controller).root.querySelector("wa-progress-bar")).toBeNull();
+});
+
+test("lo propuesto va en su propia lista y aceptar avisa con la etiqueta", () => {
+	const { controller } = setup();
+	controller.suggested = ["cena", "verano"];
+	const { root, onAccept } = paint(controller);
+	const list = root.querySelector("ul.ai-suggestions");
+	expect(list?.getAttribute("aria-label")).toBe("Tags suggested by AI");
+	const tags = [...(list?.querySelectorAll("li wa-button") ?? [])];
+	expect(tags.map((each) => each.textContent?.trim())).toEqual([
+		"cena",
+		"verano",
+	]);
+	tags[1]?.dispatchEvent(new Event("click"));
+	expect(onAccept).toHaveBeenCalledWith("verano");
 });
