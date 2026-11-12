@@ -33,11 +33,8 @@ import {
 } from "../domain/ai-policy.js";
 import { fromDateFields, toDateFields } from "../domain/date-fields.js";
 import {
-	addTag,
 	MAX_TAG_LENGTH,
 	MAX_TAGS,
-	normalizeTags,
-	removeTag,
 	suggestTags,
 	tagHue,
 } from "../domain/tags.js";
@@ -52,6 +49,7 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
+import { TagField } from "./tag-field.js";
 import { renderTagList } from "./tag-list.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
@@ -171,11 +169,12 @@ export class PlanuEventEditor extends LitElement {
 	@state() private saving = false;
 	@state() private error = "";
 
-	/** Tags already added to this event, always normalized. */
-	@state() private tags: string[] = [];
-
-	/** What's currently being typed in the tag field. */
-	@state() private tagDraft = "";
+	private readonly tagField = new TagField(this, {
+		getError: () => this.error,
+		setError: (message) => {
+			this.error = message;
+		},
+	});
 
 	/** The ones the user already uses in other events, for autocomplete. */
 	@property({ attribute: false }) knownTags: readonly string[] = [];
@@ -217,8 +216,7 @@ export class PlanuEventEditor extends LitElement {
 			this.open
 		) {
 			this.imageUrl = this.draft?.imageUrl ?? this.event?.imageUrl ?? "";
-			this.tags = normalizeTags(this.draft?.tags ?? this.event?.tags ?? []);
-			this.tagDraft = "";
+			this.tagField.reset(this.draft?.tags ?? this.event?.tags ?? []);
 			this.error = "";
 			this.progress = 0;
 			this.aiBlockDismissed = false;
@@ -451,8 +449,9 @@ export class PlanuEventEditor extends LitElement {
 	 * having to build a combobox by hand.
 	 */
 	#renderTags() {
-		const suggestions = suggestTags(this.knownTags, this.tagDraft, this.tags);
-		const full = this.tags.length >= MAX_TAGS;
+		const { tags, draft } = this.tagField;
+		const suggestions = suggestTags(this.knownTags, draft, tags);
+		const full = tags.length >= MAX_TAGS;
 
 		return html`
 			<div class="tags">
@@ -463,15 +462,15 @@ export class PlanuEventEditor extends LitElement {
 					maxlength=${MAX_TAG_LENGTH}
 					enterkeyhint="enter"
 					?disabled=${full}
-					.value=${this.tagDraft}
-					@input=${this.#onTagInput}
-					@keydown=${this.#onTagKey}
+					.value=${draft}
+					@input=${this.tagField.onInput}
+					@keydown=${this.tagField.onKey}
 				></wa-input>
 
 				${renderTagList(
 					"chosen",
 					msg("Chosen tags"),
-					this.tags,
+					tags,
 					(tag) =>
 						html`
 						<wa-tag size="small" style=${`--hue: ${tagHue(tag)}`}>${tag}</wa-tag>
@@ -479,7 +478,7 @@ export class PlanuEventEditor extends LitElement {
 							type="button"
 							size="small"
 							appearance="plain"
-							@click=${() => this.#removeTag(tag)}
+							@click=${() => this.tagField.remove(tag)}
 						>
 							<wa-icon name="xmark" label=${msg(str`Remove tag ${tag}`)}></wa-icon>
 						</wa-button>
@@ -498,7 +497,7 @@ export class PlanuEventEditor extends LitElement {
 										type="button"
 										size="small"
 										appearance="outlined"
-										@click=${() => this.#addTag(tag)}
+										@click=${() => this.tagField.add(tag)}
 									>${tag}</wa-button>
 								`,
 							)
@@ -514,61 +513,8 @@ export class PlanuEventEditor extends LitElement {
 		`;
 	}
 
-	#onTagInput(domEvent: globalThis.Event): void {
-		const source = domEvent.composedPath()[0] as HTMLInputElement | undefined;
-		this.tagDraft = source?.value ?? "";
-	}
-
-	/**
-	 * Enter adds the tag instead of submitting the form.
-	 *
-	 * Without the `preventDefault` the editor would save half-typed every
-	 * time someone confirms a tag, which is exactly the natural gesture.
-	 *
-	 * The comma **doesn't** separate, even though that's the habit. A tag
-	 * can carry one —`normalizeTag` keeps it and the rules accept it, which
-	 * is exactly why the separator there is the line break— so treating it
-	 * as a separator would silently forbid a value the other two layers
-	 * consider valid. And the field only announces Enter.
-	 */
-	#onTagKey(domEvent: KeyboardEvent): void {
-		if (domEvent.key !== "Enter") return;
-		domEvent.preventDefault();
-		this.#addTag(this.tagDraft);
-	}
-
-	/**
-	 * The length warning, in a single place.
-	 *
-	 * It's set and cleared by comparing it, because `error` is the channel
-	 * for the whole dialog: clearing it blindly when adding a tag would
-	 * also erase "The image could not be uploaded", and the user would lose
-	 * a warning about something they hadn't done anything to resolve.
-	 */
-	#tagLengthError(): string {
-		return msg(str`A tag must be ${MAX_TAG_LENGTH} characters or fewer.`);
-	}
-
-	/** The rules live in `addTag()`; this only maps its outcome to the UI. */
-	#addTag(raw: string): void {
-		const result = addTag(this.tags, raw);
-		if (result.kind === "empty") return;
-		if (result.kind === "too-long") {
-			this.error = this.#tagLengthError();
-			return;
-		}
-		this.tagDraft = "";
-		if (result.kind === "unchanged") return;
-		this.tags = result.tags;
-		if (this.error === this.#tagLengthError()) this.error = "";
-	}
-
-	#removeTag(tag: string): void {
-		this.tags = removeTag(this.tags, tag);
-	}
-
 	#addAiSuggestedTag(tag: string): void {
-		this.#addTag(tag);
+		this.tagField.add(tag);
 		// It doesn't disappear from winning one: if the AI proposed three,
 		// accepting the first one shouldn't force repeating the save to get
 		// to the second.
@@ -638,7 +584,7 @@ export class PlanuEventEditor extends LitElement {
 			allDay,
 			imageUrl: this.imageUrl,
 			userId: user.uid,
-			tags: this.tags,
+			tags: this.tagField.tags,
 		});
 
 		if (!parsed.success) {
@@ -690,7 +636,7 @@ export class PlanuEventEditor extends LitElement {
 			description: this.#fieldValue("description"),
 			location: this.#fieldValue("location"),
 			knownTags: this.knownTags,
-			chosenTags: this.tags,
+			chosenTags: this.tagField.tags,
 		}));
 	}
 
