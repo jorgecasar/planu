@@ -26,7 +26,7 @@ import {
 } from "../application/ports/sharing.js";
 import { userContext } from "../firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
-import { type Person, toPeople } from "./access-list.js";
+import { AccessList, type Person } from "./access-list.js";
 import { canManageMembers } from "./permissions.js";
 
 /** Matches the cap in firestore.rules. */
@@ -155,10 +155,12 @@ export class PlanuShareDialog extends LitElement {
 	@consume({ context: analyticsContext, subscribe: true })
 	private analytics: AnalyticsPort = noopAnalytics;
 
-	@state() private people: Person[] = [];
-	@state() private loading = false;
-	/** Set when the pending query failed: the list is short and says so. */
-	@state() private incomplete = false;
+	readonly #access = new AccessList(this, {
+		getSharing: () => this.sharing,
+		getEvent: () => this.event,
+		getUser: () => this.user,
+	});
+
 	@state() private busy = false;
 	@state() private error = "";
 	@state() private notice = "";
@@ -170,60 +172,9 @@ export class PlanuShareDialog extends LitElement {
 		if ((changed.has("open") || changed.has("event")) && this.open) {
 			this.error = "";
 			this.notice = "";
-			// Cleared first, or reopening for another event flashes the previous
-			// event's people while the new ones resolve.
-			this.people = [];
-			this.loading = true;
-			this.incomplete = false;
-			void this.#load();
+			this.#access.reset();
+			void this.#access.load();
 		}
-	}
-
-	/**
-	 * Members and pending invitations, in one list.
-	 *
-	 * Names are resolved when the dialog opens and never stored on the event: if
-	 * someone changes theirs, the new one shows up with nothing to migrate.
-	 *
-	 * Pending invitations are queried by `invitedBy` because that is what the
-	 * rule allows the owner to read, then narrowed to this event here. Filtering
-	 * by `eventId` in the query would need a composite index and would not be
-	 * readable anyway.
-	 */
-	async #load(): Promise<void> {
-		const { sharing, event, user } = this;
-		if (!sharing || !event || !user) {
-			// Or the dialog sits on "Loading…" forever when it opens before the
-			// contexts have arrived.
-			this.loading = false;
-			return;
-		}
-
-		const memberUids = (event.memberIds ?? []).filter(
-			(uid) => uid !== event.userId,
-		);
-
-		// Decided invitations now survive in Firestore instead of being
-		// deleted, so this must be narrowed to `pending` explicitly: an
-		// accepted one would otherwise show its person twice, once as a
-		// member and once as a stale offer, and a declined one would keep
-		// offering "cancel" on something already answered.
-		const invited = await sharing
-			.listPendingInvites(event.id, user.uid)
-			.catch(() => null);
-
-		// Swallowing this left the owner looking at a list with no pending
-		// invitations in it and no hint that any were missing — and that list is
-		// what they decide who to remove from.
-		this.incomplete = invited === null;
-
-		const profiles = await sharing.findProfiles([
-			...memberUids,
-			...(invited ?? []).map((row) => row.inviteeUid),
-		]);
-
-		this.loading = false;
-		this.people = toPeople(event, memberUids, invited ?? [], profiles);
 	}
 
 	override render() {
@@ -267,20 +218,20 @@ export class PlanuShareDialog extends LitElement {
 				<h3>${msg("People with access")}</h3>
 				<ul>
 					${this.#renderOwner(user)}
-					${this.people.map((person) => this.#renderPerson(person))}
+					${this.#access.people.map((person) => this.#renderPerson(person))}
 				</ul>
 				${
 					// Three different things, told apart. Saying "only you" while the
 					// list is still resolving told the owner of a twenty-guest event
 					// that it was shared with nobody.
-					this.loading
+					this.#access.loading
 						? html`<p class="empty">${msg("Loading…")}</p>`
-						: this.people.length === 0
+						: this.#access.people.length === 0
 							? html`<p class="empty">${msg("Only you, for now.")}</p>`
 							: nothing
 				}
 				${
-					this.incomplete
+					this.#access.incomplete
 						? html`<wa-callout variant="warning" role="status">
 								${msg("Pending invitations could not be loaded, so this list may be incomplete.")}
 							</wa-callout>`
@@ -440,7 +391,7 @@ export class PlanuShareDialog extends LitElement {
 			// try again for something retrying will never fix.
 			const committed =
 				(event.memberIds?.length ?? 1) +
-				this.people.filter((person) => person.pending).length;
+				this.#access.people.filter((person) => person.pending).length;
 			if (committed > MAX_GUESTS) {
 				this.error = msg("This event has reached its limit of guests.");
 				return;
@@ -477,7 +428,7 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = msg("Invitation sent. They join once they accept it.");
 		this.analytics.trackShare({ editable: role === "editor" });
 		form.reset();
-		await this.#load().catch(() => {});
+		await this.#access.load().catch(() => {});
 	}
 
 	/**
@@ -505,7 +456,7 @@ export class PlanuShareDialog extends LitElement {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
 			this.busy = false;
-			await this.#load().catch(() => {});
+			await this.#access.load().catch(() => {});
 		}
 	}
 
@@ -537,7 +488,7 @@ export class PlanuShareDialog extends LitElement {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
 			this.busy = false;
-			await this.#load().catch(() => {});
+			await this.#access.load().catch(() => {});
 		}
 	}
 
@@ -560,7 +511,7 @@ export class PlanuShareDialog extends LitElement {
 			// Reloaded on both paths. Lit will not re-commit a value that has not
 			// changed from its point of view, so after a failed role change the
 			// control keeps showing the role that was never saved.
-			await this.#load().catch(() => {});
+			await this.#access.load().catch(() => {});
 		}
 	}
 
