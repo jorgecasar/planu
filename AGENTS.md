@@ -131,15 +131,18 @@ No es portabilidad; Firebase se queda.
 | `src/infrastructure/` | Adaptadores. **El único sitio con `firebase/*`** | `domain/`, puertos |
 | `src/ui/` | Componentes Lit | `application/` |
 
-Hoy existen `domain/`, `application/` e `infrastructure/`. La sesión (T36), la
-analítica (T31) y el borrado de cuenta (T32) ya viven tras su puerto. El
-repositorio de eventos y el almacén de imágenes (T37/T38) sólo migraron
-`event-editor.ts`: `events-view.ts`, `event-card.ts`, `lib/types.ts` y
-`ai-event-generator.ts` siguen importando `firebase/firestore` o
-`firebase/storage`/`firebase/app` directamente. `src/ui/` como capa propia
-(T39) no existe todavía: el resto del código sigue organizado por
-funcionalidad (`auth/`, `events/`, `profile/`, `sharing/`, `calendar/`,
-`landing/`) y **está en migración**.
+Hoy existen `domain/`, `application/` e `infrastructure/`, y
+`application/ports/` tiene siete puertos: sesión (T36), analítica (T31),
+borrado de cuenta (T32), repositorio de eventos y almacén de imágenes
+(T37/T38), compartición (`SharingPort`) y modelo de IA (`AiModelPort`). Ningún
+fichero de `auth/`, `events/`, `profile/`, `sharing/`, `calendar/`, `landing/`
+ni `lib/` importa ya Firebase. Fuera de los adaptadores sólo quedan acoplados
+`firebase/` —`firebase-provider.ts`, que inicializa la app y publica los
+contextos que define `context.ts`, su configuración (`config.ts`),
+`collection-controller.ts` y `storage.ts`, más los tests de estos dos— y
+`observability/index.ts`, que usa `firebase/performance`. `src/ui/` como capa
+propia (T39) no existe todavía: el resto del código sigue organizado por
+funcionalidad y **está en migración**.
 
 **La regla, y no es opcional: toda tarea que toque un componente acoplado lo
 deja tras su puerto antes de darse por hecha.** Es lo que hace incremental la
@@ -151,24 +154,34 @@ horas.
 Lo vigilan dos cosas, no la buena voluntad:
 
 1. **`biome.json` prohíbe `firebase/**` en todo `apps/web/src/**`**, con una
-   lista de exenciones heredadas que **sólo puede encoger**. Añadir una entrada
-   es un cambio visible en la revisión; olvidarse de migrar, no.
+   lista de exenciones heredadas que **sólo puede encoger**. Hoy tiene tres
+   entradas: `firebase/**`, `infrastructure/firebase/**` y
+   `observability/index.ts`. Añadir una entrada es un cambio visible en la
+   revisión; olvidarse de migrar, no.
 2. **`npm run test:arch`** vigila esa configuración con siete aserciones. Corre
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **28 ficheros**, porque `firebase/**` agrupa siete e
-`infrastructure/firebase/**` agrupa quince. El tope está fijado en
+lista.** Hoy son **25 ficheros**: `firebase/**` agrupa siete,
+`infrastructure/firebase/**` diecisiete —nueve adaptadores y ocho tests— y
+`observability/index.ts` suma uno. El tope está fijado en
 `arch/boundary.test.ts`: migrar un componente acoplado lo baja, pero un
 adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
 acoplamiento es intencional— puede subirlo, siempre con su motivo
 documentado en el propio comentario del test. Ya ha pasado varias veces, de
-19 (tras T36) a 27 (tras T32) y, después, de 29 a 28 con la migración a
-`SharingPort`: tres ficheros ya acoplados (`sharing/user-directory.ts`,
-`sharing/share-dialog.ts`, `profile/profile-view.ts`) pasaron tras ese
-puerto nuevo (mismo patrón que `AccountDataPort`, T32), con dos
-ficheros de adaptador nuevos compensando parte de los tres que se
-liberaron. Nunca por una entrada añadida a la lista para esquivar el
+19 (tras T36) a 27 (tras T32) y a 29 (tras T38 y T37); después, de 29 a 28
+con la migración a `SharingPort`: tres ficheros ya acoplados
+(`sharing/user-directory.ts`, `sharing/share-dialog.ts`,
+`profile/profile-view.ts`) pasaron tras ese puerto nuevo (mismo patrón que
+`AccountDataPort`, T32), con dos ficheros de adaptador nuevos compensando
+parte de los tres que se liberaron. De ahí bajó a 24: GH-107 (#121) puso
+`ai-event-generator.ts` y su test tras `AiModelPort` a cambio de un
+adaptador (28 → 27), GH-106 (#122) llevó la sugerencia de etiquetas por el
+mismo puerto y liberó `event-editor.ts` (27 → 26), y GH-105 (#159) llevó
+`sharing/invitations.ts` e `invitations-inbox.ts` tras `SharingPort` sin
+fichero nuevo (26 → 24). GH-100 (#161) lo subió a 25 con
+`account-data-adapter.test.ts`, que prueba el borrado de cuenta sin
+emulador. Nunca por una entrada añadida a la lista para esquivar el
 recuento, sólo por ficheros nuevos en el sitio al que pertenecen.
 
 Y el vigilante vigila **la puerta además de la lista**: comprueba que siga
@@ -672,11 +685,11 @@ convergencia, todo antes de que exista un PR.**
 - **Arquitectura hexagonal, en marcha, no ya decidida.** El alcance está fijado
   en [`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md):
   tres puertos —sesión, repositorio de eventos, almacén de imágenes— más
-  analítica y borrado de cuenta. Sesión, analítica y borrado de cuenta ya
-  viven tras su puerto; el repositorio de eventos y el almacén de imágenes
-  sólo migraron `event-editor.ts`, no `events-view.ts`, `event-card.ts`,
-  `lib/types.ts` ni `ai-event-generator.ts`; cerrar la frontera a `src/ui/`
-  no se ha empezado. Ver T37, T38 y T39 en `tasks/todo.md`.
+  analítica y borrado de cuenta. Los cinco viven ya tras su puerto, y se
+  sumaron dos fuera de ese alcance, compartición y modelo de IA; fuera de
+  `infrastructure/firebase/**` sólo quedan acoplados `firebase/` y
+  `observability/index.ts`. Cerrar la frontera a `src/ui/` no se ha
+  empezado. Ver T39 en `tasks/todo.md`.
 - **Backfill de `memberIds` en eventos de la fase 1.** Sigue sin entregarse:
   exige `firebase-admin` (cae en «preguntar primero») y, antes de eso, saber
   si la base `planu` tiene documentos heredados sin ese campo — la primera
