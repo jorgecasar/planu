@@ -12,24 +12,16 @@ import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
-import { accountDataContext } from "../application/ports/account-data.js";
-import { aiModelContext } from "../application/ports/ai-model.js";
+import { accountDataContext } from "../../application/ports/account-data.js";
+import { aiModelContext } from "../../application/ports/ai-model.js";
 import {
 	analyticsContext,
 	noopAnalytics,
-} from "../application/ports/analytics.js";
-import { sharingContext } from "../application/ports/sharing.js";
-import { createAccountDataAdapter } from "../infrastructure/firebase/account-data-adapter.js";
-import { createAiModelAdapter } from "../infrastructure/firebase/ai-model-adapter.js";
-import { createAnalyticsAdapter } from "../infrastructure/firebase/analytics-adapter.js";
-import { FirebaseEventRepository } from "../infrastructure/firebase/event-repository.js";
-import { EventsController } from "../infrastructure/firebase/events-controller.js";
-import { FirebaseImageStore } from "../infrastructure/firebase/image-store.js";
-import {
-	FirebaseSessionAdapter,
-	toSessionUser,
-} from "../infrastructure/firebase/session-adapter.js";
-import { createSharingAdapter } from "../infrastructure/firebase/sharing-adapter.js";
+} from "../../application/ports/analytics.js";
+import { sharingContext } from "../../application/ports/sharing.js";
+import { createAccountDataAdapter } from "./account-data-adapter.js";
+import { createAiModelAdapter } from "./ai-model-adapter.js";
+import { createAnalyticsAdapter } from "./analytics-adapter.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
 import {
 	appContext,
@@ -43,6 +35,11 @@ import {
 	storageContext,
 	userContext,
 } from "./context.js";
+import { FirebaseEventRepository } from "./event-repository.js";
+import { EventsController } from "./events-controller.js";
+import { FirebaseImageStore } from "./image-store.js";
+import { FirebaseSessionAdapter, toSessionUser } from "./session-adapter.js";
+import { createSharingAdapter } from "./sharing-adapter.js";
 
 export interface CoreServices {
 	app: FirebaseApp;
@@ -308,7 +305,7 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
 			const sharing = createSharingAdapter(firestore, (...write) => {
 				// Lazy, like `main.ts`: a static import adds a chunk to sign-in.
-				void import("../observability/index.js")
+				void import("../../observability/index.js")
 					.then(({ recordBackgroundWrite }) => recordBackgroundWrite(...write))
 					.catch(() => {});
 			});

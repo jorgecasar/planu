@@ -1,6 +1,6 @@
 import type { FirebaseStorage } from "firebase/storage";
 import type { ImageStorePort } from "../../application/ports/image-store.js";
-import { uploadFile } from "../../firebase/storage.js";
+import { uploadFile } from "./storage.js";
 
 /**
  * The only image-store adapter: the rest of the application knows
@@ -10,7 +10,7 @@ import { uploadFile } from "../../firebase/storage.js";
  * writing to, because the uid in the path is what makes ownership
  * checkable. See `storage.rules`.
  *
- * Delegates to `uploadFile()` (`firebase/storage.ts`) instead of
+ * Delegates to `uploadFile()` (`./storage.ts`) instead of
  * reimplementing the upload wiring: `ai-event-generator.ts` still calls
  * that function directly, and two copies of the same
  * `uploadBytesResumable`/`state_changed`/`getDownloadURL` sequence would

@@ -71,7 +71,6 @@
 		},
 		{
 			"includes": [
-				"apps/web/src/firebase/**",
 				"apps/web/src/infrastructure/firebase/**",
 				"apps/web/src/observability/index.ts"
 			],

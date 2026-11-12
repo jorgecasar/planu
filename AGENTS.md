@@ -136,10 +136,12 @@ Hoy existen `domain/`, `application/` e `infrastructure/`, y
 borrado de cuenta (T32), repositorio de eventos y almacén de imágenes
 (T37/T38), compartición (`SharingPort`) y modelo de IA (`AiModelPort`). Ningún
 fichero de `auth/`, `events/`, `profile/`, `sharing/`, `calendar/`, `landing/`
-ni `lib/` importa ya Firebase. Fuera de los adaptadores sólo quedan acoplados
-`firebase/` —`firebase-provider.ts`, que inicializa la app y publica los
-contextos que define `context.ts`, su configuración (`config.ts`),
-`collection-controller.ts` y `storage.ts`, más los tests de estos dos— y
+ni `lib/` importa ya Firebase. Todo lo que conoce al proveedor vive en
+`infrastructure/firebase/`, incluidos `firebase-provider.ts` —que inicializa
+la app y publica los contextos—, `context.ts` —que los define y tipa algunos
+con `FirebaseApp`, `Firestore` y `FirebaseStorage`—, `config.ts`,
+`collection-controller.ts` y `storage.ts`; hasta GH-108 vivían en un
+`src/firebase/` aparte. Fuera de ahí sólo queda acoplado
 `observability/index.ts`, que usa `firebase/performance`. `src/ui/` como capa
 propia (T39) no existe todavía: el resto del código sigue organizado por
 funcionalidad y **está en migración**.
@@ -154,17 +156,19 @@ horas.
 Lo vigilan dos cosas, no la buena voluntad:
 
 1. **`biome.json` prohíbe `firebase/**` en todo `apps/web/src/**`**, con una
-   lista de exenciones heredadas que **sólo puede encoger**. Hoy tiene tres
-   entradas: `firebase/**`, `infrastructure/firebase/**` y
-   `observability/index.ts`. Añadir una entrada es un cambio visible en la
-   revisión; olvidarse de migrar, no.
+   lista de exenciones heredadas que **sólo puede encoger**. Hoy tiene dos
+   entradas: `infrastructure/firebase/**` y `observability/index.ts`.
+   Añadir una entrada es un cambio visible en la revisión; olvidarse de
+   migrar, no.
 2. **`npm run test:arch`** vigila esa configuración con siete aserciones. Corre
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **25 ficheros**: `firebase/**` agrupa siete,
-`infrastructure/firebase/**` diecisiete —nueve adaptadores y ocho tests— y
-`observability/index.ts` suma uno. El tope está fijado en
+lista.** Hoy son **25 ficheros**: `infrastructure/firebase/**` agrupa
+veinticuatro —catorce fuentes y diez tests— y `observability/index.ts` suma
+uno. GH-108 trasladó ahí los siete de `src/firebase/` sin cambiar el
+recuento: los siete importan Firebase, así que la lista perdió una entrada y
+no un fichero acoplado. El tope está fijado en
 `arch/boundary.test.ts`: migrar un componente acoplado lo baja, pero un
 adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
 acoplamiento es intencional— puede subirlo, siempre con su motivo
@@ -349,7 +353,7 @@ instante actual y un dato fijo dejaría de enseñar lo que viene a enseñar.
 Los puertos no son los de por defecto: Firestore usa el **8181** y Hosting el
 **5050**, porque en macOS el 5000 lo ocupa el receptor AirPlay del sistema y el
 8080 suele estar cogido. Están en `firebase.json` y replicados en
-`src/firebase/config.ts`; si cambias uno, cambia el otro.
+`src/infrastructure/firebase/config.ts`; si cambias uno, cambia el otro.
 
 Las variables de entorno viven en `.env.local` **en la raíz del monorepo**, no
 en `apps/web`. Por eso `vite.config.ts` fija `envDir`: sin ello Vite las busca
@@ -687,7 +691,7 @@ convergencia, todo antes de que exista un PR.**
   tres puertos —sesión, repositorio de eventos, almacén de imágenes— más
   analítica y borrado de cuenta. Los cinco viven ya tras su puerto, y se
   sumaron dos fuera de ese alcance, compartición y modelo de IA; fuera de
-  `infrastructure/firebase/**` sólo quedan acoplados `firebase/` y
+  `infrastructure/firebase/**` sólo queda acoplado
   `observability/index.ts`. Cerrar la frontera a `src/ui/` no se ha
   empezado. Ver T39 en `tasks/todo.md`.
 - **Backfill de `memberIds` en eventos de la fase 1.** Sigue sin entregarse:

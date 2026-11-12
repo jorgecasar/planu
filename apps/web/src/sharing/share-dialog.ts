@@ -19,7 +19,7 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
-import { userContext } from "../firebase/context.js";
+import { userContext } from "../infrastructure/firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";

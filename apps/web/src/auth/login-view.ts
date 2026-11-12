@@ -20,7 +20,7 @@ import { signIn } from "../application/sign-in.js";
 import { signInWithGoogle } from "../application/sign-in-with-google.js";
 import { signUp } from "../application/sign-up.js";
 import { authErrorMessage } from "../domain/auth-errors.js";
-import { sessionContext } from "../firebase/context.js";
+import { sessionContext } from "../infrastructure/firebase/context.js";
 
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell

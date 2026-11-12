@@ -30,7 +30,7 @@ Por eso el reparto de arriba: esas cuatro tareas son paralelizables
 **serializa** una única pasada completa con emuladores.
 
 Si un puerto está ocupado, espera. No cambies los puertos: están replicados en
-`src/firebase/config.ts`.
+`src/infrastructure/firebase/config.ts`.
 
 ## Verificación, y esto no es negociable
 
