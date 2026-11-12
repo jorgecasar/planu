@@ -4,13 +4,11 @@ import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/divider/divider.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
-import "@awesome.me/webawesome/dist/components/icon/icon.js";
-import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 import "./ai-event-generator.js";
 
 import { consume } from "@lit/context";
-import { msg, str } from "@lit/localize";
+import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
@@ -33,12 +31,6 @@ import {
 } from "../domain/ai-policy.js";
 import { fromDateFields, toDateFields } from "../domain/date-fields.js";
 import {
-	MAX_TAG_LENGTH,
-	MAX_TAGS,
-	suggestTags,
-	tagHue,
-} from "../domain/tags.js";
-import {
 	eventRepositoryContext,
 	imageStoreContext,
 	userContext,
@@ -49,8 +41,7 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
-import { TagField } from "./tag-field.js";
-import { renderTagList } from "./tag-list.js";
+import { TagField, tagFieldStyles } from "./tag-field.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
 
@@ -61,6 +52,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export class PlanuEventEditor extends LitElement {
 	static override styles = [
 		tagChipStyles,
+		tagFieldStyles,
 		css`
 		form {
 			display: flex;
@@ -82,30 +74,6 @@ export class PlanuEventEditor extends LitElement {
 			display: flex;
 			flex-direction: column;
 			gap: var(--wa-space-xs);
-		}
-
-		.tags {
-			display: flex;
-			flex-direction: column;
-			gap: var(--wa-space-xs);
-		}
-
-		.tags ul {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--wa-space-2xs);
-			margin: 0;
-			padding: 0;
-			list-style: none;
-		}
-
-		/* The delete button that wa-tag ships with comes out with tabindex
-		   -1, so someone navigating by keyboard can't remove a tag added by
-		   mistake. A control of our own goes next to it, reachable with Tab. */
-		.tags .chosen li {
-			display: flex;
-			align-items: center;
-			gap: var(--wa-space-3xs);
 		}
 
 		img {
@@ -374,7 +342,14 @@ export class PlanuEventEditor extends LitElement {
 						.value=${initial.location ?? ""}
 					></wa-input>
 
-					${this.#renderTags()}
+					${this.tagField.render(this.knownTags, (full) =>
+						this.tagSuggestions.render({
+							available: this.aiAvailable,
+							full,
+							onSuggest: () => void this.#onSuggestTags(),
+							onAccept: (tag) => this.#addAiSuggestedTag(tag),
+						}),
+					)}
 
 					<div class="dates">
 						<wa-input
@@ -438,79 +413,6 @@ export class PlanuEventEditor extends LitElement {
 		this.shadowRoot
 			?.querySelector<HTMLElement & { focus: () => void }>('[name="title"]')
 			?.focus();
-	}
-
-	/**
-	 * Tags field: the ones added, what's being typed, and the suggestions.
-	 *
-	 * The suggestions are buttons and not a `datalist`: `wa-input` renders
-	 * its `input` inside the shadow DOM, so a `<datalist>` from outside
-	 * can't reach it. Buttons work with keyboard and screen reader without
-	 * having to build a combobox by hand.
-	 */
-	#renderTags() {
-		const { tags, draft } = this.tagField;
-		const suggestions = suggestTags(this.knownTags, draft, tags);
-		const full = tags.length >= MAX_TAGS;
-
-		return html`
-			<div class="tags">
-				<wa-input
-					id="tag"
-					label=${msg("Tags")}
-					hint=${msg(str`Press Enter to add. Up to ${MAX_TAGS}.`)}
-					maxlength=${MAX_TAG_LENGTH}
-					enterkeyhint="enter"
-					?disabled=${full}
-					.value=${draft}
-					@input=${this.tagField.onInput}
-					@keydown=${this.tagField.onKey}
-				></wa-input>
-
-				${renderTagList(
-					"chosen",
-					msg("Chosen tags"),
-					tags,
-					(tag) =>
-						html`
-						<wa-tag size="small" style=${`--hue: ${tagHue(tag)}`}>${tag}</wa-tag>
-						<wa-button
-							type="button"
-							size="small"
-							appearance="plain"
-							@click=${() => this.tagField.remove(tag)}
-						>
-							<wa-icon name="xmark" label=${msg(str`Remove tag ${tag}`)}></wa-icon>
-						</wa-button>
-					`,
-				)}
-
-				${
-					full
-						? nothing
-						: renderTagList(
-								"suggestions",
-								msg("Suggested tags"),
-								suggestions,
-								(tag) => html`
-									<wa-button
-										type="button"
-										size="small"
-										appearance="outlined"
-										@click=${() => this.tagField.add(tag)}
-									>${tag}</wa-button>
-								`,
-							)
-				}
-
-				${this.tagSuggestions.render({
-					available: this.aiAvailable,
-					full,
-					onSuggest: () => void this.#onSuggestTags(),
-					onAccept: (tag) => this.#addAiSuggestedTag(tag),
-				})}
-			</div>
-		`;
 	}
 
 	#addAiSuggestedTag(tag: string): void {
