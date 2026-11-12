@@ -1,8 +1,8 @@
-import { render } from "lit";
+import { html, type LitElement, render } from "lit";
 import { afterEach, expect, test, vi } from "vitest";
 import type { SessionUser } from "../application/ports/session.js";
 import type { Person } from "./access-list.js";
-import { renderOwner, renderPerson } from "./access-rows.js";
+import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 
 const BEA: Person = {
 	key: "invite-1",
@@ -75,4 +75,24 @@ test("picking from the menu hands over the person and the event", () => {
 	list.querySelector("wa-dropdown")?.dispatchEvent(pick);
 
 	expect(onAction).toHaveBeenCalledWith(BEA, pick);
+});
+
+test("the rows' sheet keeps a long name from squashing the row", async () => {
+	const host = document.body.appendChild(document.createElement("div"));
+	const root = host.attachShadow({ mode: "open" });
+	root.adoptedStyleSheets = [accessRowStyles.styleSheet as CSSStyleSheet];
+	render(html`<ul>${renderPerson(BEA, false, () => {})}</ul>`, root);
+	// The hidden label is slotted into the button, so it has no style until
+	// the button renders its slot.
+	await root.querySelector<HTMLElement & LitElement>("wa-button")
+		?.updateComplete;
+	const style = (selector: string) =>
+		getComputedStyle(root.querySelector(selector) as Element);
+
+	expect(style("ul").listStyleType).toBe("none");
+	expect(style("wa-avatar").flexShrink).toBe("0");
+	expect(style(".identity").minWidth).toBe("0px");
+	expect(style(".detail").textOverflow).toBe("ellipsis");
+	expect(style(".sr-only").position).toBe("absolute");
+	expect(style(".sr-only").width).toBe("1px");
 });
