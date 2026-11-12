@@ -1,5 +1,6 @@
+import { html, render } from "lit";
 import { expect, test, vi } from "vitest";
-import { MAX_TAG_LENGTH } from "../domain/tags.js";
+import { MAX_TAG_LENGTH, MAX_TAGS } from "../domain/tags.js";
 import { TagField } from "./tag-field.js";
 
 const LENGTH_ERROR = `A tag must be ${MAX_TAG_LENGTH} characters or fewer.`;
@@ -77,4 +78,41 @@ test("lo escrito se lee del campo real, el del origen del evento", () => {
 	input.dispatchEvent(new Event("input"));
 	expect(field.draft).toBe("cin");
 	expect(host.requestUpdate).toHaveBeenCalledOnce();
+});
+
+function paint(field: TagField, knownTags: readonly string[] = []) {
+	const root = document.createElement("div");
+	const ai = vi.fn((full: boolean) => html`<p>ai ${full}</p>`);
+	render(html`${field.render(knownTags, ai)}`, root);
+	const all = (selector: string) => [...root.querySelectorAll(selector)];
+	const texts = (selector: string) =>
+		all(selector).map((each) => each.textContent?.trim());
+	const click = (selector: string) =>
+		all(selector)[0]?.dispatchEvent(new Event("click"));
+	return { root, ai, texts, click };
+}
+
+test("pinta las elegidas con su botón de quitar y sugiere las conocidas", () => {
+	const { field } = setup();
+	field.reset(["teatro"]);
+	field.draft = "ci";
+	const { click, texts } = paint(field, ["cine", "circo", "teatro", "museo"]);
+	expect(texts("ul.chosen wa-tag")).toEqual(["teatro"]);
+	expect(texts("ul.suggestions wa-button")).toEqual(["cine", "circo"]);
+	expect(texts(".tags > p")).toEqual(["ai false"]);
+
+	click("ul.suggestions wa-button");
+	expect(field.tags).toEqual(["teatro", "cine"]);
+	click("ul.chosen wa-button");
+	expect(field.tags).toEqual(["cine"]);
+});
+
+test("llena, deshabilita el campo, deja de sugerir y se lo dice a la IA", () => {
+	const { field } = setup();
+	field.reset(Array.from({ length: MAX_TAGS }, (_, i) => `tag ${i}`));
+	const { root, ai, texts } = paint(field, ["cine"]);
+	expect(root.querySelector("#tag")?.hasAttribute("disabled")).toBe(true);
+	expect(root.querySelector("ul.suggestions")).toBeNull();
+	expect(ai).toHaveBeenCalledWith(true);
+	expect(texts("ul.chosen wa-tag")).toHaveLength(MAX_TAGS);
 });
