@@ -11,6 +11,7 @@ import { msg } from "@lit/localize";
 import { Router } from "@lit-labs/router";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { sessionContext, userContext } from "./application/context.js";
 import type { SessionPort, SessionUser } from "./application/ports/session.js";
 import { signOut } from "./application/sign-out.js";
 import {
@@ -20,10 +21,6 @@ import {
 	PROFILE_PATH,
 } from "./auth/guard.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
-import {
-	sessionContext,
-	userContext,
-} from "./infrastructure/firebase/context.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.

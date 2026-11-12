@@ -9,6 +9,7 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { userContext } from "../application/context.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
@@ -19,7 +20,6 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
-import { userContext } from "../infrastructure/firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";

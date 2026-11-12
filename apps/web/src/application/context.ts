@@ -1,19 +1,14 @@
 import { createContext } from "@lit/context";
-import type { FirebaseApp } from "firebase/app";
-import type { Firestore } from "firebase/firestore";
-import type { FirebaseStorage } from "firebase/storage";
-import type { EventRepositoryPort } from "../../application/ports/event-repository.js";
-import type { ImageStorePort } from "../../application/ports/image-store.js";
-import type {
-	SessionPort,
-	SessionUser,
-} from "../../application/ports/session.js";
-import type { StoredEvent } from "../../lib/types.js";
+import type { StoredEvent } from "../lib/types.js";
+import type { EventRepositoryPort } from "./ports/event-repository.js";
+import type { ImageStorePort } from "./ports/image-store.js";
+import type { SessionPort, SessionUser } from "./ports/session.js";
 
-/** The app itself; needed by Firebase AI Logic, which does not hang off Firestore. */
-export const appContext = createContext<FirebaseApp | undefined>(
-	Symbol("planu-app-instance"),
-);
+// What the UI consumes and the composition root
+// (`infrastructure/firebase/firebase-provider.ts`) publishes. It lives in
+// `application/` because components may depend on it and must not depend on
+// `infrastructure/`, the same place the port contexts already live
+// (`accountDataContext`, `sharingContext`…). No provider types here.
 
 /**
  * The session port, not `Auth`: whoever consumes this context doesn't know
@@ -21,14 +16,6 @@ export const appContext = createContext<FirebaseApp | undefined>(
  */
 export const sessionContext = createContext<SessionPort | undefined>(
 	Symbol("planu-session"),
-);
-
-export const firestoreContext = createContext<Firestore | undefined>(
-	Symbol("planu-firestore"),
-);
-
-export const storageContext = createContext<FirebaseStorage | undefined>(
-	Symbol("planu-storage"),
 );
 
 /**

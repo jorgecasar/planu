@@ -20,6 +20,12 @@ import "../calendar/agenda-view.js";
 import "../calendar/calendar-view.js";
 
 import {
+	type EventsSnapshot,
+	eventsContext,
+	eventsInterestContext,
+	userContext,
+} from "../application/context.js";
+import {
 	type DateRange,
 	filterEvents,
 	isNarrowed,
@@ -41,12 +47,6 @@ import {
 	viewOptions,
 } from "../domain/view-mode.js";
 import { getLocale } from "../i18n/localization.js";
-import {
-	type EventsSnapshot,
-	eventsContext,
-	eventsInterestContext,
-	userContext,
-} from "../infrastructure/firebase/context.js";
 
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 

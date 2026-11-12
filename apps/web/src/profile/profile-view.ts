@@ -9,6 +9,7 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { sessionContext, userContext } from "../application/context.js";
 import {
 	type DeleteAccountStep,
 	deleteAccount,
@@ -22,10 +23,6 @@ import { signOut } from "../application/sign-out.js";
 import { SessionError } from "../domain/session-error.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
-import {
-	sessionContext,
-	userContext,
-} from "../infrastructure/firebase/context.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 

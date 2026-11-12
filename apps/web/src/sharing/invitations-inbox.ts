@@ -5,13 +5,13 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { userContext } from "../application/context.js";
 import type { SessionUser } from "../application/ports/session.js";
 import {
 	type ReceivedInvite,
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
-import { userContext } from "../infrastructure/firebase/context.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")

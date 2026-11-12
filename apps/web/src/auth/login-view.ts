@@ -10,6 +10,7 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { sessionContext } from "../application/context.js";
 import type { AnalyticsPort } from "../application/ports/analytics.js";
 import {
 	analyticsContext,
@@ -20,7 +21,6 @@ import { signIn } from "../application/sign-in.js";
 import { signInWithGoogle } from "../application/sign-in-with-google.js";
 import { signUp } from "../application/sign-up.js";
 import { authErrorMessage } from "../domain/auth-errors.js";
-import { sessionContext } from "../infrastructure/firebase/context.js";
 
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell
