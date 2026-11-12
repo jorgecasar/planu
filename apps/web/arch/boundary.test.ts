@@ -226,8 +226,14 @@ const importaFirebase = (fichero: string): boolean =>
  * `infrastructure/firebase/**` and drops their exemption entry. Every one
  * of them imports `firebase/*`, so the count stays at 25: one exemption
  * entry fewer, not one coupled file fewer.
+ *
+ * #108's second step frees `context.ts`, from 25 to 24. Its only Firebase
+ * imports typed `appContext`, `firestoreContext` and `storageContext`, which
+ * `firebase-provider.ts` published and nothing consumed; they are deleted.
+ * With no provider type left, the file moves to `application/context.ts`,
+ * so components stop importing from `infrastructure/`. No new file.
  */
-const TOPE_ACOPLADOS = 25;
+const TOPE_ACOPLADOS = 24;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);

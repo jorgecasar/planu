@@ -8,12 +8,9 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { eventRepositoryContext, userContext } from "../application/context.js";
 import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
-import {
-	eventRepositoryContext,
-	userContext,
-} from "../infrastructure/firebase/context.js";
 import type { StoredEvent } from "../lib/types.js";
 import {
 	canDelete,

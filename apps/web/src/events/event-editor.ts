@@ -11,6 +11,11 @@ import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+	eventRepositoryContext,
+	imageStoreContext,
+	userContext,
+} from "../application/context.js";
+import {
 	type AiModelPort,
 	aiModelContext,
 } from "../application/ports/ai-model.js";
@@ -29,11 +34,6 @@ import {
 	type InferenceSourceName,
 } from "../domain/ai-policy.js";
 import { fromDateFields, toDateFields } from "../domain/date-fields.js";
-import {
-	eventRepositoryContext,
-	imageStoreContext,
-	userContext,
-} from "../infrastructure/firebase/context.js";
 import {
 	eventSchema,
 	type PlanuEvent,

@@ -12,6 +12,15 @@ import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
+import {
+	type EventsSnapshot,
+	eventRepositoryContext,
+	eventsContext,
+	eventsInterestContext,
+	imageStoreContext,
+	sessionContext,
+	userContext,
+} from "../../application/context.js";
 import { accountDataContext } from "../../application/ports/account-data.js";
 import { aiModelContext } from "../../application/ports/ai-model.js";
 import {
@@ -23,18 +32,6 @@ import { createAccountDataAdapter } from "./account-data-adapter.js";
 import { createAiModelAdapter } from "./ai-model-adapter.js";
 import { createAnalyticsAdapter } from "./analytics-adapter.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
-import {
-	appContext,
-	type EventsSnapshot,
-	eventRepositoryContext,
-	eventsContext,
-	eventsInterestContext,
-	firestoreContext,
-	imageStoreContext,
-	sessionContext,
-	storageContext,
-	userContext,
-} from "./context.js";
 import { FirebaseEventRepository } from "./event-repository.js";
 import { EventsController } from "./events-controller.js";
 import { FirebaseImageStore } from "./image-store.js";
@@ -153,12 +150,6 @@ export class PlanuFirebaseProvider extends LitElement {
 		initialValue: undefined,
 	});
 
-	readonly #firestore = new ContextProvider(this, {
-		context: firestoreContext,
-	});
-
-	readonly #storage = new ContextProvider(this, { context: storageContext });
-
 	// `AccountDataPort`, built once both Firestore and Storage are ready —
 	// see `#provideDataServices()`. This is the one place allowed to import
 	// `infrastructure/firebase/account-data-adapter.js`, so components like
@@ -204,10 +195,6 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	constructor() {
 		super();
-		new ContextProvider(this, {
-			context: appContext,
-			initialValue: this.#core.app,
-		});
 		new ContextProvider(this, {
 			context: aiModelContext,
 			initialValue: createAiModelAdapter(this.#core.app),
@@ -298,8 +285,6 @@ export class PlanuFirebaseProvider extends LitElement {
 	async #provideDataServices(user: User): Promise<void> {
 		try {
 			const { firestore, storage } = await loadDataServices(this.#core.app);
-			this.#firestore.setValue(firestore);
-			this.#storage.setValue(storage);
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));

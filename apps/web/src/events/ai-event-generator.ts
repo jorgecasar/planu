@@ -10,6 +10,7 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { imageStoreContext, userContext } from "../application/context.js";
 import {
 	type AiModelPort,
 	aiModelContext,
@@ -32,10 +33,6 @@ import {
 	progressMessage,
 	type WorkingOn,
 } from "../domain/ai-progress.js";
-import {
-	imageStoreContext,
-	userContext,
-} from "../infrastructure/firebase/context.js";
 import type { PlanuEvent } from "../lib/types.js";
 import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";
