@@ -187,6 +187,25 @@ test("la vista previa de la portada tiene un texto alternativo descriptivo", asy
 	el.remove();
 });
 
+test("la portada y las etiquetas conservan su maquetación en el editor", async () => {
+	// Their styles now come from the controllers' sheets, not the editor's own.
+	const el = await mount((editor) => {
+		editor.draft = { title: "Feria", imageUrl: IMAGEN, tags: ["cine"] };
+		editor.open = true;
+	});
+	const style = (selector: string) => {
+		const found = el.shadowRoot?.querySelector(selector);
+		if (!found) throw new Error(`No ${selector}`);
+		return getComputedStyle(found);
+	};
+	expect(style(".cover").flexDirection).toBe("column");
+	expect(style(".cover img").objectFit).toBe("cover");
+	expect(style(".tags .chosen li").display).toBe("flex");
+	expect(style(".tags .chosen li").alignItems).toBe("center");
+
+	el.remove();
+});
+
 test("el borrador prerrellena los campos del formulario", async () => {
 	const el = await mount((editor) => {
 		editor.draft = { title: "Feria del libro", location: "Retiro" };
