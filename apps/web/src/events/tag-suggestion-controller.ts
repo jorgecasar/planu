@@ -1,8 +1,17 @@
-import type { ReactiveController, ReactiveControllerHost } from "lit";
+import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
+import { msg } from "@lit/localize";
+import {
+	html,
+	nothing,
+	type ReactiveController,
+	type ReactiveControllerHost,
+} from "lit";
 import type { AiModelPort } from "../application/ports/ai-model.js";
 import type { SessionUser } from "../application/ports/session.js";
 import { createAiModelSession, type TokenClaims } from "./ai-model-session.js";
 import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
+import { renderTagList } from "./tag-list.js";
 
 /** What the model is shown, read at the moment it's about to be asked. */
 export interface TagSuggestionInput {
@@ -12,6 +21,15 @@ export interface TagSuggestionInput {
 	knownTags: readonly string[];
 	/** The ones already on this event aren't proposed again. */
 	chosenTags: readonly string[];
+}
+
+/** What the tags field hands over to paint the AI part of it. */
+export interface TagSuggestionView {
+	available: boolean;
+	/** No room for another tag: the button stays, disabled. */
+	full: boolean;
+	onSuggest: () => void;
+	onAccept: (tag: string) => void;
 }
 
 export interface TagSuggestionOptions {
@@ -137,6 +155,64 @@ export class TagSuggestionController implements ReactiveController {
 				this.#host.requestUpdate();
 			}
 		}
+	}
+
+	/** The button, the download's progress and what the AI proposed. */
+	render({ available, full, onSuggest, onAccept }: TagSuggestionView) {
+		return html`
+			<!-- The button is deliberately explicit: automatic on typing
+			     would require a debounce with cancellation, and tying it to
+			     save —the earlier design— let a suggestion in flight apply
+			     to a different event if the editor reopened in the
+			     meantime. Hidden entirely without AI, just like "Generate
+			     with AI": a button that always fails is worse than no
+			     button. -->
+			${
+				available
+					? html`<wa-button
+							type="button"
+							size="small"
+							appearance="outlined"
+							?disabled=${this.#suggesting || full}
+							@click=${onSuggest}
+						>
+							${
+								this.#downloading
+									? msg("Downloading the AI model…")
+									: this.#suggesting
+										? msg("Suggesting tags…")
+										: msg("Suggest tags with AI")
+							}
+						</wa-button>`
+					: nothing
+			}
+			${
+				this.#downloading
+					? html`<wa-progress-bar
+							value=${this.#progress}
+						></wa-progress-bar>`
+					: nothing
+			}
+
+			<!-- Deliberately distinct from "Suggested tags": that one
+			     filters the known vocabulary by what's being typed; this
+			     one is proposed by the AI when the button above is
+			     clicked, and conflating the two sections would be worse
+			     than keeping them separate. -->
+			${renderTagList(
+				"ai-suggestions",
+				msg("Tags suggested by AI"),
+				this.#suggested,
+				(tag) => html`
+					<wa-button
+						type="button"
+						size="small"
+						appearance="outlined"
+						@click=${() => onAccept(tag)}
+					>${tag}</wa-button>
+				`,
+			)}
+		`;
 	}
 
 	/**

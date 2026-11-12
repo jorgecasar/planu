@@ -11,7 +11,7 @@ import "./ai-event-generator.js";
 
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
-import { css, html, LitElement, nothing, type TemplateResult } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
 	type AiModelPort,
@@ -52,6 +52,7 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
+import { renderTagList } from "./tag-list.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
 
@@ -467,7 +468,7 @@ export class PlanuEventEditor extends LitElement {
 					@keydown=${this.#onTagKey}
 				></wa-input>
 
-				${this.#renderTagList(
+				${renderTagList(
 					"chosen",
 					msg("Chosen tags"),
 					this.tags,
@@ -488,7 +489,7 @@ export class PlanuEventEditor extends LitElement {
 				${
 					full
 						? nothing
-						: this.#renderTagList(
+						: renderTagList(
 								"suggestions",
 								msg("Suggested tags"),
 								suggestions,
@@ -503,85 +504,14 @@ export class PlanuEventEditor extends LitElement {
 							)
 				}
 
-				<!-- The button is deliberately explicit: automatic on typing
-				     would require a debounce with cancellation, and tying it to
-				     save —the earlier design— let a suggestion in flight apply
-				     to a different event if the editor reopened in the
-				     meantime. Hidden entirely without AI, just like "Generate
-				     with AI": a button that always fails is worse than no
-				     button. -->
-				${
-					this.aiAvailable
-						? html`<wa-button
-								type="button"
-								size="small"
-								appearance="outlined"
-								?disabled=${this.tagSuggestions.suggesting || full}
-								@click=${this.#onSuggestTags}
-							>
-								${
-									this.tagSuggestions.downloading
-										? msg("Downloading the AI model…")
-										: this.tagSuggestions.suggesting
-											? msg("Suggesting tags…")
-											: msg("Suggest tags with AI")
-								}
-							</wa-button>`
-						: nothing
-				}
-				${
-					this.tagSuggestions.downloading
-						? html`<wa-progress-bar
-								value=${this.tagSuggestions.progress}
-							></wa-progress-bar>`
-						: nothing
-				}
-
-				<!-- Deliberately distinct from "Suggested tags": that one
-				     filters the known vocabulary by what's being typed; this
-				     one is proposed by the AI when the button above is
-				     clicked, and conflating the two sections would be worse
-				     than keeping them separate. -->
-				${this.#renderTagList(
-					"ai-suggestions",
-					msg("Tags suggested by AI"),
-					this.tagSuggestions.suggested,
-					(tag) => html`
-						<wa-button
-							type="button"
-							size="small"
-							appearance="outlined"
-							@click=${() => this.#addAiSuggestedTag(tag)}
-						>${tag}</wa-button>
-					`,
-				)}
+				${this.tagSuggestions.render({
+					available: this.aiAvailable,
+					full,
+					onSuggest: () => void this.#onSuggestTags(),
+					onAccept: (tag) => this.#addAiSuggestedTag(tag),
+				})}
 			</div>
 		`;
-	}
-
-	/**
-	 * A list of tags with an accessible name, or nothing if it's empty.
-	 *
-	 * The chosen ones and the suggested ones are the same structure with
-	 * different content; having them duplicated was the sure way for one
-	 * to end up with an `aria-label` and the other without.
-	 *
-	 * The content is typed with the `TemplateResult` that lit exports and
-	 * not with `unknown`: `unknown` admits a function that returns `void`
-	 * or a promise, and both compile and paint `undefined` or
-	 * `[object Promise]` without anyone noticing.
-	 */
-	#renderTagList(
-		className: string,
-		label: string,
-		tags: readonly string[],
-		content: (tag: string) => TemplateResult,
-	) {
-		if (tags.length === 0) return nothing;
-
-		return html`<ul class=${className} aria-label=${label}>
-			${tags.map((tag) => html`<li>${content(tag)}</li>`)}
-		</ul>`;
 	}
 
 	#onTagInput(domEvent: globalThis.Event): void {
