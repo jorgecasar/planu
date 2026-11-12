@@ -16,9 +16,11 @@ const deleteDocMock = vi.fn();
 const getDocMock = vi.fn();
 const updateDocMock = vi.fn();
 const batchUpdateMock = vi.fn();
+const batchSetMock = vi.fn();
 const batchDeleteMock = vi.fn();
 const commitMock = vi.fn();
 const onSnapshotMock = vi.fn();
+const getDocsMock = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
 	doc: docMock,
@@ -31,20 +33,40 @@ vi.mock("firebase/firestore", () => ({
 	arrayUnion: (value: string) => ({ arrayUnion: value }),
 	writeBatch: () => ({
 		update: batchUpdateMock,
+		set: batchSetMock,
 		delete: batchDeleteMock,
 		commit: commitMock,
 	}),
 	collection: (_db: unknown, path: string) => ({ path }),
 	query: (from: unknown, ...clauses: unknown[]) => ({ from, clauses }),
 	where: (...clause: unknown[]) => clause,
-	// Unused by the tests below, but the mock replaces the whole module, so
-	// every export needed at import time has to exist.
-	getDocs: vi.fn(),
+	getDocs: getDocsMock,
 }));
 
 const { createSharingAdapter } = await import("./sharing-adapter.js");
 const directory = await import("../../sharing/user-directory.js");
 const hashOf = () => directory.emailHash("guest@example.com");
+
+/** The owner's offers for the event; the adapter picks the address's one. */
+const offerQuery = (eventId: string) => ({
+	from: { path: "eventInvitesByEmail" },
+	clauses: [
+		["invitedBy", "==", "owner-uid"],
+		["eventId", "==", eventId],
+	],
+});
+
+/** That event's offers: the guest's, behind a decoy to another address. */
+async function offersOf(eventId: string) {
+	const offer = { path: `eventInvitesByEmail/${eventId}_${await hashOf()}` };
+	const decoy = { path: `eventInvitesByEmail/${eventId}_other` };
+	const docs = [decoy, offer].map((ref) => ({
+		id: ref.path.split("/")[1],
+		ref,
+	}));
+	getDocsMock.mockResolvedValue({ docs });
+	return offer;
+}
 
 describe("publishDirectoryEntry()", () => {
 	const VERIFIED_USER: SessionUser = {
@@ -218,12 +240,34 @@ describe("inviteToEvent()", () => {
 	}
 
 	function written() {
-		return setDocMock.mock.calls[0]?.[1] as Record<string, unknown>;
+		return batchSetMock.mock.calls[0]?.[1] as Record<string, unknown>;
 	}
 
 	beforeEach(() => {
 		getDocMock.mockReset();
-		setDocMock.mockReset().mockResolvedValue(undefined);
+		batchSetMock.mockReset();
+		batchDeleteMock.mockReset();
+		commitMock.mockReset().mockResolvedValue(undefined);
+		getDocsMock.mockReset().mockResolvedValue({ docs: [] });
+	});
+
+	test("spends the owner's email offer to that address in the same batch (GH-147)", async () => {
+		existing();
+		const offer = await offersOf("an-event");
+
+		await adapter.inviteToEvent(AN_OFFER);
+
+		expect(getDocsMock).toHaveBeenCalledExactlyOnceWith(offerQuery("an-event"));
+		expect(batchDeleteMock).toHaveBeenCalledExactlyOnceWith(offer);
+		expect(batchSetMock).toHaveBeenCalledOnce();
+		expect(commitMock).toHaveBeenCalledOnce();
+	});
+
+	test("with no such offer, deletes nothing: a missing one would deny the batch", async () => {
+		existing();
+		await adapter.inviteToEvent(AN_OFFER);
+		expect(batchDeleteMock).not.toHaveBeenCalled();
+		expect(commitMock).toHaveBeenCalledOnce();
 	});
 
 	test("with a pending invitation already there, reuses its stored createdAt", async () => {
@@ -242,7 +286,7 @@ describe("inviteToEvent()", () => {
 		const spent = { seconds: 1, nanoseconds: 0 };
 		for (const status of [undefined, "accepted", "declined"]) {
 			existing(status ? { status, createdAt: spent } : undefined);
-			setDocMock.mockClear();
+			batchSetMock.mockClear();
 
 			await adapter.inviteToEvent(AN_OFFER);
 

@@ -86,7 +86,10 @@ export interface SharingPort {
 		invitedBy: string,
 	): Promise<PendingInviteSummary[]>;
 
-	/** Offers the event to a known uid, or edits an existing pending offer. */
+	/**
+	 * Offers the event to a known uid, or edits an existing pending offer. An
+	 * email offer to the same address is withdrawn with it (GH-147).
+	 */
 	inviteToEvent(invite: InviteOffer & { inviteeUid: string }): Promise<void>;
 
 	/**
