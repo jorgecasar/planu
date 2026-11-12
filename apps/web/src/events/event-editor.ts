@@ -41,12 +41,10 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
+import { CoverField } from "./cover-field.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
-
-/** Matches the limit in storage.rules; checking it here gives a better message. */
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 @customElement("planu-event-editor")
 export class PlanuEventEditor extends LitElement {
@@ -131,14 +129,19 @@ export class PlanuEventEditor extends LitElement {
 	@consume({ context: analyticsContext, subscribe: true })
 	private analytics: AnalyticsPort = noopAnalytics;
 
-	@state() private imageUrl = "";
-	@state() private uploading = false;
-	@state() private progress = 0;
 	@state() private saving = false;
 	@state() private error = "";
 
 	private readonly tagField = new TagField(this, {
 		getError: () => this.error,
+		setError: (message) => {
+			this.error = message;
+		},
+	});
+
+	private readonly coverField = new CoverField(this, {
+		getImageStore: () => this.imageStore,
+		getUser: () => this.user,
 		setError: (message) => {
 			this.error = message;
 		},
@@ -183,10 +186,9 @@ export class PlanuEventEditor extends LitElement {
 			(changed.has("open") || changed.has("event") || changed.has("draft")) &&
 			this.open
 		) {
-			this.imageUrl = this.draft?.imageUrl ?? this.event?.imageUrl ?? "";
+			this.coverField.reset(this.draft?.imageUrl ?? this.event?.imageUrl ?? "");
 			this.tagField.reset(this.draft?.tags ?? this.event?.tags ?? []);
 			this.error = "";
-			this.progress = 0;
 			this.aiBlockDismissed = false;
 			// Counts as a close: a suggestion requested before reopening —for
 			// the same event or for another— must not apply when it resolves.
@@ -261,7 +263,7 @@ export class PlanuEventEditor extends LitElement {
 					variant="brand"
 					type="submit"
 					form="event-form"
-					?disabled=${this.saving || this.uploading}
+					?disabled=${this.saving || this.coverField.uploading}
 				>
 					${this.saving ? msg("Saving…") : msg("Save event")}
 				</wa-button>
@@ -294,25 +296,25 @@ export class PlanuEventEditor extends LitElement {
 					}
 					<div class="cover">
 						<label for="cover">${msg("Cover image")}</label>
-						${this.imageUrl ? html`<img src=${this.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
+						${this.coverField.imageUrl ? html`<img src=${this.coverField.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
 						<input
 							id="cover"
 							type="file"
 							accept="image/png, image/jpeg, image/webp, image/gif, image/avif"
-							?disabled=${this.uploading}
-							@change=${this.#onFile}
+							?disabled=${this.coverField.uploading}
+							@change=${this.coverField.onFile}
 						/>
 						${
-							this.uploading
-								? html`<wa-progress-bar value=${this.progress}></wa-progress-bar>`
+							this.coverField.uploading
+								? html`<wa-progress-bar value=${this.coverField.progress}></wa-progress-bar>`
 								: nothing
 						}
 						${
-							this.imageUrl
+							this.coverField.imageUrl
 								? html`<wa-button
 										type="button"
 										appearance="plain"
-										@click=${this.#removeImage}
+										@click=${this.coverField.remove}
 									>
 										${msg("Remove image")}
 									</wa-button>`
@@ -423,45 +425,6 @@ export class PlanuEventEditor extends LitElement {
 		this.tagSuggestions.accept(tag);
 	}
 
-	async #onFile(domEvent: globalThis.Event): Promise<void> {
-		const input = domEvent.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
-		const { imageStore, user } = this;
-		if (!imageStore || !user) return;
-
-		// The rules would reject the file anyway, but with a permissions
-		// error that explains nothing to the user.
-		if (file.size >= MAX_IMAGE_BYTES) {
-			this.error = msg("Images must be smaller than 5 MB.");
-			input.value = "";
-			return;
-		}
-
-		this.error = "";
-		this.uploading = true;
-		this.progress = 0;
-		try {
-			this.imageUrl = await imageStore.upload(
-				file,
-				`events/${user.uid}`,
-				(percent) => {
-					this.progress = percent;
-				},
-			);
-		} catch {
-			this.error = msg("The image could not be uploaded. Please try again.");
-		} finally {
-			this.uploading = false;
-			input.value = "";
-		}
-	}
-
-	#removeImage(): void {
-		this.imageUrl = "";
-	}
-
 	async #onSubmit(domEvent: SubmitEvent): Promise<void> {
 		domEvent.preventDefault();
 
@@ -484,7 +447,7 @@ export class PlanuEventEditor extends LitElement {
 			startDate,
 			endDate,
 			allDay,
-			imageUrl: this.imageUrl,
+			imageUrl: this.coverField.imageUrl,
 			userId: user.uid,
 			tags: this.tagField.tags,
 		});
