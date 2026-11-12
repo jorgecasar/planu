@@ -106,6 +106,56 @@ async function pickForGuest(value: string) {
 	});
 }
 
+/** Opens the dialog on `event` and resolves once its guest row is drawn. */
+async function openWithGuest(sharing = fakeSharing(async () => null)) {
+	const event = { ...EVENT, memberIds: [OWNER.uid, "bea-uid"] };
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event, open: true });
+	document.body.append(el);
+	const trigger = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector<
+			HTMLElement & { updateComplete: Promise<unknown> }
+		>("wa-dropdown [slot=trigger]");
+		if (!found) throw new Error("No guest yet");
+		return found;
+	});
+	await trigger.updateComplete;
+	return { el, sharing, trigger };
+}
+
+test("the guest rows take the dialog's own row styles", async () => {
+	const { el } = await openWithGuest();
+	const style = (selector: string) =>
+		getComputedStyle(el.shadowRoot?.querySelector(selector) as Element);
+
+	expect(style(".sr-only").position).toBe("absolute");
+	expect(style("ul").listStyleType).toBe("none");
+});
+
+test("a guest's menu is locked while a change is being saved", async () => {
+	const sharing = fakeSharing(async () => null);
+	sharing.updateEventMembership.mockReturnValue(new Promise(() => {}));
+	const { el, trigger } = await openWithGuest(sharing);
+
+	const detail = { item: { value: "editor" } };
+	el.shadowRoot
+		?.querySelector("wa-dropdown")
+		?.dispatchEvent(new CustomEvent("wa-select", { detail }));
+
+	await vi.waitFor(() => expect(trigger.hasAttribute("disabled")).toBe(true));
+});
+
+test("handing over another event clears the list while it reloads", async () => {
+	const { el, sharing } = await openWithGuest();
+	sharing.listPendingInvites.mockReturnValue(new Promise(() => {}));
+
+	el.event = { ...EVENT, id: "event-2" };
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.querySelector("wa-dropdown")).toBeNull();
+	expect(el.shadowRoot?.querySelector(".empty")?.textContent).toBe("Loading…");
+});
+
 test("removing a guest names them, so their email offer goes too (GH-147)", async () => {
 	expect(await pickForGuest("remove")).toEqual([
 		"event-1",
