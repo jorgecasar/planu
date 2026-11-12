@@ -32,7 +32,10 @@ import {
 	progressMessage,
 	type WorkingOn,
 } from "../domain/ai-progress.js";
-import { imageStoreContext, userContext } from "../firebase/context.js";
+import {
+	imageStoreContext,
+	userContext,
+} from "../infrastructure/firebase/context.js";
 import type { PlanuEvent } from "../lib/types.js";
 import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";

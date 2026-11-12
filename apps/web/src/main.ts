@@ -42,7 +42,7 @@ document.documentElement.lang = locale;
 new ContextRoot().attach(document.body);
 
 const [{ initializeFirebase }] = await Promise.all([
-	import("./firebase/firebase-provider.js"),
+	import("./infrastructure/firebase/firebase-provider.js"),
 	import("./app-shell.js"),
 ]);
 

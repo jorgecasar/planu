@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const uploadFileMock = vi.fn();
 
-vi.mock("../../firebase/storage.js", () => ({
+vi.mock("./storage.js", () => ({
 	uploadFile: uploadFileMock,
 }));
 

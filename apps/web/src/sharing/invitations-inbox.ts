@@ -11,7 +11,7 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
-import { userContext } from "../firebase/context.js";
+import { userContext } from "../infrastructure/firebase/context.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")

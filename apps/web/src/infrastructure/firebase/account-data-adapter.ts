@@ -123,7 +123,7 @@ export function createAccountDataAdapter(
 			if (
 				target.bucket !== ref(storage).bucket ||
 				!target.fullPath.startsWith(prefix) ||
-				// Allowed shape comes from `uploadFile()` in `firebase/storage.ts`.
+				// Allowed shape comes from `uploadFile()` in `./storage.ts`.
 				!/^[A-Za-z0-9._-]+$/.test(name) ||
 				name === "." ||
 				name === ".." ||

@@ -40,15 +40,13 @@ import {
 	type ViewMode,
 	viewOptions,
 } from "../domain/view-mode.js";
-
+import { getLocale } from "../i18n/localization.js";
 import {
 	type EventsSnapshot,
 	eventsContext,
 	eventsInterestContext,
 	userContext,
-} from "../firebase/context.js";
-
-import { getLocale } from "../i18n/localization.js";
+} from "../infrastructure/firebase/context.js";
 
 import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 

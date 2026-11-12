@@ -221,6 +221,11 @@ const importaFirebase = (fichero: string): boolean =>
  * `firebase/*` to check account deletion's paths, queries and error
  * handling without an emulator, which T32's end-to-end test could not
  * isolate.
+ *
+ * #108 moves the seven files of `src/firebase/` into
+ * `infrastructure/firebase/**` and drops their exemption entry. Every one
+ * of them imports `firebase/*`, so the count stays at 25: one exemption
+ * entry fewer, not one coupled file fewer.
  */
 const TOPE_ACOPLADOS = 25;
 

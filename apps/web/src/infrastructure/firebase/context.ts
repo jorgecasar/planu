@@ -2,10 +2,13 @@ import { createContext } from "@lit/context";
 import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
-import type { EventRepositoryPort } from "../application/ports/event-repository.js";
-import type { ImageStorePort } from "../application/ports/image-store.js";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { EventRepositoryPort } from "../../application/ports/event-repository.js";
+import type { ImageStorePort } from "../../application/ports/image-store.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
+import type { StoredEvent } from "../../lib/types.js";
 
 /** The app itself; needed by Firebase AI Logic, which does not hang off Firestore. */
 export const appContext = createContext<FirebaseApp | undefined>(

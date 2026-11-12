@@ -33,7 +33,7 @@ import {
 	eventRepositoryContext,
 	imageStoreContext,
 	userContext,
-} from "../firebase/context.js";
+} from "../infrastructure/firebase/context.js";
 import {
 	eventSchema,
 	type PlanuEvent,

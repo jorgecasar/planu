@@ -20,7 +20,10 @@ import {
 	PROFILE_PATH,
 } from "./auth/guard.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
-import { sessionContext, userContext } from "./firebase/context.js";
+import {
+	sessionContext,
+	userContext,
+} from "./infrastructure/firebase/context.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.

@@ -30,7 +30,7 @@ Antes de especificar, se comprobó el código:
   Functions, sin plan Blaze (ADR 0007, líneas 14-16, lo excluye explícitamente
   por coste recurrente). Invitar a un email sin cuenta hoy no escribe nada.
 - `publishDirectoryEntry` (lo que hace que alguien sea invitable) sólo se
-  llama en dos sitios: `firebase/firebase-provider.ts:230`, en cada arranque
+  llama en dos sitios: `infrastructure/firebase/firebase-provider.ts:230`, en cada arranque
   de sesión (`onAuthStateChanged` — login, F5, recuperación de sesión), y
   `profile/profile-view.ts:376`, en el botón "I have verified it" del perfil.
   **No hay detección automática entre pestañas**: el propio código lo
