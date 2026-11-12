@@ -26,23 +26,11 @@ import {
 } from "../application/ports/sharing.js";
 import { userContext } from "../firebase/context.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
+import { type Person, toPeople } from "./access-list.js";
 import { canManageMembers } from "./permissions.js";
 
 /** Matches the cap in firestore.rules. */
 const MAX_GUESTS = 20;
-
-/** One row of the access list: a member, or an offer nobody has taken yet. */
-interface Person {
-	/** The uid for members, the invitation id for pending ones. */
-	key: string;
-	uid: string;
-	role: EventRole;
-	name: string;
-	/** Known for pending invitations only: it is what the owner typed. */
-	email: string;
-	photoURL: string;
-	pending: boolean;
-}
 
 /** Invite people to an event, change a guest's role, and remove them. */
 @customElement("planu-share-dialog")
@@ -234,35 +222,8 @@ export class PlanuShareDialog extends LitElement {
 			...(invited ?? []).map((row) => row.inviteeUid),
 		]);
 
-		const named = (uid: string) =>
-			profiles.get(uid)?.displayName || msg("Guest");
-
 		this.loading = false;
-		this.people = [
-			...memberUids.map((uid) => ({
-				key: uid,
-				uid,
-				role: event.roles?.[uid] ?? "viewer",
-				// Anyone who has not signed in again since the directory existed has
-				// no published profile. Better "Guest" than a raw uid.
-				name: named(uid),
-				// Members are shown by name: their address is not published
-				// anywhere, and republishing it would leak every guest's address
-				// to every other guest.
-				email: "",
-				photoURL: profiles.get(uid)?.photoURL ?? "",
-				pending: false,
-			})),
-			...(invited ?? []).map((row) => ({
-				key: row.id,
-				uid: row.inviteeUid,
-				role: row.role,
-				name: named(row.inviteeUid),
-				email: row.inviteeEmail,
-				photoURL: profiles.get(row.inviteeUid)?.photoURL ?? "",
-				pending: true,
-			})),
-		];
+		this.people = toPeople(event, memberUids, invited ?? [], profiles);
 	}
 
 	override render() {
