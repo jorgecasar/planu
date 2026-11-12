@@ -298,8 +298,31 @@ export function createSharingAdapter(
 		async updateEventMembership(
 			eventId: string,
 			membership: { memberIds: string[]; roles: Record<string, EventRole> },
+			removedUid?: string,
 		): Promise<void> {
-			await updateDoc(doc(firestore, "events", eventId), membership);
+			const batch = writeBatch(firestore);
+			batch.update(doc(firestore, "events", eventId), membership);
+
+			if (removedUid) {
+				// Their own invitation says which address any old offer went to.
+				// Gone if they erased it (ADR 0013); then there's nothing to match.
+				const record = await getDoc(
+					doc(firestore, INVITES_COLLECTION, inviteId(eventId, removedUid)),
+				);
+				// `inviteeEmail` is optional on an invitation: without one there is
+				// no address to match, so nothing to spend.
+				const { inviteeEmail, invitedBy } = record.data() ?? {};
+				if (
+					typeof inviteeEmail === "string" &&
+					inviteeEmail &&
+					typeof invitedBy === "string"
+				) {
+					const offer = await emailOfferTo(eventId, invitedBy, inviteeEmail);
+					if (offer) batch.delete(offer);
+				}
+			}
+
+			await batch.commit();
 		},
 
 		/**

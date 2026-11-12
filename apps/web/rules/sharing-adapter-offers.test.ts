@@ -80,3 +80,17 @@ test("a uid invite with no email offer to spend goes through", async () => {
 
 	expect(await stored(INVITE)).toMatchObject({ status: "pending" });
 });
+
+test("removing a guest with no email offer to spend goes through", async () => {
+	await env.withSecurityRulesDisabled(async (ctx) => {
+		const db = ctx.firestore();
+		const joined = { memberIds: [OWNER, GUEST], roles: { [GUEST]: "viewer" } };
+		await setDoc(doc(db, EVENT), joined, { merge: true });
+		await setDoc(doc(db, INVITE), { ...AN_INVITE, status: "accepted" });
+	});
+
+	const membership = { memberIds: [OWNER], roles: {} };
+	await ownersAdapter().updateEventMembership("an-event", membership, GUEST);
+
+	expect(await stored(EVENT)).toMatchObject(membership);
+});

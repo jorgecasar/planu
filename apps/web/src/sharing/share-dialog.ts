@@ -552,12 +552,15 @@ export class PlanuShareDialog extends LitElement {
 		const roles = { ...this.event.roles };
 		delete roles[person.uid];
 
-		await this.#write({
-			memberIds: (this.event.memberIds ?? []).filter(
-				(uid) => uid !== person.uid,
-			),
-			roles,
-		});
+		await this.#write(
+			{
+				memberIds: (this.event.memberIds ?? []).filter(
+					(uid) => uid !== person.uid,
+				),
+				roles,
+			},
+			person.uid,
+		);
 	}
 
 	async #cancelInvite(person: Person): Promise<void> {
@@ -577,10 +580,10 @@ export class PlanuShareDialog extends LitElement {
 		}
 	}
 
-	async #write(membership: {
-		memberIds: string[];
-		roles: Record<string, EventRole>;
-	}): Promise<void> {
+	async #write(
+		membership: { memberIds: string[]; roles: Record<string, EventRole> },
+		removedUid?: string,
+	): Promise<void> {
 		const { sharing, event } = this;
 		if (!sharing || !event || this.busy) return;
 
@@ -588,7 +591,7 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.busy = true;
 		try {
-			await sharing.updateEventMembership(event.id, membership);
+			await sharing.updateEventMembership(event.id, membership, removedUid);
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {

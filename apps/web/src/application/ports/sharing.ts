@@ -123,10 +123,15 @@ export interface SharingPort {
 	/** Declines invitation `id`. The record stays, so it can be reconsidered later. */
 	declineInvite(id: string): Promise<void>;
 
-	/** Rewrites an event's membership — adding, removing or re-roling a guest. */
+	/**
+	 * Rewrites an event's membership — adding, removing or re-roling a guest.
+	 * With `removedUid`, also withdraws any email offer still waiting for that
+	 * guest's address, so it can't let them back in (GH-147).
+	 */
 	updateEventMembership(
 		eventId: string,
 		membership: { memberIds: string[]; roles: Record<string, EventRole> },
+		removedUid?: string,
 	): Promise<void>;
 
 	/** Publishes or refreshes the current user's directory entry. */

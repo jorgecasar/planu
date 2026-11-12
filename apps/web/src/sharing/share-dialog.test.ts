@@ -32,6 +32,7 @@ function fakeSharing(found: () => Promise<DirectoryEntry | null>) {
 		listPendingInvites: vi.fn().mockResolvedValue([]),
 		inviteToEvent: vi.fn().mockResolvedValue(undefined),
 		offerInviteByEmail: vi.fn().mockResolvedValue(undefined),
+		updateEventMembership: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
@@ -76,6 +77,50 @@ test("an address with an account is invited by uid", async () => {
 		expect.objectContaining({ inviteeUid: "bea-uid" }),
 	);
 	expect(sharing.offerInviteByEmail).not.toHaveBeenCalled();
+});
+
+/** Picks `value` from the one guest's menu; resolves with the membership write. */
+async function pickForGuest(value: string) {
+	const sharing = fakeSharing(async () => null);
+	const event = {
+		...EVENT,
+		memberIds: [OWNER.uid, "bea-uid"],
+		roles: { "bea-uid": "viewer" },
+	};
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event, open: true });
+	document.body.append(el);
+
+	const menu = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector("wa-dropdown");
+		if (!found) throw new Error("No guest yet");
+		return found;
+	});
+	const detail = { item: { value } };
+	menu.dispatchEvent(new CustomEvent("wa-select", { detail }));
+
+	return vi.waitFor(() => {
+		const [call] = sharing.updateEventMembership.mock.calls;
+		if (!call) throw new Error("Not written yet");
+		return call;
+	});
+}
+
+test("removing a guest names them, so their email offer goes too (GH-147)", async () => {
+	expect(await pickForGuest("remove")).toEqual([
+		"event-1",
+		{ memberIds: [OWNER.uid], roles: {} },
+		"bea-uid",
+	]);
+});
+
+test("changing a guest's role names nobody as removed", async () => {
+	const [, membership, removed] = await pickForGuest("editor");
+	expect(membership).toEqual({
+		memberIds: [OWNER.uid, "bea-uid"],
+		roles: { "bea-uid": "editor" },
+	});
+	expect(removed).toBeUndefined();
 });
 
 test("an address with no account is offered by email, with the same notice", async () => {

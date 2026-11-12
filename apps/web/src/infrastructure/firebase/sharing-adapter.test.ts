@@ -366,6 +366,60 @@ describe("declineInvite()", () => {
 	});
 });
 
+describe("updateEventMembership()", () => {
+	const adapter = createSharingAdapter(FAKE_FIRESTORE);
+	const MEMBERSHIP = { memberIds: ["owner-uid"], roles: {} };
+
+	beforeEach(() => {
+		getDocMock.mockReset();
+		batchUpdateMock.mockReset();
+		batchDeleteMock.mockReset();
+		commitMock.mockReset().mockResolvedValue(undefined);
+		getDocsMock.mockReset();
+	});
+
+	test("removing a guest also spends the owner's email offer to them (GH-147)", async () => {
+		const record = {
+			inviteeEmail: "Guest@Example.com",
+			invitedBy: "owner-uid",
+		};
+		getDocMock.mockResolvedValue({ data: () => record });
+		const offer = await offersOf("e1");
+
+		await adapter.updateEventMembership("e1", MEMBERSHIP, "guest");
+
+		expect(getDocMock).toHaveBeenCalledExactlyOnceWith({
+			path: "eventInvites/e1_guest",
+		});
+		// The address on the record, normalised: not the owner's, not another.
+		expect(getDocsMock).toHaveBeenCalledExactlyOnceWith(offerQuery("e1"));
+		expect(batchUpdateMock).toHaveBeenCalledExactlyOnceWith(
+			{ path: "events/e1" },
+			MEMBERSHIP,
+		);
+		expect(batchDeleteMock).toHaveBeenCalledExactlyOnceWith(offer);
+		expect(commitMock).toHaveBeenCalledOnce();
+	});
+
+	test("with no record, no address on it, or no removal, only the membership moves", async () => {
+		getDocsMock.mockResolvedValue({ docs: [] });
+		const noAddress = [
+			undefined,
+			{ invitedBy: "owner-uid" },
+			{ invitedBy: "owner-uid", inviteeEmail: "" },
+		];
+		for (const data of noAddress) {
+			getDocMock.mockResolvedValue({ data: () => data });
+			await adapter.updateEventMembership("e1", MEMBERSHIP, "guest");
+		}
+		await adapter.updateEventMembership("e1", MEMBERSHIP);
+
+		expect(getDocsMock).not.toHaveBeenCalled();
+		expect(batchDeleteMock).not.toHaveBeenCalled();
+		expect(commitMock).toHaveBeenCalledTimes(4);
+	});
+});
+
 describe("watchReceivedInvites()", () => {
 	test("listens to the user's pending invitations and maps each row", () => {
 		const unsubscribe = () => {};
