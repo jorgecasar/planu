@@ -1,5 +1,7 @@
+import "@awesome.me/webawesome/dist/components/button/button.js";
+import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { msg } from "@lit/localize";
-import type { ReactiveControllerHost } from "lit";
+import { css, html, nothing, type ReactiveControllerHost } from "lit";
 import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
 
@@ -83,4 +85,52 @@ export class CoverField {
 		this.imageUrl = "";
 		this.#host.requestUpdate();
 	};
+
+	/** Its markup goes in the host's shadow root, styled by `coverFieldStyles`. */
+	render() {
+		return html`
+			<div class="cover">
+				<label for="cover">${msg("Cover image")}</label>
+				${this.imageUrl ? html`<img src=${this.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
+				<input
+					id="cover"
+					type="file"
+					accept="image/png, image/jpeg, image/webp, image/gif, image/avif"
+					?disabled=${this.uploading}
+					@change=${this.onFile}
+				/>
+				${
+					this.uploading
+						? html`<wa-progress-bar value=${this.progress}></wa-progress-bar>`
+						: nothing
+				}
+				${
+					this.imageUrl
+						? html`<wa-button
+								type="button"
+								appearance="plain"
+								@click=${this.remove}
+							>
+								${msg("Remove image")}
+							</wa-button>`
+						: nothing
+				}
+			</div>
+		`;
+	}
 }
+
+export const coverFieldStyles = css`
+	.cover {
+		display: flex;
+		flex-direction: column;
+		gap: var(--wa-space-xs);
+	}
+
+	img {
+		inline-size: 100%;
+		block-size: 10rem;
+		object-fit: cover;
+		border-radius: var(--wa-border-radius-m);
+	}
+`;

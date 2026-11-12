@@ -3,7 +3,6 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
 import "@awesome.me/webawesome/dist/components/divider/divider.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
-import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import "@awesome.me/webawesome/dist/components/textarea/textarea.js";
 import "./ai-event-generator.js";
 
@@ -41,7 +40,7 @@ import {
 	type StoredEvent,
 } from "../lib/types.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
-import { CoverField } from "./cover-field.js";
+import { CoverField, coverFieldStyles } from "./cover-field.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
@@ -51,6 +50,7 @@ export class PlanuEventEditor extends LitElement {
 	static override styles = [
 		tagChipStyles,
 		tagFieldStyles,
+		coverFieldStyles,
 		css`
 		form {
 			display: flex;
@@ -66,19 +66,6 @@ export class PlanuEventEditor extends LitElement {
 
 		.dates > * {
 			flex: 1 1 10rem;
-		}
-
-		.cover {
-			display: flex;
-			flex-direction: column;
-			gap: var(--wa-space-xs);
-		}
-
-		img {
-			inline-size: 100%;
-			block-size: 10rem;
-			object-fit: cover;
-			border-radius: var(--wa-border-radius-m);
 		}
 		`,
 	];
@@ -294,33 +281,7 @@ export class PlanuEventEditor extends LitElement {
 								`
 							: nothing
 					}
-					<div class="cover">
-						<label for="cover">${msg("Cover image")}</label>
-						${this.coverField.imageUrl ? html`<img src=${this.coverField.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
-						<input
-							id="cover"
-							type="file"
-							accept="image/png, image/jpeg, image/webp, image/gif, image/avif"
-							?disabled=${this.coverField.uploading}
-							@change=${this.coverField.onFile}
-						/>
-						${
-							this.coverField.uploading
-								? html`<wa-progress-bar value=${this.coverField.progress}></wa-progress-bar>`
-								: nothing
-						}
-						${
-							this.coverField.imageUrl
-								? html`<wa-button
-										type="button"
-										appearance="plain"
-										@click=${this.coverField.remove}
-									>
-										${msg("Remove image")}
-									</wa-button>`
-								: nothing
-						}
-					</div>
+					${this.coverField.render()}
 
 					<wa-input
 						name="title"

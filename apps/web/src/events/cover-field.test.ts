@@ -1,3 +1,4 @@
+import { html, render } from "lit";
 import { expect, test, vi } from "vitest";
 import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
@@ -92,4 +93,43 @@ test("reset() parte de la imagen dada y quitarla la deja vacía", () => {
 	cover.remove();
 	expect(cover.imageUrl).toBe("");
 	expect(host.requestUpdate).toHaveBeenCalledTimes(2);
+});
+
+function paint(cover: CoverField) {
+	const root = document.createElement("div");
+	render(html`${cover.render()}`, root);
+	return root;
+}
+
+test("la vista previa y su botón de quitar sólo están con imagen", () => {
+	const { cover } = setup();
+	expect(paint(cover).querySelector("img, wa-button")).toBeNull();
+	cover.reset(URL_OK);
+	const root = paint(cover);
+	expect(root.querySelector(".cover img")?.getAttribute("src")).toBe(URL_OK);
+	root.querySelector("wa-button")?.dispatchEvent(new Event("click"));
+	expect(cover.imageUrl).toBe("");
+});
+
+test("elegir un fichero lo sube; mientras, el campo se bloquea con progreso", async () => {
+	const { cover, store } = setup();
+	const input = paint(cover).querySelector<HTMLInputElement>("#cover");
+	if (!input) throw new Error("No file input");
+	const files = new DataTransfer();
+	files.items.add(new File(["x"], "b.png", { type: "image/png" }));
+	input.files = files.files;
+	input.dispatchEvent(new Event("change"));
+	expect(store.upload).toHaveBeenCalledOnce();
+
+	store.progress(40);
+	const root = paint(cover);
+	expect(root.querySelector("#cover")?.hasAttribute("disabled")).toBe(true);
+	const bar = root.querySelector("wa-progress-bar");
+	expect(bar?.getAttribute("value")).toBe("40");
+	store.settle();
+	// The editor's own continuation was queued first, so it has run by now.
+	await store.upload.mock.results[0]?.value;
+	expect(cover.uploading).toBe(false);
+	const after = paint(cover);
+	expect(after.querySelector("#cover[disabled], wa-progress-bar")).toBeNull();
 });
