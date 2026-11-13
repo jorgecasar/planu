@@ -48,5 +48,7 @@ const [{ initializeFirebase }] = await Promise.all([
 
 // With the application already up: observability must not compete for the
 // first paint. Inside, it also waits for the browser to be idle.
-const { startObservability } = await import("./observability/index.js");
+const { startObservability } = await import(
+	"./infrastructure/firebase/observability.js"
+);
 startObservability(initializeFirebase().app);

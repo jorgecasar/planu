@@ -106,13 +106,12 @@ apps/web/
     application/            Casos de uso y sus puertos: ports/session,
                              event-repository, image-store, account-data,
                              analytics; sign-in, sign-up, delete-account…
-    infrastructure/firebase/  Adaptadores. El único sitio pensado para
-                             `firebase/*`: session-adapter, event-repository,
-                             image-store, analytics-adapter,
-                             account-data-adapter
-    firebase/               config, contextos, provider — en migración; aún
-                             concentra usos de Firebase que `infrastructure/`
-                             todavía no ha absorbido
+    infrastructure/firebase/  Adaptadores. El único sitio con `firebase/*`:
+                             config, firebase-provider, session-adapter,
+                             event-repository, image-store, sharing-adapter,
+                             analytics-adapter, account-data-adapter,
+                             observability (Performance; arranca las dos)
+    infrastructure/sentry/  Errores con Sentry, sin Firebase
     auth/                   login-view, guard
     events/                 events-view, event-card, event-editor,
                              event-filters, ai-event-generator,
@@ -124,7 +123,6 @@ apps/web/
     profile/                profile-view (incluye el borrado de cuenta)
     landing/                landing, legal (privacidad/términos), estilos
                              propios — prerrenderizada, sin JavaScript
-    observability/          Sentry: errores y rendimiento real de usuario
     lib/                    types (esquema Zod de persistencia), utilidades
   e2e/                    Tests end to end, contra `npm run dev`
   e2e-landing/            Tests end to end de la landing, contra `dist/`

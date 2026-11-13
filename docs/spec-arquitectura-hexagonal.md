@@ -62,7 +62,7 @@ apps/web/src/
     save-event.ts    …y un fichero por caso de uso
   infrastructure/  Adaptadores. Único sitio donde se importa firebase/*.
     firebase/        provider, controllers, storage, mapeo Timestamp↔Date
-    sentry/          el que ya existe en observability/
+    sentry/          errores; sin Firebase (GH-185, antes observability/)
   ui/              Componentes Lit. Consumen casos de uso, no adaptadores.
     auth/ events/ profile/
 ```
