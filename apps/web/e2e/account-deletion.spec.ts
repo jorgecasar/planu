@@ -198,6 +198,16 @@ async function deleteAccountFromProfile(
 	// El redirigido a login es la señal de que `deleteAccount()` resolvió de
 	// verdad, no sólo que se pulsó el botón.
 	await expect(page).toHaveURL(/\/app\/login$/, { timeout: 15_000 });
+
+	// Y lo dice, en una región viva, en vez de redirigir sin explicación
+	// (#154). Una sola vez: al recargar ya no está.
+	const notice = page.getByRole("status").filter({ hasText: "deleted" });
+	await expect(notice).toHaveText("Your account has been deleted.");
+	await page.reload();
+	await expect(page.locator("planu-login-view wa-card")).toBeVisible();
+	// Past the view's 250 ms delay: before it, the notice couldn't show yet.
+	await page.waitForTimeout(400);
+	await expect(notice).toHaveCount(0);
 }
 
 test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio y membresías ajenas — y la cuenta de Auth deja de existir (T32)", async ({

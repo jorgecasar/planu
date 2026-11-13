@@ -20,6 +20,10 @@ import type { SessionPort, SessionUser } from "../application/ports/session.js";
 import type { SharingPort } from "../application/ports/sharing.js";
 import { sharingContext } from "../application/ports/sharing.js";
 import { signOut } from "../application/sign-out.js";
+import {
+	type DeletionGuard,
+	deletionGuardContext,
+} from "../auth/deletion-guard.js";
 import { SessionError } from "../domain/session-error.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
@@ -101,6 +105,12 @@ export class PlanuProfileView extends LitElement {
 	@consume({ context: accountDataContext, subscribe: true })
 	private account: AccountDataPort | undefined;
 
+	@consume({ context: deletionGuardContext })
+	private deletionGuard: DeletionGuard | undefined;
+
+	/** Who is being deleted: rendered on even if the session ends under it. */
+	#deletingUser: SessionUser | undefined;
+
 	@state() private confirmingDelete = false;
 	@state() private confirmEmail = "";
 	@state() private deleteStep: DeleteAccountStep | undefined;
@@ -110,7 +120,7 @@ export class PlanuProfileView extends LitElement {
 	readonly #reauth = new ReauthStep(this);
 
 	override render() {
-		const user = this.user;
+		const user = this.user ?? this.#deletingUser;
 		if (!user) return null;
 
 		return html`
@@ -400,6 +410,13 @@ export class PlanuProfileView extends LitElement {
 		this.confirmingDelete = false;
 		this.needsReauth = false;
 		this.#reauth.reset();
+		// Cancelling the reauthentication is where an armed deletion stops.
+		if (this.#deletingUser) this.#endDelete("failed");
+	}
+
+	#endDelete(outcome: "succeeded" | "failed"): void {
+		this.#deletingUser = undefined;
+		this.deletionGuard?.end(outcome);
 	}
 
 	#onConfirmEmailInput(event: Event): void {
@@ -415,6 +432,9 @@ export class PlanuProfileView extends LitElement {
 		if (this.deleteStep) return;
 		const { session, account, user } = this;
 		if (!session || !account || !user) return;
+		// Armed until the deletion ends, reauthentication included (#154).
+		if (this.deletionGuard?.begin() === false) return;
+		this.#deletingUser = user;
 
 		this.deleteError = "";
 		await this.#runDelete(session, account, user);
@@ -435,9 +455,8 @@ export class PlanuProfileView extends LitElement {
 			await deleteAccount(session, account, user, (step) => {
 				this.deleteStep = step;
 			});
-			// The account no longer exists: `onAuthStateChanged` in the
-			// provider picks it up and the guard redirects to login on its own.
-			// Nothing else to do here.
+			// The shell takes it from here: login, with the notice.
+			this.#endDelete("succeeded");
 		} catch (cause) {
 			this.deleteStep = undefined;
 			if (
@@ -447,6 +466,7 @@ export class PlanuProfileView extends LitElement {
 				this.needsReauth = true;
 				return;
 			}
+			this.#endDelete("failed");
 			this.deleteError = msg(
 				"Something went wrong deleting your account. You can try again.",
 			);
@@ -466,6 +486,8 @@ export class PlanuProfileView extends LitElement {
 			user,
 			async () => {
 				this.needsReauth = false;
+				// Re-armed: a reauth slower than the cap left it released.
+				this.deletionGuard?.begin();
 				await this.#runDelete(session, account, user);
 			},
 			() => {
