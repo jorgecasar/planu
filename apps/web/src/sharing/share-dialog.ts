@@ -21,6 +21,7 @@ import {
 	sharingContext,
 } from "../application/ports/sharing.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
+import { typographyStyles } from "../styles/typography.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 import { canManageMembers } from "./permissions.js";
@@ -32,6 +33,7 @@ const MAX_GUESTS = 20;
 @customElement("planu-share-dialog")
 export class PlanuShareDialog extends LitElement {
 	static override styles = [
+		typographyStyles,
 		css`
 		form {
 			display: grid;

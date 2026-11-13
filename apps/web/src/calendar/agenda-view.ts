@@ -6,6 +6,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { shouldRevealPast } from "../domain/sort-events.js";
 import type { StoredEvent } from "../lib/types.js";
+import { typographyStyles } from "../styles/typography.js";
 import { type Agenda, type AgendaDay, countEvents } from "./agenda-days.js";
 
 /**
@@ -39,7 +40,9 @@ const emptyAgenda = (): Agenda<StoredEvent> => ({
  */
 @customElement("planu-agenda-view")
 export class PlanuAgendaView extends LitElement {
-	static override styles = css`
+	static override styles = [
+		typographyStyles,
+		css`
 		:host {
 			display: block;
 		}
@@ -64,7 +67,8 @@ export class PlanuAgendaView extends LitElement {
 		wa-details {
 			margin-block-start: var(--wa-space-xl);
 		}
-	`;
+	`,
+	];
 
 	/** The agenda to paint, already sorted and spread across days. */
 	@property({ attribute: false }) agenda: Agenda<StoredEvent> = emptyAgenda();

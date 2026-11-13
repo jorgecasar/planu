@@ -23,12 +23,14 @@ import "../sharing/share-dialog.js";
 import "./calendar-export.js";
 import { formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
+import { typographyStyles } from "../styles/typography.js";
 import { tagChipStyles } from "./tag-styles.js";
 
 /** Card for an event, with edit and delete actions. */
 @customElement("planu-event-card")
 export class PlanuEventCard extends LitElement {
 	static override styles = [
+		typographyStyles,
 		tagChipStyles,
 		css`
 		:host {
