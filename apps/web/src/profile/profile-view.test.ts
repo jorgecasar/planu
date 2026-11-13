@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { AccountDataPort } from "../application/ports/account-data.js";
 import type { SessionPort, SessionUser } from "../application/ports/session.js";
 import type { SharingPort } from "../application/ports/sharing.js";
+import { DeletionGuard } from "../auth/deletion-guard.js";
 import { SessionError } from "../domain/session-error.js";
 import "./profile-view.js";
 import type { PlanuProfileView } from "./profile-view.js";
@@ -553,4 +554,69 @@ test("cancelar la reautenticación olvida la contraseña tecleada", async () => 
 		return field;
 	});
 	expect(password.value).toBe("");
+});
+
+async function withGuard(session: SessionPort) {
+	const deletionGuard = new DeletionGuard(window, () => true);
+	const el = await mountDeletable(session);
+	Object.assign(el, { deletionGuard });
+	return { el, deletionGuard };
+}
+
+test("el borrado corre dentro del guardia del shell, que lo suelta al acabar", async () => {
+	const session = fakeSession();
+	vi.mocked(session.refreshEmailVerification).mockResolvedValue(UNVERIFIED);
+	let finish!: () => void;
+	vi.mocked(session.deleteAccount).mockReturnValue(
+		new Promise((resolve) => (finish = resolve)),
+	);
+	const { el, deletionGuard } = await withGuard(session);
+
+	await startDelete(el);
+	await vi.waitFor(() => expect(deletionGuard.running).toBe(true));
+	// The session ending mid-deletion doesn't blank the progress.
+	Object.assign(el, { user: null });
+	await el.updateComplete;
+	expect(deleteDialog(el).querySelector("wa-progress-bar")).not.toBeNull();
+
+	finish();
+	await vi.waitFor(() => expect(deletionGuard.running).toBe(false));
+	expect(deletionGuard.takeNotice()).toBe("account-deleted");
+});
+
+test("el guardia sigue armado durante la reautenticación y cancelarla lo suelta", async () => {
+	const session = fakeSession();
+	const { el, deletionGuard } = await withGuard(session);
+
+	await reachReauth(session, el);
+	expect(deletionGuard.running).toBe(true);
+
+	dialogButton(el, "Cancel")?.click();
+	await el.updateComplete;
+	expect(deletionGuard.running).toBe(false);
+});
+
+test("si el tope soltó el guardia durante la reautenticación, el reintento lo rearma", async () => {
+	const session = fakeSession();
+	const { el, deletionGuard } = await withGuard(session);
+	await reachReauth(session, el);
+	deletionGuard.end("failed"); // what the cap does
+	vi.mocked(session.deleteAccount).mockReturnValue(pending());
+
+	dialogButton(el, "Confirm and delete")?.click();
+
+	await vi.waitFor(() => expect(deletionGuard.running).toBe(true));
+});
+
+test("tras reautenticarse, el reintento correcto suelta el guardia", async () => {
+	const session = fakeSession();
+	const { el, deletionGuard } = await withGuard(session);
+	await reachReauth(session, el);
+	vi.mocked(session.deleteAccount).mockResolvedValue(undefined);
+
+	dialogButton(el, "Confirm and delete")?.click();
+
+	await vi.waitFor(() => expect(deletionGuard.running).toBe(false));
+	expect(session.reauthenticate).toHaveBeenCalledWith("secret");
+	expect(deletionGuard.takeNotice()).toBe("account-deleted");
 });
