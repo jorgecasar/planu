@@ -18,6 +18,11 @@ const getDocs = vi.fn(async (key: string) => ({
 	docs: answers.get(key) ?? [],
 }));
 const deleteDoc = vi.fn(async (_ref: { path: string }) => {});
+/** What a fresh read of a document returns now; nothing by default. */
+const current = new Map<string, object>();
+const getDoc = vi.fn(async (ref: { path: string }) => ({
+	data: () => current.get(ref.path),
+}));
 const updateDoc = vi.fn(async (_ref: { path: string }, _data: object) => {});
 const listAll = vi.fn();
 const deleteObject = vi.fn();
@@ -28,6 +33,7 @@ vi.mock("firebase/firestore", () => ({
 		`${field} ${op} ${value}`,
 	query: (path: string, constraint: string) => `${path}|${constraint}`,
 	doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join("/") }),
+	getDoc,
 	getDocs,
 	deleteDoc,
 	updateDoc,
@@ -48,7 +54,9 @@ const MEMBER_OF = "events|memberIds array-contains ana";
 
 beforeEach(() => {
 	answers.clear();
+	current.clear();
 	vi.clearAllMocks();
+	deleteDoc.mockImplementation(async () => {});
 	listAll.mockReset();
 	deleteObject.mockReset();
 });
@@ -140,6 +148,52 @@ describe("directorio e invitaciones", () => {
 		await adapter.deleteReceivedInvitations("ana");
 
 		expect(deleteDoc.mock.calls).toEqual([[{ path: "eventInvites/i1" }]]);
+	});
+
+	// A refused delete failed the whole deletion before it reached the Auth
+	// account (the T32 e2e), so a tombstone is not even tried.
+	test("una lápida no se intenta borrar, y el resto sí", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/gone", { status: "removed" }),
+			snap("eventInvites/i1", { status: "accepted" }),
+		]);
+
+		await adapter.deleteReceivedInvitations("ana");
+
+		expect(deleteDoc.mock.calls).toEqual([[{ path: "eventInvites/i1" }]]);
+	});
+
+	test("tampoco si la consulta la vio aceptada y ya es una lápida", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/i1", { status: "accepted" }),
+		]);
+		current.set("eventInvites/i1", { status: "removed" });
+		deleteDoc.mockRejectedValueOnce(new Error("permission-denied"));
+
+		await adapter.deleteReceivedInvitations("ana");
+
+		expect(getDoc).toHaveBeenCalledWith({ path: "eventInvites/i1" });
+	});
+
+	test("si la relectura también falla, llega el error del borrado", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/i1", { status: "accepted" }),
+		]);
+		deleteDoc.mockRejectedValueOnce(new Error("permission-denied"));
+		getDoc.mockRejectedValueOnce(new Error("offline"));
+		await expect(adapter.deleteReceivedInvitations("ana")).rejects.toThrow(
+			"permission-denied",
+		);
+	});
+
+	test("una invitación recibida rechazada que no es lápida no se traga", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/i1", { status: "accepted" }),
+		]);
+		deleteDoc.mockRejectedValueOnce(new Error("permission-denied"));
+		await expect(adapter.deleteReceivedInvitations("ana")).rejects.toThrow(
+			"permission-denied",
+		);
 	});
 
 	test("borra las invitaciones y las ofertas por email que envió", async () => {

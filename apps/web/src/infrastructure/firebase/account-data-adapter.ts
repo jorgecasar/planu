@@ -9,6 +9,7 @@ import {
 	collection,
 	deleteDoc,
 	doc,
+	getDoc,
 	getDocs,
 	query,
 	updateDoc,
@@ -172,8 +173,32 @@ export function createAccountDataAdapter(
 			await Promise.all(deletions);
 		},
 
-		deleteReceivedInvitations(uid: string): Promise<void> {
-			return deleteInvitesWhere(firestore, "inviteeUid", uid);
+		async deleteReceivedInvitations(uid: string): Promise<void> {
+			const snapshot = await getDocs(
+				query(
+					collection(firestore, "eventInvites"),
+					where("inviteeUid", "==", uid),
+				),
+			);
+			// A tombstone (ADR 0015) is left alone: the invitee may delete it only
+			// once its event is gone, which this account can no longer check, and
+			// a refused delete failed the whole deletion before it reached the
+			// Auth account. What stays names a dead uid and no email. A refusal
+			// is re-read too: the query can still return a record this account's
+			// leave has just turned into a tombstone.
+			const isTombstone = (data: { status?: unknown } | undefined) =>
+				data?.status === "removed";
+			await Promise.all(
+				snapshot.docs.map(async (d) => {
+					if (isTombstone(d.data())) return;
+					try {
+						await deleteDoc(d.ref);
+					} catch (error) {
+						const now = await getDoc(d.ref).catch(() => null);
+						if (!isTombstone(now?.data())) throw error;
+					}
+				}),
+			);
 		},
 
 		async deleteSentInvitations(uid: string): Promise<void> {
