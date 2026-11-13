@@ -50,6 +50,7 @@ export const templates = {
 	s25bda34028289ced: `Etiquetas sugeridas`,
 	s267daa66fd8f77aa: `Demasiados intentos. Prueba dentro de unos minutos.`,
 	s26a6860698d39096: `Verifica tu correo para que otras personas puedan invitarte a sus eventos.`,
+	s28fa2d57e568c9dd: `Elegir imagen`,
 	s2afc9a717c161490: `Invitar`,
 	s2b007dfb2c580793: `Tres cosas que hacemos diferente:`,
 	s2c49904474150064: `Etiquetas puestas`,

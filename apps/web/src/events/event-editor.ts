@@ -42,6 +42,7 @@ import {
 import { typographyStyles } from "../styles/typography.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import { CoverField, coverFieldStyles } from "./cover-field.js";
+import { fileButtonStyles } from "./file-button.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";
 import { tagChipStyles } from "./tag-styles.js";
 import { TagSuggestionController } from "./tag-suggestion-controller.js";
@@ -53,6 +54,7 @@ export class PlanuEventEditor extends LitElement {
 		tagChipStyles,
 		tagFieldStyles,
 		coverFieldStyles,
+		fileButtonStyles,
 		css`
 		form {
 			display: flex;

@@ -4,6 +4,7 @@ import { msg } from "@lit/localize";
 import { css, html, nothing, type ReactiveControllerHost } from "lit";
 import type { ImageStorePort } from "../application/ports/image-store.js";
 import type { SessionUser } from "../application/ports/session.js";
+import { renderFileButton } from "./file-button.js";
 
 /** Matches the limit in storage.rules; checking it here gives a better message. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -92,13 +93,12 @@ export class CoverField {
 			<div class="cover">
 				<label for="cover">${msg("Cover image")}</label>
 				${this.imageUrl ? html`<img src=${this.imageUrl} alt=${msg("Cover image preview")} />` : nothing}
-				<input
-					id="cover"
-					type="file"
-					accept="image/png, image/jpeg, image/webp, image/gif, image/avif"
-					?disabled=${this.uploading}
-					@change=${this.onFile}
-				/>
+				${renderFileButton({
+					id: "cover",
+					accept: "image/png, image/jpeg, image/webp, image/gif, image/avif",
+					disabled: this.uploading,
+					onChange: this.onFile,
+				})}
 				${
 					this.uploading
 						? html`<wa-progress-bar value=${this.progress}></wa-progress-bar>`

@@ -103,11 +103,13 @@ function paint(cover: CoverField) {
 
 test("la vista previa y su botón de quitar sólo están con imagen", () => {
 	const { cover } = setup();
-	expect(paint(cover).querySelector("img, wa-button")).toBeNull();
+	// The file picker's own button is always there; the remove one is not.
+	const remove = "wa-button:not(.file-button)";
+	expect(paint(cover).querySelector(`img, ${remove}`)).toBeNull();
 	cover.reset(URL_OK);
 	const root = paint(cover);
 	expect(root.querySelector(".cover img")?.getAttribute("src")).toBe(URL_OK);
-	root.querySelector("wa-button")?.dispatchEvent(new Event("click"));
+	root.querySelector(remove)?.dispatchEvent(new Event("click"));
 	expect(cover.imageUrl).toBe("");
 });
 
@@ -124,6 +126,9 @@ test("elegir un fichero lo sube; mientras, el campo se bloquea con progreso", as
 	store.progress(40);
 	const root = paint(cover);
 	expect(root.querySelector("#cover")?.hasAttribute("disabled")).toBe(true);
+	expect(root.querySelector(".file-button")?.hasAttribute("disabled")).toBe(
+		true,
+	);
 	const bar = root.querySelector("wa-progress-bar");
 	expect(bar?.getAttribute("value")).toBe("40");
 	store.settle();
