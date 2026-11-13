@@ -1,17 +1,17 @@
 /**
- * Observability: errors and real-user performance.
+ * Error tracking with Sentry. Real-user performance is Firebase's half and
+ * lives in `../firebase/observability.ts`, which starts both.
  *
- * Everything loads **after the first paint and deferred**. Neither of the
- * two helps the user see their screen sooner, and adding them to startup
- * would undo a good part of the performance work: the initial JavaScript
- * went from 266 kB compressed down to about 124.
+ * The SDK loads **after the first paint and deferred**. It does not help the
+ * user see their screen sooner, and adding it to startup would undo a good
+ * part of the performance work: the initial JavaScript went from 266 kB
+ * compressed down to about 124.
  *
  * None of this runs in development: it would only clutter the project with
  * emulator noise.
  */
 
-import type { FirebaseApp } from "firebase/app";
-import { flushStartupErrors } from "../domain/startup-buffer.js";
+import { flushStartupErrors } from "../../domain/startup-buffer.js";
 
 /** Waits for the browser to be idle, or for a fixed delay if it isn't supported. */
 function whenIdle(task: () => void): void {
@@ -35,7 +35,7 @@ function whenIdle(task: () => void): void {
  * The double `requestAnimationFrame` fixes that: the second one runs after
  * the compositor has painted the frame that the first one queued.
  */
-function afterMainPaint(task: () => void): void {
+export function afterMainPaint(task: () => void): void {
 	requestAnimationFrame(() => {
 		requestAnimationFrame(() => {
 			whenIdle(task);
@@ -49,7 +49,7 @@ function afterMainPaint(task: () => void): void {
  * Without a DSN it does nothing: this way the repo works without a Sentry
  * account, and whoever deploys decides whether they want to send errors.
  */
-async function startErrorTracking(): Promise<void> {
+export async function startErrorTracking(): Promise<void> {
 	const dsn = import.meta.env.VITE_SENTRY_DSN;
 	if (!dsn) return;
 
@@ -92,25 +92,6 @@ async function startErrorTracking(): Promise<void> {
 	});
 
 	flushStartupErrors({ captureException });
-}
-
-/** Real-user metrics: this is what the lab cannot measure. */
-async function startPerformanceMonitoring(app: FirebaseApp): Promise<void> {
-	const { getPerformance } = await import("firebase/performance");
-	getPerformance(app);
-}
-
-/** Starts observability. Never throws: it must not break the application. */
-export function startObservability(app: FirebaseApp): void {
-	if (import.meta.env.DEV) return;
-
-	afterMainPaint(() => {
-		void startErrorTracking().catch(() => {
-			// If error tracking itself fails, there is nowhere to report it, and
-			// it must certainly not bring the application down.
-		});
-		void startPerformanceMonitoring(app).catch(() => {});
-	});
 }
 
 function codeOf(error: unknown): string {

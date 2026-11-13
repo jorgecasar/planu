@@ -142,8 +142,10 @@ composición: inicializa la app y publica los contextos—, `config.ts`,
 `collection-controller.ts` y `storage.ts`; hasta GH-108 vivían en un
 `src/firebase/` aparte. Los contextos que consume la interfaz se definen en
 `application/context.ts`, junto a los de los puertos, para que ningún
-componente importe de `infrastructure/`. Fuera de ahí sólo queda acoplado
-`observability/index.ts`, que usa `firebase/performance`. `src/ui/` como capa
+componente importe de `infrastructure/`. Fuera de ahí ya no queda nada
+acoplado: desde GH-185, Sentry vive en `infrastructure/sentry/`, sin
+Firebase, y `infrastructure/firebase/observability.ts` añade
+`firebase/performance` y arranca las dos mitades. `src/ui/` como capa
 propia (T39) no existe todavía: el resto del código sigue organizado por
 funcionalidad y **está en migración**.
 
@@ -157,22 +159,22 @@ horas.
 Lo vigilan dos cosas, no la buena voluntad:
 
 1. **`biome.json` prohíbe `firebase/**` en todo `apps/web/src/**`**, con una
-   lista de exenciones heredadas que **sólo puede encoger**. Hoy tiene dos
-   entradas: `infrastructure/firebase/**` y `observability/index.ts`.
-   Añadir una entrada es un cambio visible en la revisión; olvidarse de
-   migrar, no.
+   lista de exenciones heredadas que **sólo puede encoger**. Hoy tiene una
+   sola entrada: `infrastructure/firebase/**`. Añadir una entrada es un
+   cambio visible en la revisión; olvidarse de migrar, no.
 2. **`npm run test:arch`** vigila esa configuración con siete aserciones. Corre
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **24 ficheros**: `infrastructure/firebase/**` agrupa
-veintitrés —trece fuentes y diez tests— y `observability/index.ts` suma
-uno. GH-108 trasladó ahí los siete de `src/firebase/`, y la lista perdió una
-entrada; el recuento bajó de 25 a 24 porque `context.ts` sólo importaba
-Firebase para tipar tres contextos que nadie consumía, y sin ellos pasó a
-`application/`. El tope está fijado en
-`arch/boundary.test.ts`: migrar un componente acoplado lo baja, pero un
-adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
+lista.** Hoy son **24 ficheros**, todos en `infrastructure/firebase/**`
+—catorce fuentes y diez tests—. GH-108 trasladó ahí los siete de
+`src/firebase/`, y la lista perdió una entrada; el recuento bajó de 25 a 24
+porque `context.ts` sólo importaba Firebase para tipar tres contextos que
+nadie consumía, y sin ellos pasó a `application/`. GH-185 quitó la última
+entrada ajena, `observability/index.ts`, sin mover el recuento: liberó ese
+fichero y añadió `infrastructure/firebase/observability.ts`. El tope está
+fijado en `arch/boundary.test.ts`: migrar un componente acoplado lo baja,
+pero un adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
 acoplamiento es intencional— puede subirlo, siempre con su motivo
 documentado en el propio comentario del test. Ya ha pasado varias veces, de
 19 (tras T36) a 27 (tras T32) y a 29 (tras T38 y T37); después, de 29 a 28
@@ -692,10 +694,9 @@ convergencia, todo antes de que exista un PR.**
   en [`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md):
   tres puertos —sesión, repositorio de eventos, almacén de imágenes— más
   analítica y borrado de cuenta. Los cinco viven ya tras su puerto, y se
-  sumaron dos fuera de ese alcance, compartición y modelo de IA; fuera de
-  `infrastructure/firebase/**` sólo queda acoplado
-  `observability/index.ts`. Cerrar la frontera a `src/ui/` no se ha
-  empezado. Ver T39 en `tasks/todo.md`.
+  sumaron dos fuera de ese alcance, compartición y modelo de IA; desde
+  GH-185 no queda nada acoplado fuera de `infrastructure/firebase/**`.
+  Cerrar la frontera a `src/ui/` no se ha empezado. Ver T39 en `tasks/todo.md`.
 - **Backfill de `memberIds` en eventos de la fase 1.** Sigue sin entregarse:
   exige `firebase-admin` (cae en «preguntar primero») y, antes de eso, saber
   si la base `planu` tiene documentos heredados sin ese campo — la primera

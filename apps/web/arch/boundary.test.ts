@@ -232,6 +232,12 @@ const importaFirebase = (fichero: string): boolean =>
  * `firebase-provider.ts` published and nothing consumed; they are deleted.
  * With no provider type left, the file moves to `application/context.ts`,
  * so components stop importing from `infrastructure/`. No new file.
+ *
+ * #185 splits `observability/index.ts` and drops the last entry outside
+ * `infrastructure/firebase/**`. Sentry moves to `infrastructure/sentry/`,
+ * which imports no Firebase and needs no exemption; the `firebase/app` type
+ * and `firebase/performance` go to `infrastructure/firebase/observability.ts`.
+ * One coupled file freed, one added: the count stays at 24.
  */
 const TOPE_ACOPLADOS = 24;
 
