@@ -21,6 +21,7 @@ import { signIn } from "../application/sign-in.js";
 import { signInWithGoogle } from "../application/sign-in-with-google.js";
 import { signUp } from "../application/sign-up.js";
 import { authErrorMessage } from "../domain/auth-errors.js";
+import { typographyStyles } from "../styles/typography.js";
 
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell
@@ -28,7 +29,9 @@ import { authErrorMessage } from "../domain/auth-errors.js";
  */
 @customElement("planu-login-view")
 export class PlanuLoginView extends LitElement {
-	static override styles = css`
+	static override styles = [
+		typographyStyles,
+		css`
 		:host {
 			display: grid;
 			place-items: center;
@@ -56,7 +59,8 @@ export class PlanuLoginView extends LitElement {
 			gap: var(--wa-space-m);
 			margin-block-start: var(--wa-space-m);
 		}
-	`;
+	`,
+	];
 
 	@consume({ context: sessionContext, subscribe: true })
 	private session: SessionPort | undefined;

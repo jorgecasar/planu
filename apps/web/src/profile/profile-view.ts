@@ -23,13 +23,16 @@ import { signOut } from "../application/sign-out.js";
 import { SessionError } from "../domain/session-error.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
+import { typographyStyles } from "../styles/typography.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 
 /** Account details and sign out. */
 @customElement("planu-profile-view")
 export class PlanuProfileView extends LitElement {
-	static override styles = css`
+	static override styles = [
+		typographyStyles,
+		css`
 		:host {
 			display: block;
 			padding: var(--wa-space-l);
@@ -70,7 +73,8 @@ export class PlanuProfileView extends LitElement {
 		.change-email-status {
 			margin: 0;
 		}
-	`;
+	`,
+	];
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;

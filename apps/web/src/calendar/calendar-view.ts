@@ -13,6 +13,7 @@ import {
 import type { SortPreference } from "../domain/sort-events.js";
 import { getLocale } from "../i18n/localization.js";
 import type { StoredEvent } from "../lib/types.js";
+import { typographyStyles } from "../styles/typography.js";
 import {
 	buildMonthGrid,
 	dayKey,
@@ -41,7 +42,9 @@ import {
  */
 @customElement("planu-calendar-view")
 export class PlanuCalendarView extends LitElement {
-	static override styles = css`
+	static override styles = [
+		typographyStyles,
+		css`
 		:host {
 			display: block;
 		}
@@ -170,7 +173,8 @@ export class PlanuCalendarView extends LitElement {
 			white-space: nowrap;
 			border: 0;
 		}
-	`;
+	`,
+	];
 
 	/** The events to spread across cells, already filtered by whoever mounts the view. */
 	@property({ attribute: false }) events: readonly StoredEvent[] = [];

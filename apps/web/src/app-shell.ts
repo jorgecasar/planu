@@ -21,6 +21,7 @@ import {
 	PROFILE_PATH,
 } from "./auth/guard.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
+import { typographyStyles } from "./styles/typography.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.
@@ -43,7 +44,9 @@ const SESSION_CHECK_TIMEOUT_MS = 8000;
 /** Application root: routing, header and session guard. */
 @customElement("planu-app")
 export class PlanuApp extends LitElement {
-	static override styles = css`
+	static override styles = [
+		typographyStyles,
+		css`
 		:host {
 			display: flex;
 			flex-direction: column;
@@ -73,7 +76,8 @@ export class PlanuApp extends LitElement {
 			place-items: center;
 			min-block-size: 100dvh;
 		}
-	`;
+	`,
+	];
 
 	@consume({ context: userContext, subscribe: true })
 	private user: SessionUser | null | undefined;
