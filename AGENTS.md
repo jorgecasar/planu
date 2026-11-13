@@ -291,18 +291,26 @@ queja de una página sin CSS, porque el HTML semántico es accesible igual—. D
 fallos se colaron por ese hueco: faltaba la hoja de Web Awesome entera, y nueve
 clases (`wa-text-3xl`, `wa-button--brand`…) estaban **inventadas** con la
 convención de otro framework. Por eso ahora hay un test que recorre las clases
-`wa-*` del marcado y falla si alguna no casa con ninguna regla del CSS cargado,
-más tres que leen `getComputedStyle` del hero, los botones y la rejilla.
+`wa-*` del marcado y falla si alguna no casa con ninguna regla de la hoja de Web
+Awesome —no basta con que la defina `landing.css`—, más tres que leen
+`getComputedStyle` del hero, los botones y la rejilla.
 
 **Web Awesome no tiene clases de utilidad para tamaño ni peso de texto.** Define
 los tokens `--wa-font-size-*` y `--wa-font-weight-*`, pero ninguna clase que los
 aplique; y las variantes de botón (`brand`, `outlined`, `large`) son **atributos
 del componente `<wa-button>`**, que en la landing no sirve porque no carga
-JavaScript y el custom element no se definiría nunca. Las clases con esos
-nombres las define `landing.css` sobre los tokens reales. Antes de usar una clase
-`wa-*`, compruébala: `grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`.
+JavaScript y el custom element no se definiría nunca. Las equivalentes las
+define `landing.css` sobre los tokens reales, con prefijo `planu-`
+(`planu-text-sm`, `planu-button-brand`…) para que nadie las tome por suyas.
+Antes de usar una clase `wa-*`, compruébala: `grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`.
 Las de layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
 `.nombre`.
+
+En la aplicación, además, **las utilidades de Web Awesome no llegan dentro de
+un shadow root**: `webawesome.css` es una hoja del documento, y `wa-stack` o
+`wa-cluster` en la plantilla de un componente Lit no hacen nada. Lo mismo pasa
+con los estilos nativos de títulos y enlaces; por eso los componentes importan
+`styles/typography.ts`.
 
 Ese servidor **no hace fallback a `index.html` a propósito**: la landing es
 multipágina y un fallback haría responder 200 a cualquier ruta inexistente,

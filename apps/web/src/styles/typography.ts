@@ -11,6 +11,9 @@ import { css } from "lit";
  *
  * `wa-dialog` renders its `label` in its own shadow root, with
  * `font-family: inherit`; its `title` part is the documented way in.
+ *
+ * Links have the same problem: past the shadow boundary they fall back to
+ * the browser's default blue. These mirror the link rules in `native.css`.
  */
 export const typographyStyles = css`
 	h1,
@@ -18,5 +21,15 @@ export const typographyStyles = css`
 	h3,
 	wa-dialog::part(title) {
 		font-family: var(--wa-font-family-heading);
+	}
+
+	a {
+		color: var(--wa-color-text-link);
+		text-decoration-thickness: 0.09375em;
+		text-underline-offset: 0.125em;
+	}
+
+	a:hover {
+		color: color-mix(in oklab, var(--wa-color-text-link), var(--wa-color-mix-hover));
 	}
 `;

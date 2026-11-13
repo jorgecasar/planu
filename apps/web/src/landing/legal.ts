@@ -28,8 +28,8 @@ function legalHeader(title: string): TemplateResult {
 	return html`
 		<header class="wa-stack wa-gap-xs legal-header">
 			<a class="legal-back" href="${backHref}">${msg("← Back to planu")}</a>
-			<h1 class="wa-text-3xl wa-text-bold">${title}</h1>
-			<p class="wa-color-text-quiet wa-text-sm">
+			<h1 class="planu-text-3xl planu-text-bold">${title}</h1>
+			<p class="wa-color-text-quiet planu-text-sm">
 				${msg("Last updated: 22 August 2026")}
 			</p>
 		</header>
@@ -40,14 +40,14 @@ function legalFooter(): TemplateResult {
 	const base = LOCALE_PREFIX;
 	return html`
 		<footer class="wa-stack wa-gap-m">
-			<div class="wa-cluster wa-gap-m wa-justify-content-center wa-text-sm wa-color-text-quiet">
+			<div class="wa-cluster wa-gap-m wa-justify-content-center planu-text-sm wa-color-text-quiet">
 				<a href="${base}/privacy.html">${msg("Privacy")}</a>
 				<span aria-hidden="true">·</span>
 				<a href="${base}/terms.html">${msg("Terms")}</a>
 				<span aria-hidden="true">·</span>
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
-			<p class="wa-text-xs wa-color-text-quiet">
+			<p class="planu-text-xs wa-color-text-quiet">
 				${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}
 			</p>
 			${cookiesNotice()}
@@ -248,7 +248,7 @@ export function termsPage(): TemplateResult {
 export function cookiesNotice(): TemplateResult {
 	return html`
 		<section class="wa-stack wa-gap-xs cookie-notice">
-			<p class="wa-text-xs wa-color-text-quiet">
+			<p class="planu-text-xs wa-color-text-quiet">
 				${msg(
 					"planu uses Firebase Analytics (Google Analytics), which stores a small identifier in your browser to recognise repeat visits. It never contains anything you typed — see our ",
 				)}
