@@ -112,6 +112,22 @@ test("the card's text stays in the body family", async () => {
 	expect(family(root.querySelector("p"))).toMatch(BODY);
 });
 
+test("the profile's legal links use the Web Awesome link color", async () => {
+	const root = await mount("planu-profile-view", { user: USER });
+	const reference = document.createElement("span");
+	reference.style.color = "var(--wa-color-text-link)";
+	document.body.append(reference);
+	const link = getComputedStyle(reference).color;
+
+	const links = [...root.querySelectorAll("a")];
+	expect(links).toHaveLength(2);
+	for (const a of links) {
+		// Not the browser's default `rgb(0, 0, 238)`.
+		expect(getComputedStyle(a).color).toBe(link);
+	}
+	expect(link).not.toBe("rgb(0, 0, 238)");
+});
+
 test("Belleza loads for the card's own title", async () => {
 	const root = await mount("planu-event-card", { event: EVENT, user: USER });
 	const h3 = root.querySelector("h3");

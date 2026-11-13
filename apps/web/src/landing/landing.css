@@ -102,25 +102,26 @@ footer a:hover {
  * botón son atributos del componente `<wa-button>` — que aquí no sirve, porque
  * la landing no carga JavaScript y un custom element no se definiría nunca.
  *
- * Así que se definen aquí, sobre los tokens reales. Mismo nombre para que el
- * marcado no cambie, y `a.wa-button` ya lo estiliza `native.css`.
+ * Así que se definen aquí, sobre los tokens reales, con prefijo `planu-`: un
+ * nombre `wa-*` que Web Awesome no define se confunde con uno suyo, y así fue
+ * como el primero se coló. `a.wa-button` sí es suyo, lo estiliza `native.css`.
  */
-.wa-text-xs {
+.planu-text-xs {
 	font-size: var(--wa-font-size-xs);
 }
-.wa-text-sm {
+.planu-text-sm {
 	font-size: var(--wa-font-size-s);
 }
-.wa-text-lg {
+.planu-text-lg {
 	font-size: var(--wa-font-size-l);
 }
-.wa-text-2xl {
+.planu-text-2xl {
 	font-size: var(--wa-font-size-2xl);
 }
-.wa-text-3xl {
+.planu-text-3xl {
 	font-size: var(--wa-font-size-3xl);
 }
-.wa-text-bold {
+.planu-text-bold {
 	font-weight: var(--wa-font-weight-bold);
 }
 
@@ -136,27 +137,27 @@ a.wa-button {
 	text-decoration: none;
 }
 
-a.wa-button--brand {
+a.planu-button-brand {
 	background-color: var(--wa-color-brand-fill-loud);
 	border-color: var(--wa-color-brand-border-loud);
 	color: var(--wa-color-brand-on-loud);
 }
 
-a.wa-button--brand:hover {
+a.planu-button-brand:hover {
 	background-color: var(--wa-color-brand-fill-normal);
 }
 
-a.wa-button--outlined {
+a.planu-button-outlined {
 	background-color: transparent;
 	border-color: var(--wa-color-brand-border-normal);
 	color: var(--wa-color-brand-fill-loud);
 }
 
-a.wa-button--outlined:hover {
+a.planu-button-outlined:hover {
 	background-color: var(--wa-color-brand-fill-quiet);
 }
 
-a.wa-button--large {
+a.planu-button-large {
 	font-size: var(--wa-font-size-l);
 	padding-inline: var(--wa-space-xl);
 }

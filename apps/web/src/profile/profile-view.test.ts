@@ -100,6 +100,30 @@ test("una cuenta sin verificar sigue teniendo 'Delete account' disponible (RGPD,
 	expect(del?.hasAttribute("disabled")).toBe(false);
 });
 
+test("cerrar sesión no se pinta como peligro: sólo borrar la cuenta lo es", async () => {
+	const el = await mount(UNVERIFIED);
+
+	expect(button(el, "Sign out")?.getAttribute("variant")).toBe("neutral");
+	expect(button(el, "Delete account")?.getAttribute("variant")).toBe("danger");
+});
+
+test("el pie y el formulario de cambio de email se maquetan dentro del shadow root", async () => {
+	const el = await mount(UNVERIFIED);
+	button(el, "Wrong email? Change it")?.click();
+	await el.updateComplete;
+	// Web Awesome's layout utilities stop at the shadow boundary; these are
+	// the local classes that replace them, light-DOM form included.
+	for (const selector of [
+		".footer",
+		".change-email",
+		"form",
+		"form .cluster",
+	]) {
+		const node = el.shadowRoot?.querySelector(selector);
+		expect(node && getComputedStyle(node).display, selector).toBe("flex");
+	}
+});
+
 test("una cuenta de contraseña sin verificar puede cambiar un email mal escrito", async () => {
 	const el = await mount(UNVERIFIED);
 

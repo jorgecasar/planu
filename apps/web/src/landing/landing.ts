@@ -121,13 +121,13 @@ function hero(): TemplateResult {
 					width="72"
 					height="72"
 				/>
-				<h1 class="wa-text-3xl wa-text-bold">${msg("Your events. Private. Shareable. Yours.")}</h1>
-				<p class="wa-text-lg wa-color-text-quiet">${msg("Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.")}</p>
+				<h1 class="planu-text-3xl planu-text-bold">${msg("Your events. Private. Shareable. Yours.")}</h1>
+				<p class="planu-text-lg wa-color-text-quiet">${msg("Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.")}</p>
 				<div class="wa-cluster wa-gap-s wa-justify-content-center">
-					<a href="/app" class="landing-cta wa-button wa-button--brand wa-button--large">${msg("Start planning")}</a>
-					<a href="/app/login" class="landing-cta wa-button wa-button--outlined wa-button--large">${msg("Sign in")}</a>
+					<a href="/app" class="landing-cta wa-button planu-button-brand planu-button-large">${msg("Start planning")}</a>
+					<a href="/app/login" class="landing-cta wa-button planu-button-outlined planu-button-large">${msg("Sign in")}</a>
 				</div>
-				<p class="wa-text-sm wa-color-text-quiet">${msg("Free. No ads. Your data stays yours.")}</p>
+				<p class="planu-text-sm wa-color-text-quiet">${msg("Free. No ads. Your data stays yours.")}</p>
 			</div>
 			<figure class="hero-figure">
 				<img
@@ -146,7 +146,7 @@ function features(): TemplateResult {
 		<section class="features wa-stack wa-gap-xl">
 			<div class="wa-stack wa-gap-l">
 				<header class="wa-stack wa-gap-xs">
-					<h2 class="wa-text-2xl wa-text-bold">${msg("Why planu?")}</h2>
+					<h2 class="planu-text-2xl planu-text-bold">${msg("Why planu?")}</h2>
 					<p class="wa-color-text-quiet">${msg("Three things we do differently:")}</p>
 				</header>
 				<div class="feature-grid wa-grid wa-gap-l">
@@ -206,7 +206,7 @@ function featureCard(
 	return html`
 		<article class="feature-card wa-stack wa-gap-s">
 			${icon(iconName)}
-			<h3 class="wa-text-lg wa-text-bold">${title}</h3>
+			<h3 class="planu-text-lg planu-text-bold">${title}</h3>
 			<p class="wa-color-text-quiet">${description}</p>
 		</article>
 	`;
@@ -223,14 +223,14 @@ function footer(): TemplateResult {
 	const base = LOCALE_PREFIX;
 	return html`
 		<footer class="wa-stack wa-gap-m">
-			<div class="wa-cluster wa-gap-m wa-justify-content-center wa-text-sm wa-color-text-quiet">
+			<div class="wa-cluster wa-gap-m wa-justify-content-center planu-text-sm wa-color-text-quiet">
 				<a href="${base}/privacy.html">${msg("Privacy")}</a>
 				<span aria-hidden="true">·</span>
 				<a href="${base}/terms.html">${msg("Terms")}</a>
 				<span aria-hidden="true">·</span>
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
-			<p class="wa-text-xs wa-color-text-quiet">${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}</p>
+			<p class="planu-text-xs wa-color-text-quiet">${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}</p>
 			${cookiesNotice()}
 		</footer>
 	`;

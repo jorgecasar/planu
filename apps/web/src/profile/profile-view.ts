@@ -73,6 +73,36 @@ export class PlanuProfileView extends LitElement {
 		.change-email-status {
 			margin: 0;
 		}
+
+		/* Local, not utility classes: Web Awesome's utilities (wa-stack,
+		   wa-cluster…) are a document stylesheet and do not reach into this
+		   shadow root, so here they did nothing. The light-DOM change-email
+		   form renders into this root too, so it uses these as well. */
+		.stack {
+			display: flex;
+			flex-direction: column;
+			gap: var(--wa-space-s);
+		}
+
+		.footer {
+			align-items: start;
+		}
+
+		.cluster {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: var(--wa-space-s);
+		}
+
+		.legal {
+			font-size: var(--wa-font-size-s);
+		}
+
+		.progress-label {
+			font-size: var(--wa-font-size-s);
+			color: var(--wa-color-text-quiet);
+		}
 	`,
 	];
 
@@ -126,13 +156,10 @@ export class PlanuProfileView extends LitElement {
 					<dd>${user.email ?? msg("Not set")}</dd>
 				</dl>
 
-				<div
-					slot="footer"
-					class="wa-stack wa-gap-s wa-align-items-start"
-				>
-					<div class="wa-cluster wa-gap-s">
+				<div slot="footer" class="stack footer">
+					<div class="cluster">
 						<wa-button
-							variant="danger"
+							variant="neutral"
 							appearance="outlined"
 							@click=${this.#onSignOut}
 						>
@@ -148,7 +175,7 @@ export class PlanuProfileView extends LitElement {
 						</wa-button>
 					</div>
 
-					<div class="wa-cluster wa-gap-s wa-text-sm">
+					<div class="cluster legal">
 						<a href="${this.#legalHref("privacy")}" target="_blank" rel="noopener">${msg("Privacy")}</a>
 						<span aria-hidden="true">·</span>
 						<a href="${this.#legalHref("terms")}" target="_blank" rel="noopener">${msg("Terms")}</a>
@@ -208,7 +235,7 @@ export class PlanuProfileView extends LitElement {
 										? html`<wa-progress-bar
 												value=${this.#progressValue(step)}
 											></wa-progress-bar>
-											<p class="wa-text-sm wa-color-text-quiet">
+											<p class="progress-label">
 												${this.#progressLabel(step)}
 											</p>`
 										: nothing
