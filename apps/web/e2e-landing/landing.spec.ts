@@ -236,32 +236,40 @@ test("las clases del marcado tienen estilos detrás", async ({ page }) => {
 	//
 	// Dos fallos distintos se colaron así: faltaba la hoja de Web Awesome
 	// entera, y nueve clases (`wa-text-3xl`, `wa-button--brand`…) estaban
-	// inventadas con la convención de otro framework.
+	// inventadas con la convención de otro framework. Después se definieron en
+	// `landing.css` con el mismo nombre, y este test dejó de distinguir una
+	// clase de Web Awesome de una nuestra disfrazada de suya.
 	await page.goto("/");
 
-	// Toda clase `wa-*` del marcado debe casar con alguna regla del CSS cargado.
-	// Se pregunta al navegador, no al fichero: es la única forma de incluir lo
-	// que llega por `<link>` y lo que va en línea.
+	// Toda clase `wa-*` del marcado debe casar con una regla de la hoja de Web
+	// Awesome —la del `<link>`—, y toda `planu-*` con alguna regla de las
+	// nuestras, que van en línea. Se pregunta al navegador, no al fichero.
 	const huerfanas = await page.evaluate(() => {
 		const usadas = new Set<string>();
 		for (const el of document.querySelectorAll("[class]")) {
 			for (const c of el.classList) {
-				if (c.startsWith("wa-")) usadas.add(c);
+				if (c.startsWith("wa-") || c.startsWith("planu-")) usadas.add(c);
 			}
 		}
 
-		let reglas = "";
+		let framework = "";
+		let todas = "";
 		for (const hoja of Array.from(document.styleSheets)) {
+			let texto = "";
 			try {
-				for (const regla of Array.from(hoja.cssRules)) reglas += regla.cssText;
+				for (const regla of Array.from(hoja.cssRules)) texto += regla.cssText;
 			} catch {
 				// Una hoja de otro origen no se puede leer; aquí no hay ninguna.
 			}
+			todas += texto;
+			if (hoja.ownerNode instanceof HTMLLinkElement) framework += texto;
 		}
 
 		// Las utilidades de layout se declaran como `[class*='wa-stack']`, no como
 		// `.wa-stack`, así que basta con que el nombre aparezca en alguna regla.
-		return [...usadas].filter((c) => !reglas.includes(c)).sort();
+		return [...usadas]
+			.filter((c) => !(c.startsWith("wa-") ? framework : todas).includes(c))
+			.sort();
 	});
 
 	expect(huerfanas).toEqual([]);

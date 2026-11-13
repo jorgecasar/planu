@@ -84,6 +84,16 @@ export class PlanuEventsView extends LitElement {
       margin-block-start: var(--wa-space-l);
     }
 
+    /* Stand-ins for cards, so they take the card's shape, not the
+       skeleton's default rounding. */
+    .grid wa-skeleton {
+      block-size: 12rem;
+    }
+
+    .grid wa-skeleton::part(indicator) {
+      border-radius: var(--wa-panel-border-radius);
+    }
+
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -392,10 +402,7 @@ export class PlanuEventsView extends LitElement {
 
 	#renderSkeletons() {
 		return html`<div class="grid">
-      ${Array.from(
-				{ length: 6 },
-				() => html`<wa-skeleton style="height: 12rem"></wa-skeleton>`,
-			)}
+      ${Array.from({ length: 6 }, () => html`<wa-skeleton></wa-skeleton>`)}
     </div>`;
 	}
 

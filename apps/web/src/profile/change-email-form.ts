@@ -19,7 +19,7 @@ import { authErrorMessage } from "../domain/auth-errors.js";
  * the mail just hasn't been opened yet — keeps the notice short.
  *
  * Light DOM: markup, focus and styles stay in `planu-profile-view`'s shadow
- * root.
+ * root, so its layout classes (`stack`, `cluster`) are defined there.
  */
 @customElement("planu-change-email-form")
 export class PlanuChangeEmailForm extends LitElement {
@@ -43,7 +43,7 @@ export class PlanuChangeEmailForm extends LitElement {
 		// often not announced at all. Not focusable: focusing a live region
 		// gets its text read twice, once as focus and once as the update.
 		return html`
-			<div class="change-email wa-stack wa-gap-s">
+			<div class="change-email stack">
 				<p class="change-email-status" role="status">
 					${
 						sentTo
@@ -78,7 +78,7 @@ export class PlanuChangeEmailForm extends LitElement {
 
 	#renderForm() {
 		return html`
-			<form class="wa-stack wa-gap-s" @submit=${this.#onChangeEmail}>
+			<form class="stack" @submit=${this.#onChangeEmail}>
 				<wa-input
 					type="email"
 					autocomplete="email"
@@ -95,7 +95,7 @@ export class PlanuChangeEmailForm extends LitElement {
 							</wa-callout>`
 						: nothing
 				}
-				<div class="wa-cluster wa-gap-s">
+				<div class="cluster">
 					<wa-button
 						type="submit"
 						variant="brand"
