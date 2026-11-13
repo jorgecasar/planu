@@ -40,6 +40,7 @@ import {
 	type AiModelSession,
 	createPortModelSession,
 } from "./ai-model-session.js";
+import { fileButtonStyles, renderFileButton } from "./file-button.js";
 import {
 	type GenerateContent,
 	type GeneratedEvent,
@@ -82,7 +83,7 @@ export interface GeneratedDraft {
  */
 @customElement("planu-ai-event-generator")
 export class PlanuAiEventGenerator extends LitElement {
-	static override styles = aiEventGeneratorStyles;
+	static override styles = [aiEventGeneratorStyles, fileButtonStyles];
 
 	@consume({ context: aiModelContext, subscribe: true })
 	private aiModel: AiModelPort | undefined;
@@ -203,13 +204,12 @@ export class PlanuAiEventGenerator extends LitElement {
 				<div class="drop">
 					<label for="ai-image">${msg("Event image")}</label>
 					${this.preview ? html`<img src=${this.preview} alt=${msg("Cover image preview")} />` : nothing}
-					<input
-						id="ai-image"
-						type="file"
-						accept="image/png, image/jpeg"
-						?disabled=${this.busy}
-						@change=${this.#onFile}
-					/>
+					${renderFileButton({
+						id: "ai-image",
+						accept: "image/png, image/jpeg",
+						disabled: this.busy,
+						onChange: this.#onFile,
+					})}
 				</div>
 
 				<wa-divider></wa-divider>

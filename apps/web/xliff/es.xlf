@@ -1102,6 +1102,10 @@
   <source>Cover image preview</source>
         <target>Vista previa de la portada</target>
 </trans-unit>
+<trans-unit id="s28fa2d57e568c9dd">
+  <source>Choose image</source>
+        <target>Elegir imagen</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
