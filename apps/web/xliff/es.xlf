@@ -1102,6 +1102,14 @@
   <source>Cover image preview</source>
         <target>Vista previa de la portada</target>
 </trans-unit>
+<trans-unit id="s604c6f4bd1e9aaee">
+  <source>Your account has been deleted.</source>
+        <target>Tu cuenta se ha borrado.</target>
+</trans-unit>
+<trans-unit id="sdaf17fa4c7579a42">
+  <source>Your session ended before your account was fully deleted. Sign in again and delete it once more to finish.</source>
+        <target>Tu sesión terminó antes de que tu cuenta se borrara del todo. Vuelve a entrar y bórrala otra vez para terminar.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

@@ -8,7 +8,7 @@ import "@awesome.me/webawesome/dist/components/tab-panel/tab-panel.js";
 import "@awesome.me/webawesome/dist/components/tab/tab.js";
 import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { sessionContext } from "../application/context.js";
 import type { AnalyticsPort } from "../application/ports/analytics.js";
@@ -22,6 +22,10 @@ import { signInWithGoogle } from "../application/sign-in-with-google.js";
 import { signUp } from "../application/sign-up.js";
 import { authErrorMessage } from "../domain/auth-errors.js";
 import { typographyStyles } from "../styles/typography.js";
+import { type LoginNotice, takeLoginNotice } from "./login-notice.js";
+
+/** Long enough for screen readers to register the empty live region. */
+const NOTICE_DELAY_MS = 250;
 
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell
@@ -70,11 +74,34 @@ export class PlanuLoginView extends LitElement {
 
 	@state() private error = "";
 	@state() private busy = false;
+	@state() private notice: LoginNotice | undefined;
+
+	#noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		// A live region announces what changes inside it, not what it held
+		// when it appeared. Filled in the same task it's inserted, VoiceOver
+		// may say nothing, so the notice waits for the region to settle.
+		const notice = takeLoginNotice(window.history);
+		if (notice) {
+			this.#noticeTimer = setTimeout(() => {
+				this.notice = notice;
+			}, NOTICE_DELAY_MS);
+		}
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		clearTimeout(this.#noticeTimer);
+	}
 
 	override render() {
 		return html`
 			<wa-card>
 				<h1 slot="header">planu</h1>
+
+				<div role="status">${this.#renderNotice()}</div>
 
 				${
 					this.error
@@ -157,6 +184,23 @@ export class PlanuLoginView extends LitElement {
 	}
 
 	/** Collects the form and runs the action, unifying errors and state. */
+	#renderNotice() {
+		switch (this.notice) {
+			case "account-deleted":
+				return html`<wa-callout variant="success">
+					${msg("Your account has been deleted.")}
+				</wa-callout>`;
+			case "deletion-interrupted":
+				return html`<wa-callout variant="warning">
+					${msg(
+						"Your session ended before your account was fully deleted. Sign in again and delete it once more to finish.",
+					)}
+				</wa-callout>`;
+			default:
+				return nothing;
+		}
+	}
+
 	async #submit(
 		event: SubmitEvent,
 		action: (
