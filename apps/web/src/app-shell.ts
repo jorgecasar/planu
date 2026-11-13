@@ -6,7 +6,7 @@ import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "./auth/login-view.js";
 
-import { consume } from "@lit/context";
+import { consume, provide } from "@lit/context";
 import { msg } from "@lit/localize";
 import { Router } from "@lit-labs/router";
 import { css, html, LitElement } from "lit";
@@ -14,12 +14,14 @@ import { customElement, state } from "lit/decorators.js";
 import { sessionContext, userContext } from "./application/context.js";
 import type { SessionPort, SessionUser } from "./application/ports/session.js";
 import { signOut } from "./application/sign-out.js";
+import { DeletionGuard, deletionGuardContext } from "./auth/deletion-guard.js";
 import {
 	guardRedirect,
 	HOME_PATH,
 	LOGIN_PATH,
 	PROFILE_PATH,
 } from "./auth/guard.js";
+import { loginNoticeState } from "./auth/login-notice.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
 import { typographyStyles } from "./styles/typography.js";
 
@@ -93,6 +95,22 @@ export class PlanuApp extends LitElement {
 	private session: SessionPort | undefined;
 
 	/**
+	 * Held here, above the route, so an account deletion outlives the profile
+	 * view that starts it: while it runs, no redirect or route change unmounts
+	 * that view, and when it ends the login page learns how (#154).
+	 */
+	@provide({ context: deletionGuardContext })
+	private readonly deletion = new DeletionGuard(window, () => !!this.user);
+	#unsubscribeDeletion: (() => void) | undefined;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		this.#unsubscribeDeletion = this.deletion.subscribe(() =>
+			this.requestUpdate(),
+		);
+	}
+
+	/**
 	 * Private routes are loaded on demand.
 	 *
 	 * The listing pulls in Firestore through the collection controller, so
@@ -107,6 +125,7 @@ export class PlanuApp extends LitElement {
 		},
 		{
 			path: LOGIN_PATH,
+			enter: () => !this.deletion.running,
 			render: () => html`<planu-login-view></planu-login-view>`,
 		},
 		{
@@ -126,7 +145,7 @@ export class PlanuApp extends LitElement {
 	 * page blank.
 	 */
 	async #enterPrivate(load: () => Promise<unknown>): Promise<boolean> {
-		if (!this.user) return false;
+		if (!this.user || this.deletion.running) return false;
 		await load();
 		return true;
 	}
@@ -156,6 +175,7 @@ export class PlanuApp extends LitElement {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
+		this.#unsubscribeDeletion?.();
 		this.#cancelSessionCheckTimeout?.();
 		this.#cancelSessionCheckTimeout = undefined;
 	}
@@ -165,10 +185,14 @@ export class PlanuApp extends LitElement {
 
 	override willUpdate(): void {
 		this.#watchSessionCheck();
+		// Not even the session ending moves us: the deletion decides first.
+		if (this.deletion.running) return;
 
 		const target = guardRedirect(this.user, window.location.pathname);
 		if (target) {
-			void this.#navigate(target);
+			const notice =
+				target === LOGIN_PATH ? this.deletion.takeNotice() : undefined;
+			void this.#navigate(target, loginNoticeState(notice));
 			return;
 		}
 
@@ -189,10 +213,10 @@ export class PlanuApp extends LitElement {
 	 * previous view kept showing: after signing up, the login form appeared
 	 * under the header until the listing arrived.
 	 */
-	async #navigate(path: string): Promise<void> {
+	async #navigate(path: string, state: object = {}): Promise<void> {
 		if (window.location.pathname === path) return;
 
-		window.history.pushState({}, "", path);
+		window.history.pushState(state, "", path);
 		await this.#resolveRoute(path);
 	}
 

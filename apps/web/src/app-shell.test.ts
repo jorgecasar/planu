@@ -1,7 +1,12 @@
 import { expect, test, vi } from "vitest";
 import "./app-shell.js";
+import { ContextEvent } from "@lit/context";
 import type { PlanuApp } from "./app-shell.js";
 import type { SessionUser } from "./application/ports/session.js";
+import {
+	type DeletionGuard,
+	deletionGuardContext,
+} from "./auth/deletion-guard.js";
 
 /**
  * Sets `user` directly, bypassing `@consume` — there is no
@@ -173,6 +178,97 @@ test("si la sesión llega tarde, tras el aviso, la aplicación se recupera igual
 	} finally {
 		vi.useRealTimers();
 	}
+});
+
+const someone: SessionUser = {
+	uid: "u1",
+	email: "a@example.com",
+	displayName: null,
+	photoURL: null,
+	emailVerified: true,
+	provider: "password",
+};
+
+/** Signed in on the profile, with the shell's guard in hand. */
+async function onProfileWithGuard() {
+	window.history.pushState({}, "", "/app/profile");
+	const el = document.createElement("planu-app") as PlanuApp;
+	document.body.append(el);
+	resolveSessionTo(el, someone);
+	const view = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector("planu-profile-view");
+		if (!found) throw new Error("no profile view yet");
+		return found;
+	});
+	// Asked from the view, as the real consumer does: a provider ignores
+	// requests coming from its own host.
+	let guard: DeletionGuard | undefined;
+	view.dispatchEvent(
+		new ContextEvent(deletionGuardContext, view, (value) => {
+			guard = value;
+		}),
+	);
+	if (!guard) throw new Error("the shell provides no deletion guard");
+	return { el, guard };
+}
+
+function loginStatus(el: PlanuApp): string {
+	const login = el.shadowRoot?.querySelector("planu-login-view");
+	const region = login?.shadowRoot?.querySelector('[role="status"]');
+	return region?.textContent ?? "";
+}
+
+test("si la sesión acaba durante el borrado, se espera a que termine para ir al acceso con el aviso", async () => {
+	const { el, guard } = await onProfileWithGuard();
+	guard.begin();
+
+	resolveSessionTo(el, null);
+	await el.updateComplete;
+	expect(window.location.pathname).toBe("/app/profile");
+	expect(el.shadowRoot?.querySelector("planu-profile-view")).not.toBeNull();
+
+	guard.end("succeeded");
+	await vi.waitFor(() => {
+		expect(loginStatus(el)).toContain("Your account has been deleted.");
+	});
+	expect(window.location.pathname).toBe("/app/login");
+	el.remove();
+});
+
+test("atrás, o un cambio de cuenta, durante el borrado no desmonta el perfil", async () => {
+	// Preloaded so the route would be entered at once if nothing refused it.
+	await import("./events/events-view.js");
+	const { el, guard } = await onProfileWithGuard();
+	const view = el.shadowRoot?.querySelector("planu-profile-view");
+	guard.begin();
+
+	// Back twice after signing in reaches the login entry: refused too.
+	for (const path of ["/app", "/app/login"]) {
+		window.history.pushState({}, "", path);
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		resolveSessionTo(el, { ...someone, uid: "u2" });
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		await el.updateComplete;
+
+		expect(window.location.pathname).toBe("/app/profile");
+		expect(view?.isConnected).toBe(true);
+	}
+	guard.end("failed");
+	el.remove();
+});
+
+test("si el borrado falla porque se cerró la sesión, el acceso pide repetirlo", async () => {
+	const { el, guard } = await onProfileWithGuard();
+	guard.begin();
+	resolveSessionTo(el, null);
+	await el.updateComplete;
+
+	guard.end("failed");
+
+	await vi.waitFor(() => {
+		expect(loginStatus(el)).toContain("delete it once more");
+	});
+	el.remove();
 });
 
 test("desmontar antes del plazo cancela el temporizador", async () => {
