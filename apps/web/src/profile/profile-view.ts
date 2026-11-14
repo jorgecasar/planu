@@ -142,7 +142,7 @@ export class PlanuProfileView extends LitElement {
 				>
 					<div class="wa-cluster wa-gap-s">
 						<wa-button
-							variant="danger"
+							variant="neutral"
 							appearance="outlined"
 							@click=${this.#onSignOut}
 						>
@@ -158,7 +158,7 @@ export class PlanuProfileView extends LitElement {
 						</wa-button>
 					</div>
 
-					<div class="wa-cluster wa-gap-s wa-text-sm">
+					<div class="wa-cluster wa-gap-s wa-font-size-s">
 						<a href="${this.#legalHref("privacy")}" target="_blank" rel="noopener">${msg("Privacy")}</a>
 						<span aria-hidden="true">·</span>
 						<a href="${this.#legalHref("terms")}" target="_blank" rel="noopener">${msg("Terms")}</a>
@@ -219,7 +219,7 @@ export class PlanuProfileView extends LitElement {
 										? html`<wa-progress-bar
 												value=${this.#progressValue(step)}
 											></wa-progress-bar>
-											<p class="wa-text-sm wa-color-text-quiet">
+											<p class="wa-font-size-s wa-color-text-quiet">
 												${this.#progressLabel(step)}
 											</p>`
 										: nothing

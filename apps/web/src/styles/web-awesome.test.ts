@@ -402,6 +402,35 @@ test("the reauthentication step spaces its body with wa-stack", async () => {
 	expect(body.querySelector("p")).not.toBeNull();
 });
 
+test("the listing's skeletons take the card's corners, not a pill", async () => {
+	const root = await mount("planu-events-view", {});
+	const skeleton = root.querySelector("wa-skeleton") as
+		| (HTMLElement & { updateComplete: Promise<boolean> })
+		| null;
+	if (!skeleton) throw new Error("no skeleton while loading");
+	await skeleton.updateComplete;
+	const indicator = skeleton.shadowRoot?.querySelector('[part="indicator"]');
+	if (!indicator) throw new Error("no indicator part");
+	const probe = document.createElement("div");
+	probe.style.borderRadius = "var(--wa-panel-border-radius)";
+	document.body.append(probe);
+	const card = getComputedStyle(probe).borderTopLeftRadius;
+	expect(Number.parseFloat(card)).toBeGreaterThan(0);
+	expect(getComputedStyle(indicator).borderTopLeftRadius).toBe(card);
+});
+
+test("signing out is not dressed as the destructive action", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const root = await mount("planu-profile-view", { user: USER });
+	const buttons = [...root.querySelectorAll("wa-button")];
+	const variant = (label: string) =>
+		buttons
+			.find((b) => b.textContent?.trim() === label)
+			?.getAttribute("variant");
+	expect(variant("Sign out")).toBe("neutral");
+	expect(variant("Delete account")).toBe("danger");
+});
+
 test("the cover's file input is themed by native.css, not the browser", async () => {
 	const root = await mount("planu-event-editor", { user: USER, open: true });
 	const input = root.querySelector('input[type="file"]');
