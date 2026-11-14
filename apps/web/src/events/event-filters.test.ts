@@ -12,6 +12,20 @@ async function mount(
 	return el;
 }
 
+// Chrome flags fields with no name or no autocomplete hint.
+test("every filter field carries a name and turns autocomplete off", async () => {
+	const el = await mount(["a"]);
+	const fields = el.shadowRoot?.querySelectorAll("wa-input, wa-checkbox") ?? [];
+	expect(fields.length).toBeGreaterThanOrEqual(6);
+	for (const field of fields) {
+		expect(field.getAttribute("name"), field.outerHTML).toBeTruthy();
+		if (field.localName === "wa-input") {
+			expect(field.getAttribute("autocomplete"), field.outerHTML).toBe("off");
+		}
+	}
+	el.remove();
+});
+
 type CheckboxHost = HTMLElement & {
 	value: string;
 	updateComplete?: Promise<unknown>;

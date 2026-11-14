@@ -220,3 +220,127 @@ test("a failed lookup is not taken for an address with no account", async () => 
 	expect(sharing.offerInviteByEmail).not.toHaveBeenCalled();
 	expect(sharing.inviteToEvent).not.toHaveBeenCalled();
 });
+
+// Every card mounts a closed dialog: its form must not sit in the page.
+test("a closed dialog keeps its form out of the DOM until it opens", async () => {
+	const sharing = fakeSharing(async () => null);
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event: EVENT, open: false });
+	document.body.append(el);
+	await el.updateComplete;
+	expect(el.shadowRoot?.querySelector("wa-dialog")).not.toBeNull();
+	expect(el.shadowRoot?.querySelector("form")).toBeNull();
+
+	el.open = true;
+	await el.updateComplete;
+	const email = el.shadowRoot?.querySelector("wa-input[name=email]");
+	expect(email?.getAttribute("autocomplete")).toBe("off");
+});
+
+test("closing before the dialog finished showing still unmounts the body", async () => {
+	const sharing = fakeSharing(async () => null);
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event: EVENT, open: false });
+	document.body.append(el);
+	await el.updateComplete;
+	el.open = true;
+	await el.updateComplete;
+	el.open = false;
+	await el.updateComplete;
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.querySelector("form")).toBeNull(),
+	);
+});
+test("the body leaves once the dialog itself finishes hiding", async () => {
+	const { el } = await openWithGuest();
+	const dialog = el.shadowRoot?.querySelector("wa-dialog");
+	const menu = el.shadowRoot?.querySelector("wa-dropdown");
+
+	// A nested popup closing is not the dialog closing.
+	menu?.dispatchEvent(new Event("wa-after-hide", { bubbles: true }));
+	await el.updateComplete;
+	expect(el.shadowRoot?.querySelector("form")).not.toBeNull();
+
+	el.open = false;
+	dialog?.dispatchEvent(new Event("wa-after-hide"));
+	await el.updateComplete;
+	expect(el.shadowRoot?.querySelector("form")).toBeNull();
+});
+
+type Popup = HTMLElement & {
+	value: string;
+	open: boolean;
+	updateComplete: Promise<unknown>;
+};
+
+// Web Awesome's `wa-hide` and `wa-after-hide` bubble and are composed: a
+// nested popup closing used to close the whole dialog.
+test("closing the role select or a guest's menu keeps the dialog and its draft", async () => {
+	const { el } = await openWithGuest();
+	const closed = vi.fn();
+	el.addEventListener("planu-share-close", closed);
+	const root = el.shadowRoot as ShadowRoot;
+	const email = root.querySelector("wa-input[name=email]") as Popup;
+	const role = root.querySelector("wa-select[name=role]") as Popup;
+	email.value = "bea@example.com";
+	role.value = "editor";
+	await Promise.all([email.updateComplete, role.updateComplete]);
+
+	const hidden = (popup: Popup, type: string) =>
+		new Promise((resolve) =>
+			popup.addEventListener(type, resolve, { once: true }),
+		);
+	const menu = root.querySelector("wa-dropdown") as unknown as Popup;
+	for (const popup of [role, menu]) {
+		const shown = hidden(popup, "wa-after-show");
+		popup.open = true;
+		await shown;
+		const after = hidden(popup, "wa-after-hide");
+		popup.open = false;
+		await after;
+		await el.updateComplete;
+	}
+
+	expect(closed).not.toHaveBeenCalled();
+	expect(el.open).toBe(true);
+	expect(
+		(root.querySelector("wa-dialog") as HTMLElement & { open: boolean }).open,
+	).toBe(true);
+	expect((root.querySelector("wa-input[name=email]") as Popup).value).toBe(
+		"bea@example.com",
+	);
+	expect((root.querySelector("wa-select[name=role]") as Popup).value).toBe(
+		"editor",
+	);
+});
+
+test("the role select closing during the fade-out keeps the form until the dialog's own end", async () => {
+	const { el } = await openWithGuest();
+	const root = el.shadowRoot as ShadowRoot;
+	const dialog = root.querySelector("wa-dialog") as HTMLElement;
+	const role = root.querySelector("wa-select[name=role]") as Popup;
+	// What is on the page when the dialog itself finishes hiding.
+	let formAtDialogEnd: Element | null | undefined;
+	const dialogEnd = new Promise<void>((resolve) => {
+		dialog.addEventListener("wa-after-hide", (domEvent) => {
+			if (domEvent.target !== dialog) return;
+			formAtDialogEnd = root.querySelector("form");
+			resolve();
+		});
+	});
+	el.open = false;
+	await el.updateComplete;
+	// The select finishing its own hide mid-fade, the way Web Awesome sends
+	// it: bubbling and composed. Its hide outlasts the dialog's in a real
+	// browser here, so the order is pinned by hand.
+	role.dispatchEvent(
+		new Event("wa-after-hide", { bubbles: true, composed: true }),
+	);
+	await el.updateComplete;
+	expect(root.querySelector("form")).not.toBeNull();
+	await dialogEnd;
+
+	expect(formAtDialogEnd).not.toBeNull();
+	await el.updateComplete;
+	expect(root.querySelector("form")).toBeNull();
+});

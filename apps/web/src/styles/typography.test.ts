@@ -85,7 +85,8 @@ const HEADINGS: [string, object, string][] = [
 	["planu-event-groups", { groups: ONE }, "h2"],
 	["planu-agenda-view", { agenda: ONE }, "h2"],
 	["planu-calendar-view", { headingLevel: 2 }, "h2"],
-	["planu-share-dialog", OWN, "h3"],
+	// The body only exists while the dialog is open (GH-206).
+	["planu-share-dialog", { ...OWN, open: true }, "h3"],
 	["planu-share-dialog", OWN, DIALOG],
 	["planu-event-editor", { user: USER }, DIALOG],
 ];

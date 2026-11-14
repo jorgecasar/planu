@@ -102,6 +102,7 @@ export class PlanuEventFilters extends LitElement {
 				<wa-input
 					type="search"
 					name="search"
+					autocomplete="off"
 					label=${msg("Search")}
 					placeholder=${msg("Title or description")}
 					enterkeyhint="search"
@@ -126,6 +127,7 @@ export class PlanuEventFilters extends LitElement {
 					<wa-input
 						type="date"
 						name="from"
+						autocomplete="off"
 						label=${msg("From")}
 						.value=${this.from}
 						@change=${this.#onFrom}></wa-input>
@@ -133,6 +135,7 @@ export class PlanuEventFilters extends LitElement {
 					<wa-input
 						type="time"
 						name="fromTime"
+						autocomplete="off"
 						label=${msg("From time")}
 						.value=${this.fromTime}
 						@change=${this.#onFromTime}></wa-input>
@@ -142,6 +145,7 @@ export class PlanuEventFilters extends LitElement {
 					<wa-input
 						type="date"
 						name="to"
+						autocomplete="off"
 						label=${msg("To")}
 						.value=${this.to}
 						@change=${this.#onTo}></wa-input>
@@ -149,6 +153,7 @@ export class PlanuEventFilters extends LitElement {
 					<wa-input
 						type="time"
 						name="toTime"
+						autocomplete="off"
 						label=${msg("To time")}
 						.value=${this.toTime}
 						@change=${this.#onToTime}></wa-input>
@@ -220,6 +225,7 @@ export class PlanuEventFilters extends LitElement {
 				shown,
 				(tag) => tag,
 				(tag) => html`<wa-checkbox
+					name="tag"
 					value=${tag}
 					.checked=${live(this.tags.includes(tag))}
 					@change=${() => this.#toggleTag(tag)}

@@ -49,3 +49,9 @@ test("«Exportar el calendario» tiene borde, no parece deshabilitado", () => {
 	const exporter = el.shadowRoot?.querySelector("planu-calendar-export");
 	expect(exporter?.getAttribute("appearance")).toBe("outlined");
 });
+
+// Chrome flags a field with no name or no autocomplete hint.
+test("the sort select carries a name", () => {
+	const select = el.shadowRoot?.querySelector("wa-select");
+	expect(select?.getAttribute("name")).toBe("sort");
+});
