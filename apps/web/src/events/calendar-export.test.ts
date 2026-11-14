@@ -284,3 +284,15 @@ test("una tarjeta sí exporta como evento suelto", async () => {
 		el.shadowRoot?.querySelector('wa-dropdown-item[value="google"]'),
 	).not.toBeNull();
 });
+
+test("el disparador es plano en la tarjeta y se puede pedir con borde", async () => {
+	const trigger = (el: PlanuCalendarExport) =>
+		el.shadowRoot?.querySelector("[slot=trigger]")?.getAttribute("appearance");
+
+	const card = await mount([event()]);
+	expect(trigger(card)).toBe("plain");
+
+	card.appearance = "outlined";
+	await card.updateComplete;
+	expect(trigger(card)).toBe("outlined");
+});
