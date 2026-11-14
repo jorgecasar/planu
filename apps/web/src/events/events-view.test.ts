@@ -58,3 +58,66 @@ test("the sort select carries a name", () => {
 	const select = el.shadowRoot?.querySelector("wa-select");
 	expect(select?.getAttribute("name")).toBe("sort");
 });
+
+type AiProbe = HTMLElement & {
+	aiAvailable: boolean;
+	updateComplete: Promise<unknown>;
+	connectedCallback(): unknown;
+};
+
+async function mountWithLanguageModel(
+	availability: () => Promise<string>,
+): Promise<AiProbe> {
+	Object.defineProperty(globalThis, "LanguageModel", {
+		value: { availability },
+		configurable: true,
+		writable: true,
+	});
+	const probe = document.createElement(
+		"planu-events-view",
+	) as unknown as AiProbe;
+	document.body.append(probe);
+	await probe.updateComplete;
+	return probe;
+}
+
+test("connectedCallback is synchronous and returns no promise", () => {
+	const probe = document.createElement(
+		"planu-events-view",
+	) as unknown as AiProbe;
+	expect(probe.connectedCallback()).toBeUndefined();
+});
+
+test("aiAvailable turns true once the check resolves available", async () => {
+	const probe = await mountWithLanguageModel(async () => "available");
+	await vi.waitFor(() => expect(probe.aiAvailable).toBe(true));
+	probe.remove();
+});
+
+test("aiAvailable stays false while pending and when unavailable", async () => {
+	let release: (value: string) => void = () => undefined;
+	const pending = new Promise<string>((resolve) => {
+		release = resolve;
+	});
+	const probe = await mountWithLanguageModel(() => pending);
+	expect(probe.aiAvailable).toBe(false);
+	release("unavailable");
+	await pending;
+	await probe.updateComplete;
+	expect(probe.aiAvailable).toBe(false);
+	probe.remove();
+});
+
+test("aiAvailable is not written once the element is disconnected", async () => {
+	let release: (value: string) => void = () => undefined;
+	const pending = new Promise<string>((resolve) => {
+		release = resolve;
+	});
+	const probe = await mountWithLanguageModel(() => pending);
+	probe.remove();
+	release("available");
+	await pending;
+	await vi.waitFor(() => expect(probe.aiAvailable).toBe(false));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(probe.aiAvailable).toBe(false);
+});
