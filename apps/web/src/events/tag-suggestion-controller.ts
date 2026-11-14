@@ -171,7 +171,7 @@ export class TagSuggestionController implements ReactiveController {
 				available
 					? html`<wa-button
 							type="button"
-							size="small"
+							size="s"
 							appearance="outlined"
 							?disabled=${this.#suggesting || full}
 							@click=${onSuggest}
@@ -206,7 +206,7 @@ export class TagSuggestionController implements ReactiveController {
 				(tag) => html`
 					<wa-button
 						type="button"
-						size="small"
+						size="s"
 						appearance="outlined"
 						@click=${() => onAccept(tag)}
 					>${tag}</wa-button>

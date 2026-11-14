@@ -133,7 +133,7 @@ export class PlanuEventCard extends LitElement {
 			${tags.map(
 				(tag) => html`<li>
 					<wa-tag
-						size="small"
+						size="s"
 						style=${`--hue: ${tagHue(tag)}`}
 					>${tag}</wa-tag>
 				</li>`,

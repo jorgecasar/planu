@@ -135,10 +135,10 @@ export class TagField {
 					tags,
 					(tag) =>
 						html`
-						<wa-tag size="small" style=${`--hue: ${tagHue(tag)}`}>${tag}</wa-tag>
+						<wa-tag size="s" style=${`--hue: ${tagHue(tag)}`}>${tag}</wa-tag>
 						<wa-button
 							type="button"
-							size="small"
+							size="s"
 							appearance="plain"
 							@click=${() => this.remove(tag)}
 						>
@@ -157,7 +157,7 @@ export class TagField {
 								(tag) => html`
 									<wa-button
 										type="button"
-										size="small"
+										size="s"
 										appearance="outlined"
 										@click=${() => this.add(tag)}
 									>${tag}</wa-button>
