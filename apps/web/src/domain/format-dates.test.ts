@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { formatEventDates, toInputDate, toInputTime } from "./format-dates.js";
+import {
+	dateBlockParts,
+	formatEventDates,
+	toInputDate,
+	toInputTime,
+} from "./format-dates.js";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
 
@@ -113,4 +118,10 @@ test("rellena hora y minuto con cero a la izquierda", () => {
 test("sin fecha devuelve cadena vacía", () => {
 	expect(toInputTime(null)).toBe("");
 	expect(toInputTime(undefined)).toBe("");
+});
+
+test("el bloque de fecha separa día y mes, en el idioma pedido", () => {
+	const date = new Date(2026, 5, 12);
+	expect(dateBlockParts(date, "en")).toEqual({ day: "12", month: "Jun" });
+	expect(dateBlockParts(date, "es")).toEqual({ day: "12", month: "jun" });
 });

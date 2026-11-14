@@ -1118,6 +1118,10 @@
   <source>Today</source>
         <target>Hoy</target>
 </trans-unit>
+<trans-unit id="s18752c426100cb1a">
+  <source>No date</source>
+        <target>Sin fecha</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
