@@ -408,3 +408,33 @@ test("el título no puede sacar el fichero de su carpeta", () => {
 	expect(nombre).not.toContain("/");
 	expect(nombre).not.toContain("..");
 });
+
+test("el nombre recorta los signos del principio y del final", () => {
+	expect(icsFileName("!!!Hola!!!")).toBe("hola.ics");
+	expect(icsFileName("  a -- b  ")).toBe("a-b.ics");
+	expect(icsFileName("-")).toBe("event.ics");
+	expect(icsFileName("!!! ---")).toBe("event.ics");
+	expect(icsFileName("")).toBe("event.ics");
+});
+
+test("el nombre quita los acentos antes de limpiar", () => {
+	expect(icsFileName("¡Café ñandú!")).toBe("cafe-nandu.ics");
+});
+
+test("el nombre se corta a 60 caracteres después de recortar", () => {
+	expect(icsFileName("x".repeat(70))).toBe(`${"x".repeat(60)}.ics`);
+	// The cut runs after the trim, so it can leave a trailing dash.
+	expect(icsFileName(`${"a".repeat(59)}!b`)).toBe(`${"a".repeat(59)}-.ics`);
+});
+
+test("rachas larguísimas de signos se resuelven rápido y sin cambiar el resultado", () => {
+	const largo = 50_000;
+	const inicio = performance.now();
+
+	const simbolos = `${"!".repeat(largo)}a${"-".repeat(largo)}`;
+
+	expect(icsFileName(simbolos)).toBe("a.ics");
+	expect(icsFileName(`a${" ".repeat(largo)}b`)).toBe("a-b.ics");
+	expect(icsFileName("-".repeat(largo))).toBe("event.ics");
+	expect(performance.now() - inicio).toBeLessThan(1000);
+});

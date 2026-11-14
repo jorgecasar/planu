@@ -320,7 +320,8 @@ export function icsFileName(title: string): string {
 		.replace(/[\u0300-\u036f]/gu, "")
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
+		// Runs are already collapsed to one dash, so at most one per side.
+		.replace(/^-|-$/g, "")
 		.slice(0, 60);
 
 	return `${slug === "" ? "event" : slug}.ics`;
