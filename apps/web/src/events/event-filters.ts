@@ -51,6 +51,27 @@ export class PlanuEventFilters extends LitElement {
 			flex: 1 1 16rem;
 		}
 
+		/* A date and its time share a row while both fit, and stack when they
+		   do not (a 272 px group, en-US). The bases keep room for mm/dd/yyyy
+		   (9rem) and the 12 h AM/PM time (8.5rem, which never shrinks); a
+		   host's own max-content underestimates both, so neither is clipped. */
+		.date-time-group {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--wa-space-s);
+			flex: 1 1 18rem;
+		}
+
+		.date-time-group wa-input[type="date"] {
+			flex: 3 1 9rem;
+			width: auto;
+		}
+
+		.date-time-group wa-input[type="time"] {
+			flex: 1 0 8.5rem;
+			width: auto;
+		}
+
 		/* Responsive adjustments */
 		@media (max-width: 600px) {
 			form {
@@ -61,7 +82,8 @@ export class PlanuEventFilters extends LitElement {
 			wa-input,
 			wa-radio-group,
 			wa-checkbox-group,
-			wa-button {
+			wa-button,
+			.date-time-group {
 				width: 100%;
 				flex: none;
 			}
