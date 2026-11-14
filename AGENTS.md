@@ -306,6 +306,15 @@ nombres las define `landing.css` sobre los tokens reales. Antes de usar una clas
 Las de layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
 `.nombre`.
 
+La identidad visual (ADR 0008) es un tema de Web Awesome propio,
+`wa-theme-planu`, en `apps/web/src/styles/theme-planu.css`: vive en la capa
+`wa-theme` y parte del tema por defecto, que aporta los tokens que no nombra.
+`index.html`, `app.html` y las páginas de la landing llevan esa clase en
+`<html>`. No se pisan tokens desde fuera del tema ni se añade otro `:root`:
+un cambio de paleta, tipografía o escala va en ese fichero. Las `@font-face`
+están aparte, en `fonts.css`. La landing compila el tema dentro de la hoja de
+Web Awesome (`scripts/build-landing.js`).
+
 Ese servidor **no hace fallback a `index.html` a propósito**: la landing es
 multipágina y un fallback haría responder 200 a cualquier ruta inexistente,
 incluidas las tres que el `hreflang` promete —y comprobar que existen es justo

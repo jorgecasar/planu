@@ -1,6 +1,6 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
-import "@awesome.me/webawesome/dist/styles/themes/default.css";
-import "./styles/theme.css";
+import "./styles/theme-planu.css";
+import "./styles/fonts.css";
 
 import { ContextRoot } from "@lit/context";
 import { captureStartupErrors } from "./domain/startup-buffer.js";
