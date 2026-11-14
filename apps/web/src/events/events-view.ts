@@ -66,6 +66,7 @@ import "./event-groups.js";
 import "../sharing/invitations-inbox.js";
 
 import type { SessionUser } from "../application/ports/session.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { FiltersChange } from "./event-filters.js";
 
 /** Characters in the longest option label: sizes the sort select to fit it. */
@@ -76,7 +77,9 @@ export function widestLabel(options: readonly { label: string }[]): number {
 /** Listing of the user's events, with search and date filtering. */
 @customElement("planu-events-view")
 export class PlanuEventsView extends LitElement {
-	static override styles = css`
+	static override styles = [
+		webAwesomeStyles,
+		css`
     :host {
       display: block;
       padding: var(--wa-space-l);
@@ -146,8 +149,8 @@ export class PlanuEventsView extends LitElement {
       margin-block-start: var(--wa-space-2xl);
       text-align: center;
       color: var(--wa-color-text-quiet);
-    }
-  `;
+    }  `,
+	];
 
 	@consume({ context: eventsContext, subscribe: true })
 	private eventsSnapshot: EventsSnapshot | undefined;

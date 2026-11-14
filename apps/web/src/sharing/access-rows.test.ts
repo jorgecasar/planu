@@ -1,6 +1,7 @@
 import { html, type LitElement, render } from "lit";
 import { afterEach, expect, test, vi } from "vitest";
 import type { SessionUser } from "../application/ports/session.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 
@@ -60,7 +61,7 @@ test("a member shows no address and is removed, not cancelled", () => {
 	expect(list.querySelector(".detail")).toBeNull();
 	expect(list.querySelector("wa-badge")).toBeNull();
 	expect(text(list, "[value=remove]")).toBe("Remove access");
-	expect(text(list, ".sr-only")).toBe("Access for Bea");
+	expect(text(list, ".wa-visually-hidden")).toBe("Access for Bea");
 	const trigger = list.querySelector("[slot=trigger]");
 	expect(trigger?.hasAttribute("disabled")).toBe(true);
 });
@@ -80,7 +81,10 @@ test("picking from the menu hands over the person and the event", () => {
 test("the rows' sheet keeps a long name from squashing the row", async () => {
 	const host = document.body.appendChild(document.createElement("div"));
 	const root = host.attachShadow({ mode: "open" });
-	root.adoptedStyleSheets = [accessRowStyles.styleSheet as CSSStyleSheet];
+	// The dialog adopts the shared sheet before these styles.
+	root.adoptedStyleSheets = [...webAwesomeStyles, accessRowStyles].map(
+		(sheet) => sheet.styleSheet as CSSStyleSheet,
+	);
 	render(html`<ul>${renderPerson(BEA, false, () => {})}</ul>`, root);
 	// The hidden label is slotted into the button, so it has no style until
 	// the button renders its slot.
@@ -93,6 +97,6 @@ test("the rows' sheet keeps a long name from squashing the row", async () => {
 	expect(style("wa-avatar").flexShrink).toBe("0");
 	expect(style(".identity").minWidth).toBe("0px");
 	expect(style(".detail").textOverflow).toBe("ellipsis");
-	expect(style(".sr-only").position).toBe("absolute");
-	expect(style(".sr-only").width).toBe("1px");
+	expect(style(".wa-visually-hidden").position).toBe("absolute");
+	expect(style(".wa-visually-hidden").width).toBe("1px");
 });

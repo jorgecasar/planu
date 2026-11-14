@@ -27,7 +27,7 @@ import {
 import { SessionError } from "../domain/session-error.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 
@@ -35,7 +35,7 @@ import { ReauthStep } from "./reauth-step.js";
 @customElement("planu-profile-view")
 export class PlanuProfileView extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		:host {
 			display: block;

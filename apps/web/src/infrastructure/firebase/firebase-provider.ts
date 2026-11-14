@@ -10,7 +10,7 @@ import {
 } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
-import { html, LitElement, type ReactiveElement } from "lit";
+import { css, html, LitElement, type ReactiveElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import {
 	type EventsSnapshot,
@@ -156,6 +156,15 @@ export function loadDataServices(app: FirebaseApp): Promise<DataServices> {
  */
 @customElement("planu-firebase-provider")
 export class PlanuFirebaseProvider extends LitElement {
+	// native.css resets `*` to `box-sizing: inherit` and inheritance follows the
+	// flat tree. This root has no such rule, so its `<slot>` kept the initial
+	// `content-box` and handed it to the whole app, `wa-*` hosts included.
+	static override styles = css`
+		slot {
+			box-sizing: inherit;
+		}
+	`;
+
 	readonly #core = initializeFirebase();
 
 	readonly #user = new ContextProvider(this, {

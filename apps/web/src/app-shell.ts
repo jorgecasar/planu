@@ -23,7 +23,7 @@ import {
 } from "./auth/guard.js";
 import { loginNoticeState } from "./auth/login-notice.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
-import { typographyStyles } from "./styles/typography.js";
+import { webAwesomeStyles } from "./styles/web-awesome.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.
@@ -47,7 +47,7 @@ const SESSION_CHECK_TIMEOUT_MS = 8000;
 @customElement("planu-app")
 export class PlanuApp extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		:host {
 			display: flex;

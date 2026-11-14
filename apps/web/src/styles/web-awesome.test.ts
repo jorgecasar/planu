@@ -77,7 +77,7 @@ const ONE = { upcoming: [], undated: [EVENT], past: [] };
 /** A `wa-dialog` renders its label in its own shadow root. */
 const DIALOG = "wa-dialog";
 
-/** Every component that imports `typographyStyles`, and where its title is. */
+/** Every component that renders a title, and where it is. */
 const HEADINGS: [string, object, string][] = [
 	["planu-app", { user: USER }, "header h1"],
 	["planu-login-view", {}, "h1"],

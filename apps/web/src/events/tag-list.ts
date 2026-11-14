@@ -20,7 +20,7 @@ export function renderTagList(
 ) {
 	if (tags.length === 0) return nothing;
 
-	return html`<ul class=${className} aria-label=${label}>
+	return html`<ul class="wa-list-plain ${className}" aria-label=${label}>
 		${tags.map((tag) => html`<li>${content(tag)}</li>`)}
 	</ul>`;
 }

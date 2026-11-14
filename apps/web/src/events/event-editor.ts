@@ -39,7 +39,7 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../lib/types.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import { CoverField, coverFieldStyles } from "./cover-field.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";
@@ -49,7 +49,7 @@ import { TagSuggestionController } from "./tag-suggestion-controller.js";
 @customElement("planu-event-editor")
 export class PlanuEventEditor extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		tagChipStyles,
 		tagFieldStyles,
 		coverFieldStyles,

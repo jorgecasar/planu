@@ -14,6 +14,7 @@ import {
 } from "../domain/build-ics.js";
 import { googleCalendarUrl } from "../domain/google-calendar-url.js";
 import { downloadTextFile } from "../lib/download-file.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 /** How long the notice stays on screen before it dismisses itself. */
 const WARNING_MS = 8000;
@@ -29,7 +30,9 @@ const WARNING_MS = 8000;
  */
 @customElement("planu-calendar-export")
 export class PlanuCalendarExport extends LitElement {
-	static override styles = css`
+	static override styles = [
+		webAwesomeStyles,
+		css`
 		:host {
 			display: inline-block;
 		}
@@ -51,7 +54,8 @@ export class PlanuCalendarExport extends LitElement {
 			inset-inline-start: var(--wa-space-l);
 			max-inline-size: min(28rem, calc(100vw - 2 * var(--wa-space-l)));
 		}
-	`;
+	`,
+	];
 
 	/** What gets exported. In the agenda these are the already-filtered events. */
 	@property({ attribute: false }) events: readonly CalendarEvent[] = [];
