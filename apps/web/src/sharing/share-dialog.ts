@@ -29,6 +29,15 @@ import { canManageMembers } from "./permissions.js";
 /** Matches the cap in firestore.rules. */
 const MAX_GUESTS = 20;
 
+/**
+ * Whether a `wa-hide` / `wa-after-hide` is the dialog's own. Web Awesome
+ * dispatches them bubbling and composed, so closing the role select or a
+ * guest's menu reached the dialog too and closed it, losing what was typed.
+ */
+function isOwnEvent(domEvent: Event): boolean {
+	return domEvent.target === domEvent.currentTarget;
+}
+
 /** Invite people to an event, change a guest's role, and remove them. */
 @customElement("planu-share-dialog")
 export class PlanuShareDialog extends LitElement {
@@ -86,7 +95,16 @@ export class PlanuShareDialog extends LitElement {
 	@state() private error = "";
 	@state() private notice = "";
 
+	/**
+	 * Whether the body is in the DOM: from opening until the hide animation
+	 * ends. Every card mounts a closed dialog, and an always-rendered form
+	 * put two fields per card in the page that nobody could reach — Chrome
+	 * flagged each `wa-select`'s inner inputs and the email field.
+	 */
+	@state() private mounted = false;
+
 	override willUpdate(changed: Map<string, unknown>): void {
+		if (this.open) this.mounted = true;
 		// Also on `event`: the card can hand over a fresh snapshot while the
 		// dialog is open, and listening only to `open` left the list showing
 		// membership that had already changed underneath it.
@@ -107,7 +125,20 @@ export class PlanuShareDialog extends LitElement {
 				label=${msg(str`Share “${event.title}”`)}
 				.open=${this.open}
 				@wa-hide=${this.#close}
+				@wa-after-hide=${this.#onAfterHide}
 			>
+				${this.mounted ? this.#renderBody(user) : nothing}
+			</wa-dialog>
+		`;
+	}
+
+	#onAfterHide(domEvent: Event): void {
+		if (!isOwnEvent(domEvent)) return;
+		this.mounted = false;
+	}
+
+	#renderBody(user: SessionUser) {
+		return html`
 				${
 					this.error
 						? html`<wa-callout variant="danger" role="alert">${this.error}</wa-callout>`
@@ -123,6 +154,7 @@ export class PlanuShareDialog extends LitElement {
 					<wa-input
 						name="email"
 						type="email"
+						autocomplete="off"
 						label=${msg("Invite by email")}
 						required
 						enterkeyhint="done"
@@ -160,7 +192,6 @@ export class PlanuShareDialog extends LitElement {
 							</wa-callout>`
 						: nothing
 				}
-			</wa-dialog>
 		`;
 	}
 
@@ -339,7 +370,8 @@ export class PlanuShareDialog extends LitElement {
 		}
 	}
 
-	#close(): void {
+	#close(domEvent: Event): void {
+		if (!isOwnEvent(domEvent)) return;
 		this.open = false;
 		this.dispatchEvent(new CustomEvent("planu-share-close"));
 	}

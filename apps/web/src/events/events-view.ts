@@ -249,6 +249,7 @@ export class PlanuEventsView extends LitElement {
         </wa-radio-group>
 
         <wa-select
+          name="sort"
           label=${msg("Sort by")}
           style=${`--sort-chars: ${widestLabel(sorts)}`}
           .value=${serializeSortPreference(this.sort)}
