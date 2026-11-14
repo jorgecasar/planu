@@ -68,6 +68,13 @@ export class PlanuCalendarExport extends LitElement {
 	 */
 	@property({ type: String }) mode: "event" | "agenda" = "event";
 
+	/**
+	 * The trigger's look. `plain` fits a card footer; in the listing's
+	 * toolbar, beside an outlined select and a brand button, plain grey text
+	 * read as a disabled control.
+	 */
+	@property() appearance: "plain" | "outlined" = "plain";
+
 	/** File name used when exporting the agenda. */
 	@property({ attribute: false }) agendaFileName = "planu-agenda.ics";
 
@@ -114,7 +121,7 @@ export class PlanuCalendarExport extends LitElement {
 			<wa-dropdown @wa-select=${this.#onSelect}>
 				<wa-button
 					slot="trigger"
-					appearance="plain"
+					appearance=${this.appearance}
 					?disabled=${empty}
 					.withCaret=${true}
 				>

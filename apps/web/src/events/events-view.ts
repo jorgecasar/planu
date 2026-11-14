@@ -68,6 +68,11 @@ import "../sharing/invitations-inbox.js";
 import type { SessionUser } from "../application/ports/session.js";
 import type { FiltersChange } from "./event-filters.js";
 
+/** Characters in the longest option label: sizes the sort select to fit it. */
+export function widestLabel(options: readonly { label: string }[]): number {
+	return Math.max(0, ...options.map((option) => option.label.length));
+}
+
 /** Listing of the user's events, with search and date filtering. */
 @customElement("planu-events-view")
 export class PlanuEventsView extends LitElement {
@@ -92,8 +97,15 @@ export class PlanuEventsView extends LitElement {
       gap: var(--wa-space-m);
     }
 
+    /*
+     * As wide as its longest option, not a fixed 14rem: "Fecha, lo más
+     * próximo primero" was cut mid-word. The extra covers the padding and
+     * the caret.
+     */
     wa-select {
-      flex: 0 1 14rem;
+      flex: 0 1 auto;
+      inline-size: calc(var(--sort-chars, 20) * 1ch + 4rem);
+      max-inline-size: 100%;
     }
 
     .empty {
@@ -210,6 +222,7 @@ export class PlanuEventsView extends LitElement {
 		);
 
 		const knownTags = collectTags(all);
+		const sorts = sortOptions();
 
 		return html`
       <planu-invitations-inbox></planu-invitations-inbox>
@@ -237,10 +250,11 @@ export class PlanuEventsView extends LitElement {
 
         <wa-select
           label=${msg("Sort by")}
+          style=${`--sort-chars: ${widestLabel(sorts)}`}
           .value=${serializeSortPreference(this.sort)}
           @change=${this.#onSort}
         >
-          ${sortOptions().map(
+          ${sorts.map(
 						(option) =>
 							html`<wa-option value=${option.value}
                 >${option.label}</wa-option
@@ -257,6 +271,7 @@ export class PlanuEventsView extends LitElement {
 				     VEVENT. -->
         <planu-calendar-export
           mode="agenda"
+          appearance="outlined"
           .events=${visible}
         ></planu-calendar-export>
         <wa-button variant="brand" @click=${this.#onNew}>
