@@ -2,6 +2,38 @@ import { msg } from "@lit/localize";
 import { ZodError } from "zod";
 import { SessionError } from "./session-error.js";
 
+/** A form field an error can be shown next to. */
+export type AuthField = "email" | "password" | "confirmPassword";
+
+const FIELDS: readonly string[] = ["email", "password", "confirmPassword"];
+
+/**
+ * Which field caused the failure, so the message sits next to it instead of
+ * above the whole form. `null` when no field is to blame —a closed popup, a
+ * network error—, and then it stays a general notice.
+ *
+ * Wrong credentials point at the password: the message names both fields on
+ * purpose (see `authErrorMessage`), and the password is the one to retype.
+ */
+export function authErrorField(cause: unknown): AuthField | null {
+	if (cause instanceof ZodError) {
+		const field = String(cause.issues[0]?.path[0] ?? "");
+		return FIELDS.includes(field) ? (field as AuthField) : null;
+	}
+	if (!(cause instanceof SessionError)) return null;
+	switch (cause.code) {
+		case "invalid-email":
+		case "user-disabled":
+		case "email-already-in-use":
+			return "email";
+		case "invalid-credential":
+		case "weak-password":
+			return "password";
+		default:
+			return null;
+	}
+}
+
 /**
  * Translates any validation or session failure into text for the user.
  *
