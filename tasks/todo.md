@@ -804,6 +804,12 @@ Numeración continuada: la fase 1 llegó hasta T10.
     verificada la presentación. Arreglado en `fix/landing-missing-wa-styles` con
     cuatro tests que sí la comprueban, y los dos fallos se reprodujeron contra
     ellos antes de tocar nada.
+  - ~~Web Awesome no tiene clases de utilidad para tamaño ni peso de texto, así
+    que `wa-text-*` y `wa-button--*` se definen en `landing.css`.~~ **Falso**
+    (corregido en GH-187): `utilities/text.css` trae `wa-heading-*`,
+    `wa-font-size-*` y `wa-font-weight-*`, y `native.css` estiliza `a.wa-button`
+    con `wa-brand`, `wa-outlined` y `wa-size-*`. La landing usa ahora esas clases
+    y `landing.css` ya no define ninguna `wa-*`.
   - **Salvedad medida, no supuesta:** el `og:image` lleva la fuente del sistema,
     no Belleza ni Alegreya. `sips` es el único rasterizador disponible aquí e
     **ignora los `@font-face`** incluso incrustados como data URI; se comparó el

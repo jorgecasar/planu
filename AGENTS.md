@@ -293,17 +293,23 @@ queja de una página sin CSS, porque el HTML semántico es accesible igual—. D
 fallos se colaron por ese hueco: faltaba la hoja de Web Awesome entera, y nueve
 clases (`wa-text-3xl`, `wa-button--brand`…) estaban **inventadas** con la
 convención de otro framework. Por eso ahora hay un test que recorre las clases
-`wa-*` del marcado y falla si alguna no casa con ninguna regla del CSS cargado,
-más tres que leen `getComputedStyle` del hero, los botones y la rejilla.
+`wa-*` del marcado y falla si alguna no casa con ninguna regla **de la hoja de
+Web Awesome** —no del CSS en línea: con él contando, `landing.css` llegó a
+definir esas clases inventadas y el test las daba por buenas—, más tres que
+leen `getComputedStyle` del hero, los botones y la rejilla.
 
-**Web Awesome no tiene clases de utilidad para tamaño ni peso de texto.** Define
-los tokens `--wa-font-size-*` y `--wa-font-weight-*`, pero ninguna clase que los
-aplique; y las variantes de botón (`brand`, `outlined`, `large`) son **atributos
-del componente `<wa-button>`**, que en la landing no sirve porque no carga
-JavaScript y el custom element no se definiría nunca. Las clases con esos
-nombres las define `landing.css` sobre los tokens reales. Antes de usar una clase
-`wa-*`, compruébala: `grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`.
-Las de layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
+Web Awesome sí tiene utilidades de texto, y son las que se usan:
+`wa-heading-*` (familia, peso y tamaño de título), `wa-body-*`,
+`wa-font-size-*`, `wa-font-weight-*` y `wa-color-text-*`, en
+`utilities/text.css`. Los botones sin JavaScript también existen: `native.css`
+estiliza `a.wa-button`, con `wa-brand`/`wa-neutral`/`wa-danger` para la variante,
+`wa-outlined`/`wa-plain` para la apariencia y `wa-size-*` para el tamaño. En la
+landing `<wa-button>` no sirve —el custom element no se definiría nunca—, así que
+va `<a class="wa-button wa-brand wa-size-l">`. **No se inventan ni se redefinen
+clases `wa-*`**: lo propio va en clases propias, y la marca, en los tokens
+`--wa-*` de `styles/theme-planu.css`. Antes de usar una clase `wa-*`, compruébala:
+`grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`. Las de
+layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
 `.nombre`.
 
 La identidad visual (ADR 0008) es un tema de Web Awesome propio,
@@ -314,6 +320,64 @@ La identidad visual (ADR 0008) es un tema de Web Awesome propio,
 un cambio de paleta, tipografía o escala va en ese fichero. Las `@font-face`
 están aparte, en `fonts.css`. La landing compila el tema dentro de la hoja de
 Web Awesome (`scripts/build-landing.js`).
+
+**Dentro de la aplicación, `native.css` y `utilities.css` llegan a cada shadow
+root por `styles/web-awesome.ts`.** `main.ts` los carga en el documento, pero una
+hoja del documento no atraviesa un shadow root, y toda la interfaz vive dentro de
+uno: sin el módulo, los títulos no piden `--wa-font-family-heading` —y Belleza
+no llega a descargarse—, los enlaces salen en el azul del navegador, el
+`<input type=file>` en Arial y `wa-stack` no apila nada. Web Awesome no documenta
+una vía propia para esto. Todo componente con shadow root pone `webAwesomeStyles`
+lo primero en su `static styles`; cada `CSSResult` construye su `CSSStyleSheet`
+una vez y Lit adopta ese mismo objeto en todas las raíces, así que se parsea una
+sola vez. Las reglas conservan sus capas `wa-native` y `wa-utilities`, de modo
+que cualquier regla sin capa del componente gana.
+
+Efectos de esos resets, medidos con un volcado de estilos calculados del listado,
+el calendario, la agenda, el editor, el diálogo de compartir, el perfil y el
+acceso, antes y después:
+
+- **`box-sizing`, corregido.** `native.css` pone `*` en `box-sizing: inherit` y
+  cuenta con que `html` sea `border-box`. La aplicación cuelga del `<slot>` de
+  `planu-firebase-provider`, que no tenía ninguna regla: conservaba el
+  `content-box` inicial y la herencia, que sigue el árbol aplanado, lo bajaba a
+  toda la aplicación; y, desde fuera, esa regla gana al
+  `:host { box-sizing: border-box }` de cada `wa-*`. Se corrige en el origen: el
+  proveedor pone `slot { box-sizing: inherit }` y la cadena de `native.css` llega
+  entera, sin ninguna regla global `*` en `web-awesome.ts`. Medido en el listado
+  a 1280 px con la cuenta sembrada (`npm run seed`): en `main`, 263 de 553
+  elementos eran `content-box` (todos simples, ningún `wa-*`); sin el remedio,
+  369 (196 `wa-*`, entre ellos los seis `wa-radio`).
+- **Márgenes de `p`, corregido.** `native.css` los pone a 0 y sólo añade
+  `--wa-content-spacing` abajo si hay un hermano detrás, así que el 1em de arriba
+  y abajo del navegador desaparece. Donde dependían de él se pone explícito: el
+  cuerpo del diálogo de borrar cuenta y el de reautenticación llevan
+  `wa-stack`, y el aviso de «sólo tú, por ahora», la introducción del generador
+  de IA y los párrafos del estado vacío, `margin-block: var(--wa-space-m)`:
+  18 px frente a los 16 px del navegador, 2 px más en esos tres sitios.
+- **Desplazamientos visuales, aceptados.** Medidos con una sonda de estilos
+  calculados (panel de 1000 px, antes en `main` y después en esta rama):
+  rejilla del calendario 483 a 438 px de alto, celda 89 a 80, tarjeta 275 a 267,
+  título de la tarjeta (h3) 32 a 24, h1 de la cabecera 32 a 24 con el texto en
+  20 px y peso 700 a 600, h1 del acceso 51 a 49 con 32 a 41 px y peso 700 a 600.
+  Vienen de `border-box` en toda la aplicación y del interlineado y tamaños de
+  títulos de `native.css`; no se midió por separado cuánto aporta cada uno.
+- **`li`, corregido.** Recibe un margen de 1,125 em; se quita con la clase real
+  `wa-list-plain` en cada `<ul>` sin viñetas (seis sitios, uno por lista).
+- **Títulos, aceptado.** Pasan a los tamaños y al interlineado de `native.css`:
+  el h1 del acceso de 32 a 41 px, el h2 de la ficha de perfil de 24 a 32 px, h3
+  de las tarjetas con la misma familia pero interlineado condensado. Peso 600, que
+  con las caras de Belleza (400 y 700) resuelve a 700.
+- **`text-wrap`, aceptado.** `balance` en títulos y `pretty` en párrafos.
+- **Formularios, aceptado.** Un `<input>` que sigue a su `<label>` gana
+  `margin-block-start: 0.5em` (los campos de fichero).
+
+Lo vigila `styles/web-awesome.test.ts`, componente por componente (la lista sale
+de las fuentes, no de una lista a mano), y un test por cada arreglo de arriba.
+Coste, medido con `npm run build` antes y después: el chunk de `app-shell` pasa de
+236,21 a 280,72 kB (+44,51 kB en bruto, +7,98 kB con gzip) y no cambia nada más; las
+dos hojas viajan **dos veces**: como texto dentro del JS y ya en `app-*.css` por
+`main.ts`. El CSS del documento (`app-*.css`, 144,55 kB) no cambia.
 
 Ese servidor **no hace fallback a `index.html` a propósito**: la landing es
 multipágina y un fallback haría responder 200 a cualquier ruta inexistente,
