@@ -108,8 +108,32 @@ test.each(HEADINGS)(
 						?.shadowRoot?.querySelector('[part="title"]')
 				: root.querySelector(selector);
 		expect(family(heading)).toMatch(HEADING);
+		// Belleza ships only at 400: any other weight is painted as fake bold.
+		expect(getComputedStyle(heading as Element).fontWeight).toBe("400");
 	},
 );
+
+function faces(name: string): FontFace[] {
+	return [...document.fonts].filter(
+		(f) => f.family.replaceAll('"', "") === name,
+	);
+}
+
+test("each family is a single face, and Belleza downloads once", async () => {
+	const root = await mount("planu-event-card", { event: EVENT, user: USER });
+	root.querySelector("h3")?.getBoundingClientRect();
+	await document.fonts.ready;
+	const belleza = faces("Belleza");
+	expect(belleza).toHaveLength(1);
+	expect(belleza[0]?.status).toBe("loaded");
+	const alegreya = faces("Alegreya");
+	expect(alegreya).toHaveLength(1);
+	expect(alegreya[0]?.weight).toBe("400 700");
+	const requests = performance
+		.getEntriesByType("resource")
+		.filter((e) => e.name.includes("belleza"));
+	expect(requests).toHaveLength(1);
+});
 
 test("the card's text stays in the body family", async () => {
 	const root = await mount("planu-event-card", { event: EVENT, user: USER });

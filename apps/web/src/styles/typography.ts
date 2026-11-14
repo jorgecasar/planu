@@ -18,5 +18,6 @@ export const typographyStyles = css`
 	h3,
 	wa-dialog::part(title) {
 		font-family: var(--wa-font-family-heading);
+		font-weight: var(--wa-font-weight-heading);
 	}
 `;
