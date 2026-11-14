@@ -82,3 +82,78 @@ test("la descripción se corta a dos líneas", async () => {
 	expect(long).toBeGreaterThan(line);
 	expect(long).toBeLessThanOrEqual(2 * line + 1);
 });
+
+// ── Clickable card (GH-188) ──────────────────────────────────────────────────
+
+/** What a pointer at the centre of `target` would hit inside the card. */
+function hitAt(el: PlanuEventCard, target: Element | null | undefined) {
+	const box = target?.getBoundingClientRect();
+	if (!box) return null;
+	return (
+		el.shadowRoot?.elementFromPoint(
+			box.left + box.width / 2,
+			box.top + box.height / 2,
+		) ?? null
+	);
+}
+
+test("pulsar en cualquier parte de la tarjeta abre el editor", async () => {
+	const el = await mount(event({ description: "Al aire libre." }));
+	const opened: unknown[] = [];
+	el.addEventListener("planu-edit-event", (e) =>
+		opened.push((e as CustomEvent).detail),
+	);
+
+	// The description is not a control: what lies under it is the title's
+	// stretched layer, so the click lands on the one button.
+	const hit = hitAt(el, el.shadowRoot?.querySelector(".description"));
+	expect(hit?.matches("button.open")).toBe(true);
+	(hit as HTMLElement).click();
+
+	expect(opened).toHaveLength(1);
+	el.remove();
+});
+
+test("los controles del pie siguen recibiendo su clic", async () => {
+	const el = await mount(event());
+	const edit = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(button) => button.textContent?.includes("Edit"),
+	);
+	expect(hitAt(el, edit)?.closest("wa-button")).toBe(edit);
+	el.remove();
+});
+
+test("«Editar» dice qué evento edita", async () => {
+	const el = await mount(event());
+	const edit = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(button) => button.textContent?.includes("Edit"),
+	);
+	expect(edit?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+		"Edit Concierto de verano",
+	);
+	el.remove();
+});
+
+test("la tarjeta no añade una parada de tabulador a «Editar»", async () => {
+	// Title and «Edit» do the same thing: both in the tab order made seven
+	// cards cost 21 stops instead of 14. The title stays a pointer target.
+	const el = await mount(event());
+	expect(
+		el.shadowRoot?.querySelector<HTMLElement>("button.open")?.tabIndex,
+	).toBe(-1);
+	el.remove();
+});
+
+test("quien sólo puede leer no tiene tarjeta que pulsar", async () => {
+	// The editor has no read-only mode: opening it for a viewer would offer
+	// a save the rules then reject.
+	const el = await mount(
+		event({ memberIds: ["u1", "u2"], roles: { u2: "viewer" } }),
+		"u2",
+	);
+	expect(el.shadowRoot?.querySelector("button.open")).toBeNull();
+	expect(el.shadowRoot?.querySelector("h3")?.textContent?.trim()).toBe(
+		"Concierto de verano",
+	);
+	el.remove();
+});
