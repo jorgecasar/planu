@@ -65,7 +65,10 @@ export class PlanuShareDialog extends LitElement {
 			font-size: var(--wa-font-size-m);
 		}
 
+		/* native.css zeroes a paragraph's margins; the gap to the list above and
+		   to what follows is spelled out here. */
 		.empty {
+			margin-block: var(--wa-space-m);
 			color: var(--wa-color-text-normal);
 		}
 	`,

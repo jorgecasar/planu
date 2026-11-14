@@ -61,29 +61,32 @@ export class ReauthStep {
 	) {
 		const passwordProvider = user?.provider === "password";
 		return html`
-			<p>
-				${msg(
-					"This takes a moment: please confirm it's you before we delete your account.",
-				)}
-			</p>
-			${
-				passwordProvider
-					? html`<wa-input
-							type="password"
-							label=${msg("Password")}
-							.value=${this.password}
-							?disabled=${this.busy}
-							@input=${this.#onPasswordInput}
-						></wa-input>`
-					: nothing
-			}
-			${
-				error
-					? html`<wa-callout variant="danger" role="alert">
-							${error}
-						</wa-callout>`
-					: nothing
-			}
+			<div class="wa-stack">
+				<p>
+					${msg(
+						"This takes a moment: please confirm it's you before we delete your account.",
+					)}
+				</p>
+				${
+					passwordProvider
+						? html`<wa-input
+								type="password"
+								label=${msg("Password")}
+								.value=${this.password}
+								?disabled=${this.busy}
+								@input=${this.#onPasswordInput}
+							></wa-input>`
+						: nothing
+				}
+				${
+					error
+						? html`<wa-callout variant="danger" role="alert">
+								${error}
+							</wa-callout>`
+						: nothing
+				}
+			</div>
+
 			<wa-button
 				slot="footer"
 				appearance="outlined"

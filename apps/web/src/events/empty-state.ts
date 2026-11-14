@@ -33,6 +33,12 @@ export class PlanuEmptyState extends LitElement {
 			display: block;
 		}
 
+		/* native.css zeroes a paragraph's margins; this keeps the gap the
+		   browser's own default gave. */
+		p {
+			margin-block: var(--wa-space-m);
+		}
+
 		.actions {
 			display: flex;
 			flex-wrap: wrap;

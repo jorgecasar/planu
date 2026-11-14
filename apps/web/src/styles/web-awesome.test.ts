@@ -341,6 +341,67 @@ test.each(LISTS)(
 	},
 );
 
+const px = (value: string) => Number.parseFloat(value);
+
+// native.css zeroes a paragraph's margins and pads only its end, so every
+// place that leaned on the browser's 1em top and bottom says so itself now.
+test("the share dialog's empty note keeps a gap above and below", async () => {
+	const root = await mount("planu-share-dialog", { ...OWN, open: true });
+	const note = root.querySelector("p.empty");
+	if (!note) throw new Error("no empty note");
+	const { marginTop, marginBottom } = getComputedStyle(note);
+	expect(px(marginTop)).toBeGreaterThan(0);
+	expect(px(marginBottom)).toBeGreaterThan(0);
+});
+
+test("the AI generator's intro keeps a gap above and below", async () => {
+	const root = await mount("planu-ai-event-generator", {});
+	const intro = root.querySelector("fieldset > p");
+	if (!intro) throw new Error("no intro");
+	const { marginTop, marginBottom } = getComputedStyle(intro);
+	expect(px(marginTop)).toBeGreaterThan(0);
+	expect(marginBottom).toBe(marginTop);
+});
+
+test("the empty state keeps a gap around its paragraphs", async () => {
+	const root = await mount("planu-empty-state", {});
+	const paragraphs = [...root.querySelectorAll("p")];
+	expect(paragraphs.length).toBe(3);
+	for (const p of paragraphs) {
+		expect(px(getComputedStyle(p).marginBottom)).toBeGreaterThan(0);
+	}
+	expect(
+		px(getComputedStyle(paragraphs[0] as Element).marginTop),
+	).toBeGreaterThan(0);
+});
+
+test("the delete-account dialog spaces its body with wa-stack", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const root = await mount("planu-profile-view", {
+		user: USER,
+		confirmingDelete: true,
+	});
+	const body = root.querySelector("wa-dialog > .wa-stack");
+	if (!body) throw new Error("no stacked body");
+	const style = getComputedStyle(body);
+	expect([style.display, style.flexDirection]).toEqual(["flex", "column"]);
+	expect(px(style.rowGap)).toBeGreaterThan(0);
+	expect(body.querySelectorAll("p").length).toBe(2);
+});
+
+test("the reauthentication step spaces its body with wa-stack", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const root = await mount("planu-profile-view", {
+		user: USER,
+		confirmingDelete: true,
+		needsReauth: true,
+	});
+	const body = root.querySelector("wa-dialog > .wa-stack");
+	if (!body) throw new Error("no stacked body");
+	expect(px(getComputedStyle(body).rowGap)).toBeGreaterThan(0);
+	expect(body.querySelector("p")).not.toBeNull();
+});
+
 test("the cover's file input is themed by native.css, not the browser", async () => {
 	const root = await mount("planu-event-editor", { user: USER, open: true });
 	const input = root.querySelector('input[type="file"]');

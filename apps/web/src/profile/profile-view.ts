@@ -199,6 +199,7 @@ export class PlanuProfileView extends LitElement {
 								this.#reauthenticateAndRetry,
 							)
 						: html`
+								<div class="wa-stack">
 								<p>
 									${msg(
 										"This permanently deletes your account: every event you own, their cover images, and your entry in the directory. Any event you shared will disappear for the people you invited — they will no longer see it.",
@@ -230,6 +231,7 @@ export class PlanuProfileView extends LitElement {
 											</wa-callout>`
 										: nothing
 								}
+								</div>
 								<wa-button
 									slot="footer"
 									appearance="outlined"
