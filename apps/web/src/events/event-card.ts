@@ -102,6 +102,40 @@ export class PlanuEventCard extends LitElement {
 			font-size: var(--wa-font-size-xs);
 		}
 
+		/* The whole card opens the editor without nesting controls: the title
+		   is the one button, and its ::after stretches over the card. The
+		   footer's own controls sit above that layer and keep their clicks. */
+		wa-card {
+			position: relative;
+		}
+
+		.open {
+			all: unset;
+			cursor: pointer;
+		}
+
+		.open::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			border-radius: var(--wa-panel-border-radius);
+		}
+
+		[slot="footer"] {
+			position: relative;
+			z-index: 1;
+		}
+
+		/* Stands in for WA's wa-visually-hidden; goes when #187 shares its utilities. */
+		.visually-hidden {
+			position: absolute;
+			inline-size: 1px;
+			block-size: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+
 		/* Two lines are a preview; the editor holds the rest. */
 		.description {
 			display: -webkit-box;
@@ -225,7 +259,18 @@ export class PlanuEventCard extends LitElement {
 				<div slot="header" class="heading">
 					${this.#renderDateBlock()}
 					<div class="title-block">
-						<h3>${event.title}</h3>
+						<h3>${
+							canEdit(event, this.#uid)
+								? html`<button
+										type="button"
+										class="open"
+										tabindex="-1"
+										@click=${this.#onEdit}
+									>
+										${event.title}
+									</button>`
+								: event.title
+						}</h3>
 						<div class="meta">
 							<span>${formatEventDates(event.startDate, event.endDate, event.allDay)}</span>
 							${event.location ? html`<span>${event.location}</span>` : nothing}
@@ -252,6 +297,7 @@ export class PlanuEventCard extends LitElement {
 								@click=${this.#onEdit}
 							>
 								${msg("Edit")}
+								<span class="visually-hidden">${event.title}</span>
 							</wa-button>`
 						: nothing
 				}
