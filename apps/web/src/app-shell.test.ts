@@ -293,3 +293,26 @@ test("desmontar antes del plazo cancela el temporizador", async () => {
 		vi.useRealTimers();
 	}
 });
+
+test("elegir Perfil en el menú de la cabecera navega al perfil", async () => {
+	window.history.pushState({}, "", "/app");
+	const el = document.createElement("planu-app") as PlanuApp;
+	document.body.append(el);
+	resolveSessionTo(el, someone);
+	const dropdown = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector("wa-dropdown");
+		if (!found) throw new Error("no header yet");
+		return found;
+	});
+
+	const item = el.shadowRoot?.querySelector(
+		'wa-dropdown-item[value="profile"]',
+	);
+	dropdown.dispatchEvent(new CustomEvent("wa-select", { detail: { item } }));
+
+	await vi.waitFor(() => {
+		expect(window.location.pathname).toBe("/app/profile");
+		expect(el.shadowRoot?.querySelector("planu-profile-view")).not.toBeNull();
+	});
+	el.remove();
+});
