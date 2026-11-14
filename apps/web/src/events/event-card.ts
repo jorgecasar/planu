@@ -21,8 +21,9 @@ import {
 } from "../sharing/permissions.js";
 import "../sharing/share-dialog.js";
 import "./calendar-export.js";
-import { formatEventDates } from "../domain/format-dates.js";
+import { dateBlockParts, formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
+import { getLocale } from "../i18n/localization.js";
 import { typographyStyles } from "../styles/typography.js";
 import { tagChipStyles } from "./tag-styles.js";
 
@@ -56,6 +57,58 @@ export class PlanuEventCard extends LitElement {
 
 		p {
 			margin: 0 0 var(--wa-space-s);
+		}
+
+		/* The card leads with when, then what (GH-188). */
+		.heading {
+			display: flex;
+			align-items: flex-start;
+			gap: var(--wa-space-m);
+		}
+
+		.title-block {
+			display: grid;
+			gap: var(--wa-space-2xs);
+			min-inline-size: 0;
+		}
+
+		.date-block {
+			flex: none;
+			display: grid;
+			place-content: center;
+			justify-items: center;
+			inline-size: 3.5rem;
+			min-block-size: 3.5rem;
+			border-radius: var(--wa-border-radius-m);
+			background: var(--wa-color-brand-fill-quiet);
+			color: var(--wa-color-brand-on-quiet);
+			line-height: var(--wa-line-height-condensed);
+		}
+
+		.date-block .day {
+			font-size: var(--wa-font-size-xl);
+			font-weight: var(--wa-font-weight-bold);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.date-block .month {
+			font-size: var(--wa-font-size-xs);
+			text-transform: uppercase;
+		}
+
+		.date-block.undated {
+			background: var(--wa-color-neutral-fill-quiet);
+			color: var(--wa-color-neutral-on-quiet);
+			font-size: var(--wa-font-size-xs);
+		}
+
+		/* Two lines are a preview; the editor holds the rest. */
+		.description {
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			overflow: hidden;
+			line-height: var(--wa-line-height-normal);
 		}
 
 		/* Not a definition list: it's two lines of metadata. A <dl> with
@@ -124,6 +177,24 @@ export class PlanuEventCard extends LitElement {
 		</wa-badge>`;
 	}
 
+	/**
+	 * Day and month first, so a list of cards scans by date (GH-188). Hidden
+	 * from assistive technology: the full period is read after the title.
+	 */
+	#renderDateBlock() {
+		const date = this.event.startDate ?? this.event.endDate;
+		if (!date) {
+			return html`<span class="date-block undated" aria-hidden="true">
+				${msg("No date")}
+			</span>`;
+		}
+		const { day, month } = dateBlockParts(date, getLocale());
+		return html`<span class="date-block" aria-hidden="true">
+			<span class="day">${day}</span>
+			<span class="month">${month}</span>
+		</span>`;
+	}
+
 	/** Why the hash only decides the hue, in `tag-styles.ts`. */
 	#renderTags() {
 		const { tags } = this.event;
@@ -151,18 +222,22 @@ export class PlanuEventCard extends LitElement {
 						: nothing
 				}
 
-				<h3 slot="header">${event.title}</h3>
-
-				${event.description ? html`<p>${event.description}</p>` : nothing}
-
-				<div class="meta">
-					${event.location ? html`<span>${event.location}</span>` : nothing}
-					<span>${formatEventDates(event.startDate, event.endDate, event.allDay)}</span>
+				<div slot="header" class="heading">
+					${this.#renderDateBlock()}
+					<div class="title-block">
+						<h3>${event.title}</h3>
+						<div class="meta">
+							<span>${formatEventDates(event.startDate, event.endDate, event.allDay)}</span>
+							${event.location ? html`<span>${event.location}</span>` : nothing}
+						</div>
+					</div>
 				</div>
+
+				${event.description ? html`<p class="description">${event.description}</p>` : nothing}
 
 				${this.#renderTags()}
 
-					${this.#renderRoleBadge()}
+				${this.#renderRoleBadge()}
 
 				<planu-calendar-export
 					slot="footer"

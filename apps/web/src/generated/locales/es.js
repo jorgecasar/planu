@@ -32,6 +32,7 @@ export const templates = {
 	s16d2155176aaba45: `Rellenar con IA`,
 	s18059d87aa01352e: `No ha funcionado. Inténtalo de nuevo.`,
 	s183ca06155e5e69b: `Tus eventos`,
+	s18752c426100cb1a: `Sin fecha`,
 	s19bee21a859fbea0: `Salir`,
 	s1a0b42f82fcb9d76: `Todavía no has creado ningún evento.`,
 	s1a30df4ba6e88d5d: `Imagen de portada`,

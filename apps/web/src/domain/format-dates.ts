@@ -52,6 +52,20 @@ export function formatEventTime(date: Date, locale?: string): string {
 	return new Intl.DateTimeFormat(locale, TIME_FORMAT).format(date);
 }
 
+/**
+ * Day and short month for the card's date block (GH-188): «12» and «Jun».
+ * Two parts because the block stacks them.
+ */
+export function dateBlockParts(
+	date: Date,
+	locale?: string,
+): { day: string; month: string } {
+	return {
+		day: new Intl.DateTimeFormat(locale, { day: "numeric" }).format(date),
+		month: new Intl.DateTimeFormat(locale, { month: "short" }).format(date),
+	};
+}
+
 /** Same local day, so an afternoon event doesn't repeat the date. */
 function sameDay(a: Date, b: Date): boolean {
 	return (
