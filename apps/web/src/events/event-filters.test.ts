@@ -262,6 +262,29 @@ test("una hora en el rango se combina con su fecha", async () => {
 	el.remove();
 });
 
+test("la fecha y la hora no se recortan en un grupo de 272 px", async () => {
+	// A 320 px phone leaves a 272 px group. The native inputs live in the
+	// UA's shadow root, so clipping can't be read off them; instead the host
+	// keeps the width measured for en-US Chromium: 144 px for mm/dd/yyyy and
+	// 129 px for the 12 h AM/PM time.
+	const el = await mount([]);
+	const floors = { from: 144, fromTime: 129, to: 144, toTime: 129 };
+
+	for (const width of ["17rem", "20rem", "30rem"]) {
+		for (const [name, floor] of Object.entries(floors)) {
+			const host = el.shadowRoot?.querySelector(`[name="${name}"]`);
+			const group = host?.closest<HTMLElement>(".date-time-group");
+			if (group) group.style.inlineSize = width;
+			expect(
+				host?.getBoundingClientRect().width ?? 0,
+				`${name} at ${width}`,
+			).toBeGreaterThanOrEqual(floor - 1);
+		}
+	}
+
+	el.remove();
+});
+
 test("limpiar borra también las dos horas", async () => {
 	const el = await mount([]);
 	const emitted = listen(el);

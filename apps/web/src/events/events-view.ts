@@ -94,17 +94,51 @@ export class PlanuEventsView extends LitElement {
       flex-wrap: wrap;
       align-items: end;
       justify-content: space-between;
-      gap: var(--wa-space-m);
+      gap: var(--wa-space-s) var(--wa-space-m);
+    }
+
+    /* View and order are ways of looking at the list, not queries: one
+       compact row. Each label sits beside its control instead of above it;
+       hiding it would save more, but axe rejects form controls labelled
+       only by hidden text (label-title-only). */
+    .view-row {
+      display: flex;
+      min-inline-size: 0;
+      max-inline-size: 100%;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--wa-space-s) var(--wa-space-m);
+    }
+
+    .view-row > *::part(form-control) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--wa-space-xs);
+    }
+
+    .view-row > *::part(form-control-input) {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+    }
+
+    .view-row > *::part(form-control-label) {
+      margin: 0;
+      padding: 0;
+      font-size: var(--wa-font-size-s);
+      white-space: nowrap;
     }
 
     /*
      * As wide as its longest option, not a fixed 14rem: "Fecha, lo más
      * próximo primero" was cut mid-word. The extra covers the padding and
-     * the caret.
+     * the caret, and 9ch the label that now sits beside the control inside
+     * the same box (Spanish "Ordenar por" is the longest). WA has no native
+     * way to size a select to its content.
      */
     wa-select {
       flex: 0 1 auto;
-      inline-size: calc(var(--sort-chars, 20) * 1ch + 4rem);
+      inline-size: calc(var(--sort-chars, 20) * 1ch + 4rem + 9ch);
       max-inline-size: 100%;
     }
 
@@ -243,9 +277,11 @@ export class PlanuEventsView extends LitElement {
           @planu-filters-change=${this.#onFilters}
         ></planu-event-filters>
 
+        <div class="view-row">
         <wa-radio-group
           class="views"
           label=${msg("View")}
+          size="s"
           orientation="horizontal"
           .value=${this.view}
           @change=${this.#onView}
@@ -262,6 +298,7 @@ export class PlanuEventsView extends LitElement {
           name="sort"
           label=${msg("Sort by")}
           style=${`--sort-chars: ${widestLabel(sorts)}`}
+          size="s"
           .value=${serializeSortPreference(this.sort)}
           @change=${this.#onSort}
         >
@@ -285,6 +322,7 @@ export class PlanuEventsView extends LitElement {
           appearance="outlined"
           .events=${visible}
         ></planu-calendar-export>
+        </div>
         <wa-button variant="brand" @click=${this.#onNew}>
           ${msg("New event")}
         </wa-button>
