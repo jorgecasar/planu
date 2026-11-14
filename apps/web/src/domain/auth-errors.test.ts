@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { credentialsSchema, signUpSchema } from "../auth/schemas.js";
-import { authErrorMessage } from "./auth-errors.js";
+import { authErrorField, authErrorMessage } from "./auth-errors.js";
 import { SessionError } from "./session-error.js";
 
 // The collapse of "nonexistent user", "wrong password" and "invalid
@@ -92,4 +92,31 @@ test("acepta un registro válido", () => {
 		confirmPassword: "secret1",
 	});
 	expect(result.success).toBe(true);
+});
+
+test("cada error apunta al campo que lo provoca, o a ninguno", () => {
+	const field = (code: ConstructorParameters<typeof SessionError>[0]) =>
+		authErrorField(new SessionError(code));
+	expect(field("invalid-email")).toBe("email");
+	expect(field("email-already-in-use")).toBe("email");
+	expect(field("user-disabled")).toBe("email");
+	expect(field("invalid-credential")).toBe("password");
+	expect(field("weak-password")).toBe("password");
+	expect(field("network-error")).toBeNull();
+	expect(field("popup-closed")).toBeNull();
+	expect(authErrorField(new Error("x"))).toBeNull();
+
+	const zod = (values: Record<string, string>) => {
+		const result = signUpSchema().safeParse(values);
+		return result.success ? null : authErrorField(result.error);
+	};
+	expect(
+		zod({ email: "nope", password: "secret1", confirmPassword: "secret1" }),
+	).toBe("email");
+	expect(
+		zod({ email: "a@b.com", password: "123", confirmPassword: "123" }),
+	).toBe("password");
+	expect(
+		zod({ email: "a@b.com", password: "secret1", confirmPassword: "secret2" }),
+	).toBe("confirmPassword");
 });
