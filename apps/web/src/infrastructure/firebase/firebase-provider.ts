@@ -1,4 +1,4 @@
-import { ContextProvider } from "@lit/context";
+import { type Context, ContextProvider, type ContextType } from "@lit/context";
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import {
 	type Auth,
@@ -10,7 +10,7 @@ import {
 } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
-import { html, LitElement } from "lit";
+import { html, LitElement, type ReactiveElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import {
 	type EventsSnapshot,
@@ -46,6 +46,20 @@ export interface CoreServices {
 export interface DataServices {
 	firestore: Firestore;
 	storage: FirebaseStorage;
+}
+
+/**
+ * Registers a provider on `host` for a context whose value never changes.
+ * Constructing it is what attaches it as a controller of the host, so the
+ * return value needs no storing; returning it keeps the call from being a
+ * bare `new` used only for its side effect.
+ */
+function provide<C extends Context<unknown, unknown>>(
+	host: ReactiveElement,
+	context: C,
+	initialValue: ContextType<C>,
+): ContextProvider<C> {
+	return new ContextProvider(host, { context, initialValue });
 }
 
 let core: CoreServices | undefined;
@@ -195,25 +209,16 @@ export class PlanuFirebaseProvider extends LitElement {
 
 	constructor() {
 		super();
-		new ContextProvider(this, {
-			context: aiModelContext,
-			initialValue: createAiModelAdapter(this.#core.app),
-		});
-		new ContextProvider(this, {
-			context: sessionContext,
-			initialValue: new FirebaseSessionAdapter(this.#core.auth),
-		});
+		provide(this, aiModelContext, createAiModelAdapter(this.#core.app));
+		provide(this, sessionContext, new FirebaseSessionAdapter(this.#core.auth));
 		// A stable function, not a DOM event: `events-view.ts` calls this from
 		// its own `disconnectedCallback()`, which runs *after* it has already
 		// been detached from the tree — a bubbling event dispatched at that
 		// point would have no parent left to bubble through. Provided once, as
 		// an `initialValue`, since the function itself never changes.
-		new ContextProvider(this, {
-			context: eventsInterestContext,
-			initialValue: (interested: boolean) => {
-				this.#eventsController.setInterested(interested);
-				this.#publishEvents();
-			},
+		provide(this, eventsInterestContext, (interested: boolean) => {
+			this.#eventsController.setInterested(interested);
+			this.#publishEvents();
 		});
 	}
 
