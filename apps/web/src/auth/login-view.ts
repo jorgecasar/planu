@@ -20,12 +20,18 @@ import type { SessionPort } from "../application/ports/session.js";
 import { signIn } from "../application/sign-in.js";
 import { signInWithGoogle } from "../application/sign-in-with-google.js";
 import { signUp } from "../application/sign-up.js";
-import { authErrorMessage } from "../domain/auth-errors.js";
+import {
+	type AuthField,
+	authErrorField,
+	authErrorMessage,
+} from "../domain/auth-errors.js";
 import { typographyStyles } from "../styles/typography.js";
 import { type LoginNotice, takeLoginNotice } from "./login-notice.js";
 
 /** Long enough for screen readers to register the empty live region. */
 const NOTICE_DELAY_MS = 250;
+
+type FormName = "signin" | "signup";
 
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell
@@ -55,6 +61,14 @@ export class PlanuLoginView extends LitElement {
 			display: flex;
 			flex-direction: column;
 			gap: var(--wa-space-m);
+		}
+
+		wa-input.invalid::part(input-wrapper) {
+			border-color: var(--wa-color-danger-border-loud);
+		}
+
+		.field-error {
+			color: var(--wa-color-danger-on-quiet);
 		}
 
 		.providers {
@@ -96,6 +110,9 @@ export class PlanuLoginView extends LitElement {
 		clearTimeout(this.#noticeTimer);
 	}
 
+	/** Field the error belongs to; none leaves it a notice above the form. */
+	@state() private errorAt: { form: FormName; field: AuthField } | null = null;
+
 	override render() {
 		return html`
 			<wa-card>
@@ -104,7 +121,7 @@ export class PlanuLoginView extends LitElement {
 				<div role="status">${this.#renderNotice()}</div>
 
 				${
-					this.error
+					this.error && !this.errorAt
 						? html`<wa-callout variant="danger" role="alert">${this.error}</wa-callout>`
 						: null
 				}
@@ -114,14 +131,15 @@ export class PlanuLoginView extends LitElement {
 					<wa-tab panel="signup">${msg("Create account")}</wa-tab>
 
 					<wa-tab-panel name="signin" active>
-						<form @submit=${this.#onSignIn}>
+						<form @submit=${this.#onSignIn} @input=${this.#onInput}>
 							<wa-input
 								name="email"
 								type="email"
 								label=${msg("Email")}
 								autocomplete="email"
 								required
-							></wa-input>
+								class=${this.#invalid("signin", "email")}
+							>${this.#errorHint("signin", "email")}</wa-input>
 							<wa-input
 								name="password"
 								type="password"
@@ -129,7 +147,8 @@ export class PlanuLoginView extends LitElement {
 								autocomplete="current-password"
 								required
 								minlength="6"
-							></wa-input>
+								class=${this.#invalid("signin", "password")}
+							>${this.#errorHint("signin", "password")}</wa-input>
 							<wa-button type="submit" variant="brand" ?disabled=${this.busy}>
 								${this.busy ? msg("Signing in…") : msg("Sign in")}
 							</wa-button>
@@ -137,14 +156,15 @@ export class PlanuLoginView extends LitElement {
 					</wa-tab-panel>
 
 					<wa-tab-panel name="signup">
-						<form @submit=${this.#onSignUp}>
+						<form @submit=${this.#onSignUp} @input=${this.#onInput}>
 							<wa-input
 								name="email"
 								type="email"
 								label=${msg("Email")}
 								autocomplete="email"
 								required
-							></wa-input>
+								class=${this.#invalid("signup", "email")}
+							>${this.#errorHint("signup", "email")}</wa-input>
 							<wa-input
 								name="password"
 								type="password"
@@ -153,7 +173,8 @@ export class PlanuLoginView extends LitElement {
 								autocomplete="new-password"
 								required
 								minlength="6"
-							></wa-input>
+								class=${this.#invalid("signup", "password")}
+							>${this.#errorHint("signup", "password")}</wa-input>
 							<wa-input
 								name="confirmPassword"
 								type="password"
@@ -161,7 +182,8 @@ export class PlanuLoginView extends LitElement {
 								autocomplete="new-password"
 								required
 								minlength="6"
-							></wa-input>
+								class=${this.#invalid("signup", "confirmPassword")}
+							>${this.#errorHint("signup", "confirmPassword")}</wa-input>
 							<wa-button type="submit" variant="brand" ?disabled=${this.busy}>
 								${this.busy ? msg("Creating account…") : msg("Create account")}
 							</wa-button>
@@ -183,7 +205,29 @@ export class PlanuLoginView extends LitElement {
 		`;
 	}
 
-	/** Collects the form and runs the action, unifying errors and state. */
+	#fieldError(form: FormName, field: AuthField): string {
+		const at = this.errorAt;
+		return at?.form === form && at.field === field ? this.error : "";
+	}
+
+	#invalid(form: FormName, field: AuthField): string {
+		return this.#fieldError(form, field) ? "invalid" : "";
+	}
+
+	/** The message in the hint slot: under the field, as its description. */
+	#errorHint(form: FormName, field: AuthField) {
+		const message = this.#fieldError(form, field);
+		if (!message) return nothing;
+		return html`<span slot="hint" class="field-error" role="alert">${message}</span>`;
+	}
+
+	/** Typing again is the fix: the message under the field has done its job. */
+	#onInput(): void {
+		if (!this.errorAt) return;
+		this.error = "";
+		this.errorAt = null;
+	}
+
 	#renderNotice() {
 		switch (this.notice) {
 			case "account-deleted":
@@ -201,8 +245,10 @@ export class PlanuLoginView extends LitElement {
 		}
 	}
 
+	/** Collects the form and runs the action, unifying errors and state. */
 	async #submit(
 		event: SubmitEvent,
+		name: FormName,
 		action: (
 			values: Record<string, string>,
 			session: SessionPort,
@@ -222,22 +268,33 @@ export class PlanuLoginView extends LitElement {
 		);
 
 		this.error = "";
+		this.errorAt = null;
 		this.busy = true;
 		try {
 			await action(values, session);
 		} catch (cause) {
 			this.error = authErrorMessage(cause);
+			const field = authErrorField(cause);
+			this.errorAt = field ? { form: name, field } : null;
 		} finally {
 			this.busy = false;
 		}
+
+		// The field that has to change takes the focus, so retyping is one
+		// step away.
+		if (!this.errorAt) return;
+		await this.updateComplete;
+		form.querySelector<HTMLElement>(`[name="${this.errorAt.field}"]`)?.focus();
 	}
 
 	#onSignIn(event: SubmitEvent): void {
-		void this.#submit(event, (values, session) => signIn(session, values));
+		void this.#submit(event, "signin", (values, session) =>
+			signIn(session, values),
+		);
 	}
 
 	#onSignUp(event: SubmitEvent): void {
-		void this.#submit(event, (values, session) =>
+		void this.#submit(event, "signup", (values, session) =>
 			signUp(session, this.analytics, values),
 		);
 	}
@@ -246,6 +303,7 @@ export class PlanuLoginView extends LitElement {
 		const { session } = this;
 		if (!session) return;
 		this.error = "";
+		this.errorAt = null;
 		this.busy = true;
 
 		signInWithGoogle(session)
