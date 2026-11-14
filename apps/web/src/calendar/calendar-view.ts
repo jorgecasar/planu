@@ -349,7 +349,7 @@ export class PlanuCalendarView extends LitElement {
 					(event) => html`<li>
 						<wa-button
 							appearance="plain"
-							size="small"
+							size="s"
 							@click=${() => this.#pick(event)}
 						>${event.title}</wa-button>
 					</li>`,
