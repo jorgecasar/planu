@@ -20,11 +20,14 @@
  * entre eventos para que el filtro con **Y** tenga sentido, y títulos cuyo
  * orden alfabético **no** coincide con el cronológico —si coincidiera, cambiar
  * de orden no se notaría—.
+ *
+ * La cuenta queda verificada antes de sembrar —ver `seed-session.js`—: las
+ * reglas exigen `isVerified()` y una cuenta recién creada no lo está.
  */
+import { openVerifiedSession } from "./seed-session.js";
 
 const PROYECTO = "planu-app";
 const BASE_DE_DATOS = "planu";
-const AUTH = "http://localhost:9099/identitytoolkit.googleapis.com/v1";
 const FIRESTORE = `http://localhost:8181/v1/projects/${PROYECTO}/databases/${BASE_DE_DATOS}/documents`;
 
 const EMAIL = process.argv[2] ?? "algae.algae.96@example.com";
@@ -156,32 +159,10 @@ async function json(url, opciones) {
 	return cuerpo;
 }
 
-async function sesion() {
-	const cuerpo = JSON.stringify({
-		email: EMAIL,
-		password: CLAVE,
-		returnSecureToken: true,
-	});
-	const cabeceras = { "Content-Type": "application/json" };
-	try {
-		const alta = await json(`${AUTH}/accounts:signUp?key=fake-api-key`, {
-			method: "POST",
-			headers: cabeceras,
-			body: cuerpo,
-		});
-		console.log(`usuario creado: ${EMAIL}`);
-		return alta;
-	} catch (error) {
-		if (!String(error).includes("EMAIL_EXISTS")) throw error;
-		return json(`${AUTH}/accounts:signInWithPassword?key=fake-api-key`, {
-			method: "POST",
-			headers: cabeceras,
-			body: cuerpo,
-		});
-	}
-}
-
-const { idToken, localId: uid } = await sesion();
+const { idToken, localId: uid } = await openVerifiedSession({
+	email: EMAIL,
+	password: CLAVE,
+});
 const auth = {
 	"Content-Type": "application/json",
 	Authorization: `Bearer ${idToken}`,
