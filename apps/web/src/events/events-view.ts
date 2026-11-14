@@ -169,14 +169,24 @@ export class PlanuEventsView extends LitElement {
 	 */
 	@state() private view: ViewMode = readViewMode();
 
-	override async connectedCallback(): Promise<void> {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		// Opens the live subscription behind `eventsContext` — see that
 		// context's doc comment in `context.ts` for why this view has to say
 		// so explicitly instead of the subscription just always being open.
 		this.setEventsInterest?.(true);
-		// A button that always fails is worse than a button that isn't there.
-		this.aiAvailable = canOffer(await checkAvailability());
+		void this.refreshAiAvailability();
+	}
+
+	/**
+	 * A button that always fails is worse than a button that isn't there, so
+	 * `aiAvailable` stays false until the check says otherwise. Nothing is
+	 * written once the element has been disconnected. `checkAvailability`
+	 * never rejects: it turns any failure into `undefined`.
+	 */
+	private async refreshAiAvailability(): Promise<void> {
+		const available = canOffer(await checkAvailability());
+		if (this.isConnected) this.aiAvailable = available;
 	}
 
 	/**
