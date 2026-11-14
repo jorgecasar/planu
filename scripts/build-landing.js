@@ -87,10 +87,11 @@ function missingAssets(htmlFiles) {
 
 function minifyCss(css) {
 	// Minificado suficiente para CSS propio: fuera comentarios y espacios.
+	// Whitespace is already one space by the separator step: one optional per side.
 	return css
 		.replace(/\/\*[\s\S]*?\*\//g, "")
 		.replace(/\s+/g, " ")
-		.replace(/\s*([{}:;,>+~])\s*/g, "$1")
+		.replace(/ ?([{}:;,>+~]) ?/g, "$1")
 		.trim();
 }
 
