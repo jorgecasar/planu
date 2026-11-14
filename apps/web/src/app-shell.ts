@@ -298,7 +298,10 @@ export class PlanuApp extends LitElement {
 		// `@lit-labs/router` no conoce. El clic no hacía nada porque `goto()`
 		// no encontraba esa ruta; sólo un refresco —que sí pasa por Hosting—
 		// disimulaba el fallo.
-		if (item.value === "profile") this.#navigate(PROFILE_PATH);
+		// Same treatment as the guard redirect: a failed route load has no UI
+		// to recover in, and the rejection reaches Sentry's global
+		// unhandledrejection handler.
+		if (item.value === "profile") void this.#navigate(PROFILE_PATH);
 		if (item.value === "signout") this.#onSignOut();
 	}
 }
