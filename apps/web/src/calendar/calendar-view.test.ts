@@ -373,8 +373,9 @@ test("un congreso de varios días sólo muestra la hora en el día en que empiez
 	const end = cells(el).find((cell) => cell.dataset["key"] === "20260612");
 
 	expect(start?.querySelector("li")?.textContent).toBe("9:00 Congreso");
-	expect(middle?.querySelector("li")?.textContent).toBe("Congreso");
-	expect(end?.querySelector("li")?.textContent).toBe("Congreso");
+	// "Continued:" is the screen-reader cue for a day that isn't the first.
+	expect(middle?.querySelector("li")?.textContent).toBe("Continued: Congreso");
+	expect(end?.querySelector("li")?.textContent).toBe("Continued: Congreso");
 
 	el.remove();
 });
@@ -682,5 +683,30 @@ test("elegir un evento sin fecha lo anuncia hacia fuera", async () => {
 test("sin eventos sin fecha no hay ni rastro del aviso", async () => {
 	const el = await mount();
 	expect(el.shadowRoot?.querySelector(".undated")).toBeNull();
+	el.remove();
+});
+
+// --- Polish (GH-190) ----------------------------------------------------------
+
+test("un evento de varios días se pinta plano por el lado en que continúa", async () => {
+	const el = await mount((view) => {
+		view.events = [
+			event("1", "Congreso", "2026-06-29", "2026-07-02"),
+			event("2", "Feria", "2026-06-10", "2026-06-10"),
+		];
+	});
+	const chip = (key: number) =>
+		el.shadowRoot?.querySelector(`[data-key="${key}"] li`);
+	const flow = (key: number) => [...(chip(key)?.classList ?? [])];
+
+	expect(flow(20260629)).toEqual(["to-after"]);
+	expect(flow(20260630)).toEqual(["from-before", "to-after"]);
+	expect(flow(20260702)).toEqual(["from-before"]);
+	expect(chip(20260630)?.textContent).toContain("Continued:");
+	expect(chip(20260629)?.textContent).not.toContain("Continued:");
+	expect(flow(20260610)).toEqual([]);
+	expect(
+		getComputedStyle(chip(20260630) as Element).borderStartStartRadius,
+	).toBe("0px");
 	el.remove();
 });

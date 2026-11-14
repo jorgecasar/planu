@@ -1110,6 +1110,10 @@
   <source>Your session ended before your account was fully deleted. Sign in again and delete it once more to finish.</source>
         <target>Tu sesión terminó antes de que tu cuenta se borrara del todo. Vuelve a entrar y bórrala otra vez para terminar.</target>
 </trans-unit>
+<trans-unit id="s577abcdb86aa77ae">
+  <source>Continued:</source>
+        <target>Continuación:</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

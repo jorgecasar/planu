@@ -282,6 +282,30 @@ test("un evento que empieza el mes anterior se ve en la parte que cae dentro", (
 	expect(titlesOn(grid, 20260703)).toEqual([]);
 });
 
+test("cada día de un evento largo dice si viene de antes y si sigue después", () => {
+	const grid = buildMonthGrid(
+		[
+			event("Feria", "2026-06-29", "2026-07-01"),
+			event("Cena", "2026-06-30", "2026-06-30"),
+			event("Obra", "2026-06-30"),
+		],
+		local("2026-06-15"),
+		"es",
+	);
+	const flow = (key: number) =>
+		cells(grid).find((cell) => cell.key === key)?.continuation;
+
+	expect(flow(20260629)).toEqual([{ fromBefore: false, toAfter: true }]);
+	expect(flow(20260630)).toEqual([
+		{ fromBefore: true, toAfter: true },
+		{ fromBefore: false, toAfter: false },
+		{ fromBefore: false, toAfter: true },
+	]);
+	// The grid's last cell: the open-ended event is still ongoing past it.
+	expect(flow(20260705)).toEqual([{ fromBefore: true, toAfter: true }]);
+	expect(flow(20260701)?.[0]).toEqual({ fromBefore: true, toAfter: false });
+});
+
 test("la hora del evento no cambia el día en que se pinta", () => {
 	// At 23:30 it's still the same local day. Subtracting dates instead of
 	// comparing fields would send it to the neighboring cell.

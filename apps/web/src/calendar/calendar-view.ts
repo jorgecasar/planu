@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/details/details.js";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
 import { formatEventTime } from "../domain/format-dates.js";
 import {
 	keyTarget,
@@ -140,6 +141,22 @@ export class PlanuCalendarView extends LitElement {
 			font-size: var(--wa-font-size-s);
 			white-space: nowrap;
 			text-overflow: ellipsis;
+		}
+
+		/*
+		 * A multi-day event runs into the cell edge on the side it continues,
+		 * flat instead of rounded, so consecutive days read as one bar.
+		 */
+		li.from-before {
+			margin-inline-start: calc(-1 * var(--wa-space-2xs));
+			border-start-start-radius: 0;
+			border-end-start-radius: 0;
+		}
+
+		li.to-after {
+			margin-inline-end: calc(-1 * var(--wa-space-2xs));
+			border-start-end-radius: 0;
+			border-end-end-radius: 0;
 		}
 
 		.undated {
@@ -405,9 +422,19 @@ export class PlanuCalendarView extends LitElement {
 				${
 					cell.events.length > 0
 						? html`<ul>
-								${cell.events.map((event) => {
+								${cell.events.map((event, index) => {
 									const time = this.#eventTime(event, cell.key, locale);
-									return html`<li>${time ? `${time} ` : ""}${event.title}</li>`;
+									const flow = cell.continuation[index];
+									return html`<li
+										class=${classMap({
+											"from-before": !!flow?.fromBefore,
+											"to-after": !!flow?.toAfter,
+										})}
+									>${
+										flow?.fromBefore
+											? html`<span class="sr-only">${msg("Continued:")} </span>`
+											: nothing
+									}${time ? `${time} ` : ""}${event.title}</li>`;
 								})}
 							</ul>`
 						: nothing

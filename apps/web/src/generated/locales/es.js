@@ -100,6 +100,7 @@ export const templates = {
 	s545552cdd6fdf206: `Descargar el fichero .ics`,
 	s5515a136187c74c0: `Confirmar contraseña`,
 	s5586569ece6227ce: `Los eventos son privados por defecto: sólo tú puedes leer uno que hayas creado, a menos que invites explícitamente a alguien. El título, la descripción, la ubicación, las fechas y las etiquetas viven en nuestra base de datos y nunca son públicos — mira la sección de seguridad más abajo para saber qué cubre esa promesa y qué no.`,
+	s577abcdb86aa77ae: `Continuación:`,
 	s57cf5afa66b89a83: `Tu email ya está verificado. Recarga la página para continuar.`,
 	s59169c4e8fbcdccf: `Entrando…`,
 	s594c6d8c7f00092f: `Se cerró la ventana de acceso con Google.`,
