@@ -554,9 +554,7 @@ test("salirse del mes con una flecha arrastra el mes y lo anuncia", async () => 
 
 test("los botones cambian de mes sin robar el foco de la rejilla", async () => {
 	const el = await mount();
-	const buttons = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])];
-
-	(buttons[1] as HTMLElement | undefined)?.click();
+	button(el, "Next month").click();
 	await el.updateComplete;
 
 	expect(el.shadowRoot?.querySelector("#month-title")?.textContent).toBe(
@@ -708,5 +706,83 @@ test("un evento de varios días se pinta plano por el lado en que continúa", as
 	expect(
 		getComputedStyle(chip(20260630) as Element).borderStartStartRadius,
 	).toBe("0px");
+	el.remove();
+});
+
+function button(el: PlanuCalendarView, name: string): HTMLElement {
+	const found = [...(el.shadowRoot?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.trim() === name,
+	);
+	if (!found) throw new Error(`No button ${name}`);
+	return found as HTMLElement;
+}
+
+test("«Today» vuelve al mes de hoy y deja hoy como parada de tabulación", async () => {
+	const el = await mount();
+	button(el, "Next month").click();
+	button(el, "Next month").click();
+	await el.updateComplete;
+	expect(el.month.getMonth()).toBe(7);
+
+	button(el, "Today").click();
+	await el.updateComplete;
+	expect(el.month.getMonth()).toBe(5);
+	expect(tabbable(el)?.getAttribute("aria-current")).toBe("date");
+	expect(status(el)).toContain("junio de 2026");
+	el.remove();
+});
+
+test("hoy se marca con un disco de color, no sólo con un subrayado", async () => {
+	const el = await mount();
+	const day = (selector: string) =>
+		getComputedStyle(
+			el.shadowRoot?.querySelector(`${selector} .day`) as Element,
+		).backgroundColor;
+	const transparent = "rgba(0, 0, 0, 0)";
+	expect(day('[aria-current="date"]')).not.toBe(transparent);
+	expect(day('[aria-current="false"]')).toBe(transparent);
+	// Web Awesome's own brand pill badge, not a disc drawn locally.
+	const today = el.shadowRoot?.querySelector('[aria-current="date"] .day');
+	expect(today?.localName).toBe("wa-badge");
+	expect(today?.getAttribute("variant")).toBe("brand");
+	expect(today?.hasAttribute("pill")).toBe(true);
+	el.remove();
+});
+
+test("el disco de hoy no baja sus eventos respecto al resto de la semana", async () => {
+	const el = await mount((view) => {
+		view.events = [
+			event("1", "Ayer", "2026-06-16", "2026-06-16"),
+			event("2", "Hoy", "2026-06-17", "2026-06-17"),
+			event("3", "Viaje", "2026-06-16", "2026-06-18"),
+		];
+	});
+	const firstChipTop = (key: number) =>
+		el.shadowRoot
+			?.querySelector(`[data-key="${key}"] li`)
+			?.getBoundingClientRect().top;
+	expect(firstChipTop(20260617)).toBe(firstChipTop(20260616));
+	expect(firstChipTop(20260618)).toBe(firstChipTop(20260616));
+	el.remove();
+});
+
+test("a 390 px la barra de navegación no se sale del margen", async () => {
+	const el = await mount((view) => {
+		view.style.inlineSize = "342px";
+	});
+	const toolbar = el.shadowRoot?.querySelector(".toolbar") as HTMLElement;
+	const edge = toolbar.getBoundingClientRect().right;
+	for (const b of el.shadowRoot?.querySelectorAll(".toolbar wa-button") ?? []) {
+		expect(b.getBoundingClientRect().right).toBeLessThanOrEqual(edge);
+	}
+	el.remove();
+});
+
+test("en un móvil los títulos de la celda se parten en líneas", async () => {
+	const el = await mount((view) => {
+		view.style.inlineSize = "342px";
+	});
+	const li = el.shadowRoot?.querySelector("li") as Element;
+	expect(getComputedStyle(li).whiteSpace).toBe("normal");
 	el.remove();
 });

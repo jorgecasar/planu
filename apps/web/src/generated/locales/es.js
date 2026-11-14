@@ -116,6 +116,7 @@ export const templates = {
 	s61042097e512fd52: `Captura de planu mostrando tarjetas de eventos con título, fecha, ubicación e imagen de portada`,
 	s62931b2a50168976: `Mes anterior`,
 	s62a5a9ab05e49cf1: `Compartido: puedes editar`,
+	s63d040e37887f17e: `Hoy`,
 	s63d894b1ddb06289: `Descripción`,
 	s64ef2a6c2dd1d3d1: `Editar`,
 	s65abba4b12b079a0: `Tu navegador bloqueó la ventana de acceso.`,
