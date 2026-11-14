@@ -298,6 +298,18 @@ export interface MonthCell<T> {
 	day: string;
 	/** Events active that day, in the order they arrived. */
 	events: T[];
+	/**
+	 * Per event, at the same index: whether it was already ongoing the day
+	 * before and whether it carries on the day after. It's what lets a
+	 * three-day trip read as one thing instead of three.
+	 */
+	continuation: Continuation[];
+}
+
+/** See `MonthCell.continuation`. */
+export interface Continuation {
+	fromBefore: boolean;
+	toAfter: boolean;
 }
 
 /** Column header: the day's name, short and long. */
@@ -417,6 +429,9 @@ export function buildMonthGrid<T extends PlanuEvent>(
 				12,
 			);
 			const key = dayKey(date);
+			const active = spans.filter(
+				([, span]) => span !== null && key >= span[0] && key <= span[1],
+			);
 
 			if (week === 0) {
 				weekdays.push({
@@ -432,11 +447,14 @@ export function buildMonthGrid<T extends PlanuEvent>(
 				isToday: key === todayKey,
 				label: labelFormat.format(date),
 				day: dayFormat.format(date),
-				events: spans
-					.filter(
-						([, span]) => span !== null && key >= span[0] && key <= span[1],
-					)
-					.map(([event]) => event),
+				events: active.map(([event]) => event),
+				// An event with no end is still open past the last painted day,
+				// even though its span stops there.
+				continuation: active.map(([event, span]) => ({
+					fromBefore: key > (span?.[0] ?? key),
+					toAfter:
+						key < (span?.[1] ?? key) || (!!event.startDate && !event.endDate),
+				})),
 			});
 
 			cursor.setDate(cursor.getDate() + 1);
