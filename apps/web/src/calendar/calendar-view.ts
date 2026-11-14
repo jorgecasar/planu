@@ -1,3 +1,4 @@
+import "@awesome.me/webawesome/dist/components/badge/badge.js";
 import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/details/details.js";
 import { msg, str } from "@lit/localize";
@@ -50,12 +51,33 @@ export class PlanuCalendarView extends LitElement {
 			display: block;
 		}
 
+		/*
+		 * Title first, navigation after it. On a phone the three buttons don't
+		 * fit beside the month name —"Next month" used to spill past the
+		 * margin— so the row wraps and the navigation takes a line of its own.
+		 */
 		.toolbar {
 			display: flex;
+			flex-wrap: wrap;
 			align-items: center;
 			justify-content: space-between;
-			gap: var(--wa-space-s);
+			gap: var(--wa-space-2xs) var(--wa-space-s);
 			margin-block-end: var(--wa-space-s);
+		}
+
+		.nav {
+			display: flex;
+			align-items: center;
+			gap: var(--wa-space-2xs);
+		}
+
+		@media (max-width: 40rem) {
+			.nav {
+				flex: 1 1 100%;
+				justify-content: space-between;
+				/* The theme token buttons pad with, narrowed so the three fit. */
+				--wa-form-control-padding-inline: var(--wa-space-xs);
+			}
 		}
 
 		/*
@@ -119,8 +141,18 @@ export class PlanuCalendarView extends LitElement {
 			color: var(--wa-color-text-quiet);
 		}
 
-		[aria-current="date"] .day {
-			text-decoration: underline;
+		/*
+		 * Today's number is a brand pill badge. Every day number gets the same
+		 * line box —the plain number's own height— so the badge's padding
+		 * doesn't push today's events lower than the rest of the week.
+		 */
+		.day {
+			box-sizing: border-box;
+			block-size: calc(var(--wa-font-size-s) * var(--wa-line-height-normal));
+		}
+
+		wa-badge.day {
+			align-self: start;
 		}
 
 		ul {
@@ -141,6 +173,18 @@ export class PlanuCalendarView extends LitElement {
 			font-size: var(--wa-font-size-s);
 			white-space: nowrap;
 			text-overflow: ellipsis;
+		}
+
+		/* On a phone a one-line title is cut to nothing: wrap it, up to three lines. */
+		@media (max-width: 40rem) {
+			li {
+				display: -webkit-box;
+				-webkit-box-orient: vertical;
+				-webkit-line-clamp: 3;
+				line-clamp: 3;
+				white-space: normal;
+				overflow-wrap: anywhere;
+			}
 		}
 
 		/*
@@ -275,17 +319,22 @@ export class PlanuCalendarView extends LitElement {
 
 		return html`
 			<div class="toolbar">
-				<wa-button
-					appearance="plain"
-					@click=${() => this.#focus(shiftMonth(this.focused, this.month, -1))}
-				>${msg("Previous month")}</wa-button>
-
 				${this.#renderTitle(grid.title)}
 
-				<wa-button
-					appearance="plain"
-					@click=${() => this.#focus(shiftMonth(this.focused, this.month, 1))}
-				>${msg("Next month")}</wa-button>
+				<div class="nav">
+					<wa-button
+						appearance="plain"
+						@click=${() => this.#focus(shiftMonth(this.focused, this.month, -1))}
+					>${msg("Previous month")}</wa-button>
+					<wa-button
+						appearance="outlined"
+						@click=${() => this.#focus(new Date(this.today.getTime()))}
+					>${msg("Today")}</wa-button>
+					<wa-button
+						appearance="plain"
+						@click=${() => this.#focus(shiftMonth(this.focused, this.month, 1))}
+					>${msg("Next month")}</wa-button>
+				</div>
 			</div>
 
 			<div
@@ -418,7 +467,13 @@ export class PlanuCalendarView extends LitElement {
 				@click=${() => this.#onCellClick(cell)}
 			>
 				<span class="sr-only">${cell.label}</span>
-				<span class="day" aria-hidden="true">${cell.day}</span>
+				${
+					cell.isToday
+						? html`<wa-badge class="day" variant="brand" pill aria-hidden="true"
+								>${cell.day}</wa-badge
+							>`
+						: html`<span class="day" aria-hidden="true">${cell.day}</span>`
+				}
 				${
 					cell.events.length > 0
 						? html`<ul>

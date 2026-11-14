@@ -1114,6 +1114,10 @@
   <source>Continued:</source>
         <target>Continuación:</target>
 </trans-unit>
+<trans-unit id="s63d040e37887f17e">
+  <source>Today</source>
+        <target>Hoy</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
