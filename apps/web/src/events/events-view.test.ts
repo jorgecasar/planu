@@ -1,10 +1,13 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
-import "@awesome.me/webawesome/dist/styles/themes/default.css";
-import "../styles/theme.css";
+import "../styles/theme-planu.css";
+import "../styles/fonts.css";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { initLocale } from "../i18n/localization.js";
 import "./events-view.js";
 import { widestLabel } from "./events-view.js";
+
+// index.html puts the theme class on <html>; the test page has none.
+document.documentElement.classList.add("wa-theme-planu", "wa-light");
 
 /**
  * The toolbar in Spanish, where the labels are longest: "Fecha, lo más

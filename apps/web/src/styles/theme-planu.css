@@ -1,0 +1,50 @@
+/* Web Awesome theme `wa-theme-planu` (ADR 0008): indigo #3F51B5, Belleza + Alegreya. */
+/* Same shape as the stock themes: tokens live in @layer wa-theme, scoped by class. */
+/* It extends the default theme, which supplies every token not named here. */
+@import "@awesome.me/webawesome/dist/styles/themes/default.css";
+
+@layer wa-theme {
+	.wa-theme-planu,
+	.wa-theme-planu.wa-light,
+	.wa-theme-planu .wa-light,
+	.wa-light .wa-theme-planu {
+		--wa-color-brand-fill-loud: #3f51b5;
+		--wa-color-brand-fill-normal: #303f9f;
+		--wa-color-brand-fill-quiet: #e8eaf6;
+		--wa-color-brand-on-loud: #ffffff;
+		--wa-color-brand-on-quiet: #1a237e;
+		--wa-color-brand-border-normal: #3f51b5;
+		--wa-color-brand-border-loud: #283593;
+	}
+
+	/* Dark brand values chosen for AA contrast; do not lighten. */
+	.wa-theme-planu.wa-dark,
+	.wa-theme-planu .wa-dark,
+	.wa-dark .wa-theme-planu {
+		--wa-color-brand-fill-loud: #5c6bc0;
+		--wa-color-brand-fill-normal: #7986cb;
+		--wa-color-brand-fill-quiet: #283593;
+		--wa-color-brand-on-loud: #ffffff;
+		--wa-color-brand-on-quiet: #e8eaf6;
+		--wa-color-brand-border-normal: #5c6bc0;
+		--wa-color-brand-border-loud: #7986cb;
+	}
+
+	.wa-theme-planu {
+		--wa-font-family-heading: "Belleza", system-ui, sans-serif;
+		--wa-font-family-body: "Alegreya", Georgia, serif;
+		--wa-font-family-mono:
+			ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+		--wa-space-scale: 1.125;
+		--wa-border-radius-scale: 1.25;
+	}
+}
+
+/* Verified contrast (AA >= 4.5:1), measured with axe in e2e, light / dark:
+ *   brand-on-loud  / brand-fill-loud   4.52 / 4.58
+ *   brand-on-quiet / brand-fill-quiet  7.84 / 6.92
+ *   text-normal    / surface-default   12.6 / 11.8
+ *   text-quiet     / surface-default   7.21 / 6.84
+ *   text-link      / surface-default   4.54 / 4.61
+ *   brand-border   / surface-default   3.21 (borders only, not text)
+ */

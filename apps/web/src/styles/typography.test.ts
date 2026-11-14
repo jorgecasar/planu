@@ -1,8 +1,8 @@
-// The same three sheets `main.ts` loads: without `theme.css` the heading
+// The same sheets `main.ts` loads: without the planu theme the heading
 // token falls back to the body family and the assertions would be vacuous.
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
-import "@awesome.me/webawesome/dist/styles/themes/default.css";
-import "./theme.css";
+import "./theme-planu.css";
+import "./fonts.css";
 import { afterEach, expect, test } from "vitest";
 import "../app-shell.js";
 import type { SessionUser } from "../application/ports/session.js";
@@ -16,6 +16,9 @@ import "../events/event-groups.js";
 import type { StoredEvent } from "../lib/types.js";
 import "../profile/profile-view.js";
 import "../sharing/share-dialog.js";
+
+// index.html puts the theme class on <html>; the test page has none.
+document.documentElement.classList.add("wa-theme-planu", "wa-light");
 
 const USER: SessionUser = {
 	uid: "u1",

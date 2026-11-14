@@ -58,7 +58,7 @@ function legalFooter(): TemplateResult {
 function legalPageShell(title: string, body: TemplateResult): TemplateResult {
 	return html`
 		<!doctype html>
-		<html lang="en" class="wa-theme-default wa-palette-default wa-light">
+		<html lang="en" class="wa-theme-planu wa-palette-default wa-light">
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />

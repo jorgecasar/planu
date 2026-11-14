@@ -2,7 +2,7 @@
 
 /**
  * Prerrenderiza la landing a HTML estático, un fichero por idioma, con
- * `@lit-labs/ssr`. Lee `theme.css` y `landing.css`, los minifica y los mete en
+ * `@lit-labs/ssr`. Lee `fonts.css` y `landing.css`, los minifica y los mete en
  * línea en la plantilla; escribe `dist/index.html` para el idioma de origen y
  * `dist/localized/{locale}/index.html` para los demás.
  *
@@ -130,7 +130,7 @@ async function buildLanding() {
 	// No se puede leer con `readFileSync`: `utilities.css` son catorce
 	// `@import url(...)` y un `@import` dentro de un `<style>` en línea no
 	// resuelve. esbuild los aplana. `--loader:.woff2=empty` porque las fuentes
-	// las sirve `theme.css` desde el propio dominio.
+	// las sirve `fonts.css` desde el propio dominio.
 	console.log("  → Compilando la hoja de Web Awesome...");
 	const waStyles = resolve(
 		ROOT,
@@ -142,7 +142,7 @@ async function buildLanding() {
 		waEntry,
 		[
 			"@import url('native.css');",
-			"@import url('themes/default.css');",
+			`@import url('${resolve(ROOT, "apps/web/src/styles/theme-planu.css")}');`,
 			"@import url('utilities.css');",
 		].join("\n"),
 		"utf-8",
@@ -186,7 +186,7 @@ async function buildLanding() {
 
 	// Read CSS files
 	const themeCss = readFileSync(
-		resolve(ROOT, "apps/web/src/styles/theme.css"),
+		resolve(ROOT, "apps/web/src/styles/fonts.css"),
 		"utf-8",
 	);
 	const landingCss = readFileSync(
@@ -199,8 +199,8 @@ async function buildLanding() {
 	// descargaría entera en cada página en vez de una vez. `/assets/**` lo
 	// cachea `firebase.json` un año como immutable.
 	//
-	// Orden: el framework primero, para que theme.css pueda sobreescribirlo sin
-	// `!important`. Por eso el `<link>` va antes del `<style>` en la plantilla.
+	// El tema `planu` ya va dentro de la hoja del framework (capa `wa-theme`);
+	// aquí sólo quedan las fuentes y la landing, que van después del `<link>`.
 	const minifiedCss = minifyCss(`${themeCss}\n${landingCss}`);
 
 	// Compile landing.ts to JS using esbuild (bundles dependencies for Node)
