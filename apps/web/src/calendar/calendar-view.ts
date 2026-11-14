@@ -90,7 +90,7 @@ export class PlanuCalendarView extends LitElement {
 		.title {
 			margin: 0;
 			font-size: var(--wa-font-size-l);
-			font-weight: var(--wa-font-weight-semibold);
+			font-weight: var(--wa-font-weight-heading);
 		}
 
 		.grid {

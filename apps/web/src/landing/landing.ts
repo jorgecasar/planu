@@ -77,13 +77,13 @@ export function landingTemplate(): TemplateResult {
 				<meta name="description" content="<!--DESCRIPTION_PLACEHOLDER-->" />
 				<!--
 					Sólo los dos pesos que el hero pinta por encima del pliegue: el
-					h1 en Belleza 700 y el párrafo en Alegreya 400. Sin esto, el
+					h1 en Belleza 400 y el párrafo en Alegreya 400. Sin esto, el
 					font-display: swap del ADR 0008 -deliberado, para no dejar
 					texto invisible- pinta primero con la fuente de sistema y la
 					sustituye al llegar la real, y ese cambio de métricas es lo que
 					Lighthouse medía como "Web font loaded" en el CLS del hero.
 				-->
-				<link rel="preload" as="font" type="font/woff2" href="/fonts/belleza-latin-700.woff2" crossorigin="anonymous" />
+				<link rel="preload" as="font" type="font/woff2" href="/fonts/belleza-latin-400.woff2" crossorigin="anonymous" />
 				<link rel="preload" as="font" type="font/woff2" href="/fonts/alegreya-latin-400.woff2" crossorigin="anonymous" />
 				<link rel="icon" href="/logo.svg" type="image/svg+xml" />
 				<meta property="og:title" content="<!--OG_TITLE_PLACEHOLDER-->" />

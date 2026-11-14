@@ -33,6 +33,8 @@
 	.wa-theme-planu {
 		--wa-font-family-heading: "Belleza", system-ui, sans-serif;
 		--wa-font-family-body: "Alegreya", Georgia, serif;
+		/* Belleza ships one weight; any other weight on a heading is fake bold. */
+		--wa-font-weight-heading: 400;
 		--wa-font-family-mono:
 			ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 		--wa-space-scale: 1.125;

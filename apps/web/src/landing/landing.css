@@ -127,8 +127,11 @@ footer a:hover {
 /* Encabezados con la tipografía de la marca, no la del cuerpo. */
 .hero h1,
 .features h2,
-.feature-card h3 {
+.feature-card h3,
+.legal-header h1 {
 	font-family: var(--wa-font-family-heading);
+	/* Beats `.wa-text-bold` on the markup: Belleza has no bold face. */
+	font-weight: var(--wa-font-weight-heading);
 	line-height: var(--wa-line-height-condensed);
 }
 

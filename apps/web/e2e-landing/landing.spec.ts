@@ -285,6 +285,42 @@ test("el hero se pinta con la tipografía y el color de la marca", async ({
 	expect(Number.parseFloat(estilo.fontSize)).toBeGreaterThan(32);
 });
 
+test("cada familia se descarga una sola vez y los encabezados no van en falsa negrita", async ({
+	page,
+}) => {
+	const fuentes: string[] = [];
+	page.on("response", (r) => {
+		if (r.url().endsWith(".woff2"))
+			fuentes.push(r.url().split("/").pop() ?? "");
+	});
+	await page.goto("/en/");
+	await page.evaluate(() => document.fonts.ready);
+
+	expect(fuentes.filter((f) => f.startsWith("belleza"))).toEqual([
+		"belleza-latin-400.woff2",
+	]);
+	expect(fuentes.filter((f) => f.startsWith("alegreya"))).toHaveLength(1);
+	// Belleza only exists at 400: any other weight is painted as fake bold.
+	const pesos = await page
+		.locator("h1, h2, h3")
+		.evaluateAll((els) => els.map((el) => getComputedStyle(el).fontWeight));
+	expect(pesos.length).toBeGreaterThan(0);
+	expect(new Set(pesos)).toEqual(new Set(["400"]));
+});
+
+test("los encabezados de las páginas legales tampoco van en falsa negrita", async ({
+	page,
+}) => {
+	for (const ruta of ["/en/privacy.html", "/en/terms.html"]) {
+		await page.goto(ruta);
+		const pesos = await page
+			.locator("h1, h2, h3")
+			.evaluateAll((els) => els.map((el) => getComputedStyle(el).fontWeight));
+		expect(pesos.length).toBeGreaterThan(0);
+		expect(new Set(pesos), ruta).toEqual(new Set(["400"]));
+	}
+});
+
 test("los botones de llamada a la acción se pintan como botones", async ({
 	page,
 }) => {
