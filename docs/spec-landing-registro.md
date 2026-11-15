@@ -413,3 +413,54 @@ Nada de esto lo decide esta spec. Con la recomendación del revisor.
 | D12 | **Qué hacer con la invitación a quien no tiene cuenta** | Dejarlo como está; o abrir una tarea de producto para que el alta reclame las ofertas | Abrir tarea de producto: es lo que más se parece a una promesa rota |
 | D13 | **Modo oscuro** de la landing | La página fija `wa-light`; el ADR 0008 prevé oscuro | Fuera de esta entrega |
 | D14 | **Procedencia de las fotos actuales de `hero.webp`** | Confirmar licencia o sustituirlas | Sustituirlas por capturas con imágenes propias (rodaja 4) |
+
+## 17. Decisiones del responsable (2026-11-15)
+
+Respuestas del responsable a las decisiones D1 a D14. Donde difieren de la
+recomendación del revisor, esta sección manda sobre la tabla de la sección 16.
+
+| # | Decisión | Respuesta | Efecto en la spec |
+| --- | --- | --- | --- |
+| D1 | Tono | **Cálido, con personalidad** (no la recomendación) | El copy de la sección 3 se reescribe en un tono más cercano, conservando una fila de trazabilidad por frase y sin prometer nada que el producto no haga |
+| D2 | Titular | «Planifica tus eventos. Compártelos solo con quien tú elijas.» | Se mantiene; hay que encajarlo con el tono de D1 |
+| D3 | Demo de IA | Solo capturas del editor, sin vídeo | Como recomendado |
+| D4 | Capturas | Lista (hero), compartir (beneficio 2), exportar (beneficio 4) | Como recomendado |
+| D5 | Orden del registro | Producto primero, registro después | Como recomendado |
+| D6 | Aviso de cookies en la landing | **Mantenerlo** (no la recomendación) | Se queda; ver «Analítica» |
+| D7 | «Gratis» y «sin anuncios» | **Quitar** | Se retiran del copy y de la tabla de trazabilidad (sección 5) |
+| D8 | Enlace profundo al alta | Sí, tocar `login-view.ts` | Rodaja 6, aparte y sin cambios visuales |
+| D9 | `?cta=` | No (recomendado), **a revisar con la analítica nueva** | Ver «Analítica» |
+| D10 | Cabecera con «Entrar» | Sí | Como recomendado |
+| D11 | FAQ | Fuera de esta entrega | Como recomendado |
+| D12 | Invitación a quien no tiene cuenta | Abrir tarea de producto para que el alta reclame las ofertas | Issue nueva, enlazada desde esta spec |
+| D13 | Modo oscuro | Fuera de esta entrega | Como recomendado |
+| D14 | Fotos del hero | Están **generadas con IA** (Gemini / Imagen, de Google) | Ver «Imágenes» |
+
+### Analítica en todas las páginas (cambio de alcance)
+
+El responsable quiere medir todo, incluida la landing. Esto contradice los
+supuestos 4 y 5 de la sección 1 (sin rastreadores nuevos, ADR 0009) y el
+presupuesto de la sección 8 (0 B de JavaScript, sin orígenes de terceros).
+Esta spec no lo resuelve; lo deja como trabajo previo a la rodaja de
+medición:
+
+- Concretar qué analítica corre hoy en la app y si envía datos a terceros.
+- El aviso de cookies mantenido (D6) pasa a ser necesario: la analítica no debe
+  cargar hasta aceptar, y hay que decir qué se puede medir sin consentimiento.
+- Un ADR nuevo o una enmienda del ADR 0009, y revisar la política de privacidad.
+- Reabrir el presupuesto de rendimiento (JavaScript y origen externo) y su efecto
+  en LCP.
+- Definir qué es una conversión: visita a la landing, clic en el CTA (hero y
+  cierre), registro y primer evento creado. Con eso se reabre D9 (`?cta=`).
+- Riesgos RGPD (IP, identificadores, base legal): lo que requiera revisión legal
+  queda marcado como tal.
+
+### Imágenes generadas con IA (D14)
+
+No hay licencia de terceros que confirmar, pero queda por comprobar y anotar:
+
+- Las condiciones de uso comercial de la herramienta de Google que las generó.
+- Que no se presenten como capturas reales del producto: la sección 6 habla de
+  capturas de la app real, y las del hero no lo son.
+- Si conviene indicar que son ilustraciones generadas con IA.
+- Que no muestren menores reconocibles ni texto en inglés dentro de `/es/`.
