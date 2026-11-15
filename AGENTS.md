@@ -139,7 +139,7 @@ fichero de `auth/`, `events/`, `profile/`, `sharing/`, `calendar/`, `landing/`
 ni `lib/` importa ya Firebase. Todo lo que conoce al proveedor vive en
 `infrastructure/firebase/`, incluidos `firebase-provider.ts` —la raíz de
 composición: inicializa la app y publica los contextos—, `config.ts`,
-`collection-controller.ts` y `storage.ts`; hasta GH-108 vivían en un
+y `collection-controller.ts`; hasta GH-108 vivían en un
 `src/firebase/` aparte. Los contextos que consume la interfaz se definen en
 `application/context.ts`, junto a los de los puertos, para que ningún
 componente importe de `infrastructure/`. Fuera de ahí ya no queda nada
@@ -166,13 +166,15 @@ Lo vigilan dos cosas, no la buena voluntad:
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **24 ficheros**, todos en `infrastructure/firebase/**`
-—catorce fuentes y diez tests—. GH-108 trasladó ahí los siete de
+lista.** Hoy son **22 ficheros**, todos en `infrastructure/firebase/**`
+—trece fuentes y nueve tests—. GH-108 trasladó ahí los siete de
 `src/firebase/`, y la lista perdió una entrada; el recuento bajó de 25 a 24
 porque `context.ts` sólo importaba Firebase para tipar tres contextos que
 nadie consumía, y sin ellos pasó a `application/`. GH-185 quitó la última
 entrada ajena, `observability/index.ts`, sin mover el recuento: liberó ese
-fichero y añadió `infrastructure/firebase/observability.ts`. El tope está
+fichero y añadió `infrastructure/firebase/observability.ts`. GH-109 (#294)
+absorbió `storage.ts` y su test en `image-store.ts` y su test, sin fichero
+nuevo (24 → 22). El tope está
 fijado en `arch/boundary.test.ts`: migrar un componente acoplado lo baja,
 pero un adaptador nuevo bajo `infrastructure/firebase/` —el único sitio donde el
 acoplamiento es intencional— puede subirlo, siempre con su motivo
