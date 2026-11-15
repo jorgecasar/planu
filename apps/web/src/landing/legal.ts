@@ -48,7 +48,7 @@ function legalFooter(): TemplateResult {
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
 			<p class="wa-font-size-xs wa-color-text-quiet">
-				${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}
+				${msg("© 2026 planu. Built with Lit, Web Awesome and Firebase.")}
 			</p>
 			${cookiesNotice()}
 		</footer>

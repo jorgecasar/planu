@@ -161,7 +161,7 @@ function features(): TemplateResult {
 						"share-nodes",
 						msg("Share with who you choose"),
 						msg(
-							"Invite by email. They get access instantly if they have an account, or a signup link if they don't. No pending invitations, no spam.",
+							"Invite by email and choose Viewer or Editor. They get access once they accept the invitation.",
 						),
 					)}
 					${featureCard(
@@ -230,7 +230,7 @@ function footer(): TemplateResult {
 				<span aria-hidden="true">·</span>
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
-			<p class="wa-font-size-xs wa-color-text-quiet">${msg("© 2025 planu. Built with Lit, Web Awesome and Firebase.")}</p>
+			<p class="wa-font-size-xs wa-color-text-quiet">${msg("© 2026 planu. Built with Lit, Web Awesome and Firebase.")}</p>
 			${cookiesNotice()}
 		</footer>
 	`;
