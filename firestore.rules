@@ -524,8 +524,11 @@ service cloud.firestore {
       // the deterministic id before deciding whether it is offering someone
       // new or editing a still-pending offer, and the very first invitation
       // between two people is exactly the case where nothing is there yet.
-      // `resource == null` reveals nothing — it is the same answer for every
-      // signed-in reader, invited or not.
+      // That is an existence oracle, known and still open (GH-259): any
+      // signed-in account, verified or not, that knows an event id and a uid
+      // can `get` the id. A missing document answers yes; one that exists and
+      // is not theirs answers no. The difference tells whether that person has
+      // or had an invitation or a tombstone for the event.
       // Not gated: only invitations addressed to or sent by the reader.
       allow read: if request.auth != null
                   && (resource == null
