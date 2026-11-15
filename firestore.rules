@@ -413,7 +413,7 @@ service cloud.firestore {
       // event, to the same person, from the same owner.
       function ownerReoffers() {
         return resource.data.invitedBy == uid()
-            && resource.data.status in ['accepted', 'declined']
+            && resource.data.status in ['accepted', 'declined', 'removed']
             && request.resource.data.eventId == resource.data.eventId
             && request.resource.data.inviteeUid == resource.data.inviteeUid
             && request.resource.data.invitedBy == resource.data.invitedBy
@@ -448,19 +448,42 @@ service cloud.firestore {
             && d.get('invitedByName', '') == offer.get('invitedByName', '');
       }
 
+      // A tombstone (ADR 0015), written in the batch that takes the invitee
+      // out of the event: by the owner removing them, or by themselves
+      // leaving. It holds no email, and while it stands the id is taken, so
+      // no offer by email can be redeemed as a fresh invitation (a create).
+      // Only the owner re-inviting by uid (`ownerReoffers`) turns it back.
+      function writesTombstone() {
+        let d = request.resource.data;
+        let event = /databases/$(database)/documents/events/$(d.eventId);
+        return isVerified()
+            && d.keys().hasOnly(['eventId', 'inviteeUid', 'invitedBy',
+                                 'status', 'decidedAt'])
+            && d.status == 'removed'
+            && d.decidedAt == request.time
+            && inviteId == d.eventId + '_' + d.inviteeUid
+            // Pinned, or a leaver naming themselves would get the inviter's
+            // delete. Only the owner or the invitee can change membership, so
+            // the last two lines also say who writes it: whoever removed them.
+            && d.invitedBy == get(event).data.userId
+            && d.inviteeUid in get(event).data.memberIds
+            && !(d.inviteeUid in getAfter(event).data.memberIds);
+      }
+
       // Only the owner of the event may offer it, and only in their own name,
       // unless the invitee redeems an offer by email. The dates are the
       // server's to set, not the client's: a forged creation time would
       // misorder the invitee's own history of who invited them and when.
       allow create: if request.auth != null
                     && isVerified()
-                    && isValidInvite(request.resource.data)
-                    && request.resource.data.status == 'pending'
-                    && request.resource.data.createdAt == request.time
-                    && request.resource.data.decidedAt == null
-                    && ((request.resource.data.invitedBy == uid()
-                         && eventOf(request.resource.data).userId == uid())
-                        || claimsOffer(request.resource.data));
+                    && ((isValidInvite(request.resource.data)
+                         && request.resource.data.status == 'pending'
+                         && request.resource.data.createdAt == request.time
+                         && request.resource.data.decidedAt == null
+                         && ((request.resource.data.invitedBy == uid()
+                              && eventOf(request.resource.data).userId == uid())
+                             || claimsOffer(request.resource.data)))
+                        || writesTombstone());
 
       // One rule per operation, the three paths OR-ed inside it: splitting
       // them into separate `allow update` statements would combine with OR at
@@ -470,11 +493,12 @@ service cloud.firestore {
       // Gated like events: an unverified invitee must not spend an invitation.
       allow update: if request.auth != null
                     && isVerified()
-                    && isValidInvite(request.resource.data)
-                    && (ownerEditsWhilePending()
-                        || invitedDecides()
-                        || ownerReadmits()
-                        || ownerReoffers());
+                    && ((isValidInvite(request.resource.data)
+                         && (ownerEditsWhilePending()
+                             || invitedDecides()
+                             || ownerReadmits()
+                             || ownerReoffers()))
+                        || writesTombstone());
 
       // Read by the two people it concerns, and one rule for both get and list:
       // under this condition a query has to name you, because an unfiltered one
@@ -492,11 +516,15 @@ service cloud.firestore {
                       || resource.data.inviteeUid == uid()
                       || resource.data.invitedBy == uid());
 
-      // Either party may erase it in any status (GDPR art. 17, ADR 0013). The
-      // invitee needs no verification: an unverified uid can still be invited.
+      // Either party may erase it in any status (GDPR art. 17, ADR 0013),
+      // except that the invitee keeps a tombstone while its event exists (ADR
+      // 0015). The invitee needs no verification: an unverified uid can still
+      // be invited.
       allow delete: if request.auth != null
                     && ((isVerified() && resource.data.invitedBy == uid())
-                        || resource.data.inviteeUid == uid());
+                        || (resource.data.inviteeUid == uid()
+                            && (resource.data.status != 'removed'
+                                || !exists(/databases/$(database)/documents/events/$(resource.data.eventId)))));
     }
 
     // Offers to an email with no account yet (ADR 0012): no uid to address an
