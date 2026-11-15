@@ -45,6 +45,14 @@ test("un título con saltos de línea no puede romper la cabecera", () => {
 	expect(m.mailto).not.toMatch(/%0D%0ABcc/i);
 });
 
+test("el mensaje solo promete la invitación a quien ya tiene cuenta", () => {
+	const body = buildInvitationMessage(base).body;
+	expect(body).toContain(
+		"If you already have an account, sign in with this email address to see it:",
+	);
+	expect(body).not.toMatch(/sign up|and accept/i);
+});
+
 test("el enlace va tal cual y el mensaje no incluye ningún email del invitado", () => {
 	const m = buildInvitationMessage({ ...base, to: "ana@example.com" });
 	expect(m.body).not.toContain("ana@example.com");

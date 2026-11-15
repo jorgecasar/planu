@@ -44,7 +44,9 @@ export function buildInvitationMessage(
 	const subject = msg(str`Invitation to “${title}” on planu`);
 	const body = [
 		msg(str`I invited you to “${title}” as ${roleText(input.role)}.`),
-		msg("Sign in with this email address to see it and accept:"),
+		msg(
+			"If you already have an account, sign in with this email address to see it:",
+		),
 		input.link,
 	].join("\r\n\r\n");
 
