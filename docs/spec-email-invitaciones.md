@@ -122,3 +122,18 @@ esta spec no tiene.
 3. ¿Tiene planu un dominio propio para el remitente?
 4. ¿Se revisa con asesoría legal el correo desde planu a terceros antes de la
    fase 2?
+
+## Decisiones del responsable (2026-11-15)
+
+- **Fase 1, sin servidor: sí.** Enlace, «Enviar por correo» (`mailto:`), copiar y
+  compartir, sin coste ni plan Blaze. Va junto con GH-280 (el alta reclama las
+  ofertas pendientes).
+- **Fase 2 (correo enviado por planu): aparcada.** Se mantiene la restricción de
+  «sin plan Blaze» del ADR 0007. Se revisará cuando haya usuarios reales y una
+  razón de coste que lo justifique.
+- **Dominio:** solo el de Firebase Hosting; no hay dominio propio. Mientras no
+  lo haya, un correo enviado por planu no tendría SPF ni DKIM propios y caería
+  en spam: otra razón para no abrir la fase 2 ahora.
+
+Siguiente paso: las rodajas 1 a 4 de la sección anterior, empezando por la
+función pura del texto y del `mailto:`.
