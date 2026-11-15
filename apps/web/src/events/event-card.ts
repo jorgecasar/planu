@@ -3,6 +3,8 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/card/card.js";
 import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dialog/dialog.js";
+import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
+import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/tag/tag.js";
 import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
@@ -26,6 +28,11 @@ import { tagHue } from "../domain/tags.js";
 import { getLocale } from "../i18n/localization.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { tagChipStyles } from "./tag-styles.js";
+
+/** Font Awesome Free 6 «ellipsis» (CC BY 4.0), inline for the same reason
+ * `landing.ts` gives: `<wa-icon>` fetches from an origin the CSP blocks. */
+const ELLIPSIS_PATH =
+	"M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z";
 
 /** Card for an event, with edit and delete actions. */
 @customElement("planu-event-card")
@@ -121,19 +128,16 @@ export class PlanuEventCard extends LitElement {
 			border-radius: var(--wa-panel-border-radius);
 		}
 
-		[slot="footer"] {
+		/* One wrapper lifts all footer controls above the title's layer. */
+		.actions {
 			position: relative;
 			z-index: 1;
 		}
 
-		/* Stands in for WA's wa-visually-hidden; goes when #187 shares its utilities. */
-		.visually-hidden {
-			position: absolute;
-			inline-size: 1px;
-			block-size: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
+		/* wa-dropdown is display: contents, so the margin goes on its
+		   trigger, which is the actual flex item. */
+		.actions [slot="trigger"] {
+			margin-inline-start: auto;
 		}
 
 		/* Two lines are a preview; the editor holds the rest. */
@@ -206,7 +210,7 @@ export class PlanuEventCard extends LitElement {
 		const role = roleFor(this.event, this.#uid);
 		if (role === "owner" || role === null) return nothing;
 
-		return html`<wa-badge slot="footer" variant="neutral">
+		return html`<wa-badge variant="neutral">
 			${role === "editor" ? msg("Shared: you can edit") : msg("Shared: view only")}
 		</wa-badge>`;
 	}
@@ -227,6 +231,52 @@ export class PlanuEventCard extends LitElement {
 			<span class="day">${day}</span>
 			<span class="month">${month}</span>
 		</span>`;
+	}
+
+	/** All but «Edit» behind one «⋯» menu named after the event (GH-188):
+	 * seven cards used to read «Edit, Share, Delete» with nothing apart. */
+	#renderActions() {
+		const { event } = this;
+		const uid = this.#uid;
+		const items = [
+			canManageMembers(event, uid)
+				? html`<wa-dropdown-item value="share">${msg("Share")}</wa-dropdown-item>`
+				: nothing,
+			canLeave(event, uid)
+				? html`<wa-dropdown-item value="leave" ?disabled=${this.leaving}>
+						${msg("Leave")}
+					</wa-dropdown-item>`
+				: nothing,
+			canDelete(event, uid)
+				? html`<wa-dropdown-item value="delete" variant="danger">
+						${msg("Delete")}
+					</wa-dropdown-item>`
+				: nothing,
+		].filter((item) => item !== nothing);
+		if (items.length === 0) return nothing;
+
+		return html`<wa-dropdown
+			placement="bottom-end"
+			@wa-select=${this.#onAction}
+		>
+			<wa-button slot="trigger" appearance="plain">
+				<svg width="1em" height="1em" fill="currentColor" viewBox="0 0 448 512" aria-hidden="true">
+					<path d=${ELLIPSIS_PATH}></path>
+				</svg>
+				<span class="wa-visually-hidden">
+					${msg(str`More actions for “${event.title}”`)}
+				</span>
+			</wa-button>
+			${items}
+		</wa-dropdown>`;
+	}
+
+	#onAction(domEvent: Event): void {
+		const { value } = (domEvent as CustomEvent<{ item: { value: string } }>)
+			.detail.item;
+		if (value === "share") this.#openShare();
+		else if (value === "leave") this.#askLeave();
+		else if (value === "delete") this.#askDelete();
 	}
 
 	/** Why the hash only decides the hue, in `tag-styles.ts`. */
@@ -282,60 +332,19 @@ export class PlanuEventCard extends LitElement {
 
 				${this.#renderTags()}
 
-				${this.#renderRoleBadge()}
-
-				<planu-calendar-export
-					slot="footer"
-					.events=${[event]}
-				></planu-calendar-export>
-
-				${
-					canEdit(event, this.#uid)
-						? html`<wa-button
-								slot="footer"
-								appearance="plain"
-								@click=${this.#onEdit}
-							>
-								${msg("Edit")}
-								<span class="visually-hidden">${event.title}</span>
-							</wa-button>`
-						: nothing
-				}
-				${
-					canManageMembers(event, this.#uid)
-						? html`<wa-button
-								slot="footer"
-								appearance="plain"
-								@click=${this.#openShare}
-							>
-								${msg("Share")}
-							</wa-button>`
-						: nothing
-				}
-				${
-					canDelete(event, this.#uid)
-						? html`<wa-button
-								slot="footer"
-								appearance="plain"
-								variant="danger"
-								@click=${this.#askDelete}
-							>
-								${msg("Delete")}
-							</wa-button>`
-						: nothing
-				}
-				${
-					canLeave(event, this.#uid)
-						? html`<wa-button
-								slot="footer"
-								appearance="plain"
-								?disabled=${this.leaving}
-								@click=${this.#askLeave}
-							>
-								${msg("Leave")}
-							</wa-button>`
-						: nothing
-				}
+				<div slot="footer" class="actions wa-cluster wa-gap-xs">
+					${this.#renderRoleBadge()}
+					<planu-calendar-export .events=${[event]}></planu-calendar-export>
+					${
+						canEdit(event, this.#uid)
+							? html`<wa-button appearance="plain" @click=${this.#onEdit}>
+									${msg("Edit")}
+									<span class="wa-visually-hidden">${event.title}</span>
+								</wa-button>`
+							: nothing
+					}
+					${this.#renderActions()}
+				</div>
 
 				${
 					this.leaveError

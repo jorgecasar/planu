@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { cardAction, openCardMenu } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
 
@@ -150,7 +151,7 @@ test("a viewer guest sees the event but cannot touch it", async ({
 	await signIn(page, owner);
 	await createEvent(page, title_);
 
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Invitation sent.")).toBeVisible();
@@ -169,11 +170,21 @@ test("a viewer guest sees the event but cannot touch it", async ({
 		guestPage.getByRole("heading", { name: title_, exact: true }),
 	).toBeVisible();
 	await expect(guestPage.getByText("Shared: view only")).toBeVisible();
-	await expect(guestPage.getByRole("button", { name: "Delete" })).toHaveCount(
+	await expect(guestPage.getByRole("button", { name: "Edit" })).toHaveCount(0);
+	// Since GH-188 the rest live in the card's menu: open it, or a missing
+	// item would pass just for being folded away.
+	await openCardMenu(guestPage, title_);
+	await expect(
+		guestPage.getByRole("menuitem", { name: "Leave", exact: true }),
+	).toBeVisible();
+	await expect(guestPage.getByRole("menuitem", { name: "Delete" })).toHaveCount(
 		0,
 	);
-	await expect(guestPage.getByRole("button", { name: "Edit" })).toHaveCount(0);
-	await expect(guestPage.getByRole("button", { name: "Share" })).toHaveCount(0);
+	await expect(guestPage.getByRole("menuitem", { name: "Share" })).toHaveCount(
+		0,
+	);
+	await guestPage.keyboard.press("Escape");
+	await expect(guestPage.getByRole("menu")).toBeHidden();
 
 	const results = await new AxeBuilder({ page: guestPage }).analyze();
 	expect(results.violations).toEqual([]);
@@ -194,7 +205,7 @@ test("promoted to editor, can edit but still cannot delete", async ({
 
 	await signIn(page, owner);
 	await createEvent(page, title_);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Invitation sent.")).toBeVisible();
@@ -211,7 +222,11 @@ test("promoted to editor, can edit but still cannot delete", async ({
 	await guestPage.reload();
 	await expect(guestPage.getByText("Shared: you can edit")).toBeVisible();
 	await expect(guestPage.getByRole("button", { name: "Edit" })).toBeVisible();
-	await expect(guestPage.getByRole("button", { name: "Delete" })).toHaveCount(
+	await openCardMenu(guestPage, title_);
+	await expect(
+		guestPage.getByRole("menuitem", { name: "Leave", exact: true }),
+	).toBeVisible();
+	await expect(guestPage.getByRole("menuitem", { name: "Delete" })).toHaveCount(
 		0,
 	);
 
@@ -228,7 +243,7 @@ test("a guest can leave the event", async ({ page, browser }) => {
 
 	await signIn(page, owner);
 	await createEvent(page, title_);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Invitation sent.")).toBeVisible();
@@ -239,8 +254,8 @@ test("a guest can leave the event", async ({ page, browser }) => {
 	).toBeVisible();
 
 	// Leaving now asks for confirmation, like deleting does. The dialog is
-	// located by its body text: both it and the card carry a "Leave" button.
-	await guestPage.getByRole("button", { name: "Leave" }).click();
+	// located by its body text: both it and the card's menu offer "Leave".
+	await cardAction(guestPage, "Leave", title_);
 	await expect(guestPage.getByText("You will stop seeing")).toBeVisible();
 	await guestPage
 		.getByRole("button", { name: "Leave", exact: true })
@@ -267,7 +282,7 @@ test("inviting an email with no account reads as success, twice, and keeps one o
 	await signIn(page, owner);
 	await createEvent(page, newTitle("Evento"));
 
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	// The second one replaces the first offer instead of failing.
 	for (let i = 0; i < 2; i++) {
 		await page.getByLabel("Invite by email").fill(nobody);
@@ -307,7 +322,7 @@ test("the share dialog has no accessibility violations", async ({ page }) => {
 	await signIn(page, owner);
 	await createEvent(page, title_);
 
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await expect(page.getByLabel("Invite by email")).toBeVisible();
 
 	const results = await new AxeBuilder({ page }).analyze();
@@ -328,7 +343,7 @@ test("the inbox filter separates your own from the shared ones", async ({
 
 	await signIn(page, owner);
 	await createEvent(page, sharedTitle);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Invitation sent.")).toBeVisible();
@@ -380,7 +395,7 @@ test("an invitation changes nothing until it is accepted or declined", async ({
 
 	await signIn(page, owner);
 	await createEvent(page, title_);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Invitation sent.")).toBeVisible();
@@ -423,7 +438,7 @@ test("the share dialog lists who has access and who is still pending", async ({
 
 	await signIn(page, owner);
 	await createEvent(page, title_);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 
 	// You are in the list, as owner, before anyone else is. Exact, because the
 	// leave dialog's copy also contains the word.
@@ -443,7 +458,7 @@ test("the share dialog lists who has access and who is still pending", async ({
 	// Once accepted, the same row stops being pending.
 	await acceptInvitation(guestPage);
 	await page.reload();
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await expect(page.getByText("Pending", { exact: true })).toHaveCount(0);
 
 	await guestPage.context().close();
@@ -462,7 +477,7 @@ test("the role of a pending invitation can still be changed", async ({
 
 	await signIn(page, owner);
 	await createEvent(page, title_);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(guest);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Pending", { exact: true })).toBeVisible();

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { cardAction } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
 
@@ -123,7 +124,7 @@ test("borrar pide confirmación y luego elimina", async ({ page }) => {
 	await signUp(page);
 	await createEvent(page, "Concierto de verano");
 
-	await page.getByRole("button", { name: "Delete" }).first().click();
+	await cardAction(page, "Delete", "Concierto de verano");
 	await expect(page.getByText(/This permanently deletes/)).toBeVisible();
 	await page
 		.getByRole("button", { name: "Delete", exact: true })

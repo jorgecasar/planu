@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { cardAction } from "./tests/card-actions.js";
 import {
 	API_KEY,
 	AUTH_EMULATOR,
@@ -238,7 +239,7 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	// A crea un evento y lo comparte con B.
 	await signIn(page, ownerEmail);
 	await createEvent(page, sharedTitle);
-	await page.getByRole("button", { name: "Share" }).click();
+	await cardAction(page, "Share");
 	await page.getByLabel("Invite by email").fill(deletedEmail);
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByLabel("Invite by email")).toHaveValue("");
