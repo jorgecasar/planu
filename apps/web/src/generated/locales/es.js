@@ -94,6 +94,7 @@ export const templates = {
 	s4b4bb32d2b4b5425: str`Esto borra “${0}” de forma permanente. No se puede deshacer.`,
 	s4b7ea123d81b2680: `No hay eventos que exportar.`,
 	s4c001520bb97f727: `No uses planu para guardar o compartir contenido ilegal, o que no tengas derecho a compartir con las personas que invites. No intentes acceder a los datos de otra cuenta evitando la aplicación — las reglas de seguridad descritas en nuestra política de privacidad existen precisamente para impedirlo, e intentarlo no está permitido aunque llegue a fallar.`,
+	s4d08216177182931: `Lector: puede ver el evento. Editor: también puede cambiar sus datos. Ninguno puede invitar, quitar personas ni borrar el evento.`,
 	s4e2960ac7237c808: `Generado en tu dispositivo`,
 	s51a431d68ff7c47b: `Continuar con Google`,
 	s51ac807224fd06e2: `Imágenes de portada de eventos`,
