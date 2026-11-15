@@ -1134,6 +1134,10 @@
   <source>© 2026 planu. Built with Lit, Web Awesome and Firebase.</source>
         <target>© 2026 planu. Construido con Lit, Web Awesome y Firebase.</target>
 </trans-unit>
+<trans-unit id="s4d08216177182931">
+  <source>Viewer: can see the event. Editor: can also change its details. Neither can invite, remove people or delete the event.</source>
+        <target>Lector: puede ver el evento. Editor: también puede cambiar sus datos. Ninguno puede invitar, quitar personas ni borrar el evento.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

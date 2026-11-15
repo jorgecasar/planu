@@ -68,6 +68,39 @@ async function invite(
 	});
 }
 
+const ROLE_HELP =
+	"Viewer: can see the event. Editor: can also change its details. Neither can invite, remove people or delete the event.";
+
+test("the role selector is described by one line naming both roles (GH-270)", async () => {
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, {
+		user: OWNER,
+		sharing: fakeSharing(async () => null),
+		event: EVENT,
+		open: true,
+	});
+	document.body.append(el);
+	const select = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector<
+			HTMLElement & { hint: string; updateComplete: Promise<unknown> }
+		>("wa-select[name=role]");
+		if (!found) throw new Error("No role selector yet");
+		return found;
+	});
+	await select.updateComplete;
+
+	expect(select.hint).toBe(ROLE_HELP);
+	// The select wires the hint to its own control; the line is not a loose paragraph.
+	const hint = select.shadowRoot?.querySelector("[part~=hint]");
+	expect(hint?.textContent).toContain("Viewer");
+	expect(hint?.textContent).toContain("Editor");
+	const describedBy = select.shadowRoot
+		?.querySelector("[aria-describedby]")
+		?.getAttribute("aria-describedby");
+	expect(describedBy).toBeTruthy();
+	expect(select.shadowRoot?.getElementById(describedBy ?? "")).toBe(hint);
+});
+
 test("an address with an account is invited by uid", async () => {
 	const bea = { uid: "bea-uid", displayName: "", photoURL: "" };
 	const sharing = fakeSharing(async () => bea);

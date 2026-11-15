@@ -47,9 +47,15 @@ export class PlanuShareDialog extends LitElement {
 		form {
 			display: grid;
 			grid-template-columns: 1fr auto auto;
-			align-items: end;
+			align-items: start;
 			gap: var(--wa-space-s);
 			margin-block-end: var(--wa-space-l);
+		}
+
+		/* The role hint makes the select taller than its neighbours, so the row
+		   aligns to the top and the button is pushed down past the labels. */
+		form > wa-button {
+			margin-block-start: var(--wa-space-xl);
 		}
 
 		/* The three fields drop to their own rows before the email input gets too
@@ -57,6 +63,10 @@ export class PlanuShareDialog extends LitElement {
 		@media (max-width: 30rem) {
 			form {
 				grid-template-columns: 1fr;
+			}
+
+			form > wa-button {
+				margin-block-start: 0;
 			}
 		}
 
@@ -162,7 +172,12 @@ export class PlanuShareDialog extends LitElement {
 						required
 						enterkeyhint="done"
 					></wa-input>
-					<wa-select name="role" label=${msg("Role")} value="viewer">
+					<wa-select
+						name="role"
+						label=${msg("Role")}
+						hint=${msg("Viewer: can see the event. Editor: can also change its details. Neither can invite, remove people or delete the event.")}
+						value="viewer"
+					>
 						<wa-option value="viewer">${msg("Viewer")}</wa-option>
 						<wa-option value="editor">${msg("Editor")}</wa-option>
 					</wa-select>
