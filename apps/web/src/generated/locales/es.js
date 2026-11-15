@@ -240,6 +240,7 @@ export const templates = {
 	sd514c515555c7a32: `Compartir un evento`,
 	sd54ca44bee6f7e4a: `Informes de errores`,
 	sd6201a5f09945df0: `Título o descripción`,
+	sd69ee7093aa45c85: str`Más acciones para «${0}»`,
 	sd6ea2733f48f925c: `Fecha, lo más próximo primero`,
 	sd72fdc4216b98171: `Creación de eventos asistida por IA`,
 	sd73e5c5a869717b2: `Correo o contraseña incorrectos.`,

@@ -120,6 +120,8 @@ test("los controles del pie siguen recibiendo su clic", async () => {
 		(button) => button.textContent?.includes("Edit"),
 	);
 	expect(hitAt(el, edit)?.closest("wa-button")).toBe(edit);
+	const more = el.shadowRoot?.querySelector('wa-dropdown [slot="trigger"]');
+	expect(hitAt(el, more)?.closest("wa-button")).toBe(more);
 	el.remove();
 });
 
@@ -155,5 +157,60 @@ test("quien sólo puede leer no tiene tarjeta que pulsar", async () => {
 	expect(el.shadowRoot?.querySelector("h3")?.textContent?.trim()).toBe(
 		"Concierto de verano",
 	);
+	el.remove();
+});
+
+// ── «⋯» menu (GH-188) ────────────────────────────────────────────────────────
+
+const menuItems = (el: PlanuEventCard) =>
+	[
+		...(el.shadowRoot?.querySelectorAll("wa-dropdown > wa-dropdown-item") ??
+			[]),
+	].map((item) => item.getAttribute("value"));
+
+test("el menú «⋯» se llama como su evento", async () => {
+	const el = await mount(event());
+	const trigger = el.shadowRoot?.querySelector('wa-dropdown [slot="trigger"]');
+	expect(trigger?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+		"More actions for “Concierto de verano”",
+	);
+	// At the footer's end edge, apart from «Edit».
+	const right = (node?: Element | null) => node?.getBoundingClientRect().right;
+	expect(right(el.shadowRoot?.querySelector(".actions"))).toBe(right(trigger));
+	// The name is clipped by the shared utility, not painted.
+	const hidden = trigger?.querySelector(".wa-visually-hidden") as Element;
+	expect(getComputedStyle(hidden).width).toBe("1px");
+	expect(getComputedStyle(hidden).clipPath).not.toBe("none");
+	el.remove();
+});
+
+test("quien lo creó comparte y borra desde el menú", async () => {
+	const el = await mount(event());
+	expect(menuItems(el)).toEqual(["share", "delete"]);
+	el.remove();
+});
+
+test("un invitado sólo puede salir", async () => {
+	const el = await mount(
+		event({ memberIds: ["u1", "u2"], roles: { u2: "editor" } }),
+		"u2",
+	);
+	expect(menuItems(el)).toEqual(["leave"]);
+	el.remove();
+});
+
+test("elegir «Borrar» en el menú pide confirmación", async () => {
+	const el = await mount(event());
+	const dropdown = el.shadowRoot?.querySelector("wa-dropdown");
+	const item = el.shadowRoot?.querySelector('wa-dropdown-item[value="delete"]');
+	dropdown?.dispatchEvent(
+		new CustomEvent("wa-select", { detail: { item }, bubbles: true }),
+	);
+	await el.updateComplete;
+
+	const dialog = el.shadowRoot?.querySelector<HTMLElement & { open: boolean }>(
+		'wa-dialog[label="Delete event"]',
+	);
+	expect(dialog?.open).toBe(true);
 	el.remove();
 });

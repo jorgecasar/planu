@@ -1130,6 +1130,10 @@
   <source>Filters (<x id="0" equiv-text="${count}"/>)</source>
         <target>Filtros (<x id="0" equiv-text="${count}"/>)</target>
 </trans-unit>
+<trans-unit id="sd69ee7093aa45c85">
+  <source>More actions for “<x id="0" equiv-text="${event.title}"/>”</source>
+        <target>Más acciones para «<x id="0" equiv-text="${event.title}"/>»</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
