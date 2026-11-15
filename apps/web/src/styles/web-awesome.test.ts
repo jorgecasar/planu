@@ -3,6 +3,7 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "./theme-planu.css";
 import "./fonts.css";
+import type { CSSResult, LitElement } from "lit";
 import { afterEach, expect, test } from "vitest";
 import "../app-shell.js";
 import type { SessionUser } from "../application/ports/session.js";
@@ -16,6 +17,7 @@ import "../events/event-groups.js";
 import type { StoredEvent } from "../lib/types.js";
 import "../profile/profile-view.js";
 import "../sharing/share-dialog.js";
+import { webAwesomeStyles } from "./web-awesome.js";
 
 // index.html puts the theme class on <html>; the test page has none.
 document.documentElement.classList.add("wa-theme-planu", "wa-light");
@@ -50,9 +52,12 @@ const BODY = /^"?Alegreya"?,/;
 
 /**
  * Mounts a component with its fields set directly: no provider answers the
- * context requests here, so `@consume` leaves them alone.
+ * context requests here, so `@consume` leaves them alone. Others load on
+ * demand: importing them all up front overflows the resource timing buffer.
  */
 async function mount(tag: string, fields: object): Promise<ShadowRoot> {
+	const component = COMPONENTS.find((c) => c.tag === tag);
+	if (component) await loaders[component.path]?.();
 	const el = document.createElement(tag) as HTMLElement & {
 		updateComplete: Promise<boolean>;
 	};
@@ -152,4 +157,198 @@ test("Belleza loads for the card's own title", async () => {
 	await document.fonts.ready;
 	// `check` is true only when the face this title resolves to is loaded.
 	expect(document.fonts.check(`${fontWeight} 1em ${fontFamily}`)).toBe(true);
+});
+
+// Derived from the sources, so a component added tomorrow is held to the same
+// rule without anyone remembering to list it here.
+const rawLoaders = import.meta.glob(
+	[
+		"../**/*.ts",
+		"!../**/*.test.ts",
+		"!../generated/**",
+		"!../infrastructure/**",
+	],
+	{ query: "?raw", import: "default" },
+) as Record<string, () => Promise<string>>;
+// Read after the static imports, and with room: the font test counts entries.
+performance.setResourceTimingBufferSize(2000);
+const sources = Object.fromEntries(
+	await Promise.all(
+		Object.entries(rawLoaders).map(async ([path, load]) => [
+			path,
+			await load(),
+		]),
+	),
+) as Record<string, string>;
+const loaders = import.meta.glob([
+	"../**/*.ts",
+	"!../**/*.test.ts",
+	"!../generated/**",
+	"!../infrastructure/**",
+]) as Record<string, () => Promise<unknown>>;
+const COMPONENTS = Object.entries(sources).flatMap(([path, source]) => {
+	const tag = source.match(/@customElement\("(planu-[a-z-]+)"\)/)?.[1];
+	return tag ? [{ path, tag, light: source.includes("createRenderRoot") }] : [];
+});
+
+test("the glob finds the components, light-DOM ones included", () => {
+	expect(COMPONENTS.length).toBeGreaterThanOrEqual(15);
+	expect(COMPONENTS.filter((c) => c.light).map((c) => c.tag)).toEqual([
+		"planu-change-email-form",
+	]);
+});
+
+// A light-DOM component renders into its host's shadow root, which already
+// carries the sheets: it has no root, and no styles, of its own.
+test.each(
+	COMPONENTS.filter((c) => !c.light).map((c) => [c.tag, c.path] as const),
+)("%s adopts the shared Web Awesome sheets", async (tag, path) => {
+	await loaders[path]?.();
+	const element = customElements.get(tag) as typeof LitElement | undefined;
+	if (!element) throw new Error(`${tag} is not defined`);
+	for (const sheet of webAwesomeStyles) {
+		expect(element.elementStyles).toContain(sheet);
+	}
+});
+
+test("every root adopts the very same sheet object, parsed once", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const card = await mount("planu-event-card", OWN);
+	const profile = await mount("planu-profile-view", { user: USER });
+	const [native] = webAwesomeStyles;
+	if (!native?.styleSheet) throw new Error("no constructable sheet");
+	expect(card.adoptedStyleSheets).toContain(native.styleSheet);
+	expect(profile.adoptedStyleSheets).toContain(native.styleSheet);
+	expect(card.adoptedStyleSheets[0]).toBe(profile.adoptedStyleSheets[0]);
+});
+
+/** Resolves a token in the document, where the theme defines it. */
+function token(name: string): string {
+	const probe = document.createElement("span");
+	probe.style.color = `var(${name})`;
+	document.body.append(probe);
+	const value = getComputedStyle(probe).color;
+	probe.remove();
+	return value;
+}
+
+test("links inside a shadow root take Web Awesome's link colour", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const root = await mount("planu-profile-view", { user: USER });
+	const links = root.querySelectorAll("a");
+	expect(links.length).toBeGreaterThan(0);
+	const link = token("--wa-color-text-link");
+	// Not the browser's own `rgb(0, 0, 238)`.
+	expect(link).not.toBe("rgb(0, 0, 238)");
+	for (const a of links) expect(getComputedStyle(a).color).toBe(link);
+});
+
+test("wa-stack and wa-cluster lay out inside a shadow root", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	const root = await mount("planu-profile-view", { user: USER });
+	const stack = root.querySelector(".wa-stack");
+	const cluster = root.querySelector(".wa-cluster");
+	if (!stack || !cluster) throw new Error("no layout utilities rendered");
+	const s = getComputedStyle(stack);
+	const c = getComputedStyle(cluster);
+	expect([s.display, s.flexDirection]).toEqual(["flex", "column"]);
+	expect([c.display, c.flexWrap]).toEqual(["flex", "wrap"]);
+});
+
+test("wa-visually-hidden clips its text to one pixel inside a shadow root", async () => {
+	const root = await mount("planu-calendar-view", { events: [EVENT] });
+	const hidden = root.querySelectorAll(".wa-visually-hidden");
+	expect(hidden.length).toBeGreaterThan(0);
+	for (const el of hidden) {
+		const style = getComputedStyle(el);
+		expect([style.position, style.width, style.height]).toEqual([
+			"absolute",
+			"1px",
+			"1px",
+		]);
+		expect(style.clipPath).not.toBe("none");
+	}
+});
+
+test("every element in a root is border-box, the wa-* hosts included", async () => {
+	window.history.pushState({}, "", PROFILE_PATH);
+	// native.css's `*{box-sizing:inherit}` hands down what the provider's slot
+	// computes; the shell wears the provider's own styles.
+	const shell = document.createElement("div");
+	const shadow = shell.attachShadow({ mode: "open" });
+	const { PlanuFirebaseProvider } = await import(
+		"../infrastructure/firebase/firebase-provider.js"
+	);
+	shadow.adoptedStyleSheets = [
+		(PlanuFirebaseProvider.styles as CSSResult).styleSheet as CSSStyleSheet,
+	];
+	shadow.append(document.createElement("slot"));
+	document.body.append(shell);
+	const host = document.createElement("planu-profile-view") as LitElement;
+	Object.assign(host, { user: USER });
+	shell.append(host);
+	await host.updateComplete;
+	const root = host.shadowRoot;
+	if (!root) throw new Error("no shadow root");
+	// That rule also beats each wa-* host's own `:host{box-sizing:border-box}`.
+	for (const selector of ["div", "p", "dl", "wa-button", "wa-card"]) {
+		const el = root.querySelector(selector);
+		if (!el) throw new Error(`no ${selector}`);
+		expect(getComputedStyle(el).boxSizing, selector).toBe("border-box");
+	}
+});
+
+const FRESH = { ...EVENT, tags: ["a"] };
+const DATED = { ...EVENT, startDate: new Date(), endDate: new Date() };
+const INVITE = {
+	id: "i1",
+	eventId: "e1",
+	eventTitle: "Concierto",
+	inviteeUid: "u1",
+	invitedByName: "Ana",
+	role: "viewer",
+};
+
+/** One `<ul class="wa-list-plain">` per component that renders a bare list. */
+const LISTS: [string, object, object][] = [
+	["planu-event-card", { event: FRESH, user: USER }, {}],
+	["planu-share-dialog", { ...OWN, open: true }, {}],
+	["planu-invitations-inbox", {}, { invites: [INVITE] }],
+	["planu-calendar-view", { events: [EVENT] }, {}],
+	[
+		"planu-calendar-view",
+		{ events: [DATED], month: new Date(), today: new Date() },
+		{},
+	],
+];
+
+test.each(LISTS)(
+	"%s: its plain list has no native.css indent",
+	async (tag, fields, patch) => {
+		const root = await mount(tag, fields);
+		const host = root.host as LitElement;
+		Object.assign(host, patch);
+		await host.updateComplete;
+		const lists = root.querySelectorAll("ul");
+		expect(lists.length).toBeGreaterThan(0);
+		for (const ul of lists) {
+			expect(ul.classList.contains("wa-list-plain")).toBe(true);
+			const li = ul.querySelector("li");
+			if (!li) throw new Error("list without items");
+			expect(getComputedStyle(li).marginInlineStart).toBe("0px");
+			expect(getComputedStyle(ul).listStyleType).toBe("none");
+		}
+	},
+);
+
+test("the cover's file input is themed by native.css, not the browser", async () => {
+	const root = await mount("planu-event-editor", { user: USER, open: true });
+	const input = root.querySelector('input[type="file"]');
+	if (!input) throw new Error("no file input");
+	expect(family(input)).toMatch(BODY);
+	const button = getComputedStyle(input, "::file-selector-button");
+	expect(button.fontFamily).toMatch(BODY);
+	// Web Awesome's form-control height and pill radius, both from tokens.
+	expect(button.borderTopLeftRadius).not.toBe("0px");
+	expect(Number.parseFloat(button.height)).toBeGreaterThan(30);
 });
