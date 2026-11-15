@@ -65,6 +65,35 @@ test("la raíz es la landing, no la aplicación", async ({ page }) => {
 	).toBeVisible();
 });
 
+const SHARING_COPY = [
+	{
+		path: "/en/",
+		old: "They get access instantly",
+		current:
+			"Invite by email and choose Viewer or Editor. They get access once they accept the invitation.",
+	},
+	{
+		path: "/es/",
+		old: "acceso al instante",
+		current:
+			"Invita por email y elige Lector o Editor. Tendrán acceso cuando acepten la invitación.",
+	},
+];
+
+for (const { path, old, current } of SHARING_COPY) {
+	test(`${path} no promete invitaciones que la app no cumple`, async ({
+		page,
+	}) => {
+		// The old copy promised instant access and signup links; invitations are
+		// accepted, and nothing is sent by email (ADR 0012).
+		await page.goto(path);
+		await expect(page.getByText(current)).toHaveCount(1);
+		await expect(page.getByText(old)).toHaveCount(0);
+		await expect(page.getByText("signup link")).toHaveCount(0);
+		await expect(page.getByText("© 2026 planu")).toHaveCount(1);
+	});
+}
+
 test("la landing no carga JavaScript", async ({ page }) => {
 	// El único `<script>` permitido es el JSON-LD. Un bundle aquí rompería el
 	// LCP que la página existe para proteger, y T29 lo prohíbe.

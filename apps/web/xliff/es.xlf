@@ -746,10 +746,6 @@
   <source>Share with who you choose</source>
         <target>Comparte con quien tú elijas</target>
   </trans-unit>
-<trans-unit id="sd2e91214ca249fb5">
-  <source>Invite by email. They get access instantly if they have an account, or a signup link if they don't. No pending invitations, no spam.</source>
-        <target>Invita por correo. Acceden al instante si tienen cuenta, o reciben un enlace de registro si no. Sin invitaciones pendientes, sin spam.</target>
-  </trans-unit>
 <trans-unit id="s7acffe2e8548f2ec">
   <source>Integrates with your calendar</source>
         <target>Se integra con tu calendario</target>
@@ -793,10 +789,6 @@
 <trans-unit id="s87bae2710b2492c3">
   <source>Contact</source>
         <target>Contacto</target>
-  </trans-unit>
-<trans-unit id="s4cdbd72d927e6373">
-  <source>© 2025 planu. Built with Lit, Web Awesome and Firebase.</source>
-        <target>© 2025 planu. Construido con Lit, Web Awesome y Firebase.</target>
   </trans-unit>
 <trans-unit id="s02253dffcabdc0e2">
   <source>Dinner with friends</source>
@@ -1133,6 +1125,14 @@
 <trans-unit id="sd69ee7093aa45c85">
   <source>More actions for “<x id="0" equiv-text="${event.title}"/>”</source>
         <target>Más acciones para «<x id="0" equiv-text="${event.title}"/>»</target>
+</trans-unit>
+<trans-unit id="s3da9fbf2ebc6f62e">
+  <source>Invite by email and choose Viewer or Editor. They get access once they accept the invitation.</source>
+        <target>Invita por email y elige Lector o Editor. Tendrán acceso cuando acepten la invitación.</target>
+</trans-unit>
+<trans-unit id="s8ed00702e89e5d38">
+  <source>© 2026 planu. Built with Lit, Web Awesome and Firebase.</source>
+        <target>© 2026 planu. Construido con Lit, Web Awesome y Firebase.</target>
 </trans-unit>
 </body>
 </file>
