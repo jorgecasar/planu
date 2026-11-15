@@ -120,12 +120,23 @@ function accept(spendOffer: boolean, role = "viewer") {
 const join = (role = "viewer") =>
 	accept(false, role).catch(() => assertSucceeds(accept(true, role)));
 
-/** Removed, then their own record erased (ADR 0013). */
+/**
+ * Removed, then the record erased. The guest can't erase a tombstone (ADR
+ * 0015), so the owner does: with the id free, only a spent offer stops them.
+ */
 async function removedAndErased() {
-	await assertSucceeds(
-		updateDoc(doc(owner(), EVENT), { memberIds: [OWNER], roles: {} }),
-	);
-	await assertSucceeds(deleteDoc(doc(guest(), INVITE)));
+	const o = owner();
+	const batch = writeBatch(o);
+	batch.update(doc(o, EVENT), { memberIds: [OWNER], roles: {} });
+	batch.set(doc(o, INVITE), {
+		eventId: "an-event",
+		inviteeUid: GUEST,
+		invitedBy: OWNER,
+		status: "removed",
+		decidedAt: serverTimestamp(),
+	});
+	await assertSucceeds(batch.commit());
+	await assertSucceeds(deleteDoc(doc(o, INVITE)));
 }
 
 /** Copied field for field from the offer, as `claimsOffer()` requires. */
@@ -162,12 +173,20 @@ describe("joining by uid spends the email offer to that address", () => {
 		await join("editor");
 		const downgrade = { [`roles.${GUEST}`]: "viewer" };
 		await assertSucceeds(updateDoc(doc(owner(), EVENT), downgrade));
-		const leave = {
+		const g = guest();
+		const leave = writeBatch(g);
+		leave.update(doc(g, EVENT), {
 			memberIds: arrayRemove(GUEST),
 			[`roles.${GUEST}`]: deleteField(),
-		};
-		await assertSucceeds(updateDoc(doc(guest(), EVENT), leave));
-		await assertSucceeds(deleteDoc(doc(guest(), INVITE)));
+		});
+		leave.set(doc(g, INVITE), {
+			eventId: "an-event",
+			inviteeUid: GUEST,
+			invitedBy: OWNER,
+			status: "removed",
+			decidedAt: serverTimestamp(),
+		});
+		await assertSucceeds(leave.commit());
 		await assertFails(claim("editor"));
 		await assertFails(claimOnly("editor"));
 	});
@@ -212,6 +231,7 @@ describe("a tombstone keeps a removed guest out", () => {
 		batch.set(doc(o, INVITE), tombstone);
 		return batch.commit();
 	};
+
 	beforeEach(async () => {
 		await seed(EVENT, {
 			title: "Concert",
@@ -226,6 +246,7 @@ describe("a tombstone keeps a removed guest out", () => {
 		});
 		await seed(INVITE, { ...anInvite(), status: "accepted" });
 	});
+
 	test("T5: record erased while a member, offer to the same address", async () => {
 		await offerTo(OFFER, EMAIL);
 		await assertSucceeds(deleteDoc(doc(guest(), INVITE)));
@@ -233,12 +254,14 @@ describe("a tombstone keeps a removed guest out", () => {
 		await assertFails(deleteDoc(doc(guest(), INVITE)));
 		await assertFails(claimAs(EMAIL, OFFER));
 	});
+
 	test("V2: an address changed to one the removal cannot find", async () => {
 		await offerTo(OFFER2, E2);
 		await assertSucceeds(ownerRemoves());
 		await assertFails(deleteDoc(doc(asGuest(E2), INVITE)));
 		await assertFails(claimAs(E2, OFFER2));
 	});
+
 	test("the guest cannot edit, rewrite or write one", async () => {
 		await assertFails(setDoc(doc(guest(), INVITE), TOMBSTONE()));
 		await assertSucceeds(ownerRemoves());
@@ -246,6 +269,7 @@ describe("a tombstone keeps a removed guest out", () => {
 		await assertFails(setDoc(doc(guest(), INVITE), anInvite()));
 		await assertFails(setDoc(doc(guest(), INVITE), TOMBSTONE()));
 	});
+
 	/** Leaving, with what the batch writes at the guest's id, if anything. */
 	const leave = (tombstone?: object) => {
 		const g = guest();
@@ -257,16 +281,20 @@ describe("a tombstone keeps a removed guest out", () => {
 		if (tombstone) batch.set(doc(g, INVITE), tombstone);
 		return batch.commit();
 	};
+
 	test("V1: leaving takes a tombstone, so an offer sent meanwhile is dead", async () => {
 		await offerTo(OFFER, EMAIL);
+		await assertFails(leave());
 		await assertSucceeds(leave(TOMBSTONE()));
 		await assertFails(deleteDoc(doc(guest(), INVITE)));
 		await assertFails(claimAs(EMAIL, OFFER));
 	});
+
 	test("a leaving guest cannot name themselves as inviter", async () => {
 		await assertFails(leave({ ...TOMBSTONE(), invitedBy: GUEST }));
 		await assertSucceeds(leave(TOMBSTONE()));
 	});
+
 	test("a leaver cannot write a tombstone over someone else's record", async () => {
 		const g = guest();
 		const batch = writeBatch(g);
@@ -278,15 +306,18 @@ describe("a tombstone keeps a removed guest out", () => {
 		batch.set(doc(g, "eventInvites/an-event_other-uid"), TOMBSTONE());
 		await assertFails(batch.commit());
 	});
+
 	test("a removal cannot leave a declined record in the tombstone's place", async () => {
 		await assertFails(ownerRemoves({ ...TOMBSTONE(), status: "declined" }));
 	});
+
 	test("nor does the owner for a non-member, or with an address on it", async () => {
 		await assertFails(ownerRemoves({ ...TOMBSTONE(), inviteeEmail: EMAIL }));
 		await assertFails(ownerRemoves({ ...TOMBSTONE(), decidedAt: null }));
 		await assertSucceeds(ownerRemoves());
 		await assertFails(setDoc(doc(owner(), INVITE), TOMBSTONE()));
 	});
+
 	test.each([true, false])(
 		"the guest deletes it once the event is gone (verified: %s)",
 		async (verified) => {
@@ -297,16 +328,19 @@ describe("a tombstone keeps a removed guest out", () => {
 			await assertSucceeds(deleteDoc(doc(asGuest(EMAIL, verified), INVITE)));
 		},
 	);
+
 	test("the owner re-invites by uid, and the guest accepts", async () => {
 		await assertSucceeds(ownerRemoves());
 		await assertSucceeds(setDoc(doc(owner(), INVITE), anInvite()));
 		await assertSucceeds(accept(false));
 	});
+
 	// Account deletion of a member whose verification lapsed: they cannot
 	// leave, but nothing keeps them from erasing their accepted record.
 	test("an unverified member still erases their accepted record", async () => {
 		await assertSucceeds(deleteDoc(doc(asGuest(EMAIL, false), INVITE)));
 	});
+
 	test("a pending record stays erasable, even on an event without memberIds", async () => {
 		await seed(EVENT, { title: "Concert", userId: OWNER });
 		await seed(INVITE, anInvite());

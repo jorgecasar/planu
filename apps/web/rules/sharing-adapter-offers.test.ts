@@ -4,7 +4,10 @@ import {
 	type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import { doc, type Firestore, getDoc, setDoc } from "firebase/firestore";
+import type { FirebaseStorage } from "firebase/storage";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
+import { createAccountDataAdapter } from "../src/infrastructure/firebase/account-data-adapter.js";
+import { FirebaseEventRepository } from "../src/infrastructure/firebase/event-repository.js";
 import { createSharingAdapter } from "../src/infrastructure/firebase/sharing-adapter.js";
 
 // The real adapter against the real rules (GH-147). Its unit tests mock the
@@ -93,4 +96,44 @@ test("removing a guest with no email offer to spend goes through", async () => {
 	await ownersAdapter().updateEventMembership("an-event", membership, GUEST);
 
 	expect(await stored(EVENT)).toMatchObject(membership);
+	// ADR 0015: a tombstone in its place, hidden from the owner's pending
+	// list, and a uid re-invite still turns it back into an offer.
+	expect(await stored(INVITE)).toMatchObject({ status: "removed" });
+	expect(await stored(INVITE)).not.toHaveProperty("inviteeEmail");
+	expect(await ownersAdapter().listPendingInvites("an-event", OWNER)).toEqual(
+		[],
+	);
+	await ownersAdapter().inviteToEvent(AN_INVITE);
+	expect(await stored(INVITE)).toMatchObject({ status: "pending" });
 });
+
+test.each(["event repository", "account deletion"])(
+	"leaving through the %s writes the tombstone the rules accept",
+	async (path) => {
+		await env.withSecurityRulesDisabled(async (ctx) => {
+			const db = ctx.firestore();
+			const joined = {
+				memberIds: [OWNER, GUEST],
+				roles: { [GUEST]: "viewer" },
+			};
+			await setDoc(doc(db, EVENT), joined, { merge: true });
+			await setDoc(doc(db, INVITE), { ...AN_INVITE, status: "accepted" });
+		});
+		const db = env
+			.authenticatedContext(GUEST, { email_verified: true })
+			.firestore() as unknown as Firestore;
+
+		await (path === "event repository"
+			? new FirebaseEventRepository(db).leave("an-event", GUEST)
+			: createAccountDataAdapter(db, {} as FirebaseStorage).leaveEvent(
+					"an-event",
+					GUEST,
+				));
+
+		expect(await stored(EVENT)).toMatchObject({ memberIds: [OWNER] });
+		expect(await stored(INVITE)).toMatchObject({
+			status: "removed",
+			invitedBy: OWNER,
+		});
+	},
+);

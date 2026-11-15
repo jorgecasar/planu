@@ -95,6 +95,28 @@ const asViewer = (emailVerified = true) => as(VIEWER, emailVerified);
 const asEditor = (emailVerified = true) => as(EDITOR, emailVerified);
 const asAnonymous = () => env.unauthenticatedContext().firestore();
 
+/**
+ * A guest leaves, or with `by` the owner removes them, as the client does:
+ * with their tombstone in the same batch (ADR 0015).
+ */
+const leave = (
+	uid: string,
+	data: Record<string, unknown>,
+	{ event = "shared-event", verified = true, by = uid } = {},
+) => {
+	const db = as(by, verified);
+	const batch = writeBatch(db);
+	batch.update(doc(db, `events/${event}`), data);
+	batch.set(doc(db, `eventInvites/${event}_${uid}`), {
+		eventId: event,
+		inviteeUid: uid,
+		invitedBy: VICTIM,
+		status: "removed",
+		decidedAt: serverTimestamp(),
+	});
+	return batch.commit();
+};
+
 describe("privacy between users", () => {
 	test("the owner reads their own event", async () => {
 		await assertSucceeds(getDoc(doc(asVictim(), "events/victim-event")));
@@ -486,13 +508,27 @@ describe("only the owner touches membership", () => {
 		);
 	});
 
-	test("the owner removes guests", async () => {
-		await assertSucceeds(
-			updateDoc(doc(asVictim(), "events/shared-event"), {
-				memberIds: [VICTIM],
-				roles: {},
+	test("the owner removes a guest, one per write, leaving a tombstone (ADR 0015)", async () => {
+		const out = { memberIds: [VICTIM, EDITOR], roles: { [EDITOR]: "editor" } };
+		await assertFails(updateDoc(doc(asVictim(), "events/shared-event"), out));
+		await assertFails(
+			leave(VIEWER, { memberIds: [VICTIM], roles: {} }, { by: VICTIM }),
+		);
+		await assertSucceeds(leave(VIEWER, out, { by: VICTIM }));
+	});
+
+	test("an old owner client cannot remove a guest whose accepted record stays", async () => {
+		// Any record is not enough: only a tombstone keeps them out.
+		await env.withSecurityRulesDisabled((ctx) =>
+			setDoc(doc(ctx.firestore(), `eventInvites/shared-event_${VIEWER}`), {
+				eventId: "shared-event",
+				inviteeUid: VIEWER,
+				invitedBy: VICTIM,
+				status: "accepted",
 			}),
 		);
+		const out = { memberIds: [VICTIM, EDITOR], roles: { [EDITOR]: "editor" } };
+		await assertFails(updateDoc(doc(asVictim(), "events/shared-event"), out));
 	});
 
 	test("not even the owner can add a member directly", async () => {
@@ -548,19 +584,16 @@ describe("only the owner touches membership", () => {
 });
 
 describe("leaving someone else's event", () => {
-	test("a viewer can remove themselves", async () => {
-		await assertSucceeds(
-			updateDoc(doc(asViewer(), "events/shared-event"), {
-				memberIds: [VICTIM, EDITOR],
-				roles: { [EDITOR]: "editor" },
-			}),
-		);
+	test("a viewer can remove themselves, leaving a tombstone (ADR 0015)", async () => {
+		const out = { memberIds: [VICTIM, EDITOR], roles: { [EDITOR]: "editor" } };
+		await assertFails(updateDoc(doc(asViewer(), "events/shared-event"), out));
+		await assertSucceeds(leave(VIEWER, out));
 	});
 
 	test("leaving cannot smuggle in a content change", async () => {
 		// Without bounding which fields change, leaving would be a way to edit.
 		await assertFails(
-			updateDoc(doc(asViewer(), "events/shared-event"), {
+			leave(VIEWER, {
 				memberIds: [VICTIM, EDITOR],
 				roles: { [EDITOR]: "editor" },
 				title: "Colado al salir",
@@ -570,7 +603,7 @@ describe("leaving someone else's event", () => {
 
 	test("leaving is not a way to remove someone else", async () => {
 		await assertFails(
-			updateDoc(doc(asViewer(), "events/shared-event"), {
+			leave(VIEWER, {
 				memberIds: [VICTIM, VIEWER],
 				roles: { [VIEWER]: "viewer" },
 			}),
@@ -593,24 +626,22 @@ describe("leaving someone else's event", () => {
 			await setDoc(doc(ctx.firestore(), "events/half-migrated"), withoutRoles);
 		});
 
-	const leaveHalfMigrated = (
-		db: ReturnType<typeof asViewer>,
-		data: Record<string, unknown>,
-	) => updateDoc(doc(db, "events/half-migrated"), data);
+	const leaveHalfMigrated = (uid: string, data: Record<string, unknown>) =>
+		leave(uid, data, { event: "half-migrated" });
 
 	test("a guest can leave a half-migrated event that has no roles", async () => {
 		// Without rolesOf, reading `roles` straight off the document would raise
 		// an error, deny the write and strand the guest.
 		await seedHalfMigrated([VICTIM, VIEWER]);
 		await assertSucceeds(
-			leaveHalfMigrated(asViewer(), { memberIds: [VICTIM], roles: {} }),
+			leaveHalfMigrated(VIEWER, { memberIds: [VICTIM], roles: {} }),
 		);
 	});
 
 	test("leaving a half-migrated event cannot grant a role", async () => {
 		await seedHalfMigrated([VICTIM, VIEWER]);
 		await assertFails(
-			leaveHalfMigrated(asViewer(), {
+			leaveHalfMigrated(VIEWER, {
 				memberIds: [VICTIM],
 				roles: { [VIEWER]: "editor" },
 			}),
@@ -620,7 +651,7 @@ describe("leaving someone else's event", () => {
 	test("leaving a half-migrated event cannot smuggle in a content change", async () => {
 		await seedHalfMigrated([VICTIM, VIEWER]);
 		await assertFails(
-			leaveHalfMigrated(asViewer(), {
+			leaveHalfMigrated(VIEWER, {
 				memberIds: [VICTIM],
 				roles: {},
 				title: "Colado al salir",
@@ -631,7 +662,7 @@ describe("leaving someone else's event", () => {
 	test("a non-member cannot empty a half-migrated event", async () => {
 		await seedHalfMigrated([VICTIM, VIEWER]);
 		await assertFails(
-			leaveHalfMigrated(asAttacker(), { memberIds: [VICTIM], roles: {} }),
+			leaveHalfMigrated(ATTACKER, { memberIds: [VICTIM], roles: {} }),
 		);
 	});
 
@@ -641,7 +672,7 @@ describe("leaving someone else's event", () => {
 		// entry. The backfill is what unblocks this, not the rules.
 		await seedHalfMigrated([VICTIM, VIEWER, EDITOR]);
 		await assertFails(
-			leaveHalfMigrated(asViewer(), {
+			leaveHalfMigrated(VIEWER, {
 				memberIds: [VICTIM, EDITOR],
 				roles: {},
 			}),
@@ -650,10 +681,11 @@ describe("leaving someone else's event", () => {
 
 	test("an unverified viewer cannot leave the event", async () => {
 		await assertFails(
-			updateDoc(doc(asViewer(false), "events/shared-event"), {
-				memberIds: [VICTIM, EDITOR],
-				roles: { [EDITOR]: "editor" },
-			}),
+			leave(
+				VIEWER,
+				{ memberIds: [VICTIM, EDITOR], roles: { [EDITOR]: "editor" } },
+				{ verified: false },
+			),
 		);
 	});
 });
@@ -1222,14 +1254,14 @@ describe("tags cannot travel on a membership write", () => {
 
 	test("leaving an event cannot carry tags", async () => {
 		await assertFails(
-			updateDoc(doc(asViewer(), "events/shared-event"), {
+			leave(VIEWER, {
 				memberIds: [VICTIM, EDITOR],
 				roles: { [EDITOR]: "editor" },
 				tags: ["colada"],
 			}),
 		);
 		await assertSucceeds(
-			updateDoc(doc(asViewer(), "events/shared-event"), {
+			leave(VIEWER, {
 				memberIds: [VICTIM, EDITOR],
 				roles: { [EDITOR]: "editor" },
 			}),
