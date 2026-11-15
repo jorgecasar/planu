@@ -28,6 +28,7 @@ import {
 	noopAnalytics,
 } from "../../application/ports/analytics.js";
 import { sharingContext } from "../../application/ports/sharing.js";
+import { appConsent } from "../../domain/consent.js";
 import { createAccountDataAdapter } from "./account-data-adapter.js";
 import { createAiModelAdapter } from "./ai-model-adapter.js";
 import { createAnalyticsAdapter } from "./analytics-adapter.js";
@@ -236,9 +237,11 @@ export class PlanuFirebaseProvider extends LitElement {
 		// No espera a que haya sesión: T31 mide activación desde la visita, no
 		// sólo tras registrarse. `isSupported()` es asíncrono —de ahí la
 		// promesa— y nunca lanza; ver createAnalyticsAdapter.
-		void createAnalyticsAdapter(this.#core.app).then((adapter) => {
-			this.#analytics.setValue(adapter);
-		});
+		void createAnalyticsAdapter(this.#core.app, appConsent()).then(
+			(adapter) => {
+				this.#analytics.setValue(adapter);
+			},
+		);
 		this.#unsubscribe = onAuthStateChanged(
 			this.#core.auth,
 			(user: User | null) => {
