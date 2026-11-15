@@ -1126,6 +1126,10 @@
   <source>Filters</source>
         <target>Filtros</target>
 </trans-unit>
+<trans-unit id="sdf307a83f805c045">
+  <source>Filters (<x id="0" equiv-text="${count}"/>)</source>
+        <target>Filtros (<x id="0" equiv-text="${count}"/>)</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
