@@ -100,6 +100,7 @@ export function landingTemplate(): TemplateResult {
 				<style><!--INLINE_CSS_PLACEHOLDER--></style>
 			</head>
 			<body>
+				${header()}
 				<main>
 					${hero()}
 					${features()}
@@ -110,24 +111,29 @@ export function landingTemplate(): TemplateResult {
 	`;
 }
 
-function hero(): TemplateResult {
+export function header(): TemplateResult {
+	// Built outside the template for the same lit-analyzer reason as in legal.ts.
+	const home = `${LOCALE_PREFIX}/`;
+	return html`
+		<header class="site-header wa-cluster wa-justify-content-space-between wa-align-items-center">
+			<a href="${home}" class="site-logo"><img src="/logo.svg" alt="planu" width="48" height="48" /></a>
+			<a href="/app/login" class="wa-button wa-plain">${msg("Sign in")}</a>
+		</header>
+	`;
+}
+
+export function hero(): TemplateResult {
+	// The CTA goes to /app/login, which opens the "Sign in" tab: the deep link
+	// to the sign-up tab is a later slice (spec section 14, slice 6).
 	return html`
 		<section class="hero wa-stack wa-gap-l">
 			<div class="wa-stack wa-gap-m">
-				<img
-					class="hero-logo"
-					src="/logo.svg"
-					alt="planu"
-					width="72"
-					height="72"
-				/>
-				<h1 class="wa-heading-3xl">${msg("Your events. Private. Shareable. Yours.")}</h1>
-				<p class="wa-font-size-l wa-color-text-quiet">${msg("Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.")}</p>
+				<h1 class="wa-heading-3xl">${msg("Plan your events. Share them only with the people you choose.")}</h1>
+				<p class="wa-font-size-l wa-color-text-quiet">${msg("Dinners, get-togethers, group plans: keep each one with its place, dates, tags and image. It's yours alone until you invite someone as a viewer or an editor.")}</p>
 				<div class="wa-cluster wa-gap-s wa-justify-content-center">
-					<a href="/app" class="wa-button wa-brand wa-size-l">${msg("Start planning")}</a>
-					<a href="/app/login" class="wa-button wa-brand wa-outlined wa-size-l">${msg("Sign in")}</a>
+					<a href="/app/login" class="wa-button wa-brand wa-size-l">${msg("Create your account")}</a>
 				</div>
-				<p class="wa-font-size-s wa-color-text-quiet">${msg("Free. No ads. Your data stays yours.")}</p>
+				<p class="wa-font-size-s wa-color-text-quiet">${msg("With your email or Google. The rest is up to you.")}</p>
 			</div>
 			<figure class="hero-figure">
 				<img

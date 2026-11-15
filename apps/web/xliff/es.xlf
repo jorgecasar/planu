@@ -698,22 +698,6 @@
   <source>Suggest tags with AI</source>
         <target>Sugerir etiquetas con IA</target>
 </trans-unit>
-<trans-unit id="s94e24004492265e1">
-  <source>Your events. Private. Shareable. Yours.</source>
-        <target>Tus eventos. Privados. Compartibles. Tuyos.</target>
-  </trans-unit>
-<trans-unit id="s204a33363a72d45f">
-  <source>Create events from a photo or pasted text. Keep them private, or invite specific people as viewers or editors. Export to your calendar with one click.</source>
-        <target>Crea eventos desde una foto o texto pegado. Mantenlos privados, o invita a personas concretas como espectadores o editores. Expórtalos a tu calendario con un clic.</target>
-  </trans-unit>
-<trans-unit id="s691204c181f37bdc">
-  <source>Start planning</source>
-        <target>Empezar a planificar</target>
-  </trans-unit>
-<trans-unit id="sab75e65a2cfa2841">
-  <source>Free. No ads. Your data stays yours.</source>
-        <target>Gratis. Sin anuncios. Tus datos son tuyos.</target>
-  </trans-unit>
 <trans-unit id="s61042097e512fd52">
   <source>Screenshot of planu showing event cards with title, date, location and cover image</source>
         <target>Captura de planu mostrando tarjetas de eventos con título, fecha, ubicación e imagen de portada</target>
@@ -1173,6 +1157,22 @@
 <trans-unit id="s4910b4530ed8711b">
   <source>The link could not be copied.</source>
         <target>No se pudo copiar el enlace.</target>
+</trans-unit>
+<trans-unit id="s27865a85802e2413">
+  <source>Plan your events. Share them only with the people you choose.</source>
+        <target>Planifica tus eventos. Compártelos solo con quien tú elijas.</target>
+</trans-unit>
+<trans-unit id="s03ebcef8b69b314a">
+  <source>Dinners, get-togethers, group plans: keep each one with its place, dates, tags and image. It's yours alone until you invite someone as a viewer or an editor.</source>
+        <target>Cenas, quedadas, planes de grupo: guarda cada uno con su lugar, sus fechas, sus etiquetas y su imagen. Es solo tuyo hasta que invitas a alguien como lector o como editor.</target>
+</trans-unit>
+<trans-unit id="s1dadba91383bc6b3">
+  <source>Create your account</source>
+        <target>Crea tu cuenta</target>
+</trans-unit>
+<trans-unit id="s07f6734a33930674">
+  <source>With your email or Google. The rest is up to you.</source>
+        <target>Con tu correo o con Google. Lo demás lo decides tú.</target>
 </trans-unit>
 </body>
 </file>

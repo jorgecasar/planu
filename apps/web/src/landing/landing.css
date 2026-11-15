@@ -2,7 +2,7 @@
 /* Sólo utilidades y tokens de Web Awesome; ningún valor en crudo. */
 
 .hero {
-	padding-block: var(--wa-space-3xl) var(--wa-space-2xl);
+	padding-block: var(--wa-space-xl) var(--wa-space-2xl);
 	text-align: center;
 }
 
@@ -76,16 +76,21 @@ footer a:hover {
 	padding-inline: var(--wa-space-xl);
 }
 
-.hero-logo {
-	inline-size: 4.5rem;
-	block-size: 4.5rem;
-	margin-inline: auto;
+.site-header {
+	padding: var(--wa-space-s) var(--wa-space-xl);
+}
+
+.site-logo {
+	display: block;
+	inline-size: var(--wa-space-3xl);
+	block-size: var(--wa-space-3xl);
 }
 
 .features .feature-grid {
 	/* `wa-grid` reparte en columnas iguales; aquí interesa que las tarjetas
-	   fluyan según el ancho disponible. */
-	grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+	   fluyan según el ancho disponible. The `min(…, 100%)` keeps a single column
+	   from overflowing viewports narrower than the column minimum (320 px). */
+	grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
 }
 
 /*
