@@ -118,7 +118,9 @@ export class PlanuShareDialog extends LitElement {
 	 * What the owner can send to the person just invited. planu mails nobody
 	 * (ADR 0012): this is the owner's own mail client, clipboard or share sheet.
 	 */
-	@state() private handoff: { mailto: string; link: string } | undefined;
+	@state() private handoff:
+		| { subject: string; mailto: string; link: string }
+		| undefined;
 
 	@state() private copied = false;
 
@@ -242,6 +244,14 @@ export class PlanuShareDialog extends LitElement {
 				<wa-button data-action="copy" @click=${this.#copyLink}>
 					${msg("Copy link")}
 				</wa-button>
+				${
+					// Share only where the browser can; everywhere else Copy covers it.
+					typeof navigator.share === "function"
+						? html`<wa-button data-action="share" @click=${this.#shareLink}>
+								${msg("Share")}
+							</wa-button>`
+						: nothing
+				}
 				<span role="status">${this.copied ? msg("Link copied.") : nothing}</span>
 			</div>
 		`;
@@ -259,6 +269,18 @@ export class PlanuShareDialog extends LitElement {
 			this.copied = true;
 		} catch {
 			this.error = msg("The link could not be copied.");
+		}
+	};
+
+	readonly #shareLink = async (): Promise<void> => {
+		const { handoff } = this;
+		if (!handoff) return;
+		try {
+			await navigator.share({ title: handoff.subject, url: handoff.link });
+		} catch (error) {
+			// Closing the sheet is a choice, not a failure.
+			if (error instanceof DOMException && error.name === "AbortError") return;
+			await this.#copyLink();
 		}
 	};
 
@@ -357,7 +379,11 @@ export class PlanuShareDialog extends LitElement {
 			role,
 			to: email,
 		});
-		this.handoff = { mailto: message.mailto, link };
+		this.handoff = {
+			subject: message.subject,
+			mailto: message.mailto,
+			link,
+		};
 		this.analytics.trackShare({ editable: role === "editor" });
 		form.reset();
 		await this.#access.load().catch(() => {});
