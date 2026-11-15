@@ -23,6 +23,7 @@ import {
 } from "./auth/guard.js";
 import { loginNoticeState } from "./auth/login-notice.js";
 import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
+import { reloadOnceOnStaleChunk } from "./reload-on-stale-chunk.js";
 import { webAwesomeStyles } from "./styles/web-awesome.js";
 
 /**
@@ -146,7 +147,15 @@ export class PlanuApp extends LitElement {
 	 */
 	async #enterPrivate(load: () => Promise<unknown>): Promise<boolean> {
 		if (!this.user || this.deletion.running) return false;
-		await load();
+		try {
+			await load();
+		} catch (error) {
+			// A tab left open across a deploy points to chunks that no longer
+			// exist. Reload once on this route so the new build loads; if it
+			// already did, surface the error as before.
+			if (reloadOnceOnStaleChunk()) return false;
+			throw error;
+		}
 		return true;
 	}
 
