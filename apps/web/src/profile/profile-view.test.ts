@@ -115,6 +115,24 @@ test("una cuenta verificada no ve el aviso ni la opción de cambiar el email", a
 	expect(button(el, "Delete account")).toBeDefined();
 });
 
+test("el aviso dice que hay que confirmar el correo para empezar a usar planu y a qué dirección fue", async () => {
+	const el = await mount(UNVERIFIED);
+
+	const text = el.shadowRoot?.querySelector("wa-callout")?.textContent ?? "";
+	expect(text).toContain("Confirm your email to start using planu.");
+	expect(text).toContain(UNVERIFIED.email ?? "");
+	expect(text).not.toContain("invite");
+});
+
+test("reenviar es la acción principal del aviso y comprobar no lo es", async () => {
+	const el = await mount(UNVERIFIED);
+
+	expect(button(el, "Resend email")?.getAttribute("variant")).toBe("brand");
+	expect(button(el, "I have verified it")?.getAttribute("variant")).not.toBe(
+		"brand",
+	);
+});
+
 test("una cuenta de Google no ofrece cambiar el email: su dirección es de Google", async () => {
 	const el = await mount({ ...UNVERIFIED, provider: "google.com" });
 

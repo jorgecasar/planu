@@ -14,9 +14,7 @@ const newEmail = () =>
 async function expectLandsOnProfileUnverified(page: Page): Promise<void> {
 	await expect(page).toHaveURL(/\/app\/profile$/);
 	await expect(
-		page.getByText(
-			"Verify your email so others can invite you to their events.",
-		),
+		page.getByText(/Confirm your email to start using planu\./),
 	).toBeVisible();
 }
 
