@@ -136,3 +136,28 @@ export function isNarrowed(filters: EventFilters): boolean {
 		(filters.tags?.length ?? 0) > 0
 	);
 }
+
+export interface DrawerFilters {
+	ownership?: OwnershipFilter;
+	/** Only whether each end is set matters, so any truthy value counts. */
+	from?: unknown;
+	to?: unknown;
+	tags?: readonly string[];
+}
+
+/**
+ * How many filters are active behind the «Filters» button, the `n` it shows.
+ *
+ * Search is left out: it stays in sight, so counting it would announce a
+ * filter the user can already see. Each tag counts on its own because each
+ * one narrows the list further (they combine with AND). A time without its
+ * date does nothing, and the caller only passes the date.
+ */
+export function countDrawerFilters(filters: DrawerFilters): number {
+	return (
+		(filters.ownership !== undefined && filters.ownership !== "all" ? 1 : 0) +
+		(filters.from ? 1 : 0) +
+		(filters.to ? 1 : 0) +
+		(filters.tags?.length ?? 0)
+	);
+}

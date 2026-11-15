@@ -1,6 +1,10 @@
 import { expect, test } from "vitest";
 import type { PlanuEvent } from "../lib/types.js";
-import { filterEvents, isNarrowed } from "./filter-events.js";
+import {
+	countDrawerFilters,
+	filterEvents,
+	isNarrowed,
+} from "./filter-events.js";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`);
 
@@ -257,4 +261,29 @@ test("y filtrar por etiqueta también, que es lo que se olvidaba", () => {
 test("la bandeja elegida no es una consulta", () => {
 	// All / mine / shared is a way of navigating, not something you request.
 	expect(isNarrowed({ ownership: "shared", uid: "u1" })).toBe(false);
+});
+
+// ── «Filters (n)» (GH-188) ───────────────────────────────────────────────────
+
+test("sin nada elegido, el botón no cuenta nada", () => {
+	expect(countDrawerFilters({ ownership: "all", tags: [] })).toBe(0);
+});
+
+test("cuentan la bandeja, cada extremo del rango y cada etiqueta", () => {
+	expect(countDrawerFilters({ ownership: "mine" })).toBe(1);
+	expect(countDrawerFilters({ from: "2026-06-12" })).toBe(1);
+	expect(countDrawerFilters({ to: "2026-06-14" })).toBe(1);
+	expect(
+		countDrawerFilters({
+			ownership: "shared",
+			from: "2026-06-12",
+			to: "2026-06-14",
+			tags: ["cine", "música"],
+		}),
+	).toBe(5);
+});
+
+test("una fecha vacía no cuenta", () => {
+	// The component holds the dates as input strings: "" is unset.
+	expect(countDrawerFilters({ from: "", to: "" })).toBe(0);
 });

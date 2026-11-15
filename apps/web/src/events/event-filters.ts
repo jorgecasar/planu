@@ -5,12 +5,16 @@ import "@awesome.me/webawesome/dist/components/checkbox-group/checkbox-group.js"
 import "@awesome.me/webawesome/dist/components/checkbox/checkbox.js";
 import "@awesome.me/webawesome/dist/components/drawer/drawer.js";
 import "@awesome.me/webawesome/dist/components/radio/radio.js";
-import { msg } from "@lit/localize";
+import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
-import type { DateRange, OwnershipFilter } from "../domain/filter-events.js";
+import {
+	countDrawerFilters,
+	type DateRange,
+	type OwnershipFilter,
+} from "../domain/filter-events.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 export interface FiltersChange extends DateRange {
@@ -108,6 +112,12 @@ export class PlanuEventFilters extends LitElement {
 			this.to !== "" ||
 			this.ownership !== "all" ||
 			this.tags.length > 0;
+		const count = countDrawerFilters({
+			ownership: this.ownership,
+			from: this.from,
+			to: this.to,
+			tags: this.tags,
+		});
 
 		return html`
 			<form role="search" @submit=${this.#onSubmit}>
@@ -201,7 +211,7 @@ export class PlanuEventFilters extends LitElement {
 					appearance="outlined"
 					@click=${this.#openDrawer}
 				>
-					${msg("Filters")}
+					${count > 0 ? msg(str`Filters (${count})`) : msg("Filters")}
 				</wa-button>
 			</form>
 		`;
@@ -341,6 +351,11 @@ export class PlanuEventFilters extends LitElement {
 		this.ownership = "all";
 		this.tags = [];
 		this.#emit();
+		// The button leaves the DOM now: without this, focus falls to the body
+		// and a keyboard user is thrown back to the top of the page.
+		this.shadowRoot
+			?.querySelector<HTMLElement>("wa-input[type=search]")
+			?.focus();
 	}
 
 	#emit(): void {

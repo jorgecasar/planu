@@ -254,6 +254,7 @@ export const templates = {
 	sdccdc281f1bc438a: `El evento debe tener todas las etiquetas que marques.`,
 	sdcfed6e7b373824a: `Introduce un correo electrónico válido.`,
 	sdd35b8d59d206402: `Este evento ha llegado a su límite de invitados.`,
+	sdf307a83f805c045: str`Filtros (${0})`,
 	sdf7833b1c3634948: `Error de red. Revisa tu conexión.`,
 	se18c9f83ecd43653: `Invitado`,
 	se1e94b46cb3aad40: `Guardar evento`,

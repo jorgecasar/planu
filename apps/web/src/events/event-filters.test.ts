@@ -378,3 +378,48 @@ test("«Filtros» abre el cajón, también tras cerrarlo desde dentro", async ()
 	expect(drawer?.open).toBe(true);
 	el.remove();
 });
+
+// ── «Filters (n)» (GH-188) ───────────────────────────────────────────────────
+
+const toggleText = (el: PlanuEventFilters): string =>
+	filtersToggle(el)?.textContent?.trim() ?? "";
+
+test("el botón cuenta los filtros activos, no la búsqueda", async () => {
+	const el = await mount(["arte", "cine"]);
+	expect(toggleText(el)).toBe("Filters");
+
+	const search = el.shadowRoot?.querySelector<InputHost>('[name="search"]');
+	if (search) search.value = "concierto";
+	search?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await el.updateComplete;
+	expect(toggleText(el)).toBe("Filters");
+
+	await click(el, "cine");
+	expect(toggleText(el)).toBe("Filters (1)");
+
+	await click(el, "arte");
+	await setField(el, "from", "2026-06-12");
+	expect(toggleText(el)).toBe("Filters (3)");
+
+	clearButton(el)?.click();
+	await settle();
+	await el.updateComplete;
+	expect(toggleText(el)).toBe("Filters");
+	el.remove();
+});
+
+test("tras «Limpiar filtros» el foco queda en la búsqueda, no en el body", async () => {
+	const el = await mount([]);
+	const search = el.shadowRoot?.querySelector<InputHost>('[name="search"]');
+	if (search) search.value = "concierto";
+	search?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await el.updateComplete;
+
+	clearButton(el)?.click();
+	await settle();
+	await el.updateComplete;
+
+	expect(clearButton(el)).toBeNull();
+	expect(el.shadowRoot?.activeElement).toBe(search);
+	el.remove();
+});
