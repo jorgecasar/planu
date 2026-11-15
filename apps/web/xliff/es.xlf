@@ -1158,6 +1158,22 @@
   <source>Sign in with this email address to see it and accept:</source>
         <target>Entra con esta dirección de correo para verlo y aceptar:</target>
 </trans-unit>
+<trans-unit id="s35426f8487387d4c">
+  <source>Send by email</source>
+        <target>Enviar por correo</target>
+</trans-unit>
+<trans-unit id="s19172ed3838854fc">
+  <source>Copy link</source>
+        <target>Copiar enlace</target>
+</trans-unit>
+<trans-unit id="s740187a1971de927">
+  <source>Link copied.</source>
+        <target>Enlace copiado.</target>
+</trans-unit>
+<trans-unit id="s4910b4530ed8711b">
+  <source>The link could not be copied.</source>
+        <target>No se pudo copiar el enlace.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
