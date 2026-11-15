@@ -69,7 +69,20 @@ const isChecked = (el: PlanuEventFilters, tag: string): boolean | undefined =>
 	box(el, tag)?.shadowRoot?.querySelector("input")?.checked;
 
 const clearButton = (el: PlanuEventFilters): HTMLElement | null =>
-	el.shadowRoot?.querySelector("wa-button") ?? null;
+	el.shadowRoot?.querySelector("wa-button.clear") ?? null;
+
+const filtersToggle = (el: PlanuEventFilters): HTMLElement | null =>
+	el.shadowRoot?.querySelector("wa-button.filters-toggle") ?? null;
+
+/** Through «Filters», as a person would; closed, its fields can't focus. */
+async function openDrawer(el: PlanuEventFilters): Promise<void> {
+	const drawer = el.shadowRoot?.querySelector("wa-drawer");
+	const shown = new Promise((resolve) => {
+		drawer?.addEventListener("wa-after-show", resolve, { once: true });
+	});
+	filtersToggle(el)?.click();
+	await shown;
+}
 
 type InputHost = HTMLElement & {
 	value: string;
@@ -187,6 +200,7 @@ test("reordenar no le mueve el foco a quien navega con el teclado", async () => 
 	// clicked anything. The checked state and the label do get reapplied
 	// by `live()` and the bindings, so they don't prove anything here.
 	const el = await mount(["cine", "teatro"]);
+	await openDrawer(el);
 	const host = box(el, "cine");
 	await host?.updateComplete;
 	host?.shadowRoot?.querySelector("input")?.focus();
@@ -268,6 +282,7 @@ test("la fecha y la hora no se recortan en un grupo de 272 px", async () => {
 	// keeps the width measured for en-US Chromium: 144 px for mm/dd/yyyy and
 	// 129 px for the 12 h AM/PM time.
 	const el = await mount([]);
+	await openDrawer(el);
 	const floors = { from: 144, fromTime: 129, to: 144, toTime: 129 };
 
 	for (const width of ["17rem", "20rem", "30rem"]) {
@@ -301,5 +316,65 @@ test("limpiar borra también las dos horas", async () => {
 			?.value,
 	).toBe("");
 
+	el.remove();
+});
+
+test("con sólo una búsqueda, «Limpiar filtros» está a la vista", async () => {
+	const el = await mount([]);
+	el.style.inlineSize = "14rem"; // narrower than search + both buttons
+	expect(clearButton(el)).toBeNull();
+	const before = el.getBoundingClientRect().height;
+
+	const search = el.shadowRoot?.querySelector<InputHost>('[name="search"]');
+	if (search) search.value = "concierto";
+	search?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await el.updateComplete;
+
+	expect(clearButton(el)).not.toBeNull();
+	// End slot, not a new row (that cost ~51px): same height, within a line box.
+	expect(el.getBoundingClientRect().height).toBeLessThan(before + 2);
+	el.remove();
+});
+
+test("la búsqueda queda fuera del cajón y el resto dentro", async () => {
+	const el = await mount(["cine"]);
+	const inDrawer = (selector: string) =>
+		el.shadowRoot
+			?.querySelector("wa-drawer")
+			?.contains(el.shadowRoot.querySelector(selector));
+
+	expect(inDrawer('[name="search"]')).toBe(false);
+	for (const selector of [
+		"wa-radio-group",
+		'[name="toTime"]',
+		"wa-checkbox-group",
+	])
+		expect(inDrawer(selector)).toBe(true);
+	el.remove();
+});
+
+test("«Filtros» abre el cajón, también tras cerrarlo desde dentro", async () => {
+	// Escape, close button and backdrop bypass the component: stale `true`
+	// state would make the next click a no-op.
+	const el = await mount([]);
+	const drawer = el.shadowRoot?.querySelector("wa-drawer") as
+		| (HTMLElement & { open: boolean })
+		| null;
+	expect(drawer?.open).toBe(false);
+	await openDrawer(el);
+	expect(drawer?.open).toBe(true);
+
+	const hidden = new Promise((resolve) => {
+		drawer?.addEventListener("wa-after-hide", resolve, { once: true });
+	});
+	drawer?.shadowRoot
+		?.querySelector<HTMLElement>('[part~="close-button"]')
+		?.click();
+	await hidden;
+	await el.updateComplete;
+	expect(drawer?.open).toBe(false);
+
+	await openDrawer(el);
+	expect(drawer?.open).toBe(true);
 	el.remove();
 });

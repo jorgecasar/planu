@@ -194,6 +194,7 @@ export const templates = {
 	sa6ab5184d6315895: `Desde`,
 	sa6b668d62ccb88be: `Etiquetas propuestas por la IA`,
 	sa75b95980cd80e78: `Editor`,
+	sa8beb6b1182241ac: `Filtros`,
 	sa9f254a607f8de46: `¿Email equivocado? Cámbialo`,
 	saa5c4feee877ccf0: `planu te permite crear, buscar y filtrar tus propios eventos, y opcionalmente compartir eventos concretos con las personas que invites. Se ofrece tal cual, de forma gratuita, sin garantía de nivel de servicio: no tenemos plan de pago ni contrato de soporte con el que prometer disponibilidad.`,
 	sab07cf2bfae8483f: `Política de privacidad`,

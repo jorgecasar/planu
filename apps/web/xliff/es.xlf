@@ -1122,6 +1122,10 @@
   <source>No date</source>
         <target>Sin fecha</target>
 </trans-unit>
+<trans-unit id="sa8beb6b1182241ac">
+  <source>Filters</source>
+        <target>Filtros</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

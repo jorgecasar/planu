@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { closeFilters, openFilters } from "./tests/filters.js";
 import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
 
 /**
@@ -340,7 +341,9 @@ test("the inbox filter separates your own from the shared ones", async ({
 		guestPage.getByRole("heading", { name: sharedTitle, exact: true }),
 	).toBeVisible();
 
+	await openFilters(guestPage);
 	await guestPage.getByRole("radio", { name: "Mine" }).click();
+	await closeFilters(guestPage);
 	await expect(
 		guestPage.getByRole("heading", { name: ownTitle, exact: true }),
 	).toBeVisible();
@@ -348,7 +351,9 @@ test("the inbox filter separates your own from the shared ones", async ({
 		guestPage.getByRole("heading", { name: sharedTitle, exact: true }),
 	).toHaveCount(0);
 
+	await openFilters(guestPage);
 	await guestPage.getByRole("radio", { name: "Shared with me" }).click();
+	await closeFilters(guestPage);
 	await expect(
 		guestPage.getByRole("heading", { name: sharedTitle, exact: true }),
 	).toBeVisible();
