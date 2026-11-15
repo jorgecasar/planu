@@ -1,5 +1,10 @@
 import { FirebaseError } from "firebase/app";
-import { deleteUser, reload, verifyBeforeUpdateEmail } from "firebase/auth";
+import {
+	deleteUser,
+	reload,
+	sendEmailVerification,
+	verifyBeforeUpdateEmail,
+} from "firebase/auth";
 import { expect, test, vi } from "vitest";
 import { SessionError } from "../../domain/session-error.js";
 import {
@@ -13,6 +18,7 @@ import {
 vi.mock("firebase/auth", async (importOriginal) => ({
 	...(await importOriginal<typeof import("firebase/auth")>()),
 	verifyBeforeUpdateEmail: vi.fn(),
+	sendEmailVerification: vi.fn(),
 	reload: vi.fn(),
 	deleteUser: vi.fn(),
 }));
@@ -246,6 +252,21 @@ test("changeEmail() traduce el fallo del proveedor a SessionError, sin filtrar e
 
 	expect(error).toBeInstanceOf(SessionError);
 	expect(error.code).toBe("requires-recent-login");
+	expect(error.message).not.toContain("SECRET_TRACE");
+});
+
+test("sendVerificationEmail() traduce el límite del proveedor a SessionError, sin filtrar el mensaje crudo", async () => {
+	const adapter = new FirebaseSessionAdapter({
+		currentUser: { uid: "u1" },
+	} as never);
+	vi.mocked(sendEmailVerification).mockRejectedValueOnce(
+		new FirebaseError("auth/too-many-requests", "SECRET_TRACE"),
+	);
+
+	const error = await adapter.sendVerificationEmail().catch((e) => e);
+
+	expect(error).toBeInstanceOf(SessionError);
+	expect(error.code).toBe("too-many-requests");
 	expect(error.message).not.toContain("SECRET_TRACE");
 });
 
