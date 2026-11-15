@@ -374,21 +374,43 @@ describe("updateEventMembership()", () => {
 		getDocMock.mockReset();
 		batchUpdateMock.mockReset();
 		batchDeleteMock.mockReset();
+		batchSetMock.mockReset();
 		commitMock.mockReset().mockResolvedValue(undefined);
 		getDocsMock.mockReset();
 	});
 
+	/** The record at `eventInvites/…`, and the event naming its owner. */
+	const reads = (record: object | undefined) =>
+		getDocMock.mockImplementation(async (ref: { path: string }) => ({
+			data: () =>
+				ref.path.startsWith("events/") ? { userId: "owner-uid" } : record,
+		}));
+
+	test("removing a guest leaves a tombstone in the same batch (ADR 0015)", async () => {
+		reads({ invitedBy: "owner-uid" });
+
+		await adapter.updateEventMembership("e1", MEMBERSHIP, "guest");
+
+		expect(batchSetMock).toHaveBeenCalledExactlyOnceWith(
+			{ path: "eventInvites/e1_guest" },
+			{
+				eventId: "e1",
+				inviteeUid: "guest",
+				invitedBy: "owner-uid",
+				status: "removed",
+				decidedAt: "SERVER_TIME",
+			},
+		);
+		expect(commitMock).toHaveBeenCalledOnce();
+	});
+
 	test("removing a guest also spends the owner's email offer to them (GH-147)", async () => {
-		const record = {
-			inviteeEmail: "Guest@Example.com",
-			invitedBy: "owner-uid",
-		};
-		getDocMock.mockResolvedValue({ data: () => record });
+		reads({ inviteeEmail: "Guest@Example.com", invitedBy: "owner-uid" });
 		const offer = await offersOf("e1");
 
 		await adapter.updateEventMembership("e1", MEMBERSHIP, "guest");
 
-		expect(getDocMock).toHaveBeenCalledExactlyOnceWith({
+		expect(getDocMock).toHaveBeenCalledWith({
 			path: "eventInvites/e1_guest",
 		});
 		// The address on the record, normalised: not the owner's, not another.
@@ -409,13 +431,15 @@ describe("updateEventMembership()", () => {
 			{ invitedBy: "owner-uid", inviteeEmail: "" },
 		];
 		for (const data of noAddress) {
-			getDocMock.mockResolvedValue({ data: () => data });
+			reads(data);
 			await adapter.updateEventMembership("e1", MEMBERSHIP, "guest");
 		}
+		batchSetMock.mockClear();
 		await adapter.updateEventMembership("e1", MEMBERSHIP);
 
 		expect(getDocsMock).not.toHaveBeenCalled();
 		expect(batchDeleteMock).not.toHaveBeenCalled();
+		expect(batchSetMock).not.toHaveBeenCalled();
 		expect(commitMock).toHaveBeenCalledTimes(4);
 	});
 });

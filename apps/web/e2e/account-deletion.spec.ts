@@ -329,8 +329,15 @@ test("borrar la cuenta no deja nada suyo: eventos propios, imágenes, directorio
 	// persona real, no un atajo por la API de administración.
 	await deleteAccountFromProfile(guestPage, deletedEmail);
 
-	// 0) Sus invitaciones, recibidas y enviadas, han desaparecido.
-	expect(await readDoc(page, "eventInvites", receivedInvite)).toBeUndefined();
+	// 0) Sus invitaciones han desaparecido. La recibida del evento de A, que
+	// sigue en pie, queda como lápida sin email (ADR 0015).
+	const tombstone = (await readDoc(
+		page,
+		"eventInvites",
+		receivedInvite,
+	)) as EmulatorDocument;
+	expect(stringField(tombstone, "status")).toBe("removed");
+	expect(tombstone.fields).not.toHaveProperty("inviteeEmail");
 	expect(await readDoc(page, "eventInvites", sentInvite)).toBeUndefined();
 	expect(await readDoc(page, "eventInvitesByEmail", sentOffer)).toBeUndefined();
 

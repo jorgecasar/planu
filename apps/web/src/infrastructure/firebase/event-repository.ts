@@ -6,16 +6,22 @@ import {
 	deleteField,
 	doc,
 	type Firestore,
+	getDoc,
 	serverTimestamp,
 	setDoc,
 	Timestamp,
-	updateDoc,
+	writeBatch,
 } from "firebase/firestore";
 import type {
 	CreatedEvent,
 	EventRepositoryPort,
 } from "../../application/ports/event-repository.js";
 import type { PlanuEvent } from "../../lib/types.js";
+import {
+	INVITES_COLLECTION,
+	inviteId,
+	inviteTombstone,
+} from "../../sharing/invitations.js";
 
 /**
  * From `PlanuEvent` to what Firestore accepts: dates become `Timestamp`.
@@ -78,11 +84,24 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 		// `arrayRemove`/`deleteField`, not a client-computed replacement of
 		// `memberIds`/`roles`: the rule only cares about the resulting document
 		// (see `leavesTheEvent()` in firestore.rules), and this way the write
-		// never has to read the event back first just to compute the same
-		// result minus one uid.
-		await updateDoc(doc(this.#firestore, "events", id), {
+		// never has to compute the same result minus one uid. The read gets the
+		// owner the tombstone must name (ADR 0015).
+		const ref = doc(this.#firestore, "events", id);
+		const event = await getDoc(ref);
+		const batch = writeBatch(this.#firestore);
+		batch.update(ref, {
 			memberIds: arrayRemove(uid),
 			[`roles.${uid}`]: deleteField(),
 		});
+		batch.set(
+			doc(this.#firestore, INVITES_COLLECTION, inviteId(id, uid)),
+			inviteTombstone(
+				id,
+				uid,
+				String(event.data()?.["userId"] ?? ""),
+				serverTimestamp(),
+			),
+		);
+		await batch.commit();
 	}
 }

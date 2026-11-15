@@ -125,8 +125,8 @@ export interface SharingPort {
 
 	/**
 	 * Rewrites an event's membership — adding, removing or re-roling a guest.
-	 * With `removedUid`, also withdraws any email offer still waiting for that
-	 * guest's address, so it can't let them back in (GH-147).
+	 * With `removedUid`, also leaves a tombstone (ADR 0015) and withdraws any
+	 * email offer to the address on their record (GH-147).
 	 */
 	updateEventMembership(
 		eventId: string,

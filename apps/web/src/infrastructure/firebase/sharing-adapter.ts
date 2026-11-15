@@ -34,7 +34,11 @@ import type {
 	SharingPort,
 } from "../../application/ports/sharing.js";
 import type { EventRole } from "../../lib/types.js";
-import { INVITES_COLLECTION, inviteId } from "../../sharing/invitations.js";
+import {
+	INVITES_COLLECTION,
+	inviteId,
+	inviteTombstone,
+} from "../../sharing/invitations.js";
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
@@ -304,10 +308,26 @@ export function createSharingAdapter(
 			batch.update(doc(firestore, "events", eventId), membership);
 
 			if (removedUid) {
-				// Their own invitation says which address any old offer went to.
-				// Gone if they erased it (ADR 0013); then there's nothing to match.
-				const record = await getDoc(
-					doc(firestore, INVITES_COLLECTION, inviteId(eventId, removedUid)),
+				// The tombstone is what keeps them out (ADR 0015). Spending the
+				// offer to the address on their record below is only cleanup: the
+				// record may be gone, or name an address they no longer use.
+				const ref = doc(
+					firestore,
+					INVITES_COLLECTION,
+					inviteId(eventId, removedUid),
+				);
+				const [record, event] = await Promise.all([
+					getDoc(ref),
+					getDoc(doc(firestore, "events", eventId)),
+				]);
+				batch.set(
+					ref,
+					inviteTombstone(
+						eventId,
+						removedUid,
+						String(event.data()?.["userId"] ?? ""),
+						serverTimestamp(),
+					),
 				);
 				// `inviteeEmail` is optional on an invitation: without one there is
 				// no address to match, so nothing to spend.
