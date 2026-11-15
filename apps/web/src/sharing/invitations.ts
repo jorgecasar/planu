@@ -28,3 +28,22 @@ export const INVITES_COLLECTION = "eventInvites";
 export function inviteId(eventId: string, inviteeUid: string): string {
 	return `${eventId}_${inviteeUid}`;
 }
+
+/**
+ * Replaces someone's invitation in the batch that takes them out of the event
+ * (ADR 0015): no address, and no offer by email redeemable at that id.
+ */
+export function inviteTombstone<T>(
+	eventId: string,
+	inviteeUid: string,
+	ownerUid: string,
+	decidedAt: T,
+) {
+	return {
+		eventId,
+		inviteeUid,
+		invitedBy: ownerUid,
+		status: "removed" as const,
+		decidedAt,
+	};
+}

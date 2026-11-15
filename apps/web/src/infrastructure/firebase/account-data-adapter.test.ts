@@ -23,7 +23,7 @@ const current = new Map<string, object>();
 const getDoc = vi.fn(async (ref: { path: string }) => ({
 	data: () => current.get(ref.path),
 }));
-const updateDoc = vi.fn(async (_ref: { path: string }, _data: object) => {});
+const batch = { update: vi.fn(), set: vi.fn(), commit: vi.fn(async () => {}) };
 const listAll = vi.fn();
 const deleteObject = vi.fn();
 
@@ -36,7 +36,8 @@ vi.mock("firebase/firestore", () => ({
 	getDoc,
 	getDocs,
 	deleteDoc,
-	updateDoc,
+	serverTimestamp: () => "SERVER_TIME",
+	writeBatch: () => batch,
 }));
 vi.mock("firebase/storage", () => ({
 	ref: (_storage: unknown, path: string) => ({ fullPath: path }),
@@ -81,25 +82,37 @@ describe("eventos de la cuenta", () => {
 		expect(deleteDoc).toHaveBeenCalledWith({ path: "events/e1" });
 	});
 
-	test("al salir de un evento ajeno quita su uid de memberIds y de roles", async () => {
+	test("al salir de un evento ajeno quita su uid y deja una lápida en el mismo lote", async () => {
 		answers.set(MEMBER_OF, [
 			snap("events/e2", {
+				userId: "luis",
 				memberIds: ["luis", "ana"],
-				roles: { luis: "owner", ana: "viewer" },
+				roles: { ana: "viewer" },
 			}),
 		]);
 
 		await adapter.leaveEvent("e2", "ana");
 
-		expect(updateDoc).toHaveBeenCalledWith(
+		expect(batch.update).toHaveBeenCalledWith(
 			{ path: "events/e2" },
-			{ memberIds: ["luis"], roles: { luis: "owner" } },
+			{ memberIds: ["luis"], roles: {} },
 		);
+		expect(batch.set).toHaveBeenCalledWith(
+			{ path: "eventInvites/e2_ana" },
+			{
+				eventId: "e2",
+				inviteeUid: "ana",
+				invitedBy: "luis",
+				status: "removed",
+				decidedAt: "SERVER_TIME",
+			},
+		);
+		expect(batch.commit).toHaveBeenCalledOnce();
 	});
 
 	test("salir de un evento del que ya no es miembro no escribe nada", async () => {
 		await adapter.leaveEvent("e2", "ana");
-		expect(updateDoc).not.toHaveBeenCalled();
+		expect(batch.commit).not.toHaveBeenCalled();
 	});
 });
 

@@ -30,6 +30,8 @@ const whereMock = vi.fn((field: string, op: string, value: unknown) => ({
 	value,
 }));
 const fromDateMock = vi.fn((date: Date) => ({ toDate: () => date }));
+const getDocMock = vi.fn(async () => ({ data: () => ({ userId: "owner-1" }) }));
+const batch = { update: vi.fn(), set: vi.fn(), commit: vi.fn() };
 
 vi.mock("firebase/firestore", () => ({
 	addDoc: addDocMock,
@@ -39,6 +41,7 @@ vi.mock("firebase/firestore", () => ({
 	deleteField: deleteFieldMock,
 	doc: docMock,
 	getCountFromServer: getCountFromServerMock,
+	getDoc: getDocMock,
 	getDocs: getDocsMock,
 	query: queryMock,
 	serverTimestamp: serverTimestampMock,
@@ -46,6 +49,7 @@ vi.mock("firebase/firestore", () => ({
 	Timestamp: { fromDate: fromDateMock },
 	updateDoc: updateDocMock,
 	where: whereMock,
+	writeBatch: () => batch,
 }));
 
 const { FirebaseEventRepository, toContent } = await import(
@@ -171,17 +175,28 @@ describe("FirebaseEventRepository", () => {
 		expect(deleteDocMock).toHaveBeenCalledWith({ path: "events/event-1" });
 	});
 
-	test("leave() saca sólo el uid indicado de memberIds y de roles", async () => {
+	test("leave() saca sólo el uid indicado y deja una lápida en el mismo lote", async () => {
 		await repository.leave("event-1", "guest-1");
 
 		expect(arrayRemoveMock).toHaveBeenCalledWith("guest-1");
 		expect(deleteFieldMock).toHaveBeenCalled();
-		expect(updateDocMock).toHaveBeenCalledWith(
+		expect(batch.update).toHaveBeenCalledWith(
 			{ path: "events/event-1" },
 			{
 				memberIds: { arrayRemove: "guest-1" },
 				"roles.guest-1": "DELETE_FIELD",
 			},
 		);
+		expect(batch.set).toHaveBeenCalledWith(
+			{ path: "eventInvites/event-1_guest-1" },
+			{
+				eventId: "event-1",
+				inviteeUid: "guest-1",
+				invitedBy: "owner-1",
+				status: "removed",
+				decidedAt: "SERVER_TIMESTAMP",
+			},
+		);
+		expect(batch.commit).toHaveBeenCalledOnce();
 	});
 });

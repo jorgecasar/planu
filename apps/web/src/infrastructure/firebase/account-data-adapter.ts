@@ -12,8 +12,9 @@ import {
 	getDoc,
 	getDocs,
 	query,
-	updateDoc,
+	serverTimestamp,
 	where,
+	writeBatch,
 } from "firebase/firestore";
 import type { FirebaseStorage, StorageReference } from "firebase/storage";
 import { deleteObject, listAll, ref } from "firebase/storage";
@@ -21,6 +22,11 @@ import type {
 	AccountDataPort,
 	AccountEventSummary,
 } from "../../application/ports/account-data.js";
+import {
+	INVITES_COLLECTION,
+	inviteId,
+	inviteTombstone,
+} from "../../sharing/invitations.js";
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
@@ -97,10 +103,19 @@ export function createAccountDataAdapter(
 			const roles = { ...(data["roles"] as Record<string, string>) };
 			delete roles[uid];
 
-			await updateDoc(doc(firestore, "events", eventId), {
-				memberIds,
-				roles,
-			});
+			// Leaving writes the tombstone in the same batch (ADR 0015).
+			const batch = writeBatch(firestore);
+			batch.update(doc(firestore, "events", eventId), { memberIds, roles });
+			batch.set(
+				doc(firestore, INVITES_COLLECTION, inviteId(eventId, uid)),
+				inviteTombstone(
+					eventId,
+					uid,
+					String(data["userId"] ?? ""),
+					serverTimestamp(),
+				),
+			);
+			await batch.commit();
 		},
 
 		async deleteEventImage(imageUrl: string, uid: string): Promise<void> {
