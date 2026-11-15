@@ -47,6 +47,7 @@ async function mount(
 }
 
 afterEach(() => {
+	vi.useRealTimers();
 	document.body.replaceChildren();
 });
 
@@ -131,6 +132,80 @@ test("reenviar es la acción principal del aviso y comprobar no lo es", async ()
 	expect(button(el, "I have verified it")?.getAttribute("variant")).not.toBe(
 		"brand",
 	);
+});
+
+/** The resend button, whatever its label is at the moment. */
+function resendButton(el: PlanuProfileView): HTMLElement | undefined {
+	return buttons(el).find((b) => b.getAttribute("variant") === "brand");
+}
+
+function alertText(el: PlanuProfileView): string {
+	return (
+		el.shadowRoot?.querySelector('[role="alert"]')?.textContent?.trim() ?? ""
+	);
+}
+
+async function tick(el: PlanuProfileView, ms: number) {
+	await vi.advanceTimersByTimeAsync(ms);
+	await el.updateComplete;
+}
+
+async function resend(el: PlanuProfileView) {
+	resendButton(el)?.click();
+	await vi.advanceTimersByTimeAsync(0);
+	await el.updateComplete;
+}
+
+test("tras reenviar, el botón se desactiva 60 s con la cuenta atrás visible y luego vuelve", async () => {
+	const session = fakeSession();
+	const el = await mount(UNVERIFIED, session);
+	vi.useFakeTimers();
+
+	await resend(el);
+	expect(resendButton(el)?.hasAttribute("disabled")).toBe(true);
+	expect(resendButton(el)?.textContent).toContain("Resend in 60 s");
+
+	await tick(el, 1000);
+	expect(resendButton(el)?.textContent).toContain("Resend in 59 s");
+
+	await tick(el, 58_000);
+	expect(resendButton(el)?.hasAttribute("disabled")).toBe(true);
+	expect(resendButton(el)?.textContent).toContain("Resend in 1 s");
+
+	await tick(el, 1000);
+	expect(resendButton(el)?.hasAttribute("disabled")).toBe(false);
+	expect(resendButton(el)?.textContent?.trim()).toBe("Resend email");
+
+	await resend(el);
+	expect(session.sendVerificationEmail).toHaveBeenCalledTimes(2);
+});
+
+test("si el proveedor limita el reenvío, el error se ve y el botón sigue disponible", async () => {
+	const session = fakeSession();
+	vi.mocked(session.sendVerificationEmail).mockRejectedValueOnce(
+		new SessionError("too-many-requests"),
+	);
+	const el = await mount(UNVERIFIED, session);
+	vi.useFakeTimers();
+
+	await resend(el);
+	expect(alertText(el)).toContain("Too many attempts");
+	expect(resendButton(el)?.hasAttribute("disabled")).toBe(false);
+
+	await resend(el);
+	expect(alertText(el)).toBe("");
+	expect(resendButton(el)?.hasAttribute("disabled")).toBe(true);
+});
+
+test("quitar el aviso del documento para la cuenta atrás", async () => {
+	const el = await mount(UNVERIFIED);
+	vi.useFakeTimers();
+	await resend(el);
+	expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+	el.remove();
+
+	expect(vi.getTimerCount()).toBe(0);
 });
 
 test("una cuenta de Google no ofrece cambiar el email: su dirección es de Google", async () => {

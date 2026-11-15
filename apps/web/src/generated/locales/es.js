@@ -8,6 +8,7 @@ import { str } from "@lit/localize";
 
 export const templates = {
 	s02253dffcabdc0e2: `Cena con amigos`,
+	s035aa4db63f6908a: str`Correo enviado. Reenviar en ${0} s`,
 	s03aa3cfb08dff960: `Etiquetas`,
 	s045c3b86aae073c1: `Eliminar cuenta`,
 	s04926efbde7e1431: `Vista previa de la portada`,
@@ -188,7 +189,6 @@ export const templates = {
 	s9c52d6caf6aac187: str`Confirma tu correo para empezar a usar planu. Hemos enviado un enlace a ${0}.`,
 	s9d4d20c8c928bf8d: `Hasta la hora`,
 	sa0b2d137b94c1b43: `Sólo tú, por ahora.`,
-	sa266303caf1bd27f: `Correo enviado`,
 	sa290250751a5ecb2: `Invitación enviada. Entrará cuando la acepte.`,
 	sa4646d0dca5b3ef5: str`Eliminando eventos: ${0} de ${1}…`,
 	sa5a678067ed03275: `Al menos 6 caracteres.`,

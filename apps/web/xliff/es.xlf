@@ -314,10 +314,6 @@
   <source>You could not be removed from this event.</source>
         <target>No se te pudo quitar de este evento.</target>
 </trans-unit>
-<trans-unit id="sa266303caf1bd27f">
-  <source>Email sent</source>
-        <target>Correo enviado</target>
-</trans-unit>
 <trans-unit id="s7d08759f6f28e606">
   <source>Resend email</source>
         <target>Reenviar el correo</target>
@@ -1137,6 +1133,10 @@
 <trans-unit id="s9c52d6caf6aac187">
   <source>Confirm your email to start using planu. We sent a link to <x id="0" equiv-text="${user.email}"/>.</source>
         <target>Confirma tu correo para empezar a usar planu. Hemos enviado un enlace a <x id="0" equiv-text="${user.email}"/>.</target>
+</trans-unit>
+<trans-unit id="s035aa4db63f6908a">
+  <source>Email sent. Resend in <x id="0" equiv-text="${this.cooldown}"/> s</source>
+        <target>Correo enviado. Reenviar en <x id="0" equiv-text="${this.cooldown}"/> s</target>
 </trans-unit>
 </body>
 </file>

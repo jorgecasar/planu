@@ -241,7 +241,11 @@ export class FirebaseSessionAdapter implements SessionPort {
 	async sendVerificationEmail(): Promise<void> {
 		const user = this.#auth.currentUser;
 		if (!user) return;
-		await sendEmailVerification(user);
+		try {
+			await sendEmailVerification(user);
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
 	}
 
 	async refreshEmailVerification(): Promise<SessionUser | null> {

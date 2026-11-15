@@ -24,12 +24,16 @@ import {
 	type DeletionGuard,
 	deletionGuardContext,
 } from "../auth/deletion-guard.js";
+import { authErrorMessage } from "../domain/auth-errors.js";
 import { SessionError } from "../domain/session-error.js";
 import { sourceLocale } from "../generated/locales/locale-codes.js";
 import { getLocale } from "../i18n/localization.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
+
+/** Client-side wait between verification emails (spec 189, Q2b). */
+const RESEND_COOLDOWN_MS = 60_000;
 
 /** Account details and sign out. */
 @customElement("planu-profile-view")
@@ -87,8 +91,11 @@ export class PlanuProfileView extends LitElement {
 	private session: SessionPort | undefined;
 
 	@state() private sending = false;
-	@state() private sent = false;
+	/** Whole seconds left before the verification email can be resent. */
+	@state() private cooldown = 0;
+	@state() private resendError = "";
 	@state() private checking = false;
+	#cooldownTimer: ReturnType<typeof setInterval> | undefined;
 
 	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
 	// just below — this already-coupled component's directory-publishing call
@@ -314,11 +321,16 @@ export class PlanuProfileView extends LitElement {
 				)}
 				<wa-button
 					variant="brand"
-					?disabled=${this.sending || this.sent}
+					?disabled=${this.sending || this.cooldown > 0}
 					@click=${this.#onResend}
 				>
-					${this.sent ? msg("Email sent") : msg("Resend email")}
+					${
+						this.cooldown > 0
+							? msg(str`Email sent. Resend in ${this.cooldown} s`)
+							: msg("Resend email")
+					}
 				</wa-button>
+				${this.resendError ? html`<p role="alert">${this.resendError}</p>` : nothing}
 				<wa-button
 					appearance="plain"
 					?disabled=${this.checking}
@@ -377,15 +389,39 @@ export class PlanuProfileView extends LitElement {
 		if (!session || this.sending) return;
 
 		this.sending = true;
+		this.resendError = "";
 		try {
 			await session.sendVerificationEmail();
-			this.sent = true;
-		} catch {
-			// Firebase throttles repeated attempts. That is not something the
-			// user can act on, and the notice stays visible anyway.
+			this.#startCooldown();
+		} catch (cause) {
+			// Firebase can still throttle past our own cooldown: say so, and leave
+			// the button available for later.
+			this.resendError = authErrorMessage(cause);
 		} finally {
 			this.sending = false;
 		}
+	}
+
+	/** Counts down from the deadline, not by decrements: timers drift in background tabs. */
+	#startCooldown(): void {
+		const deadline = Date.now() + RESEND_COOLDOWN_MS;
+		const update = () => {
+			this.cooldown = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+			if (this.cooldown === 0) this.#stopCooldown();
+		};
+		this.#stopCooldown();
+		update();
+		this.#cooldownTimer = setInterval(update, 1000);
+	}
+
+	#stopCooldown(): void {
+		clearInterval(this.#cooldownTimer);
+		this.#cooldownTimer = undefined;
+	}
+
+	override disconnectedCallback(): void {
+		this.#stopCooldown();
+		super.disconnectedCallback();
 	}
 
 	#onSignOut(): void {
