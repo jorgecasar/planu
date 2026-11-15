@@ -182,3 +182,18 @@ paso siguiente son tests para las líneas nuevas, no tocar el umbral.
    cubre. Necesito que lo confirmes.
 5. **¿Cómo está definido el código nuevo en Sonar?** Necesito ese dato (ver
    «Lo que no pude determinar») para predecir el primer `new_coverage`.
+
+## Decisiones del responsable (2026-11-15)
+
+Respuestas del responsable a las preguntas 1 a 3, que sustituyen a mis recomendaciones donde difieren:
+
+1. **¿Dónde se genera el informe?** «También en el CI». No es la recomendación A (solo local). Pasa a **A + C**: `npm run test:coverage` se ejecuta en local antes de `kj scan` **y** el CI genera el lcov.
+   - Consecuencia que esta decisión no resuelve: el CI no ejecuta Sonar y el SonarQube del proyecto corre en local (Docker), así que un lcov generado en CI no llega solo a Sonar. Hay que decidir cómo se consume, y es una decisión nueva:
+     - (i) subirlo como artefacto del job, solo para verlo o descargarlo (no lo lee Sonar);
+     - (ii) añadir un paso de Sonar al CI, lo que exige un servidor alcanzable desde GitHub (SonarCloud o un servidor propio con runner autoalojado), el secreto `SONAR_TOKEN` y un cambio en `ci.yml`;
+     - (iii) usar el lcov del CI solo como umbral propio de cobertura en el job, sin Sonar.
+   - Hasta que el responsable elija, la tarea 1 (configurar y medir en local) puede hacerse sin tocar `ci.yml`, y el cambio de CI queda como tarea aparte.
+2. **`scripts/`:** se queda en `sonar.sources`, sin excluir. Cuando una PR modifique un script, se extrae su lógica a un módulo con tests de Vitest en esa misma PR. No se hace una limpieza masiva.
+3. **Umbral:** se mantiene el 80 % sobre código nuevo.
+
+Las preguntas 4 y 5 (si `kj` puede ejecutar `test:coverage` antes de `kj scan`, y cómo se define el código nuevo en Sonar) son técnicas y no necesitan al responsable: las resuelve quien implemente la tarea 1 con la configuración de `kj` y del servidor.
