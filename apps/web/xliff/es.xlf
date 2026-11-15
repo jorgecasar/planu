@@ -1138,6 +1138,26 @@
   <source>Email sent. Resend in <x id="0" equiv-text="${this.cooldown}"/> s</source>
         <target>Correo enviado. Reenviar en <x id="0" equiv-text="${this.cooldown}"/> s</target>
 </trans-unit>
+<trans-unit id="s044c40e5fc8ae423">
+  <source>an editor</source>
+        <target>editor</target>
+</trans-unit>
+<trans-unit id="sbd412a6fb2aa116e">
+  <source>a viewer</source>
+        <target>lector</target>
+</trans-unit>
+<trans-unit id="s97a369bad8ac8269">
+  <source>Invitation to “<x id="0" equiv-text="${title}"/>” on planu</source>
+        <target>Invitación a «<x id="0" equiv-text="${title}"/>» en planu</target>
+</trans-unit>
+<trans-unit id="s2c56d3d1a0b36388">
+  <source>I invited you to “<x id="0" equiv-text="${title}"/>” as <x id="1" equiv-text="${roleText(input.role)}"/>.</source>
+        <target>Te he invitado a «<x id="0" equiv-text="${title}"/>» como <x id="1" equiv-text="${roleText(input.role)}"/>.</target>
+</trans-unit>
+<trans-unit id="sa8e1c98e99fd0f33">
+  <source>Sign in with this email address to see it and accept:</source>
+        <target>Entra con esta dirección de correo para verlo y aceptar:</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
