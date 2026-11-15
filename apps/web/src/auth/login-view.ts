@@ -25,7 +25,7 @@ import {
 	authErrorField,
 	authErrorMessage,
 } from "../domain/auth-errors.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { type LoginNotice, takeLoginNotice } from "./login-notice.js";
 
 /** Long enough for screen readers to register the empty live region. */
@@ -40,7 +40,7 @@ type FormName = "signin" | "signup";
 @customElement("planu-login-view")
 export class PlanuLoginView extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		:host {
 			display: grid;

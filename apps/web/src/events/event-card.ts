@@ -24,14 +24,14 @@ import "./calendar-export.js";
 import { dateBlockParts, formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
 import { getLocale } from "../i18n/localization.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { tagChipStyles } from "./tag-styles.js";
 
 /** Card for an event, with edit and delete actions. */
 @customElement("planu-event-card")
 export class PlanuEventCard extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		tagChipStyles,
 		css`
 		:host {
@@ -234,7 +234,7 @@ export class PlanuEventCard extends LitElement {
 		const { tags } = this.event;
 		if (tags.length === 0) return nothing;
 
-		return html`<ul class="tags" aria-label=${msg("Tags")}>
+		return html`<ul class="wa-list-plain tags" aria-label=${msg("Tags")}>
 			${tags.map(
 				(tag) => html`<li>
 					<wa-tag

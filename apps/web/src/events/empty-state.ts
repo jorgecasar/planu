@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 /**
  * What's shown when the user has no events yet (T33).
@@ -25,7 +26,9 @@ import { customElement, property } from "lit/decorators.js";
  */
 @customElement("planu-empty-state")
 export class PlanuEmptyState extends LitElement {
-	static override styles = css`
+	static override styles = [
+		webAwesomeStyles,
+		css`
 		:host {
 			display: block;
 		}
@@ -41,7 +44,8 @@ export class PlanuEmptyState extends LitElement {
 		.sample {
 			margin-block-start: var(--wa-space-l);
 		}
-	`;
+	`,
+	];
 
 	/**
 	 * Whether it's worth offering AI generation. `events-view` decides it —

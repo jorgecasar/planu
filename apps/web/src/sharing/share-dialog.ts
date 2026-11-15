@@ -21,7 +21,7 @@ import {
 	sharingContext,
 } from "../application/ports/sharing.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 import { canManageMembers } from "./permissions.js";
@@ -42,7 +42,7 @@ function isOwnEvent(domEvent: Event): boolean {
 @customElement("planu-share-dialog")
 export class PlanuShareDialog extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		form {
 			display: grid;
@@ -169,7 +169,7 @@ export class PlanuShareDialog extends LitElement {
 				</form>
 
 				<h3>${msg("People with access")}</h3>
-				<ul>
+				<ul class="wa-list-plain">
 					${renderOwner(user)}
 					${this.#access.people.map((person) =>
 						renderPerson(person, this.busy, this.#onAction),

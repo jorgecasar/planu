@@ -14,7 +14,7 @@ function paint(tags: readonly string[]) {
 test("vacía no pinta nada; si no, una lista con nombre y un elemento por etiqueta", () => {
 	expect(paint([])).toBeNull();
 	const list = paint(["cine", "teatro"]);
-	expect(list?.className).toBe("chosen");
+	expect(list?.className).toBe("wa-list-plain chosen");
 	expect(list?.getAttribute("aria-label")).toBe("Chosen tags");
 	const items = [...(list?.querySelectorAll(":scope > li > b") ?? [])];
 	expect(items.map((each) => each.textContent)).toEqual(["cine", "teatro"]);

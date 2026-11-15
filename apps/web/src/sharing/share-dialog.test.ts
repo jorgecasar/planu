@@ -128,7 +128,7 @@ test("the guest rows take the dialog's own row styles", async () => {
 	const style = (selector: string) =>
 		getComputedStyle(el.shadowRoot?.querySelector(selector) as Element);
 
-	expect(style(".sr-only").position).toBe("absolute");
+	expect(style(".wa-visually-hidden").position).toBe("absolute");
 	expect(style("ul").listStyleType).toBe("none");
 });
 

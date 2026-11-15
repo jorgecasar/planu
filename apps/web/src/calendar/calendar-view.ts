@@ -15,7 +15,7 @@ import {
 import type { SortPreference } from "../domain/sort-events.js";
 import { getLocale } from "../i18n/localization.js";
 import type { StoredEvent } from "../lib/types.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import {
 	buildMonthGrid,
 	dayKey,
@@ -45,7 +45,7 @@ import {
 @customElement("planu-calendar-view")
 export class PlanuCalendarView extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		:host {
 			display: block;
@@ -209,11 +209,6 @@ export class PlanuCalendarView extends LitElement {
 			font-size: var(--wa-font-size-s);
 		}
 
-		/*
-		 * The wa-visually-hidden utility is a global class and doesn't cross
-		 * into the shadow root, so the screen-reader text would end up visible.
-		 * Same technique, declared where it applies.
-		 */
 		.undated ul {
 			display: flex;
 			flex-wrap: wrap;
@@ -221,18 +216,6 @@ export class PlanuCalendarView extends LitElement {
 			margin: 0;
 			padding: 0;
 			list-style: none;
-		}
-
-		.sr-only {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			padding: 0;
-			margin: -1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
-			border: 0;
 		}
 	`,
 	];
@@ -348,7 +331,7 @@ export class PlanuCalendarView extends LitElement {
 					${grid.weekdays.map(
 						(weekday) => html`
 							<span role="columnheader">
-								<span class="sr-only">${weekday.long}</span>
+								<span class="wa-visually-hidden">${weekday.long}</span>
 								<span aria-hidden="true">${weekday.short}</span>
 							</span>
 						`,
@@ -366,7 +349,7 @@ export class PlanuCalendarView extends LitElement {
 
 			${this.#renderUndated(grid.undated)}
 
-			<div class="sr-only" role="status">${this.announcement}</div>
+			<div class="wa-visually-hidden" role="status">${this.announcement}</div>
 		`;
 	}
 
@@ -410,7 +393,7 @@ export class PlanuCalendarView extends LitElement {
 		if (undated.length === 0) return nothing;
 
 		return html`<wa-details class="undated" summary=${this.#undatedNotice(undated.length)}>
-			<ul>
+			<ul class="wa-list-plain">
 				${undated.map(
 					(event) => html`<li>
 						<wa-button
@@ -466,7 +449,7 @@ export class PlanuCalendarView extends LitElement {
 				data-key=${cell.key}
 				@click=${() => this.#onCellClick(cell)}
 			>
-				<span class="sr-only">${cell.label}</span>
+				<span class="wa-visually-hidden">${cell.label}</span>
 				${
 					cell.isToday
 						? html`<wa-badge class="day" variant="brand" pill aria-hidden="true"
@@ -476,7 +459,7 @@ export class PlanuCalendarView extends LitElement {
 				}
 				${
 					cell.events.length > 0
-						? html`<ul>
+						? html`<ul class="wa-list-plain">
 								${cell.events.map((event, index) => {
 									const time = this.#eventTime(event, cell.key, locale);
 									const flow = cell.continuation[index];
@@ -487,7 +470,7 @@ export class PlanuCalendarView extends LitElement {
 										})}
 									>${
 										flow?.fromBefore
-											? html`<span class="sr-only">${msg("Continued:")} </span>`
+											? html`<span class="wa-visually-hidden">${msg("Continued:")} </span>`
 											: nothing
 									}${time ? `${time} ` : ""}${event.title}</li>`;
 								})}

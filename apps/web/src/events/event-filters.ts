@@ -10,6 +10,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
 import type { DateRange, OwnershipFilter } from "../domain/filter-events.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;
@@ -34,7 +35,9 @@ function readValue(event: globalThis.Event): string {
 /** Text search, date range, and which inbox to show. */
 @customElement("planu-event-filters")
 export class PlanuEventFilters extends LitElement {
-	static override styles = css`
+	static override styles = [
+		webAwesomeStyles,
+		css`
 		:host {
 			display: block;
 			flex: 1 1 100%;
@@ -98,7 +101,8 @@ export class PlanuEventFilters extends LitElement {
 				margin-top: var(--wa-space-s);
 			}
 		}
-	`;
+	`,
+	];
 
 	@state() private searchTerm = "";
 	@state() private from = "";

@@ -84,7 +84,7 @@ export function renderPerson(
 					.withCaret=${true}
 					?disabled=${busy}
 				>
-					<span class="sr-only">
+					<span class="wa-visually-hidden">
 						${msg(str`Access for ${person.name}`)}
 					</span>
 					${person.role === "editor" ? msg("Editor") : msg("Viewer")}
@@ -179,20 +179,5 @@ export const accessRowStyles = css`
 		color: var(--wa-color-text-normal);
 		font-size: var(--wa-font-size-s);
 		white-space: nowrap;
-	}
-
-	/* Web Awesome's wa-visually-hidden utility is a global class and does not
-	   cross into this shadow root, so the screen-reader text was rendering in
-	   plain sight. Same technique, declared where it applies. */
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
-		border: 0;
 	}
 `;

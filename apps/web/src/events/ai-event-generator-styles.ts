@@ -19,7 +19,6 @@ export const aiEventGeneratorStyles = css`
 			padding: 0;
 			font-weight: var(--wa-font-weight-semibold);
 		}
-
 		.drop {
 			display: flex;
 			flex-direction: column;

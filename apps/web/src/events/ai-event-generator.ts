@@ -34,6 +34,7 @@ import {
 	type WorkingOn,
 } from "../domain/ai-progress.js";
 import type { PlanuEvent } from "../lib/types.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";
 import {
@@ -82,7 +83,7 @@ export interface GeneratedDraft {
  */
 @customElement("planu-ai-event-generator")
 export class PlanuAiEventGenerator extends LitElement {
-	static override styles = aiEventGeneratorStyles;
+	static override styles = [webAwesomeStyles, aiEventGeneratorStyles];
 
 	@consume({ context: aiModelContext, subscribe: true })
 	private aiModel: AiModelPort | undefined;

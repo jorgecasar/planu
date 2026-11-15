@@ -12,11 +12,14 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")
 export class PlanuInvitationsInbox extends LitElement {
-	static override styles = css`
+	static override styles = [
+		webAwesomeStyles,
+		css`
 		:host {
 			display: block;
 		}
@@ -35,7 +38,8 @@ export class PlanuInvitationsInbox extends LitElement {
 			gap: var(--wa-space-xs);
 			margin-block-start: var(--wa-space-xs);
 		}
-	`;
+	`,
+	];
 
 	@consume({ context: sharingContext, subscribe: true })
 	private sharing: SharingPort | undefined;
@@ -92,7 +96,7 @@ export class PlanuInvitationsInbox extends LitElement {
 					? html`<wa-callout variant="danger" role="alert">${this.error}</wa-callout>`
 					: nothing
 			}
-			<ul>
+			<ul class="wa-list-plain">
 				${invites.map((invite) => this.#renderInvite(invite))}
 			</ul>
 		`;

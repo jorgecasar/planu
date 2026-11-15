@@ -6,7 +6,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { type EventGroups, shouldRevealPast } from "../domain/sort-events.js";
 import type { StoredEvent } from "../lib/types.js";
-import { typographyStyles } from "../styles/typography.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 const EMPTY: EventGroups<StoredEvent> = { upcoming: [], undated: [], past: [] };
 
@@ -23,7 +23,7 @@ const EMPTY: EventGroups<StoredEvent> = { upcoming: [], undated: [], past: [] };
 @customElement("planu-event-groups")
 export class PlanuEventGroups extends LitElement {
 	static override styles = [
-		typographyStyles,
+		webAwesomeStyles,
 		css`
 		:host {
 			display: block;
