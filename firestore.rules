@@ -149,7 +149,22 @@ service cloud.firestore {
             && request.resource.data.roles.diff(rolesOf(resource.data))
                  .affectedKeys().hasOnly([uid()].toSet())
             && request.resource.data.diff(resource.data)
-                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet());
+                 .affectedKeys().hasOnly(['memberIds', 'roles'].toSet())
+            // With a tombstone in the same batch (ADR 0015). Without it, a
+            // guest who left could erase their record and redeem an offer
+            // the owner sent while they were still in.
+            && getAfter(invitePath()).data.status == 'removed';
+      }
+
+      // The owner removes at most one guest per write, and leaves their
+      // tombstone in the same batch (ADR 0015), so a tab with an older client
+      // cannot remove someone and leave an email offer able to readmit them.
+      function removesWithTombstone() {
+        let gone = resource.data.memberIds.removeAll(request.resource.data.memberIds);
+        return gone.size() == 0
+            || (gone.size() == 1
+                && getAfter(/databases/$(database)/documents/eventInvites/$(
+                     eventId + '_' + gone[0])).data.status == 'removed');
       }
 
       // Document shape, types and sizes.
@@ -287,7 +302,8 @@ service cloud.firestore {
                          (isOwner()
                           && request.resource.data.userId == resource.data.userId
                           && request.resource.data.memberIds
-                               .hasOnly(resource.data.memberIds))
+                               .hasOnly(resource.data.memberIds)
+                          && removesWithTombstone())
                          // An editor changes content and nothing else.
                          || (isEditor() && changesContentOnly())
                          // Any guest may leave.
