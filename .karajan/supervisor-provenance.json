@@ -1,12 +1,14 @@
 {
-  "kj_version": "4.70.4",
-  "generated_at": "2026-11-02T02:19:53.447Z",
+  "kj_version": "5.24.0",
+  "generated_at": "2026-11-15T21:58:49.055Z",
   "generation": {
     "profile": "standard",
     "cmds": {
-      "lint": "npm run -s lint"
+      "lint": "npm run -s lint",
+      "testSkippedByCi": true
     },
-    "baseBranch": "main"
+    "baseBranch": "main",
+    "commitConvention": "project"
   },
   "who": {
     "gh": "jorgecasar",
@@ -16,51 +18,67 @@
   "files": [
     {
       "file": ".claude/settings.json",
-      "sha256": "d6cf5a3b8163db9f3a0a5f3b0fbd69eed3761d33e5faf57bbd54a8c7d02d647f"
+      "sha256": "02b02797a8c5f80b833e5ba7216aa6bba183635dd5f9f37b9059c7e897444b3e"
+    },
+    {
+      "file": ".claude/settings.local.json",
+      "sha256": "fe18d9ceff0bacbb733899dd9b0ae27bf574e6e1ebd243d968102fc7c84be0b1",
+      "local": true
     },
     {
       "file": ".github/workflows/ci.yml",
-      "sha256": "8a802a33f6c7161b1ea2e4d59c8dca4208e7f36d280d7cba6591bf040c717111"
+      "sha256": "8a8a2695c287ee7c7cebbcf2af4205bc4e3da827547c5234a0a3b0ef6aa0fd08"
     },
     {
       "file": ".github/workflows/kj-no-ai-attribution.yml",
-      "sha256": "e01c40dbd0f4a98432a205bacdd54711096572db31ccf28422ac167144121445"
+      "sha256": "2da12bf23d5ffbf3689e6bfdfac3a6e5e10c2a51054fb991a319123d1c0e4e4c"
     },
     {
       "file": ".github/workflows/kj-quality.yml",
       "sha256": "d30d505ef4a927ea5fa0e3189519d7d159dae188a43b42153c0eb3cd0099a7cc"
     },
     {
+      "file": ".github/workflows/kj-secrets.yml",
+      "sha256": "d05767945f533aff4cdcb4efc876f6b900fa398125534607e6b8b38e7ed9eccb"
+    },
+    {
+      "file": ".github/workflows/kj-verdicts.yml",
+      "sha256": "9cb30cf88f7eb2a0840bb3bf5e3a274b79db10e6f370443897b71e75272cfa65"
+    },
+    {
       "file": ".karajan/hooks/commit-msg",
-      "sha256": "d5302359fe2127384874d1c653208b49acf10a240859120f16ae4d139084218b"
+      "sha256": "3d6038a5a391a010584b5d412ca48318937eaf99092667206b46cd05ab3a77ba"
     },
     {
       "file": ".karajan/hooks/post-merge",
-      "sha256": "a069100da9cb037badd40289494c4e64de761208e3f0c8b4fe536e2d0a5bed50"
+      "sha256": "fe01565c613e6ef410ae8efb97628da7c22ac1fd72be2e2dae2a2531f2bd7c88"
     },
     {
       "file": ".karajan/hooks/pre-commit",
-      "sha256": "7ee97dfd2026def4e8e182719d76537bda3dc34dd4252a2ca96b09a88cb74890"
+      "sha256": "90242e36c0f731f5e12dbd518df30165c92b747634d4c827db8318cc2927a961"
     },
     {
       "file": ".karajan/hooks/pre-push",
-      "sha256": "920a9ac117f8d5c7e8a5d3804584b25fee8c71539d7b1431d1329ff180bb5640"
+      "sha256": "66535df0f9a46d7d80c91996e8ef5386a19e278ecfdbeb70900a268df6fdc334"
     },
     {
       "file": ".karajan/hooks/prepare-commit-msg",
-      "sha256": "ba046aefffc8f36b4d6af733e8f7a273bdbfe938746dbda18014a3dfee74ff96"
+      "sha256": "e61d46c11e9b7928aa168a1f9a2081203df9a9fa236e41b39ba1fba240ab08ef"
     }
   ],
   "signature": {
-    "cid": "59f5b2d53e05006d45512e37f968afa6",
-    "nonce": "c39d4a5475b364a376d07a1178c29037",
-    "project": "planu",
-    "filesHash": "a7fef4c4d04f6baf66f22fcb32d1431b2ffdb10667dee02fdf2146af6b66099c",
+    "cid": "c2f267056d33c8767d3abea2d3039052",
+    "nonce": "cf69adfbee34b420ffad55f90e7eff6f",
+    "project": "jorgecasar/planu",
+    "filesHash": "1ca2506fc24a25b22f066fd2d009655b3c9901ced55bfdcb669d20c0e2cec082",
     "v": 2,
-    "kjVersion": "4.70.4",
-    "issuedMs": 1793585980769,
-    "expiresMs": 1793586130769,
-    "signer": "LAnR9NHeeuzEXRt2g9BnC0WNeJ/UzJIR7q1RWPAjTwE=",
-    "signature": "O2HMCbV4ZzLPdY2TUxNw44mFBHqf84OE/IRE6qE23owzH1U6xi1YvkBdGsgZfpcYZ98/k7WkFMW+xah//bVlDg=="
+    "kjVersion": "5.24.0",
+    "issuedMs": 1794779911401,
+    "expiresMs": 1794780061401,
+    "type": "webauthn",
+    "credentialId": "7DAqkaLoc1yKn4yjU7vD7w",
+    "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoieU9XaGVyM0dYZlgwbTJsT2lQU2dVenVvcHM4bHhBRWhOUm1lb3c1ME11ayIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+    "signature": "MEUCIQDUnPn4RTUMIlz7PKAvayyx94J3zAXyAnJ4DiyUl_aUOgIgXYNrPiRqZ8c7WdVfnjt40SbxpbhL1O8Ro20spJnZFsg"
   }
 }
