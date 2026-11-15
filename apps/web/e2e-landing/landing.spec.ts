@@ -237,34 +237,58 @@ test("las clases del marcado tienen estilos detrás", async ({ page }) => {
 	// Dos fallos distintos se colaron así: faltaba la hoja de Web Awesome
 	// entera, y nueve clases (`wa-text-3xl`, `wa-button--brand`…) estaban
 	// inventadas con la convención de otro framework.
-	await page.goto("/");
+	const paginas = [
+		"/",
+		"/privacy.html",
+		"/terms.html",
+		"/en/",
+		"/en/privacy.html",
+		"/en/terms.html",
+		"/es/",
+		"/es/privacy.html",
+		"/es/terms.html",
+	];
 
-	// Toda clase `wa-*` del marcado debe casar con alguna regla del CSS cargado.
-	// Se pregunta al navegador, no al fichero: es la única forma de incluir lo
-	// que llega por `<link>` y lo que va en línea.
-	const huerfanas = await page.evaluate(() => {
-		const usadas = new Set<string>();
-		for (const el of document.querySelectorAll("[class]")) {
-			for (const c of el.classList) {
-				if (c.startsWith("wa-")) usadas.add(c);
+	// Toda clase `wa-*` del marcado debe casar con alguna regla de la hoja de
+	// Web Awesome, la que llega por `<link>`. Sólo ésa: con el CSS en línea
+	// contando, `landing.css` podía definir `wa-text-3xl` y el test lo daba
+	// por bueno, que es justo la clase inventada que venía a impedir.
+	for (const ruta of paginas) {
+		const respuesta = await page.goto(ruta);
+		expect(respuesta?.ok(), ruta).toBe(true);
+
+		const huerfanas = await page.evaluate(() => {
+			const usadas = new Set<string>();
+			for (const el of document.querySelectorAll("[class]")) {
+				for (const c of el.classList) {
+					if (c.startsWith("wa-")) usadas.add(c);
+				}
 			}
-		}
 
-		let reglas = "";
-		for (const hoja of Array.from(document.styleSheets)) {
-			try {
-				for (const regla of Array.from(hoja.cssRules)) reglas += regla.cssText;
-			} catch {
-				// Una hoja de otro origen no se puede leer; aquí no hay ninguna.
+			let reglas = "";
+			for (const hoja of Array.from(document.styleSheets)) {
+				if (!hoja.href?.includes("/assets/webawesome-")) continue;
+				try {
+					for (const regla of Array.from(hoja.cssRules))
+						reglas += regla.cssText;
+				} catch {
+					// Una hoja de otro origen no se puede leer; aquí no hay ninguna.
+				}
 			}
-		}
 
-		// Las utilidades de layout se declaran como `[class*='wa-stack']`, no como
-		// `.wa-stack`, así que basta con que el nombre aparezca en alguna regla.
-		return [...usadas].filter((c) => !reglas.includes(c)).sort();
-	});
+			// Las utilidades de layout se declaran como `[class*='wa-stack']`, no
+			// como `.wa-stack`, y basta con que el nombre aparezca en esa forma. El
+			// resto exige el selector `.clase` exacto: una inventada que sea
+			// prefijo de una real (`wa-size` frente a `wa-size-l`) no casa.
+			const existe = (c: string) =>
+				new RegExp(`\\.${c}(?![\\w-])`).test(reglas) ||
+				reglas.includes(`[class*="${c}"]`) ||
+				reglas.includes(`[class*='${c}']`);
+			return [...usadas].filter((c) => !existe(c)).sort();
+		});
 
-	expect(huerfanas).toEqual([]);
+		expect(huerfanas, ruta).toEqual([]);
+	}
 });
 
 test("el hero se pinta con la tipografía y el color de la marca", async ({
@@ -324,24 +348,43 @@ test("los encabezados de las páginas legales tampoco van en falsa negrita", asy
 test("los botones de llamada a la acción se pintan como botones", async ({
 	page,
 }) => {
-	// `a.wa-button` lo estiliza `native.css`, y las variantes las define
-	// `landing.css` porque `<wa-button>` es un componente y aquí no hay JS.
+	// `<wa-button>` es un componente y aquí no hay JS: `a.wa-button` lo
+	// estiliza `native.css`, con `wa-brand`, `wa-outlined` y `wa-size-l`.
 	await page.goto("/");
 
-	const cta = page.getByRole("link", { name: "Start planning" });
-	const estilo = await cta.evaluate((el) => {
-		const c = getComputedStyle(el);
-		return {
-			display: c.display,
-			background: c.backgroundColor,
-			decoration: c.textDecorationLine,
-		};
+	const estilo = (name: string) =>
+		page.getByRole("link", { name }).evaluate((el) => {
+			const c = getComputedStyle(el);
+			return {
+				display: c.display,
+				background: c.backgroundColor,
+				border: c.borderTopColor,
+				decoration: c.textDecorationLine,
+				size: c.fontSize,
+			};
+		});
+	const marca = await page.evaluate(() => {
+		const probe = document.createElement("span");
+		probe.style.color = "var(--wa-color-brand-fill-loud)";
+		probe.style.borderColor = "var(--wa-color-brand-border-loud)";
+		document.body.append(probe);
+		const c = getComputedStyle(probe);
+		return { fill: c.color, border: c.borderTopColor };
 	});
 
-	expect(estilo.display).toBe("flex");
-	expect(estilo.decoration).toBe("none");
+	const primario = await estilo("Start planning");
+	expect(primario.display).toBe("flex");
+	expect(primario.decoration).toBe("none");
 	// Indigo de la marca, no el fondo transparente de un enlace suelto.
-	expect(estilo.background).not.toBe("rgba(0, 0, 0, 0)");
+	expect(primario.background).toBe(marca.fill);
+
+	const secundario = await estilo("Sign in");
+	expect(secundario.decoration).toBe("none");
+	expect(secundario.background).toBe("rgba(0, 0, 0, 0)");
+	expect(secundario.border).toBe(marca.border);
+	// `wa-size-l`: el tamaño grande, igual en los dos.
+	expect(secundario.size).toBe(primario.size);
+	expect(Number.parseFloat(primario.size)).toBeGreaterThan(16);
 });
 
 test("las tarjetas se reparten en rejilla, no en una columna", async ({
