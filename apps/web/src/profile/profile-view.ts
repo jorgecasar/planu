@@ -35,6 +35,9 @@ import { ReauthStep } from "./reauth-step.js";
 /** Client-side wait between verification emails (spec 189, Q2b). */
 const RESEND_COOLDOWN_MS = 60_000;
 
+/** Minimum gap between automatic verification checks on returning to the tab. */
+const RECHECK_MIN_INTERVAL_MS = 10_000;
+
 /** Account details and sign out. */
 @customElement("planu-profile-view")
 export class PlanuProfileView extends LitElement {
@@ -96,6 +99,7 @@ export class PlanuProfileView extends LitElement {
 	@state() private resendError = "";
 	@state() private checking = false;
 	#cooldownTimer: ReturnType<typeof setInterval> | undefined;
+	#lastCheckAt = Number.NEGATIVE_INFINITY;
 
 	// `SharingPort`, not raw `Firestore`: same reasoning as `AccountDataPort`
 	// just below — this already-coupled component's directory-publishing call
@@ -366,6 +370,7 @@ export class PlanuProfileView extends LitElement {
 		const { session, sharing } = this;
 		if (!session || !sharing || this.checking) return;
 
+		this.#lastCheckAt = Date.now();
 		this.checking = true;
 		try {
 			const refreshed = await session.refreshEmailVerification();
@@ -419,7 +424,26 @@ export class PlanuProfileView extends LitElement {
 		this.#cooldownTimer = undefined;
 	}
 
+	override connectedCallback(): void {
+		super.connectedCallback();
+		document.addEventListener("visibilitychange", this.#onVisibilityChange);
+	}
+
+	/**
+	 * Back on the tab after confirming in the mail client: check once, no
+	 * more often than every `RECHECK_MIN_INTERVAL_MS`, and only while the notice
+	 * is on screen. Each check costs two requests (reload and a fresh token).
+	 */
+	readonly #onVisibilityChange = (): void => {
+		const { user } = this;
+		if (document.visibilityState !== "visible") return;
+		if (!user?.email || user.emailVerified) return;
+		if (Date.now() - this.#lastCheckAt < RECHECK_MIN_INTERVAL_MS) return;
+		void this.#onCheck();
+	};
+
 	override disconnectedCallback(): void {
+		document.removeEventListener("visibilitychange", this.#onVisibilityChange);
 		this.#stopCooldown();
 		super.disconnectedCallback();
 	}
