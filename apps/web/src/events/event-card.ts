@@ -22,11 +22,12 @@ import {
 	roleFor,
 } from "../sharing/permissions.js";
 import "../sharing/share-dialog.js";
-import "./calendar-export.js";
+import { isExportable } from "../domain/build-ics.js";
 import { dateBlockParts, formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
 import { getLocale } from "../i18n/localization.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
+import { downloadEventFile, openInGoogleCalendar } from "./calendar-export.js";
 import { tagChipStyles } from "./tag-styles.js";
 
 /** Font Awesome Free 6 «ellipsis» (CC BY 4.0), inline for the same reason
@@ -239,6 +240,18 @@ export class PlanuEventCard extends LitElement {
 		const { event } = this;
 		const uid = this.#uid;
 		const items = [
+			// Only dated events can be exported, so only they offer it.
+			isExportable(event)
+				? html`<wa-dropdown-item value="calendar">
+						${msg("Add to calendar")}
+						<wa-dropdown-item slot="submenu" value="ics">
+							${msg("Download .ics file")}
+						</wa-dropdown-item>
+						<wa-dropdown-item slot="submenu" value="google">
+							${msg("Add to Google Calendar")}
+						</wa-dropdown-item>
+					</wa-dropdown-item>`
+				: nothing,
 			canManageMembers(event, uid)
 				? html`<wa-dropdown-item value="share">${msg("Share")}</wa-dropdown-item>`
 				: nothing,
@@ -274,7 +287,9 @@ export class PlanuEventCard extends LitElement {
 	#onAction(domEvent: Event): void {
 		const { value } = (domEvent as CustomEvent<{ item: { value: string } }>)
 			.detail.item;
-		if (value === "share") this.#openShare();
+		if (value === "ics") downloadEventFile(this.event);
+		else if (value === "google") openInGoogleCalendar(this.event);
+		else if (value === "share") this.#openShare();
 		else if (value === "leave") this.#askLeave();
 		else if (value === "delete") this.#askDelete();
 	}
@@ -334,7 +349,6 @@ export class PlanuEventCard extends LitElement {
 
 				<div slot="footer" class="actions wa-cluster wa-gap-xs">
 					${this.#renderRoleBadge()}
-					<planu-calendar-export .events=${[event]}></planu-calendar-export>
 					${
 						canEdit(event, this.#uid)
 							? html`<wa-button appearance="plain" @click=${this.#onEdit}>

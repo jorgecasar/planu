@@ -184,9 +184,64 @@ test("el menú «⋯» se llama como su evento", async () => {
 	el.remove();
 });
 
-test("quien lo creó comparte y borra desde el menú", async () => {
-	const el = await mount(event());
-	expect(menuItems(el)).toEqual(["share", "delete"]);
+test("sin fecha no se ofrece añadirlo al calendario", async () => {
+	const undated = await mount(event());
+	expect(menuItems(undated)).toEqual(["share", "delete"]);
+	undated.remove();
+
+	const dated = await mount(event({ startDate: new Date(2026, 5, 12) }));
+	expect(menuItems(dated)).toEqual(["calendar", "share", "delete"]);
+	dated.remove();
+});
+
+/** Picks a menu item the way `wa-dropdown` reports it. */
+async function pick(el: PlanuEventCard, value: string): Promise<void> {
+	const item = el.shadowRoot?.querySelector(
+		`wa-dropdown-item[value="${value}"]`,
+	);
+	el.shadowRoot
+		?.querySelector("wa-dropdown")
+		?.dispatchEvent(
+			new CustomEvent("wa-select", { detail: { item }, bubbles: true }),
+		);
+	await el.updateComplete;
+}
+
+test("«Descargar .ics» baja el fichero de ese evento", async () => {
+	const el = await mount(event({ startDate: new Date(2026, 5, 12) }));
+	const downloads: string[] = [];
+	const onClick = (e: Event) => {
+		const a = e.target as HTMLAnchorElement;
+		if (!a.download) return;
+		e.preventDefault();
+		downloads.push(a.download);
+	};
+	document.addEventListener("click", onClick, true);
+	await pick(el, "ics");
+	document.removeEventListener("click", onClick, true);
+
+	expect(downloads).toHaveLength(1);
+	expect(downloads[0]).toMatch(/\.ics$/);
+	el.remove();
+});
+
+test("«Google Calendar» abre la plantilla en otra pestaña sin opener", async () => {
+	const el = await mount(event({ startDate: new Date(2026, 5, 12) }));
+	const calls: unknown[][] = [];
+	const original = window.open;
+	window.open = ((...args: unknown[]) => {
+		calls.push(args);
+		return null;
+	}) as typeof window.open;
+	await pick(el, "google");
+	window.open = original;
+
+	expect(calls).toHaveLength(1);
+	const [url, target, features] = calls[0] as string[];
+	expect(url).toContain("calendar.google.com");
+	expect(url).toContain("Concierto");
+	expect(target).toBe("_blank");
+	expect(features).toBe("noopener");
 	el.remove();
 });
 

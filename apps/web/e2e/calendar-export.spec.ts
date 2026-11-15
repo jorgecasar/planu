@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { openCardMenu } from "./tests/card-actions.js";
 import { signUpVerified } from "./verified-account.js";
 
 /**
@@ -52,7 +53,13 @@ async function exportar(
 	trigger: "Add to calendar" | "Export calendar",
 ): Promise<{ nombre: string; contenido: string }> {
 	const descarga = page.waitForEvent("download");
-	await page.getByRole("button", { name: trigger }).first().click();
+	if (trigger === "Add to calendar") {
+		// Since GH-188 a card's export is a submenu of its «⋯» menu.
+		await openCardMenu(page);
+		await page.getByRole("menuitem", { name: trigger }).click();
+	} else {
+		await page.getByRole("button", { name: trigger }).first().click();
+	}
 	await page.getByRole("menuitem", { name: "Download .ics file" }).click();
 
 	const download = await descarga;
@@ -104,7 +111,22 @@ test("el .ics de la agenda respeta los filtros activos", async ({ page }) => {
 	expect(contenido).not.toContain("Cena de empresa");
 });
 
-test("un evento sin fechas avisa y no descarga nada", async ({ page }) => {
+test("un evento sin fechas no ofrece añadirlo al calendario", async ({
+	page,
+}) => {
+	// Before GH-188 the card offered it and then warned there was nothing to
+	// export. Now the offer is not made.
+	await signUp(page);
+	await createEvent(page, "Concierto de verano");
+
+	await openCardMenu(page, "Concierto de verano");
+	await expect(page.getByRole("menuitem", { name: "Share" })).toBeVisible();
+	await expect(
+		page.getByRole("menuitem", { name: "Add to calendar" }),
+	).toHaveCount(0);
+});
+
+test("una agenda sin fechas avisa y no descarga nada", async ({ page }) => {
 	await signUp(page);
 	await createEvent(page, "Concierto de verano");
 
@@ -113,10 +135,10 @@ test("un evento sin fechas avisa y no descarga nada", async ({ page }) => {
 		descargas += 1;
 	});
 
-	await page.getByRole("button", { name: "Add to calendar" }).first().click();
+	await page.getByRole("button", { name: "Export calendar" }).click();
 	await page.getByRole("menuitem", { name: "Download .ics file" }).click();
 
-	await expect(page.getByRole("alert")).toContainText("no dates");
+	await expect(page.getByRole("alert")).toContainText("have dates");
 	expect(descargas).toBe(0);
 });
 
@@ -126,7 +148,7 @@ test("el aviso de exportación no tiene violaciones de accesibilidad", async ({
 	await signUp(page);
 	await createEvent(page, "Concierto de verano");
 
-	await page.getByRole("button", { name: "Add to calendar" }).first().click();
+	await page.getByRole("button", { name: "Export calendar" }).click();
 	await page.getByRole("menuitem", { name: "Download .ics file" }).click();
 	await expect(page.getByRole("alert")).toBeVisible();
 

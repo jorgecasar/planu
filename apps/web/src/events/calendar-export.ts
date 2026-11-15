@@ -20,6 +20,27 @@ import { webAwesomeStyles } from "../styles/web-awesome.js";
 const WARNING_MS = 8000;
 
 /**
+ * One event as an `.ics` download, for the card's own menu (GH-188). The
+ * card only offers it for dated events, so there is nothing to warn about.
+ */
+export function downloadEventFile(event: CalendarEvent): void {
+	downloadTextFile(
+		buildIcs([event], { now: new Date() }),
+		icsFileName(event.title),
+		ICS_MIME_TYPE,
+	);
+}
+
+/** Google Calendar's template for one event; `false` when it has no dates. */
+export function openInGoogleCalendar(event: CalendarEvent): boolean {
+	const url = googleCalendarUrl(event);
+	if (!url) return false;
+	// `noopener`: the Google tab must not be able to touch ours.
+	window.open(url, "_blank", "noopener");
+	return true;
+}
+
+/**
  * Exports events to the user's calendar: a downloadable `.ics` and, when
  * there's a single event, a link to the Google Calendar template.
  *
@@ -209,15 +230,11 @@ export class PlanuCalendarExport extends LitElement {
 
 	#openGoogle(): void {
 		const single = this.#single;
-		const url = single ? googleCalendarUrl(single) : null;
-		if (!url) {
+		if (!single || !openInGoogleCalendar(single)) {
 			this.#warn(this.#nothingToExport());
 			return;
 		}
-
 		this.#warn("");
-		// `noopener`: the Google tab must not be able to touch ours.
-		window.open(url, "_blank", "noopener");
 	}
 }
 
