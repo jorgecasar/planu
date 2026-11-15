@@ -47,6 +47,7 @@ async function mount(
 }
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	vi.useRealTimers();
 	document.body.replaceChildren();
 });
@@ -386,6 +387,92 @@ async function mountVerifying(publish: SharingPort["publishDirectoryEntry"]) {
 	await el.updateComplete;
 	return el;
 }
+
+/** Fires `visibilitychange` the way the browser does when the tab changes. */
+function setVisibility(state: DocumentVisibilityState) {
+	vi.spyOn(document, "visibilityState", "get").mockReturnValue(state);
+	document.dispatchEvent(new Event("visibilitychange"));
+}
+
+/** An unverified session whose refresh keeps answering "still unverified". */
+async function mountWaiting(user: SessionUser = UNVERIFIED) {
+	const session = fakeSession();
+	vi.mocked(session.refreshEmailVerification).mockResolvedValue(UNVERIFIED);
+	const el = await mount(user, session);
+	Object.assign(el, { sharing: fakeSharing(vi.fn()) });
+	vi.useFakeTimers();
+	return { el, session };
+}
+
+test("al volver a la pestaña con el aviso visible se comprueba la verificación", async () => {
+	const { session } = await mountWaiting();
+
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+
+	expect(session.refreshEmailVerification).toHaveBeenCalledTimes(1);
+});
+
+test("al verificar en otra pestaña y volver, el aviso se va sin recargar", async () => {
+	const publish = vi.fn().mockResolvedValue(undefined);
+	const el = await mountVerifying(publish);
+
+	setVisibility("visible");
+	await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
+});
+
+test("al ocultar la pestaña no se comprueba nada", async () => {
+	const { session } = await mountWaiting();
+
+	setVisibility("hidden");
+	await vi.advanceTimersByTimeAsync(0);
+
+	expect(session.refreshEmailVerification).not.toHaveBeenCalled();
+});
+
+test("las comprobaciones al volver respetan 10 s entre sí y no hay sondeo", async () => {
+	const { session } = await mountWaiting();
+
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+	await vi.advanceTimersByTimeAsync(9_000);
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+	expect(session.refreshEmailVerification).toHaveBeenCalledTimes(1);
+
+	await vi.advanceTimersByTimeAsync(1_000);
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+	expect(session.refreshEmailVerification).toHaveBeenCalledTimes(2);
+
+	await vi.advanceTimersByTimeAsync(120_000);
+	expect(session.refreshEmailVerification).toHaveBeenCalledTimes(2);
+});
+
+test("sin aviso visible no se comprueba al volver", async () => {
+	const { session } = await mountWaiting({
+		...UNVERIFIED,
+		emailVerified: true,
+	});
+
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+
+	expect(session.refreshEmailVerification).not.toHaveBeenCalled();
+});
+
+test("quitada la vista, volver a la pestaña ya no comprueba", async () => {
+	const { el, session } = await mountWaiting();
+
+	el.remove();
+	setVisibility("visible");
+	await vi.advanceTimersByTimeAsync(0);
+
+	expect(session.refreshEmailVerification).not.toHaveBeenCalled();
+});
 
 test("al comprobar la verificación, el aviso se va cuando el directorio se publica", async () => {
 	const publish = vi.fn().mockResolvedValue(undefined);
