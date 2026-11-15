@@ -158,9 +158,12 @@ export default defineConfig(({ mode }) => {
 			},
 			coverage: {
 				provider: "v8",
-				reporter: ["text", "html"],
+				// `projectRoot` makes the lcov paths `apps/web/src/...`, which is what
+				// Sonar resolves; the default is relative to `apps/web` and Sonar
+				// would drop the report without a warning.
+				reporter: ["text", "html", ["lcovonly", { projectRoot: envDir }]],
 				include: ["src/**/*.ts"],
-				exclude: ["**/*.test.ts", "src/main.ts"],
+				exclude: ["**/*.test.ts", "src/main.ts", "src/generated/**"],
 			},
 		},
 	};
