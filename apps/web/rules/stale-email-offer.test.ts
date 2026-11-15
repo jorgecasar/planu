@@ -335,6 +335,57 @@ describe("a tombstone keeps a removed guest out", () => {
 		await assertSucceeds(accept(false));
 	});
 
+	// GH-192, characterization of what ADR 0015 left open: these pass today and
+	// should be inverted, not deleted, if a later decision closes the gap.
+	describe("residual risks of re-inviting a removed guest (GH-192)", () => {
+		/** An offer to the address the removal could not find. */
+		const staleOffer = (role = "viewer") =>
+			assertSucceeds(
+				setDoc(doc(owner(), OFFER2), {
+					...anOffer(role),
+					inviteeEmail: E2,
+					createdAt: serverTimestamp(),
+				}),
+			);
+		const claimOfferWithRole = (role: string) => {
+			const g = asGuest(E2);
+			const batch = writeBatch(g);
+			batch.delete(doc(g, OFFER2));
+			batch.set(doc(g, INVITE), {
+				...anInvite(role),
+				inviteeEmail: E2,
+			});
+			return batch.commit();
+		};
+		const reinvite = async () => {
+			await assertSucceeds(ownerRemoves());
+			await assertSucceeds(setDoc(doc(owner(), INVITE), anInvite()));
+		};
+
+		test("(c') cancelling the re-invitation deletes the tombstone, so the old offer redeems", async () => {
+			await staleOffer();
+			await reinvite();
+			await assertSucceeds(deleteDoc(doc(owner(), INVITE)));
+			await assertSucceeds(claimOfferWithRole("viewer"));
+		});
+
+		test("(c) the guest drops the pending re-invitation and redeems the older offer with its role", async () => {
+			await staleOffer("editor");
+			await reinvite();
+			await assertSucceeds(deleteDoc(doc(asGuest(E2), INVITE)));
+			await assertSucceeds(claimOfferWithRole("editor"));
+		});
+
+		test("the verified owner deletes a tombstone, the unverified one cannot", async () => {
+			await assertSucceeds(ownerRemoves());
+			const unverified = env
+				.authenticatedContext(OWNER, { email_verified: false })
+				.firestore();
+			await assertFails(deleteDoc(doc(unverified, INVITE)));
+			await assertSucceeds(deleteDoc(doc(owner(), INVITE)));
+		});
+	});
+
 	// Account deletion of a member whose verification lapsed: they cannot
 	// leave, but nothing keeps them from erasing their accepted record.
 	test("an unverified member still erases their accepted record", async () => {
