@@ -474,3 +474,64 @@ test("a copy that fails after one that worked no longer says «copied»", async 
 	expect(writeText).toHaveBeenCalledTimes(2);
 	expect(el.shadowRoot?.textContent).not.toContain("Link copied.");
 });
+
+function stubShare(share: unknown): void {
+	Object.defineProperty(navigator, "share", {
+		value: share,
+		configurable: true,
+	});
+}
+
+test("«Share» is only offered where the browser can share", async () => {
+	stubShare(undefined);
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	expect(action(el, "share")).toBeNull();
+	expect(action(el, "copy")).not.toBeNull();
+	Reflect.deleteProperty(navigator, "share");
+});
+
+test("«Share» hands the system sheet the title and the link, not the address", async () => {
+	const share = vi.fn().mockResolvedValue(undefined);
+	stubShare(share);
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "share")?.click();
+
+	await vi.waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+	const [payload] = share.mock.calls[0] ?? [];
+	expect(payload.url).toBe(LINK);
+	expect(payload.title).toContain("Concert");
+	expect(JSON.stringify(payload)).not.toContain("bea@example.com");
+	Reflect.deleteProperty(navigator, "share");
+});
+
+test("dismissing the share sheet is neither an error nor a copy", async () => {
+	const writeText = vi
+		.spyOn(navigator.clipboard, "writeText")
+		.mockResolvedValue();
+	const share = vi.fn().mockRejectedValue(new DOMException("", "AbortError"));
+	stubShare(share);
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "share")?.click();
+	await vi.waitFor(() => expect(share).toHaveBeenCalled());
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.querySelector("wa-callout[variant=danger]")).toBeNull();
+	expect(writeText).not.toHaveBeenCalled();
+	Reflect.deleteProperty(navigator, "share");
+});
+
+test("when sharing fails for another reason, the link is copied instead", async () => {
+	const writeText = vi
+		.spyOn(navigator.clipboard, "writeText")
+		.mockResolvedValue();
+	stubShare(vi.fn().mockRejectedValue(new Error("not allowed")));
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "share")?.click();
+
+	await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(LINK));
+	Reflect.deleteProperty(navigator, "share");
+});
