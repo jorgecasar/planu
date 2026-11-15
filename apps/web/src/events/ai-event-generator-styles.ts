@@ -19,6 +19,12 @@ export const aiEventGeneratorStyles = css`
 			padding: 0;
 			font-weight: var(--wa-font-weight-semibold);
 		}
+
+		/* native.css zeroes a paragraph's margins and pads only its end. */
+		fieldset > p {
+			margin-block: var(--wa-space-m);
+		}
+
 		.drop {
 			display: flex;
 			flex-direction: column;
