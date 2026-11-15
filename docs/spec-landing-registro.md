@@ -79,7 +79,8 @@ una cadena `msg()`; el español es la fuente de verdad de la propuesta.
 | Imagen | Captura real de la lista de eventos (sección 6) | igual, capturada en inglés |
 | `alt` | Lista de eventos de planu con título, fecha, lugar y etiquetas | planu event list with title, date, place and tags |
 
-Un solo botón de acción. `wa-heading-4xl` para el h1 (existe), subtítulo en
+Un solo botón de acción. `wa-heading-3xl` para el h1 (con 4xl, 52 px,
+«Compártelos» no cabe a 320 px y desborda), subtítulo en
 `wa-body-l`. Tracking del titular más cerrado en el tema, no en la landing.
 La captura **no** debe quedar cortada por el pliegue en 390: va con su texto
 legible (sección 6) o va debajo del CTA a ancho completo sin forzar la altura.
@@ -174,7 +175,15 @@ que hacemos diferente», «Tus datos son tuyos», «Sin invitaciones pendientes�
 | Fechas con o sin hora, hasta 10 etiquetas, imagen | ADR 0010; `domain/tags.ts:12`; `lib/types.ts` |
 | Correo o Google; correo verificado | `infrastructure/firebase/session-adapter.ts:120,134,150`; ADR 0011 |
 | Español e inglés | `domain/pick-locale.ts` |
-| Gratis, sin anuncios | **Sin evidencia de precio ni de anuncios; decisión D7** |
+| ~~Gratis, sin anuncios~~ | Retirado por D7: sin evidencia de precio ni de anuncios; no aparece en el copy |
+| Planifica tus eventos (crear, listar, filtrar) | `events/events-view.ts`, `events/event-editor.ts`, `events/event-filters.ts` |
+| Compártelos solo con quien tú elijas | Las filas de privado y de roles de arriba (ADR 0006) |
+| Cada evento con su lugar, sus fechas, sus etiquetas y su imagen | `lib/types.ts:18` (`location`), `:46` (`allDay`), `:63` (`tags`), `:21` (`imageUrl`) |
+| Cenas, quedadas, planes de grupo | Ejemplos de uso, no función: el modelo admite cualquier evento (`lib/types.ts`) |
+| Es solo tuyo hasta que invitas a alguien | Fila de privado de arriba (`firestore.rules`; ADR 0002, ADR 0006) |
+| «Crea tu cuenta»; con tu correo o con Google | `infrastructure/firebase/session-adapter.ts:120,150`; el CTA cae en `/app/login` hasta la rodaja 6 |
+| «Lo demás lo decides tú» | Sin afirmación de función; resume las filas de privado y de roles |
+| «Entrar» en la cabecera | `auth/login-view.ts` (pestaña «Entrar»), destino `/app/login` |
 
 Regla para el checker: una frase del copy sin fila en esta tabla es un fallo.
 

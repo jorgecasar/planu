@@ -13,19 +13,19 @@ const LOCALES = [
 	{
 		path: "/",
 		lang: "en",
-		heading: "Your events. Private. Shareable. Yours.",
+		heading: "Plan your events. Share them only with the people you choose.",
 		title: "planu — Plan your events, privately",
 	},
 	{
 		path: "/en/",
 		lang: "en",
-		heading: "Your events. Private. Shareable. Yours.",
+		heading: "Plan your events. Share them only with the people you choose.",
 		title: "planu — Plan your events, privately",
 	},
 	{
 		path: "/es/",
 		lang: "es",
-		heading: "Tus eventos. Privados. Compartibles. Tuyos.",
+		heading: "Planifica tus eventos. Compártelos solo con quien tú elijas.",
 		title: "planu — Planifica tus eventos, en privado",
 	},
 ];
@@ -61,7 +61,7 @@ test("la raíz es la landing, no la aplicación", async ({ page }) => {
 
 	await expect(page).toHaveURL(/\/$/);
 	await expect(
-		page.getByRole("link", { name: "Start planning" }),
+		page.getByRole("link", { name: "Create your account" }),
 	).toBeVisible();
 });
 
@@ -112,7 +112,7 @@ test("la landing se ve con JavaScript desactivado", async ({ browser }) => {
 
 	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 	await expect(
-		page.getByRole("link", { name: "Start planning" }),
+		page.getByRole("link", { name: "Create your account" }),
 	).toBeVisible();
 	// Los seis iconos son SVG en línea, no `<wa-icon>`: un custom element no se
 	// definiría nunca aquí y las tarjetas saldrían sin icono.
@@ -401,20 +401,81 @@ test("los botones de llamada a la acción se pintan como botones", async ({
 		return { fill: c.color, border: c.borderTopColor };
 	});
 
-	const primario = await estilo("Start planning");
+	const primario = await estilo("Create your account");
 	expect(primario.display).toBe("flex");
 	expect(primario.decoration).toBe("none");
 	// Indigo de la marca, no el fondo transparente de un enlace suelto.
 	expect(primario.background).toBe(marca.fill);
+	// `wa-size-l`: el tamaño grande.
+	expect(Number.parseFloat(primario.size)).toBeGreaterThan(16);
 
+	// «Sign in» is a plain text link (`wa-plain`): it must not look like a
+	// second primary action.
 	const secundario = await estilo("Sign in");
 	expect(secundario.decoration).toBe("none");
 	expect(secundario.background).toBe("rgba(0, 0, 0, 0)");
-	expect(secundario.border).toBe(marca.border);
-	// `wa-size-l`: el tamaño grande, igual en los dos.
-	expect(secundario.size).toBe(primario.size);
-	expect(Number.parseFloat(primario.size)).toBeGreaterThan(16);
+	expect(secundario.border).toBe("rgba(0, 0, 0, 0)");
+	expect(secundario.background).not.toBe(marca.fill);
 });
+
+for (const { path, cta, signIn } of [
+	{ path: "/en/", cta: "Create your account", signIn: "Sign in" },
+	{ path: "/es/", cta: "Crea tu cuenta", signIn: "Entrar" },
+]) {
+	test(`${path} tiene una sola acción primaria y «${signIn}» no compite`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const primarias = page.locator("a.wa-button.wa-brand");
+		await expect(primarias).toHaveCount(1);
+		await expect(primarias).toHaveText(cta);
+		await expect(primarias).toHaveAttribute("href", "/app/login");
+
+		const entrar = page.locator("header a.wa-button");
+		await expect(entrar).toHaveText(signIn);
+		await expect(entrar).toHaveAttribute("href", "/app/login");
+		await expect(entrar).toHaveClass(/wa-plain/);
+		await expect(entrar).not.toHaveClass(/wa-brand/);
+
+		// D7: nothing in the repo backs «free» or «no ads».
+		await expect(
+			page.getByText(/\bfree\b|\bgratis\b|\bno ads\b|sin anuncios/i),
+		).toHaveCount(0);
+	});
+
+	for (const [ancho, alto] of [
+		[390, 844],
+		[1280, 800],
+	] as const) {
+		test(`${path} muestra h1 y CTA en la primera pantalla a ${ancho}x${alto}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: ancho, height: alto });
+			await page.goto(path);
+
+			for (const locator of [
+				page.getByRole("heading", { level: 1 }),
+				page.locator("a.wa-button.wa-brand"),
+			]) {
+				const box = await locator.boundingBox();
+				expect(box).not.toBeNull();
+				expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(alto);
+			}
+		});
+	}
+
+	test(`${path} no hace scroll horizontal a 320 px`, async ({ page }) => {
+		await page.setViewportSize({ width: 320, height: 700 });
+		await page.goto(path);
+
+		const [ancho, visible] = await page.evaluate(() => [
+			document.documentElement.scrollWidth,
+			document.documentElement.clientWidth,
+		]);
+		expect(ancho).toBeLessThanOrEqual(visible);
+	});
+}
 
 test("las tarjetas se reparten en rejilla, no en una columna", async ({
 	page,
