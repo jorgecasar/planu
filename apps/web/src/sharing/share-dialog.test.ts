@@ -377,3 +377,100 @@ test("the role select closing during the fade-out keeps the form until the dialo
 	await el.updateComplete;
 	expect(root.querySelector("form")).toBeNull();
 });
+
+/** Invites `email`, waits for the success notice and returns the dialog. */
+async function inviteAndGetDialog(email: string) {
+	const sharing = fakeSharing(async () => null);
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event: EVENT, open: true });
+	document.body.append(el);
+	await vi.waitFor(() => expect(sharing.listPendingInvites).toHaveBeenCalled());
+
+	const input = el.shadowRoot?.querySelector<
+		HTMLInputElement & { updateComplete: Promise<unknown> }
+	>("[name=email]");
+	if (!input) throw new Error("No email field");
+	input.value = email;
+	await input.updateComplete;
+	el.shadowRoot?.querySelector("form")?.requestSubmit();
+	await vi.waitFor(() => {
+		if (!el.shadowRoot?.querySelector("wa-callout[variant=success]")) {
+			throw new Error("No outcome yet");
+		}
+	});
+	return el;
+}
+
+const action = (el: Element, name: string) =>
+	el.shadowRoot?.querySelector<HTMLElement>(`[data-action=${name}]`);
+
+const LINK = `${location.origin}/app/login?invite=event-1`;
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
+
+test("«Send by email» opens a mailto to that address, with the link and not the address in it", async () => {
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	const href = action(el, "email")?.getAttribute("href") ?? "";
+	expect(href.startsWith("mailto:bea%40example.com?subject=")).toBe(true);
+	const body = new URL(href).searchParams.get("body") ?? "";
+	expect(body).toContain(LINK);
+	expect(body).not.toContain("bea@example.com");
+});
+
+test("no sharing actions are offered when the invitation failed", async () => {
+	const sharing = fakeSharing(async () => null);
+	sharing.offerInviteByEmail.mockRejectedValue(new Error("denied"));
+	await invite(sharing, "bea@example.com");
+
+	const el = document.querySelector("planu-share-dialog");
+	expect(el?.shadowRoot?.querySelector("[data-action]")).toBeNull();
+});
+
+test("«Copy link» writes the link to the clipboard", async () => {
+	const writeText = vi
+		.spyOn(navigator.clipboard, "writeText")
+		.mockResolvedValue();
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "copy")?.click();
+
+	await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(LINK));
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.textContent).toContain("Link copied."),
+	);
+});
+
+test("a clipboard that refuses is reported, not shown as copied", async () => {
+	vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("no"));
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "copy")?.click();
+
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.textContent).toContain("could not be copied"),
+	);
+	expect(el.shadowRoot?.textContent).not.toContain("Link copied.");
+});
+
+test("a copy that fails after one that worked no longer says «copied»", async () => {
+	const writeText = vi
+		.spyOn(navigator.clipboard, "writeText")
+		.mockResolvedValueOnce()
+		.mockRejectedValueOnce(new Error("no"));
+	const el = await inviteAndGetDialog("bea@example.com");
+
+	action(el, "copy")?.click();
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.textContent).toContain("Link copied."),
+	);
+	action(el, "copy")?.click();
+
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.textContent).toContain("could not be copied"),
+	);
+	expect(writeText).toHaveBeenCalledTimes(2);
+	expect(el.shadowRoot?.textContent).not.toContain("Link copied.");
+});

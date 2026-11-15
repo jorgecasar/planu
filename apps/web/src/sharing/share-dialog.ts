@@ -20,10 +20,12 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
+import { buildInvitationMessage } from "../domain/invitation-message.js";
 import type { EventRole, StoredEvent } from "../lib/types.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
+import { buildInvitationLink } from "./invitation-link.js";
 import { canManageMembers } from "./permissions.js";
 
 /** Matches the cap in firestore.rules. */
@@ -81,6 +83,10 @@ export class PlanuShareDialog extends LitElement {
 			margin-block: var(--wa-space-m);
 			color: var(--wa-color-text-normal);
 		}
+
+		.actions {
+			margin-block-end: var(--wa-space-l);
+		}
 	`,
 		accessRowStyles,
 	];
@@ -109,6 +115,14 @@ export class PlanuShareDialog extends LitElement {
 	@state() private notice = "";
 
 	/**
+	 * What the owner can send to the person just invited. planu mails nobody
+	 * (ADR 0012): this is the owner's own mail client, clipboard or share sheet.
+	 */
+	@state() private handoff: { mailto: string; link: string } | undefined;
+
+	@state() private copied = false;
+
+	/**
 	 * Whether the body is in the DOM: from opening until the hide animation
 	 * ends. Every card mounts a closed dialog, and an always-rendered form
 	 * put two fields per card in the page that nobody could reach — Chrome
@@ -124,6 +138,8 @@ export class PlanuShareDialog extends LitElement {
 		if ((changed.has("open") || changed.has("event")) && this.open) {
 			this.error = "";
 			this.notice = "";
+			this.handoff = undefined;
+			this.copied = false;
 			this.#access.reset();
 			void this.#access.load();
 		}
@@ -185,6 +201,7 @@ export class PlanuShareDialog extends LitElement {
 						${msg("Invite")}
 					</wa-button>
 				</form>
+				${this.#renderHandoff()}
 
 				<h3>${msg("People with access")}</h3>
 				<ul class="wa-list-plain">
@@ -212,6 +229,38 @@ export class PlanuShareDialog extends LitElement {
 				}
 		`;
 	}
+
+	#renderHandoff() {
+		const { handoff } = this;
+		if (!handoff) return nothing;
+
+		return html`
+			<div class="actions wa-cluster">
+				<wa-button data-action="email" href=${handoff.mailto}>
+					${msg("Send by email")}
+				</wa-button>
+				<wa-button data-action="copy" @click=${this.#copyLink}>
+					${msg("Copy link")}
+				</wa-button>
+				<span role="status">${this.copied ? msg("Link copied.") : nothing}</span>
+			</div>
+		`;
+	}
+
+	readonly #copyLink = async (): Promise<void> => {
+		const { handoff } = this;
+		if (!handoff) return;
+		// Each attempt starts unconfirmed: a copy that worked earlier says
+		// nothing about this one.
+		this.copied = false;
+		try {
+			await navigator.clipboard.writeText(handoff.link);
+			this.error = "";
+			this.copied = true;
+		} catch {
+			this.error = msg("The link could not be copied.");
+		}
+	};
 
 	readonly #onAction = (person: Person, domEvent: Event): void => {
 		const value = (domEvent as CustomEvent<{ item: { value: string } }>).detail
@@ -243,6 +292,8 @@ export class PlanuShareDialog extends LitElement {
 
 		this.error = "";
 		this.notice = "";
+		this.handoff = undefined;
+		this.copied = false;
 		this.busy = true;
 		try {
 			// A rejection is a failed lookup, not "no account": it lands in the
@@ -299,6 +350,14 @@ export class PlanuShareDialog extends LitElement {
 		// was not. Reporting failure for something that did happen invites the
 		// obvious reaction — doing it again.
 		this.notice = msg("Invitation sent. They join once they accept it.");
+		const link = buildInvitationLink(window.location.origin, event.id);
+		const message = buildInvitationMessage({
+			eventTitle: event.title,
+			link,
+			role,
+			to: email,
+		});
+		this.handoff = { mailto: message.mailto, link };
 		this.analytics.trackShare({ editable: role === "editor" });
 		form.reset();
 		await this.#access.load().catch(() => {});
