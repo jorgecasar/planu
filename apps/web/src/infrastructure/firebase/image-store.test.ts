@@ -2,61 +2,149 @@ import { FirebaseError, initializeApp } from "firebase/app";
 import { type FirebaseStorage, getStorage } from "firebase/storage";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-// `FirebaseImageStore` is a thin delegation to `uploadFile()` (see that
-// function's own test for the upload mechanics: progress, resolve/reject,
-// filename sanitization). This only checks the delegation itself — the
-// right storage instance, file, prefix, and progress callback reach it.
-
-const uploadFileMock = vi.fn();
-
-vi.mock("./storage.js", () => ({
-	uploadFile: uploadFileMock,
+// Mocks the Storage SDK so the upload wiring (progress, resolve/reject) and
+// the filename sanitization can be tested without an emulator. `ref` keeps
+// the real SDK's behaviour by default, because `deleteEventImage` below
+// parses real URLs with it; the upload tests swap it for a recorder.
+const sdk = vi.hoisted(() => ({
+	realRef: undefined as unknown as typeof import("firebase/storage").ref,
+	deleteObject: vi.fn(),
+	getDownloadURL: vi.fn(),
+	ref: vi.fn(),
+	uploadBytesResumable: vi.fn(),
 }));
+const deleteObjectMock = sdk.deleteObject;
+const getDownloadURLMock = sdk.getDownloadURL;
+const refMock = sdk.ref;
+const uploadBytesResumableMock = sdk.uploadBytesResumable;
 
-// For `createAccountDataAdapter`'s `deleteEventImage` below: only
-// `deleteObject` replaced, so URL parsing (`ref`) is the real SDK's.
-const deleteObjectMock = vi.hoisted(() => vi.fn());
-vi.mock("firebase/storage", async (importOriginal) => ({
-	...(await importOriginal<typeof import("firebase/storage")>()),
-	deleteObject: deleteObjectMock,
-}));
+vi.mock("firebase/storage", async (importOriginal) => {
+	const original = await importOriginal<typeof import("firebase/storage")>();
+	sdk.realRef = original.ref;
+	sdk.ref.mockImplementation(original.ref);
+	return {
+		...original,
+		deleteObject: sdk.deleteObject,
+		getDownloadURL: sdk.getDownloadURL,
+		ref: sdk.ref,
+		uploadBytesResumable: sdk.uploadBytesResumable,
+	};
+});
 const { FirebaseImageStore } = await import("./image-store.js");
 const { createAccountDataAdapter } = await import("./account-data-adapter.js");
 
+interface FakeTask {
+	on: (
+		event: "state_changed",
+		progress: (snapshot: {
+			bytesTransferred: number;
+			totalBytes: number;
+		}) => void,
+		error: (err: unknown) => void,
+		complete: () => void,
+	) => void;
+	snapshot: { ref: unknown };
+	_fail: (err: unknown) => void;
+	_succeed: () => void;
+}
+
+function fakeTask(taskRef: unknown): FakeTask {
+	let onError: (err: unknown) => void = () => {};
+	let onComplete: () => void = () => {};
+	return {
+		snapshot: { ref: taskRef },
+		on: (_event, _progress, error, complete) => {
+			onError = error;
+			onComplete = complete;
+		},
+		_fail: (err) => onError(err),
+		_succeed: () => onComplete(),
+	};
+}
+
 describe("FirebaseImageStore", () => {
+	const storage = {} as FirebaseStorage;
+
 	beforeEach(() => {
-		uploadFileMock.mockReset().mockResolvedValue("https://example.com/f.png");
+		refMock.mockReset().mockImplementation((_s: unknown, path: string) => ({
+			path,
+		}));
+		getDownloadURLMock.mockReset().mockResolvedValue("https://example.com/f");
+		uploadBytesResumableMock.mockReset();
 	});
 
-	test("upload() delega en uploadFile con el storage, el fichero, el prefijo y el progreso", async () => {
-		const storage = { name: "fake-storage" } as unknown as FirebaseStorage;
-		const store = new FirebaseImageStore(storage);
-		const file = new File(["x"], "cover.png", { type: "image/png" });
+	test("el nombre de fichero se sanea: los caracteres fuera de [a-zA-Z0-9._-] se sustituyen", async () => {
+		// file.name is user-controlled. A `/` in it would add path segments
+		// instead of escaping the Storage rules' fixed `events/{uid}/{fileName}`
+		// shape — the SDK doesn't resolve `..`.
+		const task = fakeTask({});
+		uploadBytesResumableMock.mockReturnValue(task);
+		const file = new File(["x"], "../secret/résumé caché.png");
+
+		const promise = new FirebaseImageStore(storage).upload(
+			file,
+			"events/uid-1",
+		);
+		task._succeed();
+		await promise;
+
+		const [, path] = refMock.mock.calls[0] as [unknown, string];
+		expect(path).not.toContain("/../");
+		expect(path).not.toContain(" ");
+		expect(path).toMatch(/^events\/uid-1\/\d+_.*\.png$/);
+	});
+
+	test("resuelve con la URL de descarga cuando la subida termina", async () => {
+		const task = fakeTask({ marker: "the-ref" });
+		uploadBytesResumableMock.mockReturnValue(task);
+		getDownloadURLMock.mockResolvedValue("https://example.com/cover.png");
+
+		const promise = new FirebaseImageStore(storage).upload(
+			new File(["x"], "cover.png"),
+			"events/uid-1",
+		);
+		task._succeed();
+
+		await expect(promise).resolves.toBe("https://example.com/cover.png");
+		expect(getDownloadURLMock).toHaveBeenCalledWith({ marker: "the-ref" });
+	});
+
+	test("rechaza si la subida falla, sin llegar a pedir la URL", async () => {
+		const task = fakeTask({});
+		uploadBytesResumableMock.mockReturnValue(task);
+		const failure = new Error("network down");
+
+		const promise = new FirebaseImageStore(storage).upload(
+			new File(["x"], "cover.png"),
+			"events/uid-1",
+		);
+		task._fail(failure);
+
+		await expect(promise).rejects.toBe(failure);
+		expect(getDownloadURLMock).not.toHaveBeenCalled();
+	});
+
+	test("informa del progreso como porcentaje de bytesTransferred/totalBytes", () => {
+		let progressCb: (snapshot: {
+			bytesTransferred: number;
+			totalBytes: number;
+		}) => void = () => {};
+		uploadBytesResumableMock.mockReturnValue({
+			snapshot: { ref: {} },
+			on: (_event: string, progress: typeof progressCb) => {
+				progressCb = progress;
+			},
+		});
 		const onProgress = vi.fn();
 
-		const url = await store.upload(file, "events/uid-1", onProgress);
-
-		expect(uploadFileMock).toHaveBeenCalledWith(
-			storage,
-			file,
+		void new FirebaseImageStore(storage).upload(
+			new File(["x"], "cover.png"),
 			"events/uid-1",
 			onProgress,
 		);
-		expect(url).toBe("https://example.com/f.png");
-	});
+		progressCb({ bytesTransferred: 25, totalBytes: 100 });
 
-	test("upload() funciona sin callback de progreso", async () => {
-		const store = new FirebaseImageStore({} as unknown as FirebaseStorage);
-		const file = new File(["x"], "cover.png", { type: "image/png" });
-
-		await store.upload(file, "events/uid-1");
-
-		expect(uploadFileMock).toHaveBeenCalledWith(
-			{},
-			file,
-			"events/uid-1",
-			undefined,
-		);
+		expect(onProgress).toHaveBeenCalledWith(25);
 	});
 });
 
@@ -76,6 +164,7 @@ describe("deleteEventImage (account-data-adapter)", () => {
 	const OWN = url(BUCKET, "events/u1/1731000000000_cartel.png");
 
 	beforeEach(() => {
+		refMock.mockReset().mockImplementation(sdk.realRef);
 		deleteObjectMock.mockReset().mockResolvedValue(undefined);
 	});
 

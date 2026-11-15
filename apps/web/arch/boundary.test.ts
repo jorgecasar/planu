@@ -238,8 +238,11 @@ const importaFirebase = (fichero: string): boolean =>
  * which imports no Firebase and needs no exemption; the `firebase/app` type
  * and `firebase/performance` go to `infrastructure/firebase/observability.ts`.
  * One coupled file freed, one added: the count stays at 24.
+ *
+ * #109 absorbs `storage.ts` and its test into `image-store.ts` and its test:
+ * `uploadFile()` had no other consumer. No new file, from 24 to 22.
  */
-const TOPE_ACOPLADOS = 24;
+const TOPE_ACOPLADOS = 22;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
