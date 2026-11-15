@@ -151,6 +151,26 @@ export class PlanuEventsView extends LitElement {
       border-radius: var(--wa-panel-border-radius);
     }
 
+    /* On a phone the main action leaves the toolbar for the bottom edge,
+       where the thumb is, and stays there while the list scrolls. The host
+       pads its end so the last card is never left under it. */
+    @media (max-width: 40rem) {
+      :host {
+        padding-block-end: calc(var(--wa-space-l) + 4rem);
+      }
+
+      .new {
+        position: fixed;
+        z-index: 5;
+        inset-inline: var(--wa-space-m);
+        inset-block-end: var(--wa-space-m);
+      }
+
+      .new::part(base) {
+        box-shadow: var(--wa-shadow-l);
+      }
+    }
+
     .empty {
       margin-block-start: var(--wa-space-2xl);
       text-align: center;
@@ -332,7 +352,7 @@ export class PlanuEventsView extends LitElement {
           .events=${visible}
         ></planu-calendar-export>
         </div>
-        <wa-button variant="brand" @click=${this.#onNew}>
+        <wa-button class="new" variant="brand" @click=${this.#onNew}>
           ${msg("New event")}
         </wa-button>
       </div>
