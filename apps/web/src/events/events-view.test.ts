@@ -53,6 +53,19 @@ test("«Exportar el calendario» tiene borde, no parece deshabilitado", () => {
 	expect(exporter?.getAttribute("appearance")).toBe("outlined");
 });
 
+test("«Nuevo evento» is fixed to the bottom only inside the phone media query", () => {
+	const button = el.shadowRoot?.querySelector("wa-button.new");
+	expect(button?.textContent?.trim()).toBe("Nuevo evento");
+	const media = [...(el.shadowRoot?.adoptedStyleSheets ?? [])]
+		.flatMap((sheet) => [...sheet.cssRules])
+		.filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule);
+	const phone = media.find((rule) => rule.conditionText.includes("40rem"));
+	const rule = [...(phone?.cssRules ?? [])].find(
+		(inner) => (inner as CSSStyleRule).selectorText === ".new",
+	) as CSSStyleRule | undefined;
+	expect(rule?.style.position).toBe("fixed");
+});
+
 // Chrome flags a field with no name or no autocomplete hint.
 test("the sort select carries a name", () => {
 	const select = el.shadowRoot?.querySelector("wa-select");

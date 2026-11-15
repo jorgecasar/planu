@@ -75,6 +75,14 @@ export class PlanuCalendarExport extends LitElement {
 			inset-inline-start: var(--wa-space-l);
 			max-inline-size: min(28rem, calc(100vw - 2 * var(--wa-space-l)));
 		}
+
+		/* On a phone «New event» is fixed to the bottom edge (events-view):
+		   sit above it instead of covering it for eight seconds. */
+		@media (max-width: 40rem) {
+			wa-callout {
+				inset-block-end: calc(var(--wa-space-l) + 4rem);
+			}
+		}
 	`,
 	];
 
