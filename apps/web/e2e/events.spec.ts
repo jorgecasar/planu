@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
 
 /**
@@ -220,6 +221,7 @@ test("el filtro por etiquetas combina con Y y se puede limpiar", async ({
 	const casilla = (tag: string) => page.locator(`wa-checkbox[value="${tag}"]`);
 
 	// Una etiqueta: los dos eventos la llevan.
+	await openFilters(page);
 	await casilla("música").click();
 	await expect(
 		page.getByRole("heading", { name: "Concierto de verano" }),
@@ -239,10 +241,12 @@ test("el filtro por etiquetas combina con Y y se puede limpiar", async ({
 
 	// Y al limpiar, la casilla tiene que quedar desmarcada además de que
 	// reaparezcan los eventos: es justo lo que `?checked` no hacía.
+	await closeFilters(page);
 	await page.getByRole("button", { name: "Clear filters" }).click();
 	await expect(
 		page.getByRole("heading", { name: "Cena de empresa" }),
 	).toBeVisible();
+	await openFilters(page);
 	// Se afirma sobre el `input` interno y no sobre el host, que no es un
 	// checkbox nativo. Y es la aserción que importa de todo el test: es
 	// exactamente lo que `?checked` no conseguía, porque su atributo mapea a
@@ -279,9 +283,14 @@ test("el listado con etiquetas y su filtro no tienen violaciones de accesibilida
 
 	// Aquí sí la página entera: el listado con las `wa-tag` de la tarjeta y las
 	// casillas del filtro, que es toda la superficie que T18 añade fuera del
-	// diálogo.
+	// diálogo. Dos pasadas desde GH-188: con el cajón cerrado sus casillas no
+	// se pintan, así que se mira también con el cajón abierto.
 	const resultados = await new AxeBuilder({ page }).analyze();
 	expect(resultados.violations).toEqual([]);
+
+	await openFilters(page);
+	const conCajon = await new AxeBuilder({ page }).analyze();
+	expect(conCajon.violations).toEqual([]);
 });
 
 test("el campo de etiquetas del editor no tiene violaciones de accesibilidad", async ({
@@ -342,7 +351,9 @@ test("una etiqueta seleccionada no desaparece al dejar de usarse", async ({
 	await signUp(page);
 	await createTaggedEvent(page, "Concierto de verano", ["música"]);
 
+	await openFilters(page);
 	await page.locator('wa-checkbox[value="música"]').click();
+	await closeFilters(page);
 	await expect(
 		page.getByRole("heading", { name: "Concierto de verano" }),
 	).toBeVisible();
@@ -357,10 +368,12 @@ test("una etiqueta seleccionada no desaparece al dejar de usarse", async ({
 	// Pintando sólo `availableTags`, la casilla desaparecía del DOM con el
 	// filtro todavía puesto: el listado se quedaba vacío para siempre y no había
 	// nada marcado que lo explicase.
-	await expect(page.getByRole("checkbox", { name: "música" })).toBeChecked();
 	await expect(
 		page.getByText("No events match your search, tags or date filter."),
 	).toBeVisible();
+	await openFilters(page);
+	await expect(page.getByRole("checkbox", { name: "música" })).toBeChecked();
+	await closeFilters(page);
 
 	await page.getByRole("button", { name: "Clear filters" }).click();
 	await expect(
@@ -526,7 +539,9 @@ test("filtrar por etiqueta abre el pliegue igual que buscar", async ({
 		page.getByRole("heading", { name: "Feria de abril" }),
 	).toBeHidden();
 
+	await openFilters(page);
 	await page.locator('wa-checkbox[value="feria"]').click();
+	await closeFilters(page);
 
 	await expect(
 		page.getByRole("heading", { name: "Feria de abril" }),

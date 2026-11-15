@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
 
 /**
@@ -428,10 +429,12 @@ test("el rango con hora coge la cena de las 19:30 y no la de las 21:00", async (
 	await createEventTodayWithTime(page, "Cena tardía", "21:00", "22:00");
 
 	const hoy = dayFromToday(0);
+	await openFilters(page);
 	await page.getByLabel("From", { exact: true }).fill(hoy);
 	await page.getByLabel("From time").fill("19:00");
 	await page.getByLabel("To", { exact: true }).fill(hoy);
 	await page.getByLabel("To time").fill("20:00");
+	await closeFilters(page);
 
 	await expect(
 		page.getByRole("heading", { name: "Cena temprana" }),

@@ -3,6 +3,7 @@ import "@awesome.me/webawesome/dist/components/input/input.js";
 import "@awesome.me/webawesome/dist/components/radio-group/radio-group.js";
 import "@awesome.me/webawesome/dist/components/checkbox-group/checkbox-group.js";
 import "@awesome.me/webawesome/dist/components/checkbox/checkbox.js";
+import "@awesome.me/webawesome/dist/components/drawer/drawer.js";
 import "@awesome.me/webawesome/dist/components/radio/radio.js";
 import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
@@ -43,15 +44,28 @@ export class PlanuEventFilters extends LitElement {
 			flex: 1 1 100%;
 		}
 
+		/* Search stays in sight; everything else waits behind «Filters». */
 		form {
 			display: flex;
 			flex-wrap: wrap;
 			align-items: end;
-			gap: var(--wa-space-m);
+			gap: var(--wa-space-s);
 		}
 
 		wa-input[type="search"] {
-			flex: 1 1 16rem;
+			flex: 1 1 12rem;
+			min-inline-size: 0;
+		}
+
+		/* Heading face, like the other titles (typography.ts covers wa-dialog). */
+		wa-drawer::part(title) {
+			font-family: var(--wa-font-family-heading);
+		}
+
+		.drawer-body {
+			display: flex;
+			flex-direction: column;
+			gap: var(--wa-space-l);
 		}
 
 		/* A date and its time share a row while both fit, and stack when they
@@ -62,47 +76,19 @@ export class PlanuEventFilters extends LitElement {
 			display: flex;
 			flex-wrap: wrap;
 			gap: var(--wa-space-s);
-			flex: 1 1 18rem;
 		}
 
 		.date-time-group wa-input[type="date"] {
 			flex: 3 1 9rem;
-			width: auto;
 		}
 
 		.date-time-group wa-input[type="time"] {
 			flex: 1 0 8.5rem;
-			width: auto;
-		}
-
-		/* Responsive adjustments */
-		@media (max-width: 600px) {
-			form {
-				flex-direction: column;
-				align-items: stretch;
-			}
-			/* Make all inputs and groups full width */
-			wa-input,
-			wa-radio-group,
-			wa-checkbox-group,
-			wa-button,
-			.date-time-group {
-				width: 100%;
-				flex: none;
-			}
-			/* Reduce bottom margin for search input on mobile and prevent vertical stretch */
-			wa-input[type="search"] {
-				flex: none;
-				margin-bottom: var(--wa-space-xs);
-			}
-			/* Ensure groups stack vertically */
-			wa-radio-group,
-			wa-checkbox-group {
-				margin-top: var(--wa-space-s);
-			}
 		}
 	`,
 	];
+
+	@state() private drawerOpen = false;
 
 	@state() private searchTerm = "";
 	@state() private from = "";
@@ -134,8 +120,29 @@ export class PlanuEventFilters extends LitElement {
 					enterkeyhint="search"
 					.value=${this.searchTerm}
 					@input=${this.#onSearch}
-				></wa-input>
+				>
+					${
+						// End slot, outside the drawer: a lone search stays clearable.
+						filtered
+							? html`<wa-button
+									slot="end"
+									class="clear"
+									appearance="plain"
+									size="xs"
+									@click=${this.#clear}
+								>
+									${msg("Clear filters")}
+								</wa-button>`
+							: nothing
+					}
+				</wa-input>
 
+				<wa-drawer
+					label=${msg("Filters")}
+					.open=${this.drawerOpen}
+					@wa-after-hide=${this.#onDrawerHidden}
+				>
+				<div class="drawer-body">
 				<wa-radio-group
 					label=${msg("Show")}
 					orientation="horizontal"
@@ -186,16 +193,30 @@ export class PlanuEventFilters extends LitElement {
 				</div>
 
 				${this.#renderTags()}
+				</div>
+				</wa-drawer>
 
-				${
-					filtered
-						? html`<wa-button appearance="plain" @click=${this.#clear}>
-								${msg("Clear filters")}
-							</wa-button>`
-						: null
-				}
+				<wa-button
+					class="filters-toggle"
+					appearance="outlined"
+					@click=${this.#openDrawer}
+				>
+					${msg("Filters")}
+				</wa-button>
 			</form>
 		`;
+	}
+
+	#openDrawer(): void {
+		this.drawerOpen = true;
+	}
+
+	/** Escape, the close button and the backdrop close it from inside; the
+	 * state follows, or the next «Filters» click would set `open` to the value
+	 * it already has. The target check ignores nested `wa-after-hide`. */
+	#onDrawerHidden(event: globalThis.Event): void {
+		if (event.target !== event.currentTarget) return;
+		this.drawerOpen = false;
 	}
 
 	/**
