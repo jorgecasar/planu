@@ -138,8 +138,8 @@ borrado de cuenta (T32), repositorio de eventos y almacén de imágenes
 fichero de `auth/`, `events/`, `profile/`, `sharing/`, `calendar/`, `landing/`
 ni `lib/` importa ya Firebase. Todo lo que conoce al proveedor vive en
 `infrastructure/firebase/`, incluidos `firebase-provider.ts` —la raíz de
-composición: inicializa la app y publica los contextos—, `config.ts`,
-y `collection-controller.ts`; hasta GH-108 vivían en un
+composición: inicializa la app y publica los contextos— y `config.ts`; hasta
+GH-108 vivían en un
 `src/firebase/` aparte. Los contextos que consume la interfaz se definen en
 `application/context.ts`, junto a los de los puertos, para que ningún
 componente importe de `infrastructure/`. Fuera de ahí ya no queda nada
@@ -166,8 +166,8 @@ Lo vigilan dos cosas, no la buena voluntad:
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **22 ficheros**, todos en `infrastructure/firebase/**`
-—trece fuentes y nueve tests—. GH-108 trasladó ahí los siete de
+lista.** Hoy son **20 ficheros**, todos en `infrastructure/firebase/**`
+—doce fuentes y ocho tests—. GH-108 trasladó ahí los siete de
 `src/firebase/`, y la lista perdió una entrada; el recuento bajó de 25 a 24
 porque `context.ts` sólo importaba Firebase para tipar tres contextos que
 nadie consumía, y sin ellos pasó a `application/`. GH-185 quitó la última
@@ -191,7 +191,8 @@ mismo puerto y liberó `event-editor.ts` (27 → 26), y GH-105 (#159) llevó
 `sharing/invitations.ts` e `invitations-inbox.ts` tras `SharingPort` sin
 fichero nuevo (26 → 24). GH-100 (#161) lo subió a 25 con
 `account-data-adapter.test.ts`, que prueba el borrado de cuenta sin
-emulador. Nunca por una entrada añadida a la lista para esquivar el
+emulador. GH-300 fundió `collection-controller.ts` y su test en
+`events-controller.ts`, su único consumidor (22 → 20). Nunca por una entrada añadida a la lista para esquivar el
 recuento, sólo por ficheros nuevos en el sitio al que pertenecen.
 
 Y el vigilante vigila **la puerta además de la lista**: comprueba que siga

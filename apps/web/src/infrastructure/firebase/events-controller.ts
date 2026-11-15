@@ -2,13 +2,15 @@ import {
 	collection,
 	type DocumentData,
 	type Firestore,
+	type FirestoreError,
+	onSnapshot,
+	type Query,
 	query,
 	where,
 } from "firebase/firestore";
-import type { ReactiveControllerHost } from "lit";
+import type { ReactiveController, ReactiveControllerHost } from "lit";
 import type { EventsSnapshot } from "../../application/context.js";
 import type { StoredEvent } from "../../lib/types.js";
-import { CollectionController } from "./collection-controller.js";
 import { toStoredEvent } from "./event-mapper.js";
 
 /** Shared across every "nothing to show yet" snapshot, so repeated reads
@@ -21,12 +23,12 @@ const NO_EVENTS: StoredEvent[] = [];
  * Subscribes to the signed-in user's events (owned and shared) and exposes
  * them already translated to `StoredEvent`.
  *
- * Deliberately not a `ReactiveController` itself: `CollectionController`
- * already registers on the host and drives its `requestUpdate()`, so this
- * class only needs to own the query-building and mapping logic on top of
- * it — the same responsibilities `events-view.ts`'s `willUpdate()`/`toEvent()`
- * used to carry, moved here so a component doesn't have to import
- * `firebase/firestore` to get a live listing. `firebase-provider.ts` is what
+ * It is a `ReactiveController` and drives the host's `requestUpdate()` from
+ * `onSnapshot` itself (`@lit/task` doesn't fit: this is a stream, not a
+ * promise), on top of the query-building and mapping logic that
+ * `events-view.ts`'s `willUpdate()`/`toEvent()` used to carry, moved here so
+ * a component doesn't have to import `firebase/firestore` to get a live
+ * listing. `firebase-provider.ts` is what
  * turns `.snapshot` into `eventsContext`'s value, the same way it already
  * turns `onAuthStateChanged`'s `User` into `SessionUser`.
  *
@@ -44,15 +46,74 @@ const NO_EVENTS: StoredEvent[] = [];
  * behaviour without this class, or `events-view.ts`, having to know about
  * routes or about each other.
  */
-export class EventsController {
-	readonly #collection: CollectionController<DocumentData>;
+export class EventsController implements ReactiveController {
+	readonly #host: ReactiveControllerHost;
+	#query: Query<DocumentData> | null = null;
+	#unsubscribe: (() => void) | undefined;
+	#connected = false;
+	#data: (DocumentData & { id: string })[] = [];
+	#loading = false;
+	#error: FirestoreError | null = null;
 	#firestore: Firestore | undefined;
 	#uid: string | undefined;
 	#interested = false;
 	#queryKey: string | undefined;
 
 	constructor(host: ReactiveControllerHost) {
-		this.#collection = new CollectionController(host);
+		this.#host = host;
+		host.addController(this);
+	}
+
+	hostConnected(): void {
+		this.#connected = true;
+		this.#subscribe();
+	}
+
+	hostDisconnected(): void {
+		this.#connected = false;
+		this.#stop();
+	}
+
+	#stop(): void {
+		this.#unsubscribe?.();
+		this.#unsubscribe = undefined;
+	}
+
+	#setQuery(next: Query<DocumentData> | null): void {
+		if (next === null && this.#query === null) return;
+		this.#query = next;
+		this.#subscribe();
+	}
+
+	#subscribe(): void {
+		this.#stop();
+		const watched = this.#query;
+		if (!this.#connected || !watched) {
+			this.#data = [];
+			this.#loading = false;
+			this.#host.requestUpdate();
+			return;
+		}
+		this.#loading = true;
+		this.#error = null;
+		this.#host.requestUpdate();
+		this.#unsubscribe = onSnapshot(
+			watched,
+			(snapshot) => {
+				this.#data = snapshot.docs.map((document) => ({
+					...document.data(),
+					id: document.id,
+				}));
+				this.#loading = false;
+				this.#error = null;
+				this.#host.requestUpdate();
+			},
+			(error) => {
+				this.#error = error;
+				this.#loading = false;
+				this.#host.requestUpdate();
+			},
+		);
 	}
 
 	setFirestore(firestore: Firestore | undefined): void {
@@ -86,7 +147,7 @@ export class EventsController {
 		if (key === this.#queryKey) return;
 		this.#queryKey = key;
 
-		this.#collection.setQuery(
+		this.#setQuery(
 			this.#shouldSubscribe && this.#firestore && this.#uid
 				? query(
 						collection(this.#firestore, "events"),
@@ -106,11 +167,11 @@ export class EventsController {
 	 * `firebase-provider.ts`'s `willUpdate()` a "new" array each time even
 	 * when nothing changed, defeating the point of comparing references
 	 * before republishing. */
-	#lastRawData: DocumentData[] | undefined;
+	#lastRawData: (DocumentData & { id: string })[] | undefined;
 	#lastEvents: StoredEvent[] = NO_EVENTS;
 
 	get snapshot(): EventsSnapshot {
-		if (this.#collection.error) return { status: "error", events: NO_EVENTS };
+		if (this.#error) return { status: "error", events: NO_EVENTS };
 
 		// Either Firestore hasn't finished loading yet, the subscription's
 		// first snapshot hasn't arrived, or nobody is currently interested
@@ -119,13 +180,13 @@ export class EventsController {
 		// harmlessly so, since nothing consumes `eventsContext` while
 		// `events-view.ts` isn't mounted to signal that interest in the
 		// first place.
-		if (this.#uid && (!this.#shouldSubscribe || this.#collection.loading)) {
+		if (this.#uid && (!this.#shouldSubscribe || this.#loading)) {
 			return { status: "loading", events: NO_EVENTS };
 		}
 
-		if (this.#collection.data !== this.#lastRawData) {
-			this.#lastRawData = this.#collection.data;
-			this.#lastEvents = this.#collection.data
+		if (this.#data !== this.#lastRawData) {
+			this.#lastRawData = this.#data;
+			this.#lastEvents = this.#data
 				.map(toStoredEvent)
 				.filter((event): event is StoredEvent => event !== null);
 		}
