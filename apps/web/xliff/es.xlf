@@ -314,10 +314,6 @@
   <source>You could not be removed from this event.</source>
         <target>No se te pudo quitar de este evento.</target>
 </trans-unit>
-<trans-unit id="s26a6860698d39096">
-  <source>Verify your email so others can invite you to their events.</source>
-        <target>Verifica tu correo para que otras personas puedan invitarte a sus eventos.</target>
-</trans-unit>
 <trans-unit id="sa266303caf1bd27f">
   <source>Email sent</source>
         <target>Correo enviado</target>
@@ -1137,6 +1133,10 @@
 <trans-unit id="s4d08216177182931">
   <source>Viewer: can see the event. Editor: can also change its details. Neither can invite, remove people or delete the event.</source>
         <target>Lector: puede ver el evento. Editor: también puede cambiar sus datos. Ninguno puede invitar, quitar personas ni borrar el evento.</target>
+</trans-unit>
+<trans-unit id="s9c52d6caf6aac187">
+  <source>Confirm your email to start using planu. We sent a link to <x id="0" equiv-text="${user.email}"/>.</source>
+        <target>Confirma tu correo para empezar a usar planu. Hemos enviado un enlace a <x id="0" equiv-text="${user.email}"/>.</target>
 </trans-unit>
 </body>
 </file>

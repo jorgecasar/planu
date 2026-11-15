@@ -287,11 +287,6 @@ export class PlanuProfileView extends LitElement {
 	}
 
 	/**
-	 * Until the email is verified this account is absent from the directory and
-	 * **nobody can invite it to an event**. Better said here than discovered by
-	 * the other person when they cannot find you.
-	 */
-	/**
 	 * Las páginas legales prerrenderizadas viven bajo el prefijo de idioma
 	 * —`/es/privacy.html`—, salvo el idioma de origen, en la raíz. El perfil
 	 * vive dentro de la SPA y no tiene ese prefijo en su propia URL, así que
@@ -304,14 +299,21 @@ export class PlanuProfileView extends LitElement {
 		return `${prefix}/${page}.html`;
 	}
 
+	/**
+	 * Until the email is verified the account can't create, read or edit any
+	 * event (ADR 0011). The notice says so and shows the full address the link
+	 * went to, so a typo is spotted here; resending is the primary action.
+	 */
 	#renderVerificationNotice(user: SessionUser) {
 		if (!user.email || user.emailVerified) return nothing;
 
 		return html`
 			<wa-callout variant="warning">
-				${msg("Verify your email so others can invite you to their events.")}
+				${msg(
+					str`Confirm your email to start using planu. We sent a link to ${user.email}.`,
+				)}
 				<wa-button
-					appearance="plain"
+					variant="brand"
 					?disabled=${this.sending || this.sent}
 					@click=${this.#onResend}
 				>
