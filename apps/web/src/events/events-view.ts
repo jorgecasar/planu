@@ -145,6 +145,12 @@ export class PlanuEventsView extends LitElement {
       max-inline-size: 100%;
     }
 
+    /* A placeholder for a card, so it takes the card's corners, not the
+       pill the indicator defaults to. */
+    wa-skeleton::part(indicator) {
+      border-radius: var(--wa-panel-border-radius);
+    }
+
     .empty {
       margin-block-start: var(--wa-space-2xl);
       text-align: center;
