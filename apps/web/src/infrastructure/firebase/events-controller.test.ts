@@ -2,8 +2,7 @@ import type { DocumentData } from "firebase/firestore";
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-/** Same double as `collection-controller.test.ts`, plus the query builders
- * `EventsController` calls on top of it. */
+/** `onSnapshot` double, plus the query builders `EventsController` calls. */
 const spy = {
 	subscriptions: 0,
 	unsubscriptions: 0,
@@ -56,7 +55,7 @@ vi.mock("firebase/firestore", () => ({
 
 const { EventsController } = await import("./events-controller.js");
 
-/** Minimal host, same as `collection-controller.test.ts`'s. */
+/** Minimal host that counts the `requestUpdate` calls it receives. */
 class FakeHost implements ReactiveControllerHost {
 	updates = 0;
 	readonly controllers: ReactiveController[] = [];
@@ -71,6 +70,9 @@ class FakeHost implements ReactiveControllerHost {
 	}
 	connect(): void {
 		for (const controller of this.controllers) controller.hostConnected?.();
+	}
+	disconnect(): void {
+		for (const controller of this.controllers) controller.hostDisconnected?.();
 	}
 }
 
@@ -273,6 +275,34 @@ describe("interés — el ciclo de vida que este controlador existe para reprodu
 		controller.setFirestore({} as never);
 
 		expect(spy.subscriptions).toBe(0);
+	});
+});
+
+describe("ciclo de vida del host (trasladado de collection-controller.test.ts)", () => {
+	test("no se suscribe hasta que el host se conecta", () => {
+		const host = new FakeHost();
+		const controller = new EventsController(host);
+		controller.setFirestore({} as never);
+		controller.setUid("owner-1");
+		controller.setInterested(true);
+		expect(spy.subscriptions).toBe(0);
+
+		host.connect();
+
+		expect(spy.subscriptions).toBe(1);
+	});
+
+	test("se desuscribe al desconectarse el host", () => {
+		const host = new FakeHost();
+		const controller = new EventsController(host);
+		host.connect();
+		controller.setFirestore({} as never);
+		controller.setUid("owner-1");
+		controller.setInterested(true);
+
+		host.disconnect();
+
+		expect(spy.unsubscriptions).toBe(1);
 	});
 });
 

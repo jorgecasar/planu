@@ -176,7 +176,7 @@ const importaFirebase = (fichero: string): boolean =>
  * `onAuthStateChanged` already gets turned into `SessionUser` there). Two
  * files, plus their two tests: `EventRepositoryPort` stayed
  * per-operation on purpose (no subscription method), so this is
- * infrastructure the same way `CollectionController` already was, not a
+ * infrastructure the same way `CollectionController` (since folded into it, #300) was, not a
  * port that needed widening. Testing the pure parts — `toStoredEvent()`'s
  * validation and `EventsController`'s query/status logic — without an
  * emulator is the whole point of moving them here, per
@@ -241,8 +241,11 @@ const importaFirebase = (fichero: string): boolean =>
  *
  * #109 absorbs `storage.ts` and its test into `image-store.ts` and its test:
  * `uploadFile()` had no other consumer. No new file, from 24 to 22.
+ *
+ * #300 folds `collection-controller.ts` and its test into
+ * `events-controller.ts`, its only consumer, from 22 to 20. No new file.
  */
-const TOPE_ACOPLADOS = 22;
+const TOPE_ACOPLADOS = 20;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
