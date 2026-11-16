@@ -28,13 +28,13 @@ import type {
 	AiModelRequest,
 	EventPart,
 	ModelLike,
-} from "../application/ports/ai-model.js";
-import type { SessionUser } from "../application/ports/session.js";
+} from "../../application/ports/ai-model.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import {
 	type InferenceModeName,
 	type InferenceSourceName,
 	resolveInferenceMode,
-} from "../domain/ai-policy.js";
+} from "../../domain/ai-policy.js";
 
 /**
  * The minimum a user session needs: the premium claim. Duck typing instead

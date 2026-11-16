@@ -2,9 +2,9 @@ import { expect, test, vi } from "vitest";
 import type {
 	AiModelPort,
 	AiModelRequest,
-} from "../application/ports/ai-model.js";
-import type { SessionUser } from "../application/ports/session.js";
-import type { ModelAvailability } from "../domain/ai-availability.js";
+} from "../../application/ports/ai-model.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import type { ModelAvailability } from "../../domain/ai-availability.js";
 import type {
 	GeneratedDraft,
 	PlanuAiEventGenerator,

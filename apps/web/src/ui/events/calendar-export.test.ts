@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import type { CalendarEvent } from "../domain/build-ics.js";
+import type { CalendarEvent } from "../../domain/build-ics.js";
 import "./calendar-export.js";
 import type { PlanuCalendarExport } from "./calendar-export.js";
 

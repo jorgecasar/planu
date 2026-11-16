@@ -4,9 +4,12 @@ import "./event-card.js";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { StoredEvent } from "../domain/event.js";
-import { type EventGroups, shouldRevealPast } from "../domain/sort-events.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+import type { StoredEvent } from "../../domain/event.js";
+import {
+	type EventGroups,
+	shouldRevealPast,
+} from "../../domain/sort-events.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 
 const EMPTY: EventGroups<StoredEvent> = { upcoming: [], undated: [], past: [] };
 

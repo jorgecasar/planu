@@ -1,6 +1,9 @@
 import { html, type ReactiveControllerHost, render } from "lit";
 import { expect, test, vi } from "vitest";
-import type { AiModelPort, ModelLike } from "../application/ports/ai-model.js";
+import type {
+	AiModelPort,
+	ModelLike,
+} from "../../application/ports/ai-model.js";
 import {
 	TagSuggestionController,
 	type TagSuggestionInput,

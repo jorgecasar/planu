@@ -10,23 +10,26 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { eventRepositoryContext, userContext } from "../application/context.js";
-import type { EventRepositoryPort } from "../application/ports/event-repository.js";
-import type { SessionUser } from "../application/ports/session.js";
-import type { StoredEvent } from "../domain/event.js";
+import {
+	eventRepositoryContext,
+	userContext,
+} from "../../application/context.js";
+import type { EventRepositoryPort } from "../../application/ports/event-repository.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import type { StoredEvent } from "../../domain/event.js";
 import {
 	canDelete,
 	canEdit,
 	canLeave,
 	canManageMembers,
 	roleFor,
-} from "../ui/sharing/permissions.js";
-import "../ui/sharing/share-dialog.js";
-import { isExportable } from "../domain/build-ics.js";
-import { dateBlockParts, formatEventDates } from "../domain/format-dates.js";
-import { tagHue } from "../domain/tags.js";
-import { getLocale } from "../i18n/localization.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../sharing/permissions.js";
+import "../sharing/share-dialog.js";
+import { isExportable } from "../../domain/build-ics.js";
+import { dateBlockParts, formatEventDates } from "../../domain/format-dates.js";
+import { tagHue } from "../../domain/tags.js";
+import { getLocale } from "../../i18n/localization.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import { downloadEventFile, openInGoogleCalendar } from "./calendar-export.js";
 import { tagChipStyles } from "./tag-styles.js";
 

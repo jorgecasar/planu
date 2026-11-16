@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { StoredEvent } from "../domain/event.js";
-import type { EventGroups } from "../domain/sort-events.js";
+import type { StoredEvent } from "../../domain/event.js";
+import type { EventGroups } from "../../domain/sort-events.js";
 import "./event-groups.js";
 import type { PlanuEventGroups } from "./event-groups.js";
 

@@ -1,6 +1,6 @@
 import { html, render } from "lit";
 import { expect, test, vi } from "vitest";
-import { MAX_TAG_LENGTH, MAX_TAGS } from "../domain/tags.js";
+import { MAX_TAG_LENGTH, MAX_TAGS } from "../../domain/tags.js";
 import { TagField } from "./tag-field.js";
 
 const LENGTH_ERROR = `A tag must be ${MAX_TAG_LENGTH} characters or fewer.`;

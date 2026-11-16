@@ -6,8 +6,8 @@
  * Nano on the device if it is available, Gemini in the cloud if not.
  */
 
-import type { EventPart } from "../application/ports/ai-model.js";
-import { toInputDate } from "../domain/format-dates.js";
+import type { EventPart } from "../../application/ports/ai-model.js";
+import { toInputDate } from "../../domain/format-dates.js";
 
 export interface GeneratedEvent {
 	title: string;

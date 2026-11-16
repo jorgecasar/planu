@@ -14,8 +14,8 @@ import {
 	countDrawerFilters,
 	type DateRange,
 	type OwnershipFilter,
-} from "../domain/filter-events.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../domain/filter-events.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 
 export interface FiltersChange extends DateRange {
 	searchTerm: string;

@@ -11,10 +11,10 @@ import {
 	ICS_MIME_TYPE,
 	icsFileName,
 	isExportable,
-} from "../domain/build-ics.js";
-import { googleCalendarUrl } from "../domain/google-calendar-url.js";
-import { downloadTextFile } from "../lib/download-file.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../domain/build-ics.js";
+import { googleCalendarUrl } from "../../domain/google-calendar-url.js";
+import { downloadTextFile } from "../../lib/download-file.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 
 /** How long the notice stays on screen before it dismisses itself. */
 const WARNING_MS = 8000;

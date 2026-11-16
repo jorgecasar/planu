@@ -2,8 +2,8 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import "@awesome.me/webawesome/dist/components/progress-bar/progress-bar.js";
 import { msg } from "@lit/localize";
 import { css, html, nothing, type ReactiveControllerHost } from "lit";
-import type { ImageStorePort } from "../application/ports/image-store.js";
-import type { SessionUser } from "../application/ports/session.js";
+import type { ImageStorePort } from "../../application/ports/image-store.js";
+import type { SessionUser } from "../../application/ports/session.js";
 
 /** Matches the limit in storage.rules; checking it here gives a better message. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

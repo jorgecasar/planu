@@ -10,28 +10,28 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { canOffer, checkAvailability } from "../domain/ai-availability.js";
-import type { InferenceSourceName } from "../domain/ai-policy.js";
-import { type ListingState, listingState } from "../domain/listing-state.js";
-import { sampleEventDraft } from "../domain/sample-event.js";
-import { collectTags } from "../domain/tags.js";
-import { buildAgenda } from "../ui/calendar/agenda-days.js";
-import "../ui/calendar/agenda-view.js";
-import "../ui/calendar/calendar-view.js";
+import { canOffer, checkAvailability } from "../../domain/ai-availability.js";
+import type { InferenceSourceName } from "../../domain/ai-policy.js";
+import { type ListingState, listingState } from "../../domain/listing-state.js";
+import { sampleEventDraft } from "../../domain/sample-event.js";
+import { collectTags } from "../../domain/tags.js";
+import { buildAgenda } from "../calendar/agenda-days.js";
+import "../calendar/agenda-view.js";
+import "../calendar/calendar-view.js";
 
 import {
 	type EventsSnapshot,
 	eventsContext,
 	eventsInterestContext,
 	userContext,
-} from "../application/context.js";
-import type { PlanuEvent, StoredEvent } from "../domain/event.js";
+} from "../../application/context.js";
+import type { PlanuEvent, StoredEvent } from "../../domain/event.js";
 import {
 	type DateRange,
 	filterEvents,
 	isNarrowed,
 	type OwnershipFilter,
-} from "../domain/filter-events.js";
+} from "../../domain/filter-events.js";
 import {
 	groupEvents,
 	parseSortPreference,
@@ -39,20 +39,20 @@ import {
 	sameSortPreference,
 	serializeSortPreference,
 	sortOptions,
-} from "../domain/sort-events.js";
+} from "../../domain/sort-events.js";
 import {
 	parseViewMode,
 	type ViewMode,
 	viewOptions,
-} from "../domain/view-mode.js";
-import { getLocale } from "../i18n/localization.js";
+} from "../../domain/view-mode.js";
+import { getLocale } from "../../i18n/localization.js";
 
 import {
 	readSortPreference,
 	readViewMode,
 	writeSortPreference,
 	writeViewMode,
-} from "../lib/view-preferences.js";
+} from "../../lib/view-preferences.js";
 
 import "./calendar-export.js";
 import "./empty-state.js";
@@ -60,10 +60,10 @@ import "./event-card.js";
 import "./event-editor.js";
 import "./event-filters.js";
 import "./event-groups.js";
-import "../ui/sharing/invitations-inbox.js";
+import "../sharing/invitations-inbox.js";
 
-import type { SessionUser } from "../application/ports/session.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import type { FiltersChange } from "./event-filters.js";
 
 /** Characters in the longest option label: sizes the sort select to fit it. */

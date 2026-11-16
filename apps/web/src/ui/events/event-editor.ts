@@ -14,32 +14,32 @@ import {
 	eventRepositoryContext,
 	imageStoreContext,
 	userContext,
-} from "../application/context.js";
+} from "../../application/context.js";
 import {
 	type AiModelPort,
 	aiModelContext,
-} from "../application/ports/ai-model.js";
+} from "../../application/ports/ai-model.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
 	noopAnalytics,
-} from "../application/ports/analytics.js";
-import type { EventRepositoryPort } from "../application/ports/event-repository.js";
-import type { ImageStorePort } from "../application/ports/image-store.js";
-import type { SessionUser } from "../application/ports/session.js";
-import { saveEvent } from "../application/save-event.js";
-import { canOffer, checkAvailability } from "../domain/ai-availability.js";
+} from "../../application/ports/analytics.js";
+import type { EventRepositoryPort } from "../../application/ports/event-repository.js";
+import type { ImageStorePort } from "../../application/ports/image-store.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import { saveEvent } from "../../application/save-event.js";
+import { canOffer, checkAvailability } from "../../domain/ai-availability.js";
 import {
 	describeInferenceSource,
 	type InferenceSourceName,
-} from "../domain/ai-policy.js";
-import { fromDateFields, toDateFields } from "../domain/date-fields.js";
+} from "../../domain/ai-policy.js";
+import { fromDateFields, toDateFields } from "../../domain/date-fields.js";
 import {
 	eventSchema,
 	type PlanuEvent,
 	type StoredEvent,
-} from "../domain/event.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../domain/event.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import { CoverField, coverFieldStyles } from "./cover-field.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";

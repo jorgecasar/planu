@@ -1,5 +1,5 @@
 import "@awesome.me/webawesome/dist/components/details/details.js";
-import "../../events/event-card.js";
+import "../events/event-card.js";
 
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";

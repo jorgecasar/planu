@@ -20,7 +20,7 @@
  *    cooperate.
  */
 
-import { normalizeTag } from "../domain/tags.js";
+import { normalizeTag } from "../../domain/tags.js";
 import { type GenerateContent, stripCodeFence } from "./generate-event.js";
 
 /** At most three, so as not to turn saving into a whole new form. */

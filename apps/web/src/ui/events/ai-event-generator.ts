@@ -10,31 +10,31 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { imageStoreContext, userContext } from "../application/context.js";
+import { imageStoreContext, userContext } from "../../application/context.js";
 import {
 	type AiModelPort,
 	aiModelContext,
-} from "../application/ports/ai-model.js";
+} from "../../application/ports/ai-model.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
 	noopAnalytics,
-} from "../application/ports/analytics.js";
-import type { ImageStorePort } from "../application/ports/image-store.js";
-import type { SessionUser } from "../application/ports/session.js";
+} from "../../application/ports/analytics.js";
+import type { ImageStorePort } from "../../application/ports/image-store.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import {
 	checkAvailability,
 	type ModelAvailability,
 	needsDownload,
-} from "../domain/ai-availability.js";
-import type { InferenceSourceName } from "../domain/ai-policy.js";
+} from "../../domain/ai-availability.js";
+import type { InferenceSourceName } from "../../domain/ai-policy.js";
 import {
 	progressHint,
 	progressMessage,
 	type WorkingOn,
-} from "../domain/ai-progress.js";
-import type { PlanuEvent } from "../domain/event.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../domain/ai-progress.js";
+import type { PlanuEvent } from "../../domain/event.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";
 import {

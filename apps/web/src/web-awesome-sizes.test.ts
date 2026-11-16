@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import "./ui/calendar/calendar-view.js";
-import "./events/event-card.js";
-import "./events/event-editor.js";
+import "./ui/events/event-card.js";
+import "./ui/events/event-editor.js";
 import type { StoredEvent } from "./domain/event.js";
 
 /**

@@ -1,7 +1,7 @@
 import { html, render } from "lit";
 import { expect, test, vi } from "vitest";
-import type { ImageStorePort } from "../application/ports/image-store.js";
-import type { SessionUser } from "../application/ports/session.js";
+import type { ImageStorePort } from "../../application/ports/image-store.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import { CoverField } from "./cover-field.js";
 
 const URL_OK = "https://example.com/cover.png";

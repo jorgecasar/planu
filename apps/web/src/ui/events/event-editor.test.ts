@@ -3,8 +3,8 @@ import type {
 	AiModelPort,
 	AiModelRequest,
 	ModelLike,
-} from "../application/ports/ai-model.js";
-import { MAX_TAG_LENGTH, MAX_TAGS } from "../domain/tags.js";
+} from "../../application/ports/ai-model.js";
+import { MAX_TAG_LENGTH, MAX_TAGS } from "../../domain/tags.js";
 import "./event-editor.js";
 import type { PlanuEventEditor } from "./event-editor.js";
 import { TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
