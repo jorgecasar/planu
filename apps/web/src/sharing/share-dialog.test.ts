@@ -33,6 +33,7 @@ function fakeSharing(found: () => Promise<DirectoryEntry | null>) {
 		inviteToEvent: vi.fn().mockResolvedValue(undefined),
 		offerInviteByEmail: vi.fn().mockResolvedValue(undefined),
 		updateEventMembership: vi.fn().mockResolvedValue(undefined),
+		restoreAccessOffer: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
@@ -140,8 +141,11 @@ async function pickForGuest(value: string) {
 }
 
 /** Opens the dialog on `event` and resolves once its guest row is drawn. */
-async function openWithGuest(sharing = fakeSharing(async () => null)) {
-	const event = { ...EVENT, memberIds: [OWNER.uid, "bea-uid"] };
+async function openWithGuest(
+	sharing = fakeSharing(async () => null),
+	roles: StoredEvent["roles"] = {},
+) {
+	const event = { ...EVENT, memberIds: [OWNER.uid, "bea-uid"], roles };
 	const el = document.createElement("planu-share-dialog");
 	Object.assign(el, { user: OWNER, sharing, event, open: true });
 	document.body.append(el);
@@ -193,12 +197,14 @@ const click = (root: ShadowRoot | null | undefined, selector: string) =>
 	root?.querySelector<HTMLElement>(selector)?.click();
 
 /** Opens the dialog with Bea ("Bea") as the one guest and picks "Remove access". */
-async function chooseRemove() {
-	const sharing = fakeSharing(async () => null);
+async function chooseRemove(
+	sharing = fakeSharing(async () => null),
+	roles: StoredEvent["roles"] = {},
+) {
 	sharing.findProfiles.mockResolvedValue(
 		new Map([["bea-uid", { displayName: "Bea", photoURL: "" }]]),
 	);
-	const { el } = await openWithGuest(sharing);
+	const { el } = await openWithGuest(sharing, roles);
 	const live = el.shadowRoot?.querySelector("[role=status].live");
 	const detail = { item: { value: "remove" } };
 	el.shadowRoot
@@ -267,6 +273,95 @@ test("once the row is gone, focus moves to the list heading (GH-189)", async () 
 
 	await vi.waitFor(() =>
 		expect(el.shadowRoot?.activeElement?.tagName).toBe("H3"),
+	);
+});
+
+/** Removes Bea (an Editor) and resolves once «Invite again» is offered. */
+async function removeEditor(sharing = fakeSharing(async () => null)) {
+	const calls: string[] = [];
+	// The email comes back from the write, and the snapshot reload follows it.
+	sharing.updateEventMembership.mockImplementation(async () => {
+		calls.push("update");
+		return "bea@example.com";
+	});
+	sharing.restoreAccessOffer.mockImplementation(async () => {
+		calls.push("restore");
+	});
+	const { el } = await chooseRemove(sharing, { "bea-uid": "editor" });
+	click(el.shadowRoot, "[data-action=confirm-remove]");
+	const again = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector<HTMLElement>(
+			"[data-action=reinvite]",
+		);
+		if (!found) throw new Error("No action yet");
+		return found;
+	});
+	// The snapshot after the write: the role is no longer on the event. Wait
+	// for the focus move to settle so it cannot land on a later swap.
+	el.event = { ...EVENT, memberIds: [OWNER.uid], roles: {} };
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.activeElement?.tagName).toBe("H3"),
+	);
+	return { el, sharing, calls, again };
+}
+
+test("«Invite again» re-offers with the role captured before the write and the email it returned (GH-320)", async () => {
+	const { el, sharing, calls, again } = await removeEditor();
+	again.click();
+
+	await vi.waitFor(() =>
+		expect(sharing.restoreAccessOffer).toHaveBeenCalledTimes(1),
+	);
+	expect(calls).toEqual(["update", "restore"]);
+	expect(sharing.restoreAccessOffer).toHaveBeenCalledWith(
+		"event-1",
+		"bea-uid",
+		"editor",
+		{ invitedByName: "Ana", inviteeEmail: "bea@example.com" },
+	);
+	const live = el.shadowRoot?.querySelector("[role=status].live");
+	await vi.waitFor(() =>
+		expect(live?.textContent?.trim()).toBe("Invitation sent again."),
+	);
+	expect(live?.textContent).not.toMatch(/restor/i);
+	expect(el.shadowRoot?.querySelector("[data-action=reinvite]")).toBeNull();
+});
+
+test("«Invite again» does not call the port when the event is full (GH-320)", async () => {
+	const { el, sharing, again } = await removeEditor();
+	el.event = {
+		...EVENT,
+		memberIds: [OWNER.uid, ...Array.from({ length: 20 }, (_, i) => `g${i}`)],
+	};
+	await el.updateComplete;
+	again.click();
+
+	await vi.waitFor(() => expect(el.shadowRoot?.innerHTML).toContain("alert"));
+	expect(el.shadowRoot?.textContent).toContain(
+		"This event has reached its limit of guests.",
+	);
+	expect(sharing.restoreAccessOffer).not.toHaveBeenCalled();
+});
+
+test("a failed «Invite again» shows the error and announces nothing (GH-320)", async () => {
+	const { el, sharing, again } = await removeEditor();
+	sharing.restoreAccessOffer.mockRejectedValue(new Error("no tombstone"));
+	again.click();
+
+	await vi.waitFor(() => expect(el.shadowRoot?.innerHTML).toContain("alert"));
+	const live = el.shadowRoot?.querySelector("[role=status].live");
+	expect(live?.textContent).not.toContain("sent again");
+});
+
+test("the offer to invite again is cleared by the next write and by reopening (GH-320)", async () => {
+	const { el } = await removeEditor();
+	expect(el.shadowRoot?.querySelector("[data-action=reinvite]")).not.toBeNull();
+
+	el.open = false;
+	await el.updateComplete;
+	el.open = true;
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.querySelector("[data-action=reinvite]")).toBeNull(),
 	);
 });
 

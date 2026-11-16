@@ -1190,6 +1190,14 @@
   <source>Invite people who have a planu account as viewers or editors, or download it to your calendar.</source>
         <target>Invita como lector o editor a quien ya tenga cuenta en planu, o descárgalo a tu calendario.</target>
 </trans-unit>
+<trans-unit id="sd8a636ce7320fa9c">
+  <source>Invite again</source>
+        <target>Volver a invitar</target>
+</trans-unit>
+<trans-unit id="s89aae4bfe63701ce">
+  <source>Invitation sent again.</source>
+        <target>Invitación enviada de nuevo.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
