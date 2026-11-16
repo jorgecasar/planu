@@ -120,7 +120,7 @@ apps/web/
                              agenda-days, calendar-export
     sharing/                user-directory, share-dialog, invitations-inbox,
                              permissions
-    profile/                profile-view (incluye el borrado de cuenta)
+    ui/profile/             profile-view (incluye el borrado de cuenta)
     landing/                landing, legal (privacidad/términos), estilos
                              propios — prerrenderizada, sin JavaScript
     lib/                    types (esquema Zod de persistencia), utilidades

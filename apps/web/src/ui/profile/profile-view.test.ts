@@ -1,9 +1,12 @@
 import { afterEach, expect, test, vi } from "vitest";
-import type { AccountDataPort } from "../application/ports/account-data.js";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
-import type { SharingPort } from "../application/ports/sharing.js";
-import { DeletionGuard } from "../auth/deletion-guard.js";
-import { SessionError } from "../domain/session-error.js";
+import type { AccountDataPort } from "../../application/ports/account-data.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
+import type { SharingPort } from "../../application/ports/sharing.js";
+import { DeletionGuard } from "../../auth/deletion-guard.js";
+import { SessionError } from "../../domain/session-error.js";
 import "./profile-view.js";
 import type { PlanuProfileView } from "./profile-view.js";
 

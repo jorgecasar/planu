@@ -1,6 +1,9 @@
 import { html, render } from "lit";
 import { expect, test, vi } from "vitest";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
 import { ReauthStep } from "./reauth-step.js";
 
 const PASSWORD = { uid: "u1", provider: "password" } as SessionUser;

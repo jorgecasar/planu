@@ -132,7 +132,7 @@ export class PlanuApp extends LitElement {
 		{
 			path: PROFILE_PATH,
 			enter: () =>
-				this.#enterPrivate(() => import("./profile/profile-view.js")),
+				this.#enterPrivate(() => import("./ui/profile/profile-view.js")),
 			render: () => html`<planu-profile-view></planu-profile-view>`,
 		},
 	]);

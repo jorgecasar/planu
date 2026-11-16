@@ -1,5 +1,8 @@
 import { afterEach, expect, test, vi } from "vitest";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
 import "./change-email-form.js";
 
 // "exmaple" on purpose: the mistyped sign-up address this form exists to fix.

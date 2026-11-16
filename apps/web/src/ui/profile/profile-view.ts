@@ -9,26 +9,29 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { sessionContext, userContext } from "../application/context.js";
+import { sessionContext, userContext } from "../../application/context.js";
 import {
 	type DeleteAccountStep,
 	deleteAccount,
-} from "../application/delete-account.js";
-import type { AccountDataPort } from "../application/ports/account-data.js";
-import { accountDataContext } from "../application/ports/account-data.js";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
-import type { SharingPort } from "../application/ports/sharing.js";
-import { sharingContext } from "../application/ports/sharing.js";
-import { signOut } from "../application/sign-out.js";
+} from "../../application/delete-account.js";
+import type { AccountDataPort } from "../../application/ports/account-data.js";
+import { accountDataContext } from "../../application/ports/account-data.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
+import type { SharingPort } from "../../application/ports/sharing.js";
+import { sharingContext } from "../../application/ports/sharing.js";
+import { signOut } from "../../application/sign-out.js";
 import {
 	type DeletionGuard,
 	deletionGuardContext,
-} from "../auth/deletion-guard.js";
-import { authErrorMessage } from "../domain/auth-errors.js";
-import { SessionError } from "../domain/session-error.js";
-import { sourceLocale } from "../generated/locales/locale-codes.js";
-import { getLocale } from "../i18n/localization.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../auth/deletion-guard.js";
+import { authErrorMessage } from "../../domain/auth-errors.js";
+import { SessionError } from "../../domain/session-error.js";
+import { sourceLocale } from "../../generated/locales/locale-codes.js";
+import { getLocale } from "../../i18n/localization.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 

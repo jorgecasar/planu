@@ -4,9 +4,12 @@ import "@awesome.me/webawesome/dist/components/input/input.js";
 import { msg, str } from "@lit/localize";
 import { html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { changeEmail } from "../application/change-email.js";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
-import { authErrorMessage } from "../domain/auth-errors.js";
+import { changeEmail } from "../../application/change-email.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
+import { authErrorMessage } from "../../domain/auth-errors.js";
 
 /**
  * A mistyped address at sign-up can never be verified — the link goes to
