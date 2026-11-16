@@ -191,7 +191,7 @@ async function buildLanding() {
 		"utf-8",
 	);
 	const landingCss = readFileSync(
-		resolve(ROOT, "apps/web/src/landing/landing.css"),
+		resolve(ROOT, "apps/web/src/ui/landing/landing.css"),
 		"utf-8",
 	);
 	// Nuestros tokens y reglas van en línea —son 3,5 KB y evitan un viaje extra
@@ -209,8 +209,8 @@ async function buildLanding() {
 	// Uno por fichero y con `--outfile`: `--outdir` conserva la estructura de
 	// directorios del origen y las rutas de salida dejarían de ser predecibles.
 	for (const [entry, outfile] of [
-		["apps/web/src/landing/landing.ts", "dist/landing.js"],
-		["apps/web/src/landing/legal.ts", "dist/legal.js"],
+		["apps/web/src/ui/landing/landing.ts", "dist/landing.js"],
+		["apps/web/src/ui/landing/legal.ts", "dist/legal.js"],
 		["apps/web/src/generated/locales/locale-codes.ts", "dist/locale-codes.js"],
 	]) {
 		try {
