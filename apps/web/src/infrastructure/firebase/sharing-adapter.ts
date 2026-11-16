@@ -2,8 +2,8 @@
  * `SharingPort` adapter: the one file, along with its test, that knows
  * inviting, listing and managing an event's people touches Firestore.
  *
- * Moved here from `sharing/user-directory.ts` and `sharing/invitations.ts`,
- * which used to call Firestore directly — see
+ * Moved here from the user directory and invitations modules, which used to
+ * call Firestore directly (they now live in `firestore-schema/`) — see
  * docs/adr/0007-client-side-user-directory.md for why a client-side
  * directory exists at all.
  */
@@ -38,13 +38,13 @@ import {
 	INVITES_COLLECTION,
 	inviteId,
 	inviteTombstone,
-} from "../../sharing/invitations.js";
+} from "../firestore-schema/invitations.js";
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
 	PENDING_INVITES_BY_EMAIL_COLLECTION,
 	PROFILES_COLLECTION,
-} from "../../sharing/user-directory.js";
+} from "../firestore-schema/user-directory.js";
 
 /** Where `publishDirectoryEntry` reports how it went; wired by the provider. */
 export type WriteRecorder = (

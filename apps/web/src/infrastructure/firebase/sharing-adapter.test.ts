@@ -44,7 +44,7 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 const { createSharingAdapter } = await import("./sharing-adapter.js");
-const directory = await import("../../sharing/user-directory.js");
+const directory = await import("../firestore-schema/user-directory.js");
 const hashOf = () => directory.emailHash("guest@example.com");
 
 /** The owner's offers for the event; the adapter picks the address's one. */
@@ -104,7 +104,7 @@ describe("publishDirectoryEntry()", () => {
 
 		await adapter.publishDirectoryEntry(VERIFIED_USER);
 
-		const { emailHash } = await import("../../sharing/user-directory.js");
+		const { emailHash } = await import("../firestore-schema/user-directory.js");
 		const hash = await emailHash(VERIFIED_USER.email as string);
 		expect(setDocMock).toHaveBeenCalledTimes(2);
 		expect(setDocMock).toHaveBeenCalledWith(
@@ -179,7 +179,7 @@ describe("offerInviteByEmail()", () => {
 	});
 
 	async function offerPath() {
-		const { emailHash } = await import("../../sharing/user-directory.js");
+		const { emailHash } = await import("../firestore-schema/user-directory.js");
 		return `eventInvitesByEmail/e1_${await emailHash("newcomer@example.com")}`;
 	}
 
