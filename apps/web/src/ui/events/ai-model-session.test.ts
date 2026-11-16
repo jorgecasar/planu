@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
-import type { AiModelPort } from "../application/ports/ai-model.js";
-import type { SessionUser } from "../application/ports/session.js";
+import type { AiModelPort } from "../../application/ports/ai-model.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import type { ModelLike, TokenClaims } from "./ai-model-session.js";
 import {
 	claimsOf,

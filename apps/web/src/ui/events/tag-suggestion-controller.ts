@@ -7,8 +7,8 @@ import {
 	type ReactiveController,
 	type ReactiveControllerHost,
 } from "lit";
-import type { AiModelPort } from "../application/ports/ai-model.js";
-import type { SessionUser } from "../application/ports/session.js";
+import type { AiModelPort } from "../../application/ports/ai-model.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import { createAiModelSession, type TokenClaims } from "./ai-model-session.js";
 import { suggestTagsWithAi, TAG_SUGGESTION_SCHEMA } from "./suggest-tags.js";
 import { renderTagList } from "./tag-list.js";

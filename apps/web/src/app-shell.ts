@@ -124,7 +124,8 @@ export class PlanuApp extends LitElement {
 	readonly #router = new Router(this, [
 		{
 			path: HOME_PATH,
-			enter: () => this.#enterPrivate(() => import("./events/events-view.js")),
+			enter: () =>
+				this.#enterPrivate(() => import("./ui/events/events-view.js")),
 			render: () => html`<planu-events-view></planu-events-view>`,
 		},
 		{

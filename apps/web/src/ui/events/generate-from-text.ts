@@ -6,7 +6,7 @@
  * message, a copied poster — and, with it, the prompt.
  */
 
-import { toInputDate } from "../domain/format-dates.js";
+import { toInputDate } from "../../domain/format-dates.js";
 import {
 	dateRules,
 	type GenerateContent,

@@ -18,7 +18,7 @@ import {
 	removeTag,
 	suggestTags,
 	tagHue,
-} from "../domain/tags.js";
+} from "../../domain/tags.js";
 import { renderTagList } from "./tag-list.js";
 
 type Host = Pick<ReactiveControllerHost, "requestUpdate">;
