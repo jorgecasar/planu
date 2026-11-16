@@ -3,7 +3,10 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/input/input.js";
 import { msg } from "@lit/localize";
 import { html, nothing, type ReactiveControllerHost } from "lit";
-import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import type {
+	SessionPort,
+	SessionUser,
+} from "../../application/ports/session.js";
 
 /**
  * The "prove it again" step of the delete dialog: its markup, the password
