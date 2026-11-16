@@ -1,4 +1,4 @@
-import type { SessionUser } from "../application/ports/session.js";
+import type { SessionUser } from "../../application/ports/session.js";
 
 /**
  * The application lives under /app, leaving the root for the public landing.

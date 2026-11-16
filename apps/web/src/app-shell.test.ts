@@ -6,7 +6,7 @@ import type { SessionUser } from "./application/ports/session.js";
 import {
 	type DeletionGuard,
 	deletionGuardContext,
-} from "./auth/deletion-guard.js";
+} from "./ui/auth/deletion-guard.js";
 
 /**
  * Sets `user` directly, bypassing `@consume` — there is no

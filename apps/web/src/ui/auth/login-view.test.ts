@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
-import type { SessionPort } from "../application/ports/session.js";
-import { SessionError } from "../domain/session-error.js";
+import type { SessionPort } from "../../application/ports/session.js";
+import { SessionError } from "../../domain/session-error.js";
 import "./login-view.js";
 import { loginNoticeState } from "./login-notice.js";
 import type { PlanuLoginView } from "./login-view.js";
