@@ -1198,6 +1198,26 @@
   <source>Invitation sent again.</source>
         <target>Invitación enviada de nuevo.</target>
 </trans-unit>
+<trans-unit id="sdf8dbf248f74a4fb">
+  <source>Your events, your rules</source>
+        <target>Tus eventos, tus reglas</target>
+</trans-unit>
+<trans-unit id="s629234359812440e">
+  <source>You read, edit, invite, remove access and delete the event.</source>
+        <target>Lees, editas, invitas, quitas el acceso y borras el evento.</target>
+</trans-unit>
+<trans-unit id="s923d266bc3ecf142">
+  <source>Reads and edits the content. Can't invite or delete.</source>
+        <target>Lee y edita el contenido. No puede invitar ni borrar.</target>
+</trans-unit>
+<trans-unit id="s5ed636b6ad43f214">
+  <source>Only reads.</source>
+        <target>Solo lee.</target>
+</trans-unit>
+<trans-unit id="s696353dc90b7af16">
+  <source>Anyone can leave an event that was shared with them, and you can delete your account whenever you want.</source>
+        <target>Cualquiera puede salir de un evento que le hayan compartido, y tú puedes borrar tu cuenta cuando quieras.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

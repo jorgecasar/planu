@@ -97,6 +97,7 @@ export function landingTemplate(): TemplateResult {
 					${hero()}
 					${features()}
 					${steps()}
+					${rules()}
 				</main>
 				${footer()}
 			</body>
@@ -216,6 +217,40 @@ function steps(): TemplateResult {
 						),
 					)}
 				</ol>
+			</div>
+		</section>
+	`;
+}
+
+// Roles as in ADR 0006 and firestore.rules: the owner does everything, an
+// editor changes the content only (storage.rules lets only the owner write
+// cover images, so the editor's line promises none), a viewer only reads.
+function rule(role: string, description: string): TemplateResult {
+	return html`
+		<div class="rule">
+			<dt class="wa-heading-s">${role}</dt>
+			<dd class="wa-color-text-quiet">${description}</dd>
+		</div>
+	`;
+}
+
+function rules(): TemplateResult {
+	return html`
+		<section class="rules">
+			<div class="wa-stack wa-gap-l">
+				<h2 class="wa-heading-2xl">${msg("Your events, your rules")}</h2>
+				<dl class="wa-stack wa-gap-s">
+					${rule(
+						msg("You"),
+						msg("You read, edit, invite, remove access and delete the event."),
+					)}
+					${rule(
+						msg("Editor"),
+						msg("Reads and edits the content. Can't invite or delete."),
+					)}
+					${rule(msg("Viewer"), msg("Only reads."))}
+				</dl>
+				<p class="wa-color-text-quiet">${msg("Anyone can leave an event that was shared with them, and you can delete your account whenever you want.")}</p>
 			</div>
 		</section>
 	`;
