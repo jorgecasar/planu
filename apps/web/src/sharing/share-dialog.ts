@@ -125,6 +125,14 @@ export class PlanuShareDialog extends LitElement {
 	/** Who was just removed. Lives in a live region that is always rendered. */
 	@state() private announcement = "";
 
+	/**
+	 * What «Invite again» needs about the person just removed. Captured before
+	 * the write: neither the tombstone nor the reloaded event keeps the role.
+	 */
+	@state() private reinvite:
+		| { uid: string; role: EventRole; email: string | undefined }
+		| undefined;
+
 	/** The member whose "Remove access" is waiting for its answer. */
 	@state() private confirmingKey: string | undefined;
 
@@ -163,7 +171,10 @@ export class PlanuShareDialog extends LitElement {
 			this.confirmingKey = undefined;
 		}
 		// Not on `event`: the snapshot of the removal itself must not silence it.
-		if (changed.has("open")) this.announcement = "";
+		if (changed.has("open")) {
+			this.announcement = "";
+			this.reinvite = undefined;
+		}
 	}
 
 	override updated(): void {
@@ -211,6 +222,20 @@ export class PlanuShareDialog extends LitElement {
 						: nothing
 				}
 				<div class="live" role="status">${this.announcement}</div>
+				${
+					this.reinvite
+						? html`<wa-button
+								class="live"
+								data-action="reinvite"
+								size="s"
+								appearance="outlined"
+								?disabled=${this.busy}
+								@click=${this.#reinviteRemoved}
+							>
+								${msg("Invite again")}
+							</wa-button>`
+						: nothing
+				}
 
 				<form @submit=${this.#onInvite}>
 					<wa-input
@@ -339,6 +364,14 @@ export class PlanuShareDialog extends LitElement {
 		}
 	};
 
+	#atCapacity(): boolean {
+		return (
+			(this.event.memberIds?.length ?? 1) +
+				this.#access.people.filter((person) => person.pending).length >
+			MAX_GUESTS
+		);
+	}
+
 	async #onInvite(domEvent: SubmitEvent): Promise<void> {
 		domEvent.preventDefault();
 
@@ -377,10 +410,7 @@ export class PlanuShareDialog extends LitElement {
 			// Counting members alone oversubscribes: with 19 guests and 5 live
 			// invitations, the first to accept gets in and the rest are told to
 			// try again for something retrying will never fix.
-			const committed =
-				(event.memberIds?.length ?? 1) +
-				this.#access.people.filter((person) => person.pending).length;
-			if (committed > MAX_GUESTS) {
+			if (this.#atCapacity()) {
 				this.error = msg("This event has reached its limit of guests.");
 				return;
 			}
@@ -491,6 +521,8 @@ export class PlanuShareDialog extends LitElement {
 			key: person.key,
 			index: this.#access.people.findIndex((p) => p.key === person.key),
 		};
+		// Read before the write: afterwards the role is gone from the event.
+		const role = this.event.roles?.[person.uid] ?? "viewer";
 		const removed = await this.#write(
 			{
 				memberIds: (this.event.memberIds ?? []).filter(
@@ -504,10 +536,36 @@ export class PlanuShareDialog extends LitElement {
 			this.announcement = msg(
 				str`Access removed for ${person.name}. They are not notified.`,
 			);
+			this.reinvite = { uid: person.uid, role, email: removed.email };
 		} else {
 			this.#focusAfterRemoval = undefined;
 		}
 	}
+
+	readonly #reinviteRemoved = async (): Promise<void> => {
+		const { sharing, event, user, reinvite } = this;
+		if (!sharing || !event || !user || !reinvite || this.busy) return;
+
+		this.error = "";
+		if (this.#atCapacity()) {
+			this.error = msg("This event has reached its limit of guests.");
+			return;
+		}
+		this.busy = true;
+		try {
+			await sharing.restoreAccessOffer(event.id, reinvite.uid, reinvite.role, {
+				invitedByName: user.displayName ?? "",
+				...(reinvite.email ? { inviteeEmail: reinvite.email } : {}),
+			});
+			this.reinvite = undefined;
+			this.announcement = msg("Invitation sent again.");
+		} catch {
+			this.error = msg("The invitation could not be saved. Please try again.");
+		} finally {
+			this.busy = false;
+			await this.#access.load().catch(() => {});
+		}
+	};
 
 	async #cancelInvite(person: Person): Promise<void> {
 		const { sharing } = this;
@@ -529,20 +587,25 @@ export class PlanuShareDialog extends LitElement {
 	async #write(
 		membership: { memberIds: string[]; roles: Record<string, EventRole> },
 		removedUid?: string,
-	): Promise<boolean> {
+	): Promise<{ email: string | undefined } | undefined> {
 		const { sharing, event } = this;
-		if (!sharing || !event || this.busy) return false;
+		if (!sharing || !event || this.busy) return undefined;
 
 		this.error = "";
 		this.notice = "";
 		this.announcement = "";
+		this.reinvite = undefined;
 		this.busy = true;
 		try {
-			await sharing.updateEventMembership(event.id, membership, removedUid);
-			return true;
+			const email = await sharing.updateEventMembership(
+				event.id,
+				membership,
+				removedUid,
+			);
+			return { email };
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
-			return false;
+			return undefined;
 		} finally {
 			this.busy = false;
 			// Reloaded on both paths. Lit will not re-commit a value that has not
