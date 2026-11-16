@@ -1615,13 +1615,31 @@ garantiza conflictos.
     legítimos fuera del alcance de T38). `lint`, `typecheck`, `test` y `build`
     pasan.
 
-- [ ] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
+- [x] **T39 · Cerrar la frontera** · S · depende de T36, T37, T38
   - Acepta: el `override` de Biome se extiende a `ui/**`; el andamiaje de
     contexto sin uso desaparece; `firebase/*` sólo aparece bajo
     `infrastructure/`.
-  - Verifica: `grep -rl 'from "firebase/' src/ui/` **vacío**, más los 132 tests,
-    `lint`, `typecheck`, `lint:lit` y `build` en código 0 comprobado con `$?`
+  - Verifica: ~~`grep -rl 'from "firebase/' src/ui/` **vacío**~~ (sustituido por
+    `apps/web/arch/layers.test.ts`, ver `docs/spec-arquitectura-hexagonal.md`),
+    más los tests, `lint`, `typecheck`, `lint:lit` y `build` en código 0
+    comprobado con `$?`
   - Ficheros: `biome.json`, `src/infrastructure/firebase/context.ts`
+  - Hecho en #109 (GH-304 a GH-314): `domain/`, `application/`, `infrastructure/`
+    y `ui/` son las únicas carpetas de `src/`, más `i18n/`, `generated/`,
+    `main.ts` y `vite-env.d.ts`. Evidencia, en la rama de GH-314:
+    `npm run test:arch` → **0** (58 aserciones, con `ui/` → `infrastructure/` y
+    una carpeta nueva en la raíz rotas a propósito: `test:arch` → **1** nombrando
+    fichero y regla, y de nuevo **0** al quitarlas); `npm run typecheck`,
+    `npm run lint:lit`, `npm test`, `npm run build` y `npm run build:landing`
+    → **0**; `npm run lint` (con `rtk bypass`: el filtro de salida lo da por
+    fallido sin hallazgos) → **0**, 243 ficheros; `git grep` de `from "firebase`
+    como import real o dinámico fuera de `infrastructure/` → **1** (sin
+    coincidencias; los tres aciertos del patrón laxo son comentarios).
+    `biome.json` impone la regla sobre `apps/web/src/**` (línea 53) y sólo
+    exime `infrastructure/firebase/**` (línea 73);
+    `infrastructure/firebase/context.ts` ya no existe, los contextos viven en
+    `application/context.ts`. `npm run test:e2e` no se ejecutó en local: lo
+    corrió el CI de la rama anterior (GH-313, #345, `e2e` pass).
 
 > **Checkpoint H** — tras T35: la frontera es comprobable por comando y no ha
 > cambiado ni una línea de comportamiento. Es el momento barato de abandonar.

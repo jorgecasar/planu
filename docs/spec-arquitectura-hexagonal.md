@@ -181,7 +181,11 @@ Medibles, para que un check los decida:
    frontera; sin ella la arquitectura es una carpeta con buenas intenciones.
 2. **Cada caso de uso migrado tiene un test que corre sin emuladores.**
    Comprobable: `npx vitest run application/` sin levantar nada.
-3. **`grep -rl 'from "firebase/' src/ui/` no devuelve nada** al terminar.
+3. **`npm run test:arch` falla si una capa importa lo que no debe, o si aparece
+   una carpeta nueva en la raíz de `src/`.** Lo vigila
+   `apps/web/arch/layers.test.ts` (GH-306, GH-314), que nombra el fichero, el
+   import y la regla rota. Sustituye al `grep` vacío sobre `src/ui/`, que sólo
+   prueba algo el día que alguien lo ejecuta.
 4. Los 132 tests siguen verdes, y `lint`, `typecheck`, `lint:lit` y `build`
    salen con **código 0** —comprobado con `$?`, no leyendo la salida.
 
