@@ -15,7 +15,7 @@ import {
 } from "../../domain/grid-keyboard.js";
 import type { SortPreference } from "../../domain/sort-events.js";
 import { getLocale } from "../../i18n/localization.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import {
 	buildMonthGrid,
 	dayKey,

@@ -4,30 +4,27 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
-import "./ui/auth/login-view.js";
+import "./auth/login-view.js";
 
 import { consume, provide } from "@lit/context";
 import { msg } from "@lit/localize";
 import { Router } from "@lit-labs/router";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { sessionContext, userContext } from "./application/context.js";
-import type { SessionPort, SessionUser } from "./application/ports/session.js";
-import { signOut } from "./application/sign-out.js";
-import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
-import { reloadOnceOnStaleChunk } from "./reload-on-stale-chunk.js";
-import { webAwesomeStyles } from "./styles/web-awesome.js";
-import {
-	DeletionGuard,
-	deletionGuardContext,
-} from "./ui/auth/deletion-guard.js";
+import { sessionContext, userContext } from "../application/context.js";
+import type { SessionPort, SessionUser } from "../application/ports/session.js";
+import { signOut } from "../application/sign-out.js";
+import { watchSessionCheckTimeout } from "../domain/session-check-timeout.js";
+import { DeletionGuard, deletionGuardContext } from "./auth/deletion-guard.js";
 import {
 	guardRedirect,
 	HOME_PATH,
 	LOGIN_PATH,
 	PROFILE_PATH,
-} from "./ui/auth/guard.js";
-import { loginNoticeState } from "./ui/auth/login-notice.js";
+} from "./auth/guard.js";
+import { loginNoticeState } from "./auth/login-notice.js";
+import { reloadOnceOnStaleChunk } from "./reload-on-stale-chunk.js";
+import { webAwesomeStyles } from "./styles/web-awesome.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.
@@ -124,8 +121,7 @@ export class PlanuApp extends LitElement {
 	readonly #router = new Router(this, [
 		{
 			path: HOME_PATH,
-			enter: () =>
-				this.#enterPrivate(() => import("./ui/events/events-view.js")),
+			enter: () => this.#enterPrivate(() => import("./events/events-view.js")),
 			render: () => html`<planu-events-view></planu-events-view>`,
 		},
 		{
@@ -136,7 +132,7 @@ export class PlanuApp extends LitElement {
 		{
 			path: PROFILE_PATH,
 			enter: () =>
-				this.#enterPrivate(() => import("./ui/profile/profile-view.js")),
+				this.#enterPrivate(() => import("./profile/profile-view.js")),
 			render: () => html`<planu-profile-view></planu-profile-view>`,
 		},
 	]);

@@ -143,7 +143,7 @@ async function buildLanding() {
 		waEntry,
 		[
 			"@import url('native.css');",
-			`@import url('${resolve(ROOT, "apps/web/src/styles/theme-planu.css")}');`,
+			`@import url('${resolve(ROOT, "apps/web/src/ui/styles/theme-planu.css")}');`,
 			"@import url('utilities.css');",
 		].join("\n"),
 		"utf-8",
@@ -187,7 +187,7 @@ async function buildLanding() {
 
 	// Read CSS files
 	const themeCss = readFileSync(
-		resolve(ROOT, "apps/web/src/styles/fonts.css"),
+		resolve(ROOT, "apps/web/src/ui/styles/fonts.css"),
 		"utf-8",
 	);
 	const landingCss = readFileSync(

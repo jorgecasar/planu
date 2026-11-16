@@ -1,12 +1,12 @@
 import { expect, test, vi } from "vitest";
 import "./app-shell.js";
 import { ContextEvent } from "@lit/context";
+import type { SessionUser } from "../application/ports/session.js";
 import type { PlanuApp } from "./app-shell.js";
-import type { SessionUser } from "./application/ports/session.js";
 import {
 	type DeletionGuard,
 	deletionGuardContext,
-} from "./ui/auth/deletion-guard.js";
+} from "./auth/deletion-guard.js";
 
 /**
  * Sets `user` directly, bypassing `@consume` — there is no
@@ -237,7 +237,7 @@ test("si la sesión acaba durante el borrado, se espera a que termine para ir al
 
 test("atrás, o un cambio de cuenta, durante el borrado no desmonta el perfil", async () => {
 	// Preloaded so the route would be entered at once if nothing refused it.
-	await import("./ui/events/events-view.js");
+	await import("./events/events-view.js");
 	const { el, guard } = await onProfileWithGuard();
 	const view = el.shadowRoot?.querySelector("planu-profile-view");
 	guard.begin();

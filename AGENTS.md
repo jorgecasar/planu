@@ -310,13 +310,13 @@ estiliza `a.wa-button`, con `wa-brand`/`wa-neutral`/`wa-danger` para la variante
 landing `<wa-button>` no sirve —el custom element no se definiría nunca—, así que
 va `<a class="wa-button wa-brand wa-size-l">`. **No se inventan ni se redefinen
 clases `wa-*`**: lo propio va en clases propias, y la marca, en los tokens
-`--wa-*` de `styles/theme-planu.css`. Antes de usar una clase `wa-*`, compruébala:
+`--wa-*` de `ui/styles/theme-planu.css`. Antes de usar una clase `wa-*`, compruébala:
 `grep -r <clase> node_modules/@awesome.me/webawesome/dist/styles/`. Las de
 layout se declaran como `[class*='wa-stack']`, así que busca el nombre, no
 `.nombre`.
 
 La identidad visual (ADR 0008) es un tema de Web Awesome propio,
-`wa-theme-planu`, en `apps/web/src/styles/theme-planu.css`: vive en la capa
+`wa-theme-planu`, en `apps/web/src/ui/styles/theme-planu.css`: vive en la capa
 `wa-theme` y parte del tema por defecto, que aporta los tokens que no nombra.
 `index.html`, `app.html` y las páginas de la landing llevan esa clase en
 `<html>`. No se pisan tokens desde fuera del tema ni se añade otro `:root`:
@@ -325,7 +325,7 @@ están aparte, en `fonts.css`. La landing compila el tema dentro de la hoja de
 Web Awesome (`scripts/build-landing.js`).
 
 **Dentro de la aplicación, `native.css` y `utilities.css` llegan a cada shadow
-root por `styles/web-awesome.ts`.** `main.ts` los carga en el documento, pero una
+root por `ui/styles/web-awesome.ts`.** `main.ts` los carga en el documento, pero una
 hoja del documento no atraviesa un shadow root, y toda la interfaz vive dentro de
 uno: sin el módulo, los títulos no piden `--wa-font-family-heading` —y Belleza
 no llega a descargarse—, los enlaces salen en el azul del navegador, el
@@ -375,7 +375,7 @@ acceso, antes y después:
 - **Formularios, aceptado.** Un `<input>` que sigue a su `<label>` gana
   `margin-block-start: 0.5em` (los campos de fichero).
 
-Lo vigila `styles/web-awesome.test.ts`, componente por componente (la lista sale
+Lo vigila `ui/styles/web-awesome.test.ts`, componente por componente (la lista sale
 de las fuentes, no de una lista a mano), y un test por cada arreglo de arriba.
 Coste, medido con `npm run build` antes y después: el chunk de `app-shell` pasa de
 236,21 a 280,72 kB (+44,51 kB en bruto, +7,98 kB con gzip) y no cambia nada más; las

@@ -6,7 +6,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { StoredEvent } from "../../domain/event.js";
 import { shouldRevealPast } from "../../domain/sort-events.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { type Agenda, type AgendaDay, countEvents } from "./agenda-days.js";
 
 /**

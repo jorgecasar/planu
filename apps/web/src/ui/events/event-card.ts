@@ -29,7 +29,7 @@ import { isExportable } from "../../domain/build-ics.js";
 import { dateBlockParts, formatEventDates } from "../../domain/format-dates.js";
 import { tagHue } from "../../domain/tags.js";
 import { getLocale } from "../../i18n/localization.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { downloadEventFile, openInGoogleCalendar } from "./calendar-export.js";
 import { tagChipStyles } from "./tag-styles.js";
 

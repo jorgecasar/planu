@@ -27,11 +27,11 @@ import { authErrorMessage } from "../../domain/auth-errors.js";
 import { SessionError } from "../../domain/session-error.js";
 import { sourceLocale } from "../../generated/locales/locale-codes.js";
 import { getLocale } from "../../i18n/localization.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import {
 	type DeletionGuard,
 	deletionGuardContext,
 } from "../auth/deletion-guard.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 

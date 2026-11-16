@@ -25,7 +25,7 @@ import {
 	authErrorField,
 	authErrorMessage,
 } from "../../domain/auth-errors.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { type LoginNotice, takeLoginNotice } from "./login-notice.js";
 
 /** Long enough for screen readers to register the empty live region. */

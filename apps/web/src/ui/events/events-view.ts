@@ -52,7 +52,7 @@ import {
 	readViewMode,
 	writeSortPreference,
 	writeViewMode,
-} from "../../lib/view-preferences.js";
+} from "../view-preferences.js";
 
 import "./calendar-export.js";
 import "./empty-state.js";
@@ -63,7 +63,7 @@ import "./event-groups.js";
 import "../sharing/invitations-inbox.js";
 
 import type { SessionUser } from "../../application/ports/session.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { FiltersChange } from "./event-filters.js";
 
 /** Characters in the longest option label: sizes the sort select to fit it. */

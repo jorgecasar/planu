@@ -12,7 +12,7 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../../application/ports/sharing.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 /** Invitations waiting on this person, above their own events. */
 @customElement("planu-invitations-inbox")
