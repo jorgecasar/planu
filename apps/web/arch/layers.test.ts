@@ -16,7 +16,8 @@ import { describe, expect, test } from "vitest";
  *
  * And the root of `src/` holds nothing but those folders, `main.ts` and
  * `vite-env.d.ts`, so a feature folder cannot come back beside the layers.
- * Sources only, never `*.test.ts`. Runs in Node: it only reads files.
+ * Layer rules read sources only; tests under `ui/` get one rule of their own
+ * (no `infrastructure/`). Runs in Node: it only reads files.
  */
 
 // `fileURLToPath` and not `import.meta.dirname`, which requires Node ≥20.11
@@ -37,6 +38,15 @@ function sources(dir: string): string[] {
 		return path.endsWith(".ts") && !path.endsWith(".test.ts")
 			? [relative(SRC, path)]
 			: [];
+	});
+}
+
+/** Every `*.test.ts` under a directory, relative to `src/`. */
+function tests(dir: string): string[] {
+	return readdirSync(dir).flatMap((entry) => {
+		const path = join(dir, entry);
+		if (statSync(path).isDirectory()) return tests(path);
+		return path.endsWith(".test.ts") ? [relative(SRC, path)] : [];
 	});
 }
 
@@ -143,6 +153,20 @@ describe("the layer rules hold over the sources", () => {
 					!["domain", "application", "ui", ...SHARED, "package"].includes(e.to),
 			),
 		).toEqual([]);
+	});
+
+	test("ui tests do not import infrastructure either", () => {
+		const offenders = tests(join(SRC, "ui")).flatMap((file) =>
+			specifiers(readFileSync(join(SRC, file), "utf8"))
+				.filter(
+					(spec) =>
+						spec.startsWith(".") &&
+						layerOf(relative(SRC, resolve(SRC, dirname(file), spec))) ===
+							"infrastructure",
+				)
+				.map((spec) => `${file} imports "${spec}": ui/ tests may not either`),
+		);
+		expect(offenders).toEqual([]);
 	});
 
 	test("the root of src holds only the layers, ui, shared folders and two files", () => {
