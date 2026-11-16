@@ -126,7 +126,7 @@ No es portabilidad; Firebase se queda.
 
 | Capa | Qué vive ahí | Puede importar |
 | --- | --- | --- |
-| `src/domain/` | Modelo y reglas de negocio | nada externo salvo `@lit/localize` |
+| `src/domain/` | Modelo y reglas de negocio | nada externo salvo `zod` y `@lit/localize` |
 | `src/application/` | Casos de uso y sus puertos | `domain/` |
 | `src/infrastructure/` | Adaptadores. **El único sitio con `firebase/*`** | `domain/`, puertos |
 | `src/ui/` | Componentes Lit | `application/` |
