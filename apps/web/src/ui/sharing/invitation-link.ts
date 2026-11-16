@@ -1,4 +1,4 @@
-import { LOGIN_PATH } from "../ui/auth/guard.js";
+import { LOGIN_PATH } from "../auth/guard.js";
 
 /** Query parameter that tells the login page the visitor came from an invitation. */
 export const INVITE_PARAM = "invite";

@@ -1,13 +1,13 @@
 import { msg } from "@lit/localize";
 import type { ReactiveControllerHost } from "lit";
-import type { SessionUser } from "../application/ports/session.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import type {
 	EmailOfferSummary,
 	PendingInviteSummary,
 	PublicProfile,
 	SharingPort,
-} from "../application/ports/sharing.js";
-import type { EventRole, StoredEvent } from "../domain/event.js";
+} from "../../application/ports/sharing.js";
+import type { EventRole, StoredEvent } from "../../domain/event.js";
 
 /** One row of the access list: a member, or an offer nobody has taken yet. */
 export interface Person {

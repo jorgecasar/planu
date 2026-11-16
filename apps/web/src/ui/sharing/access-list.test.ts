@@ -1,10 +1,10 @@
 import { expect, test, vi } from "vitest";
-import type { SessionUser } from "../application/ports/session.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import type {
 	PublicProfile,
 	SharingPort,
-} from "../application/ports/sharing.js";
-import type { StoredEvent } from "../domain/event.js";
+} from "../../application/ports/sharing.js";
+import type { StoredEvent } from "../../domain/event.js";
 import { AccessList, toPeople } from "./access-list.js";
 
 const EVENT = {

@@ -16,7 +16,7 @@ import "../events/event-editor.js";
 import "../events/event-groups.js";
 import type { StoredEvent } from "../domain/event.js";
 import "../ui/profile/profile-view.js";
-import "../sharing/share-dialog.js";
+import "../ui/sharing/share-dialog.js";
 import { webAwesomeStyles } from "./web-awesome.js";
 
 // index.html puts the theme class on <html>; the test page has none.

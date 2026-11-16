@@ -60,7 +60,7 @@ import "./event-card.js";
 import "./event-editor.js";
 import "./event-filters.js";
 import "./event-groups.js";
-import "../sharing/invitations-inbox.js";
+import "../ui/sharing/invitations-inbox.js";
 
 import type { SessionUser } from "../application/ports/session.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";

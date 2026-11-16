@@ -6,7 +6,7 @@ import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import { msg, str } from "@lit/localize";
 import { css, html, nothing } from "lit";
-import type { SessionUser } from "../application/ports/session.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import type { Person } from "./access-list.js";
 
 // Plain templates, like `CoverField.render()`: they take the dialog's styles.

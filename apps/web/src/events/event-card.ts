@@ -20,8 +20,8 @@ import {
 	canLeave,
 	canManageMembers,
 	roleFor,
-} from "../sharing/permissions.js";
-import "../sharing/share-dialog.js";
+} from "../ui/sharing/permissions.js";
+import "../ui/sharing/share-dialog.js";
 import { isExportable } from "../domain/build-ics.js";
 import { dateBlockParts, formatEventDates } from "../domain/format-dates.js";
 import { tagHue } from "../domain/tags.js";
