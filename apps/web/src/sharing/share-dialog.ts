@@ -84,6 +84,14 @@ export class PlanuShareDialog extends LitElement {
 			color: var(--wa-color-text-normal);
 		}
 
+		.live {
+			margin-block-end: var(--wa-space-m);
+		}
+
+		.live:empty {
+			margin: 0;
+		}
+
 		.actions {
 			margin-block-end: var(--wa-space-l);
 		}
@@ -113,6 +121,14 @@ export class PlanuShareDialog extends LitElement {
 	@state() private busy = false;
 	@state() private error = "";
 	@state() private notice = "";
+
+	/** Who was just removed. Lives in a live region that is always rendered. */
+	@state() private announcement = "";
+
+	/** The member whose "Remove access" is waiting for its answer. */
+	@state() private confirmingKey: string | undefined;
+
+	#focusAfterRemoval: { key: string; index: number } | undefined;
 
 	/**
 	 * What the owner can send to the person just invited. planu mails nobody
@@ -144,7 +160,21 @@ export class PlanuShareDialog extends LitElement {
 			this.copied = false;
 			this.#access.reset();
 			void this.#access.load();
+			this.confirmingKey = undefined;
 		}
+		// Not on `event`: the snapshot of the removal itself must not silence it.
+		if (changed.has("open")) this.announcement = "";
+	}
+
+	override updated(): void {
+		// Waits for the row to be really gone: the new snapshot lands after the write.
+		const target = this.#focusAfterRemoval;
+		if (!target || this.#access.loading) return;
+		if (this.#access.people.some((person) => person.key === target.key)) return;
+		this.#focusAfterRemoval = undefined;
+		(
+			this.#triggerAt(target.index) ?? this.shadowRoot?.querySelector("h3")
+		)?.focus();
 	}
 
 	override render() {
@@ -180,6 +210,7 @@ export class PlanuShareDialog extends LitElement {
 						? html`<wa-callout variant="success" role="status">${this.notice}</wa-callout>`
 						: nothing
 				}
+				<div class="live" role="status">${this.announcement}</div>
 
 				<form @submit=${this.#onInvite}>
 					<wa-input
@@ -205,11 +236,21 @@ export class PlanuShareDialog extends LitElement {
 				</form>
 				${this.#renderHandoff()}
 
-				<h3>${msg("People with access")}</h3>
+				<h3 tabindex="-1">${msg("People with access")}</h3>
 				<ul class="wa-list-plain">
 					${renderOwner(user)}
 					${this.#access.people.map((person) =>
-						renderPerson(person, this.busy, this.#onAction),
+						renderPerson(
+							person,
+							this.busy,
+							this.#onAction,
+							person.key === this.confirmingKey
+								? {
+										onConfirm: () => void this.#confirmRemove(person),
+										onCancel: () => this.#cancelRemove(person),
+									}
+								: undefined,
+						),
 					)}
 				</ul>
 				${
@@ -289,7 +330,8 @@ export class PlanuShareDialog extends LitElement {
 			.item.value;
 
 		if (value === "remove") {
-			void (person.pending ? this.#cancelInvite(person) : this.#remove(person));
+			if (person.pending) void this.#cancelInvite(person);
+			else this.#askRemove(person);
 			return;
 		}
 		if (value !== person.role) {
@@ -418,11 +460,38 @@ export class PlanuShareDialog extends LitElement {
 		}
 	}
 
-	async #remove(person: Person): Promise<void> {
+	#askRemove(person: Person): void {
+		this.confirmingKey = person.key;
+		void this.updateComplete.then(() =>
+			this.shadowRoot
+				?.querySelector<HTMLElement>("[data-action=cancel-remove]")
+				?.focus(),
+		);
+	}
+
+	#cancelRemove(person: Person): void {
+		this.confirmingKey = undefined;
+		const index = this.#access.people.findIndex((p) => p.key === person.key);
+		void this.updateComplete.then(() => this.#triggerAt(index)?.focus());
+	}
+
+	#triggerAt(index: number): HTMLElement | undefined {
+		return this.shadowRoot?.querySelectorAll<HTMLElement>(
+			"wa-dropdown [slot=trigger]",
+		)[index];
+	}
+
+	async #confirmRemove(person: Person): Promise<void> {
+		if (this.busy) return;
 		const roles = { ...this.event.roles };
 		delete roles[person.uid];
 
-		await this.#write(
+		this.confirmingKey = undefined;
+		this.#focusAfterRemoval = {
+			key: person.key,
+			index: this.#access.people.findIndex((p) => p.key === person.key),
+		};
+		const removed = await this.#write(
 			{
 				memberIds: (this.event.memberIds ?? []).filter(
 					(uid) => uid !== person.uid,
@@ -431,6 +500,13 @@ export class PlanuShareDialog extends LitElement {
 			},
 			person.uid,
 		);
+		if (removed) {
+			this.announcement = msg(
+				str`Access removed for ${person.name}. They are not notified.`,
+			);
+		} else {
+			this.#focusAfterRemoval = undefined;
+		}
 	}
 
 	async #cancelInvite(person: Person): Promise<void> {
@@ -453,17 +529,20 @@ export class PlanuShareDialog extends LitElement {
 	async #write(
 		membership: { memberIds: string[]; roles: Record<string, EventRole> },
 		removedUid?: string,
-	): Promise<void> {
+	): Promise<boolean> {
 		const { sharing, event } = this;
-		if (!sharing || !event || this.busy) return;
+		if (!sharing || !event || this.busy) return false;
 
 		this.error = "";
 		this.notice = "";
+		this.announcement = "";
 		this.busy = true;
 		try {
 			await sharing.updateEventMembership(event.id, membership, removedUid);
+			return true;
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
+			return false;
 		} finally {
 			this.busy = false;
 			// Reloaded on both paths. Lit will not re-commit a value that has not

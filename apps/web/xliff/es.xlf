@@ -1174,6 +1174,18 @@
   <source>If you already have an account, sign in with this email address to see it:</source>
         <target>Si ya tienes cuenta, entra con esta dirección de correo para verlo:</target>
 </trans-unit>
+<trans-unit id="s08e2bb90dd170f83">
+  <source>Remove <x id="0" equiv-text="${person.name}"/> from this event? They are not notified.</source>
+        <target>¿Quitar a <x id="0" equiv-text="${person.name}"/> de este evento? No se le avisa.</target>
+</trans-unit>
+<trans-unit id="sea4f08110bb8f15d">
+  <source>Remove</source>
+        <target>Quitar</target>
+</trans-unit>
+<trans-unit id="sc58fb106cdb19dd3">
+  <source>Access removed for <x id="0" equiv-text="${person.name}"/>. They are not notified.</source>
+        <target>Se quitó el acceso a <x id="0" equiv-text="${person.name}"/>. No se le avisa.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

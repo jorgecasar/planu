@@ -42,6 +42,7 @@ export function renderPerson(
 	person: Person,
 	busy: boolean,
 	onAction: (person: Person, domEvent: Event) => void,
+	confirming?: { onConfirm: () => void; onCancel: () => void },
 ) {
 	return html`
 		<li>
@@ -110,6 +111,31 @@ export function renderPerson(
 				</wa-dropdown-item>
 			</wa-dropdown>
 			</span>
+			${
+				// In the row itself, not a dialog over a dialog: the question stays
+				// next to the person it is about.
+				confirming
+					? html`<div class="confirm">
+							<span>${msg(str`Remove ${person.name} from this event? They are not notified.`)}</span>
+							<wa-button
+								data-action="cancel-remove"
+								size="s"
+								appearance="outlined"
+								@click=${confirming.onCancel}
+							>
+								${msg("Cancel")}
+							</wa-button>
+							<wa-button
+								data-action="confirm-remove"
+								size="s"
+								variant="danger"
+								@click=${confirming.onConfirm}
+							>
+								${msg("Remove")}
+							</wa-button>
+						</div>`
+					: nothing
+			}
 		</li>
 	`;
 }
@@ -129,6 +155,16 @@ export const accessRowStyles = css`
 		align-items: center;
 		gap: var(--wa-space-s);
 		padding-block: var(--wa-space-xs);
+		flex-wrap: wrap;
+	}
+
+	/* Takes its own line under the person it asks about. */
+	.confirm {
+		display: flex;
+		flex: 1 0 100%;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--wa-space-s);
 	}
 
 	/* The avatar is a flex item too, and without this it is the first thing

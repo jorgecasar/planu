@@ -112,7 +112,7 @@ test("an address with an account is invited by uid", async () => {
 	expect(sharing.offerInviteByEmail).not.toHaveBeenCalled();
 });
 
-/** Picks `value` from the one guest's menu; resolves with the membership write. */
+/** Picks `value` (never "remove", which now asks first) from the one guest's menu; resolves with the membership write. */
 async function pickForGuest(value: string) {
 	const sharing = fakeSharing(async () => null);
 	const event = {
@@ -189,12 +189,85 @@ test("handing over another event clears the list while it reloads", async () => 
 	expect(el.shadowRoot?.querySelector(".empty")?.textContent).toBe("Loading…");
 });
 
-test("removing a guest names them, so their email offer goes too (GH-147)", async () => {
-	expect(await pickForGuest("remove")).toEqual([
+const click = (root: ShadowRoot | null | undefined, selector: string) =>
+	root?.querySelector<HTMLElement>(selector)?.click();
+
+/** Opens the dialog with Bea ("Bea") as the one guest and picks "Remove access". */
+async function chooseRemove() {
+	const sharing = fakeSharing(async () => null);
+	sharing.findProfiles.mockResolvedValue(
+		new Map([["bea-uid", { displayName: "Bea", photoURL: "" }]]),
+	);
+	const { el } = await openWithGuest(sharing);
+	const live = el.shadowRoot?.querySelector("[role=status].live");
+	const detail = { item: { value: "remove" } };
+	el.shadowRoot
+		?.querySelector("wa-dropdown")
+		?.dispatchEvent(new CustomEvent("wa-select", { detail }));
+	await el.updateComplete;
+	return { el, sharing, live };
+}
+
+test("choosing Remove access asks first, naming the person, and writes nothing (GH-189)", async () => {
+	const { el, sharing } = await chooseRemove();
+	const confirmation = el.shadowRoot?.querySelector(".confirm");
+
+	expect(confirmation?.textContent).toContain("Bea");
+	expect(sharing.updateEventMembership).not.toHaveBeenCalled();
+});
+
+test("cancelling the confirmation writes nothing and closes it (GH-189)", async () => {
+	const { el, sharing } = await chooseRemove();
+	click(el.shadowRoot, "[data-action=cancel-remove]");
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.querySelector(".confirm")).toBeNull();
+	expect(sharing.updateEventMembership).not.toHaveBeenCalled();
+});
+
+test("confirming removes with the tombstone, then announces who, in a region that was already there (GH-147, GH-189)", async () => {
+	const { el, sharing, live } = await chooseRemove();
+	expect(live).not.toBeNull();
+	expect(live?.textContent?.trim()).toBe("");
+
+	click(el.shadowRoot, "[data-action=confirm-remove]");
+	await vi.waitFor(() =>
+		expect(sharing.updateEventMembership).toHaveBeenCalledTimes(1),
+	);
+
+	expect(sharing.updateEventMembership).toHaveBeenCalledWith(
 		"event-1",
 		{ memberIds: [OWNER.uid], roles: {} },
 		"bea-uid",
-	]);
+	);
+	await vi.waitFor(() =>
+		expect(live?.textContent?.trim()).toBe(
+			"Access removed for Bea. They are not notified.",
+		),
+	);
+	expect(el.shadowRoot?.querySelector("[role=status].live")).toBe(live);
+	expect(live?.textContent).not.toMatch(/restor/i);
+});
+
+test("a failed removal announces nothing and keeps the error (GH-189)", async () => {
+	const { el, sharing, live } = await chooseRemove();
+	sharing.updateEventMembership.mockRejectedValue(new Error("denied"));
+	click(el.shadowRoot, "[data-action=confirm-remove]");
+	await vi.waitFor(() => expect(el.shadowRoot?.innerHTML).toContain("alert"));
+	expect(live?.textContent?.trim()).toBe("");
+});
+
+test("once the row is gone, focus moves to the list heading (GH-189)", async () => {
+	const { el, sharing } = await chooseRemove();
+	// The parent hands over the new snapshot once the write lands.
+	sharing.updateEventMembership.mockImplementation(async () => {
+		el.event = { ...EVENT, memberIds: [OWNER.uid] };
+	});
+	click(el.shadowRoot, "[data-action=confirm-remove]");
+
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.activeElement?.tagName).toBe("H3"),
+	);
 });
 
 test("changing a guest's role names nobody as removed", async () => {
