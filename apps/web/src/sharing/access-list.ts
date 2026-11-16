@@ -2,6 +2,7 @@ import { msg } from "@lit/localize";
 import type { ReactiveControllerHost } from "lit";
 import type { SessionUser } from "../application/ports/session.js";
 import type {
+	EmailOfferSummary,
 	PendingInviteSummary,
 	PublicProfile,
 	SharingPort,
@@ -72,6 +73,8 @@ export interface AccessListOptions {
  */
 export class AccessList {
 	people: Person[] = [];
+	/** Offers to an email with no account: not people yet, but able to become one. */
+	offers: EmailOfferSummary[] = [];
 	loading = false;
 	/** Set when the pending query failed: the list is short and says so. */
 	incomplete = false;
@@ -90,6 +93,7 @@ export class AccessList {
 	 */
 	reset(): void {
 		this.people = [];
+		this.offers = [];
 		this.loading = true;
 		this.incomplete = false;
 		this.#host.requestUpdate();
@@ -136,6 +140,13 @@ export class AccessList {
 		// what they decide who to remove from.
 		this.incomplete = invited === null;
 		this.#host.requestUpdate();
+
+		// An owner can only withdraw what they can see. A failure here is as
+		// incomplete as a failed pending query, and is flagged the same way.
+		const offers = await (async () =>
+			sharing.listEmailOffers(event.id, user.uid))().catch(() => null);
+		this.offers = offers ?? [];
+		this.incomplete = invited === null || offers === null;
 
 		const profiles = await sharing.findProfiles([
 			...memberUids,

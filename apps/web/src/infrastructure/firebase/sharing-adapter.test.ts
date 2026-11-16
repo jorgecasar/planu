@@ -171,6 +171,30 @@ describe("publishDirectoryEntry()", () => {
 	});
 });
 
+describe("listEmailOffers() and revokeEmailOffer() (GH-192)", () => {
+	test("lists the owner's offers for the event, and withdraws one", async () => {
+		const offer = {
+			eventId: "event-1",
+			inviteeEmail: "guest@example.com",
+			role: "editor",
+		};
+		getDocsMock.mockResolvedValue({
+			docs: [{ id: "event-1_abc", data: () => offer }],
+		});
+		const sharing = createSharingAdapter(FAKE_FIRESTORE);
+
+		expect(await sharing.listEmailOffers("event-1", "owner-uid")).toEqual([
+			{ id: "event-1_abc", ...offer },
+		]);
+		expect(getDocsMock).toHaveBeenCalledWith(offerQuery("event-1"));
+
+		await sharing.revokeEmailOffer("event-1_abc");
+		expect(deleteDocMock).toHaveBeenCalledWith({
+			path: "eventInvitesByEmail/event-1_abc",
+		});
+	});
+});
+
 describe("offerInviteByEmail()", () => {
 	const adapter = createSharingAdapter(FAKE_FIRESTORE);
 	const OFFER = {

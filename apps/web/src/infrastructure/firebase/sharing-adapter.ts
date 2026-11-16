@@ -28,6 +28,7 @@ import {
 import type { SessionUser } from "../../application/ports/session.js";
 import type {
 	DirectoryEntry,
+	EmailOfferSummary,
 	InviteOffer,
 	PendingInviteSummary,
 	PublicProfile,
@@ -64,6 +65,14 @@ export function createSharingAdapter(
 	firestore: Firestore,
 	record: WriteRecorder = () => {},
 ): SharingPort {
+	/** The owner's email offers for one event: what the rules let them list. */
+	const offersQuery = (eventId: string, invitedBy: string) =>
+		query(
+			collection(firestore, PENDING_INVITES_BY_EMAIL_COLLECTION),
+			where("invitedBy", "==", invitedBy),
+			where("eventId", "==", eventId),
+		);
+
 	/**
 	 * The owner's own email offer for this event and address, if one is there.
 	 * Left in place it outlives a uid invite and a removal: the removed guest
@@ -77,13 +86,7 @@ export function createSharingAdapter(
 		email: string,
 	) {
 		const id = `${eventId}_${await emailHash(email)}`;
-		const snapshot = await getDocs(
-			query(
-				collection(firestore, PENDING_INVITES_BY_EMAIL_COLLECTION),
-				where("invitedBy", "==", invitedBy),
-				where("eventId", "==", eventId),
-			),
-		);
+		const snapshot = await getDocs(offersQuery(eventId, invitedBy));
 		// Not `documentId() == id`: a single-id query is checked against that
 		// one document, and with no offer there the rule denies it.
 		return snapshot.docs.find((row) => row.id === id)?.ref;
@@ -192,6 +195,26 @@ export function createSharingAdapter(
 				decidedAt: null,
 			});
 			await batch.commit();
+		},
+
+		async listEmailOffers(
+			eventId: string,
+			invitedBy: string,
+		): Promise<EmailOfferSummary[]> {
+			const snapshot = await getDocs(offersQuery(eventId, invitedBy));
+			return snapshot.docs.map((row) => {
+				const data = row.data();
+				return {
+					id: row.id,
+					eventId: String(data["eventId"] ?? ""),
+					inviteeEmail: String(data["inviteeEmail"] ?? ""),
+					role: (data["role"] === "editor" ? "editor" : "viewer") as EventRole,
+				};
+			});
+		},
+
+		async revokeEmailOffer(id: string): Promise<void> {
+			await deleteDoc(doc(firestore, PENDING_INVITES_BY_EMAIL_COLLECTION, id));
 		},
 
 		async offerInviteByEmail(offer: InviteOffer): Promise<void> {
