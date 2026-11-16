@@ -10,22 +10,22 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { sessionContext } from "../application/context.js";
-import type { AnalyticsPort } from "../application/ports/analytics.js";
+import { sessionContext } from "../../application/context.js";
+import type { AnalyticsPort } from "../../application/ports/analytics.js";
 import {
 	analyticsContext,
 	noopAnalytics,
-} from "../application/ports/analytics.js";
-import type { SessionPort } from "../application/ports/session.js";
-import { signIn } from "../application/sign-in.js";
-import { signInWithGoogle } from "../application/sign-in-with-google.js";
-import { signUp } from "../application/sign-up.js";
+} from "../../application/ports/analytics.js";
+import type { SessionPort } from "../../application/ports/session.js";
+import { signIn } from "../../application/sign-in.js";
+import { signInWithGoogle } from "../../application/sign-in-with-google.js";
+import { signUp } from "../../application/sign-up.js";
 import {
 	type AuthField,
 	authErrorField,
 	authErrorMessage,
-} from "../domain/auth-errors.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../domain/auth-errors.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import { type LoginNotice, takeLoginNotice } from "./login-notice.js";
 
 /** Long enough for screen readers to register the empty live region. */

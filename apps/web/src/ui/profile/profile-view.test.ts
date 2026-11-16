@@ -5,8 +5,8 @@ import type {
 	SessionUser,
 } from "../../application/ports/session.js";
 import type { SharingPort } from "../../application/ports/sharing.js";
-import { DeletionGuard } from "../../auth/deletion-guard.js";
 import { SessionError } from "../../domain/session-error.js";
+import { DeletionGuard } from "../auth/deletion-guard.js";
 import "./profile-view.js";
 import type { PlanuProfileView } from "./profile-view.js";
 

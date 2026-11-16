@@ -23,15 +23,15 @@ import type {
 import type { SharingPort } from "../../application/ports/sharing.js";
 import { sharingContext } from "../../application/ports/sharing.js";
 import { signOut } from "../../application/sign-out.js";
-import {
-	type DeletionGuard,
-	deletionGuardContext,
-} from "../../auth/deletion-guard.js";
 import { authErrorMessage } from "../../domain/auth-errors.js";
 import { SessionError } from "../../domain/session-error.js";
 import { sourceLocale } from "../../generated/locales/locale-codes.js";
 import { getLocale } from "../../i18n/localization.js";
 import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import {
+	type DeletionGuard,
+	deletionGuardContext,
+} from "../auth/deletion-guard.js";
 import "./change-email-form.js";
 import { ReauthStep } from "./reauth-step.js";
 

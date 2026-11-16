@@ -4,7 +4,7 @@ import "@awesome.me/webawesome/dist/components/callout/callout.js";
 import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
-import "./auth/login-view.js";
+import "./ui/auth/login-view.js";
 
 import { consume, provide } from "@lit/context";
 import { msg } from "@lit/localize";
@@ -14,17 +14,20 @@ import { customElement, state } from "lit/decorators.js";
 import { sessionContext, userContext } from "./application/context.js";
 import type { SessionPort, SessionUser } from "./application/ports/session.js";
 import { signOut } from "./application/sign-out.js";
-import { DeletionGuard, deletionGuardContext } from "./auth/deletion-guard.js";
+import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
+import { reloadOnceOnStaleChunk } from "./reload-on-stale-chunk.js";
+import { webAwesomeStyles } from "./styles/web-awesome.js";
+import {
+	DeletionGuard,
+	deletionGuardContext,
+} from "./ui/auth/deletion-guard.js";
 import {
 	guardRedirect,
 	HOME_PATH,
 	LOGIN_PATH,
 	PROFILE_PATH,
-} from "./auth/guard.js";
-import { loginNoticeState } from "./auth/login-notice.js";
-import { watchSessionCheckTimeout } from "./domain/session-check-timeout.js";
-import { reloadOnceOnStaleChunk } from "./reload-on-stale-chunk.js";
-import { webAwesomeStyles } from "./styles/web-awesome.js";
+} from "./ui/auth/guard.js";
+import { loginNoticeState } from "./ui/auth/login-notice.js";
 
 /**
  * `userContext` normally resolves within a few hundred milliseconds.

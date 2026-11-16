@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { SessionUser } from "../application/ports/session.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import { guardRedirect, HOME_PATH, LOGIN_PATH, PROFILE_PATH } from "./guard.js";
 
 const signedIn: SessionUser = {
