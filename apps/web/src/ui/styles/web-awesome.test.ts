@@ -3,7 +3,7 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "./theme-planu.css";
 import "./fonts.css";
-import type { CSSResult, LitElement } from "lit";
+import type { LitElement } from "lit";
 import { afterEach, expect, test } from "vitest";
 import "../app-shell.js";
 import type { SessionUser } from "../../application/ports/session.js";
@@ -276,12 +276,11 @@ test("every element in a root is border-box, the wa-* hosts included", async () 
 	// computes; the shell wears the provider's own styles.
 	const shell = document.createElement("div");
 	const shadow = shell.attachShadow({ mode: "open" });
-	const { PlanuFirebaseProvider } = await import(
-		"../../infrastructure/firebase/firebase-provider.js"
-	);
-	shadow.adoptedStyleSheets = [
-		(PlanuFirebaseProvider.styles as CSSResult).styleSheet as CSSStyleSheet,
-	];
+	// The provider's own rule, written out: ui/ tests do not import
+	// infrastructure/. Keep it equal to `static styles` in firebase-provider.ts.
+	const providerRule = new CSSStyleSheet();
+	providerRule.replaceSync("slot { box-sizing: inherit; }");
+	shadow.adoptedStyleSheets = [providerRule];
 	shadow.append(document.createElement("slot"));
 	document.body.append(shell);
 	const host = document.createElement("planu-profile-view") as LitElement;

@@ -119,7 +119,7 @@ bundle.
 
 ### Capas, y la regla que las mantiene separadas
 
-La migración a arquitectura hexagonal está en marcha —ver
+La arquitectura hexagonal está implantada —ver
 [`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md)—.
 El objetivo es **testabilidad**: poder probar la lógica sin levantar emuladores.
 No es portabilidad; Firebase se queda.
@@ -129,14 +129,17 @@ No es portabilidad; Firebase se queda.
 | `src/domain/` | Modelo y reglas de negocio | nada externo salvo `zod` y `@lit/localize` |
 | `src/application/` | Casos de uso y sus puertos | `domain/` |
 | `src/infrastructure/` | Adaptadores. **El único sitio con `firebase/*`** | `domain/`, puertos |
-| `src/ui/` | Componentes Lit | `application/` |
+| `src/ui/` | Componentes Lit, la landing, el shell y los estilos | `domain/`, `application/`, `i18n/`, `generated/` |
 
-Hoy existen `domain/`, `application/` e `infrastructure/`, y
+`i18n/` y `generated/` quedan en la raíz de `src/`, junto a `main.ts`, porque
+`main.ts` fija el idioma antes de cargar la interfaz. `apps/web/arch/layers.test.ts`
+(`npm run test:arch`) vigila estas fronteras y que la raíz de `src/` no reciba
+carpetas nuevas.
+Existen las cuatro capas, y
 `application/ports/` tiene siete puertos: sesión (T36), analítica (T31),
 borrado de cuenta (T32), repositorio de eventos y almacén de imágenes
 (T37/T38), compartición (`SharingPort`) y modelo de IA (`AiModelPort`). Ningún
-fichero de `auth/`, `events/`, `profile/`, `sharing/`, `calendar/`, `landing/`
-ni `lib/` importa ya Firebase. Todo lo que conoce al proveedor vive en
+fichero de `ui/` importa ya Firebase. Todo lo que conoce al proveedor vive en
 `infrastructure/firebase/`, incluidos `firebase-provider.ts` —la raíz de
 composición: inicializa la app y publica los contextos— y `config.ts`; hasta
 GH-108 vivían en un
@@ -145,9 +148,8 @@ GH-108 vivían en un
 componente importe de `infrastructure/`. Fuera de ahí ya no queda nada
 acoplado: desde GH-185, Sentry vive en `infrastructure/sentry/`, sin
 Firebase, y `infrastructure/firebase/observability.ts` añade
-`firebase/performance` y arranca las dos mitades. `src/ui/` como capa
-propia (T39) no existe todavía: el resto del código sigue organizado por
-funcionalidad y **está en migración**.
+`firebase/performance` y arranca las dos mitades. Desde T39, la interfaz
+vive entera en `src/ui/`, organizada por funcionalidad dentro de ella.
 
 **La regla, y no es opcional: toda tarea que toque un componente acoplado lo
 deja tras su puerto antes de darse por hecha.** Es lo que hace incremental la
@@ -766,13 +768,13 @@ convergencia, todo antes de que exista un PR.**
   Logic híbrido, implementado desde imagen y desde texto pegado.
 - ~~Convención de nombres para las imágenes en Storage~~ — **resuelto**: ver
   «Estado de seguridad» más abajo, `events/{userId}/{fileName}`.
-- **Arquitectura hexagonal, en marcha, no ya decidida.** El alcance está fijado
+- **Arquitectura hexagonal, implantada.** El alcance está fijado
   en [`docs/spec-arquitectura-hexagonal.md`](docs/spec-arquitectura-hexagonal.md):
   tres puertos —sesión, repositorio de eventos, almacén de imágenes— más
   analítica y borrado de cuenta. Los cinco viven ya tras su puerto, y se
   sumaron dos fuera de ese alcance, compartición y modelo de IA; desde
   GH-185 no queda nada acoplado fuera de `infrastructure/firebase/**`.
-  Cerrar la frontera a `src/ui/` no se ha empezado. Ver T39 en `tasks/todo.md`.
+  La frontera de `src/ui/` está cerrada y vigilada por `layers.test.ts`. Ver T39 en `tasks/todo.md`.
 - **Backfill de `memberIds` en eventos de la fase 1.** Sigue sin entregarse:
   exige `firebase-admin` (cae en «preguntar primero») y, antes de eso, saber
   si la base `planu` tiene documentos heredados sin ese campo — la primera
