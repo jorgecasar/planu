@@ -64,9 +64,14 @@ test("a pending offer is keyed by invitation and shows the typed address", () =>
 });
 
 /** A controller over `pending` for the invitation query, and its host. */
-function controller(pending: () => Promise<unknown[]>, connected = true) {
+function controller(
+	pending: () => Promise<unknown[]>,
+	connected = true,
+	offers: () => Promise<unknown[]> = async () => [],
+) {
 	const sharing = {
 		listPendingInvites: vi.fn(pending),
+		listEmailOffers: vi.fn(offers),
 		findProfiles: vi.fn().mockResolvedValue(PROFILES),
 	};
 	const host = { requestUpdate: vi.fn() };
@@ -125,6 +130,33 @@ test("a failed pending query keeps the members and flags the list", async () => 
 	expect(access.people.map((person) => person.key)).toEqual(["bea-uid"]);
 });
 
+test("load also lists the owner's email offers for the event (GH-192)", async () => {
+	const offer = {
+		id: "e_h",
+		eventId: "event-1",
+		inviteeEmail: "x@y.z",
+		role: "viewer",
+	};
+	const { access, sharing } = controller(
+		async () => [],
+		true,
+		async () => [offer],
+	);
+	await access.load();
+	expect(sharing.listEmailOffers).toHaveBeenCalledWith("event-1", "owner-uid");
+	expect(access.offers).toEqual([offer]);
+	expect(access.incomplete).toBe(false);
+});
+test("a failed offers query flags the list as incomplete (GH-192)", async () => {
+	const { access } = controller(
+		async () => [],
+		true,
+		() => Promise.reject(new Error("offline")),
+	);
+	await access.load();
+	expect(access.incomplete).toBe(true);
+	expect(access.offers).toEqual([]);
+});
 test("without the contexts it stops loading instead of hanging", async () => {
 	const { access, host, sharing } = controller(async () => [], false);
 	host.requestUpdate.mockClear();

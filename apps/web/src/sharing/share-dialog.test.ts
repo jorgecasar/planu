@@ -30,6 +30,8 @@ function fakeSharing(found: () => Promise<DirectoryEntry | null>) {
 		findUserByEmail: vi.fn(found),
 		findProfiles: vi.fn().mockResolvedValue(new Map()),
 		listPendingInvites: vi.fn().mockResolvedValue([]),
+		listEmailOffers: vi.fn().mockResolvedValue([]),
+		revokeEmailOffer: vi.fn().mockResolvedValue(undefined),
 		inviteToEvent: vi.fn().mockResolvedValue(undefined),
 		offerInviteByEmail: vi.fn().mockResolvedValue(undefined),
 		updateEventMembership: vi.fn().mockResolvedValue(undefined),
@@ -341,6 +343,42 @@ test("«Invite again» does not call the port when the event is full (GH-320)", 
 		"This event has reached its limit of guests.",
 	);
 	expect(sharing.restoreAccessOffer).not.toHaveBeenCalled();
+});
+
+test("lists the email offers and withdraws one, then reloads (GH-192)", async () => {
+	const sharing = fakeSharing(async () => null);
+	sharing.listEmailOffers
+		.mockResolvedValueOnce([
+			{
+				id: "event-1_h",
+				eventId: "event-1",
+				inviteeEmail: "old@example.com",
+				role: "editor",
+			},
+		])
+		.mockResolvedValue([]);
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event: EVENT, open: true });
+	document.body.append(el);
+
+	const button = await vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector<HTMLElement>(
+			"[data-action=withdraw-offer]",
+		);
+		if (!found) throw new Error("No offer yet");
+		return found;
+	});
+	expect(el.shadowRoot?.textContent).toContain("old@example.com");
+
+	button.click();
+	await vi.waitFor(() =>
+		expect(sharing.revokeEmailOffer).toHaveBeenCalledWith("event-1_h"),
+	);
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.querySelector("[data-action=withdraw-offer]")).toBe(
+			null,
+		),
+	);
 });
 
 test("a failed «Invite again» shows the error and announces nothing (GH-320)", async () => {

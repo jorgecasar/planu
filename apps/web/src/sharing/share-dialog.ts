@@ -279,6 +279,29 @@ export class PlanuShareDialog extends LitElement {
 					)}
 				</ul>
 				${
+					// Whoever signs up with the address can claim an offer (GH-192).
+					this.#access.offers.length > 0
+						? html`<h3>${msg("Offers by email")}</h3>
+								<ul class="wa-list-plain">
+									${this.#access.offers.map(
+										(offer) => html`<li>
+											<span>${offer.inviteeEmail}</span>
+											<span>${offer.role === "editor" ? msg("Editor") : msg("Viewer")}</span>
+											<wa-button
+												data-action="withdraw-offer"
+												size="s"
+												appearance="outlined"
+												?disabled=${this.busy}
+												@click=${() => void this.#withdrawOffer(offer.id)}
+											>
+												${msg("Withdraw offer")}
+											</wa-button>
+										</li>`,
+									)}
+								</ul>`
+						: nothing
+				}
+				${
 					// Three different things, told apart. Saying "only you" while the
 					// list is still resolving told the owner of a twenty-guest event
 					// that it was shared with nobody.
@@ -576,6 +599,23 @@ export class PlanuShareDialog extends LitElement {
 		this.busy = true;
 		try {
 			await sharing.revokeInvite(person.key);
+		} catch {
+			this.error = msg("The change could not be saved. Please try again.");
+		} finally {
+			this.busy = false;
+			await this.#access.load().catch(() => {});
+		}
+	}
+
+	async #withdrawOffer(id: string): Promise<void> {
+		const { sharing } = this;
+		if (!sharing || this.busy) return;
+
+		this.error = "";
+		this.notice = "";
+		this.busy = true;
+		try {
+			await sharing.revokeEmailOffer(id);
 		} catch {
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {

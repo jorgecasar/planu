@@ -38,6 +38,14 @@ export interface PendingInviteSummary {
 	role: EventRole;
 }
 
+/** One offer made to an email with no account yet, as the owner sees it. */
+export interface EmailOfferSummary {
+	id: string;
+	eventId: string;
+	inviteeEmail: string;
+	role: EventRole;
+}
+
 /** A pending invitation addressed to the current user — what the inbox shows. */
 export interface ReceivedInvite {
 	id: string;
@@ -85,6 +93,15 @@ export interface SharingPort {
 		eventId: string,
 		invitedBy: string,
 	): Promise<PendingInviteSummary[]>;
+
+	/** The email offers one owner has made for one event and nobody has claimed. */
+	listEmailOffers(
+		eventId: string,
+		invitedBy: string,
+	): Promise<EmailOfferSummary[]>;
+
+	/** Withdraws an email offer, so it can no longer be claimed (GH-192). */
+	revokeEmailOffer(id: string): Promise<void>;
 
 	/**
 	 * Offers the event to a known uid, or edits an existing pending offer. An

@@ -1218,6 +1218,14 @@
   <source>Anyone can leave an event that was shared with them, and you can delete your account whenever you want.</source>
         <target>Cualquiera puede salir de un evento que le hayan compartido, y tú puedes borrar tu cuenta cuando quieras.</target>
 </trans-unit>
+<trans-unit id="s7e4aab0df8ec7197">
+  <source>Offers by email</source>
+  <target>Ofertas por correo</target>
+</trans-unit>
+<trans-unit id="s1b3f5e3f0d796ecd">
+  <source>Withdraw offer</source>
+  <target>Retirar oferta</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
