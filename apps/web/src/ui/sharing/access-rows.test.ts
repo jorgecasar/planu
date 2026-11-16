@@ -1,7 +1,7 @@
 import { html, type LitElement, render } from "lit";
 import { afterEach, expect, test, vi } from "vitest";
-import type { SessionUser } from "../application/ports/session.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import type { Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 

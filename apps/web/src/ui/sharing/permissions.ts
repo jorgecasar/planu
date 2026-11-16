@@ -9,7 +9,7 @@
  * See docs/adr/0006-sharing-with-invited-members.md.
  */
 
-import type { EventRole, StoredEvent } from "../domain/event.js";
+import type { EventRole, StoredEvent } from "../../domain/event.js";
 
 /** The effective role, ownership included. */
 export type MemberRole = "owner" | EventRole;

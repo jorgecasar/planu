@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { SessionUser } from "../application/ports/session.js";
-import type { ReceivedInvite } from "../application/ports/sharing.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import type { ReceivedInvite } from "../../application/ports/sharing.js";
 import "./invitations-inbox.js";
 import type { PlanuInvitationsInbox } from "./invitations-inbox.js";
 

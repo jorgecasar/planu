@@ -9,20 +9,20 @@ import { consume } from "@lit/context";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { userContext } from "../application/context.js";
+import { userContext } from "../../application/context.js";
 import {
 	type AnalyticsPort,
 	analyticsContext,
 	noopAnalytics,
-} from "../application/ports/analytics.js";
-import type { SessionUser } from "../application/ports/session.js";
+} from "../../application/ports/analytics.js";
+import type { SessionUser } from "../../application/ports/session.js";
 import {
 	type SharingPort,
 	sharingContext,
-} from "../application/ports/sharing.js";
-import type { EventRole, StoredEvent } from "../domain/event.js";
-import { buildInvitationMessage } from "../domain/invitation-message.js";
-import { webAwesomeStyles } from "../styles/web-awesome.js";
+} from "../../application/ports/sharing.js";
+import type { EventRole, StoredEvent } from "../../domain/event.js";
+import { buildInvitationMessage } from "../../domain/invitation-message.js";
+import { webAwesomeStyles } from "../../styles/web-awesome.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";
 import { buildInvitationLink } from "./invitation-link.js";
