@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { PlanuEvent } from "../domain/event.js";
+import type { PlanuEvent } from "../../domain/event.js";
 import {
 	buildMonthGrid,
 	dayKey,

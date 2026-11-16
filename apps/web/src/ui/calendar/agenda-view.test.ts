@@ -6,7 +6,7 @@ import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "@awesome.me/webawesome/dist/styles/themes/default.css";
 import axe from "axe-core";
 import { expect, test } from "vitest";
-import type { StoredEvent } from "../domain/event.js";
+import type { StoredEvent } from "../../domain/event.js";
 import type { Agenda } from "./agenda-days.js";
 import { buildAgenda } from "./agenda-days.js";
 import "./agenda-view.js";
