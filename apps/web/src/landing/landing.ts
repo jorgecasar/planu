@@ -43,14 +43,6 @@ const ICON_PATHS: Record<string, { viewBox: string; path: string }> = {
 		viewBox: "0 0 512 512",
 		path: "M0 96C0 60.7 28.7 32 64 32l384 0c35.3 0 64 28.7 64 64l0 320c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6l96 0 32 0 208 0c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z",
 	},
-	paste: {
-		viewBox: "0 0 512 512",
-		path: "M160 0c-23.7 0-44.4 12.9-55.4 32L48 32C21.5 32 0 53.5 0 80L0 400c0 26.5 21.5 48 48 48l144 0 0-272c0-26.5 21.5-48 48-48l55.4 0C284.4 108.9 263.7 96 240 96l-16 0 0-32 16 0 0 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-80 0zM64 96l0-32 16 0 0 32-16 0zm176 64c-8.8 0-16 7.2-16 16l0 320c0 8.8 7.2 16 16 16l224 0c8.8 0 16-7.2 16-16l0-224-80 0c-17.7 0-32-14.3-32-32l0-80-128 0zm144 0l0 64 64 0-64-64z",
-	},
-	tag: {
-		viewBox: "0 0 448 512",
-		path: "M0 80L0 229.5c0 17 6.7 33.3 18.7 45.3l176 176c25 25 65.5 25 90.5 0L418.7 317.3c25-25 25-65.5 0-90.5l-176-176c-12-12-28.3-18.7-45.3-18.7L48 32C21.5 32 0 53.5 0 80zm112 32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z",
-	},
 };
 
 function icon(name: string): TemplateResult {
@@ -152,50 +144,35 @@ function features(): TemplateResult {
 		<section class="features wa-stack wa-gap-xl">
 			<div class="wa-stack wa-gap-l">
 				<header class="wa-stack wa-gap-xs">
-					<h2 class="wa-heading-2xl">${msg("Why planu?")}</h2>
-					<p class="wa-color-text-quiet">${msg("Three things we do differently:")}</p>
+					<h2 class="wa-heading-2xl">${msg("What you can do with planu")}</h2>
 				</header>
 				<div class="feature-grid wa-grid wa-gap-l">
 					${featureCard(
 						"lock",
-						msg("Private by default"),
+						msg("Private until you say so"),
 						msg(
-							"Your events are yours. Nobody else sees them unless you explicitly invite them — and you choose their role: viewer or editor.",
+							"Your events stay yours alone. Only the people you invite can see them.",
 						),
 					)}
 					${featureCard(
 						"share-nodes",
-						msg("Share with who you choose"),
+						msg("Viewer or editor, you choose"),
 						msg(
-							"Invite by email and choose Viewer or Editor. They get access once they accept the invitation.",
-						),
-					)}
-					${featureCard(
-						"calendar-days",
-						msg("Integrates with your calendar"),
-						msg(
-							"Export any event or your whole filtered list as .ics. Opens in Apple Calendar, Google Calendar, Outlook — wherever you already plan your life.",
+							"Invite someone by email and decide whether they only look or can edit too. They need a planu account and accept the invitation, and you can take their access away whenever you like.",
 						),
 					)}
 					${featureCard(
 						"image",
-						msg("Photo → event in seconds"),
+						msg("From a poster or a text to an event"),
 						msg(
-							"Upload a poster, flyer or screenshot. The AI extracts title, date, location and description. You review, edit if needed, and save.",
+							"Upload a photo of a poster or paste an announcement and planu fills in the event for you. You review it before saving. It works in browsers with built-in AI, like desktop Chrome, and the reading happens on your device.",
 						),
 					)}
 					${featureCard(
-						"paste",
-						msg("Paste text → event"),
+						"calendar-days",
+						msg("To your calendar"),
 						msg(
-							"Copy an email, a message or an announcement. Paste it and the same AI pulls out the event details. No typing required.",
-						),
-					)}
-					${featureCard(
-						"tag",
-						msg("Organize with tags"),
-						msg(
-							"Add up to 10 tags per event. Filter by multiple tags combined with AND. Colors are stable and derived from the tag name.",
+							"Download an event, or your filtered agenda, as an .ics file. A single event can also go to Google Calendar in one click.",
 						),
 					)}
 				</div>

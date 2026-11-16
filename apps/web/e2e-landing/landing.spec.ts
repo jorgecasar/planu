@@ -70,13 +70,13 @@ const SHARING_COPY = [
 		path: "/en/",
 		old: "They get access instantly",
 		current:
-			"Invite by email and choose Viewer or Editor. They get access once they accept the invitation.",
+			"Invite someone by email and decide whether they only look or can edit too. They need a planu account and accept the invitation, and you can take their access away whenever you like.",
 	},
 	{
 		path: "/es/",
 		old: "acceso al instante",
 		current:
-			"Invita por email y elige Lector o Editor. Tendrán acceso cuando acepten la invitación.",
+			"Invita por correo y decide si cada persona solo mira o también puede editar. Necesita una cuenta de planu y acepta la invitación, y puedes quitarle el acceso cuando quieras.",
 	},
 ];
 
@@ -114,9 +114,9 @@ test("la landing se ve con JavaScript desactivado", async ({ browser }) => {
 	await expect(
 		page.getByRole("link", { name: "Create your account" }),
 	).toBeVisible();
-	// Los seis iconos son SVG en línea, no `<wa-icon>`: un custom element no se
+	// Los cuatro iconos son SVG en línea, no `<wa-icon>`: un custom element no se
 	// definiría nunca aquí y las tarjetas saldrían sin icono.
-	await expect(page.locator("svg.feature-icon")).toHaveCount(6);
+	await expect(page.locator("svg.feature-icon")).toHaveCount(4);
 
 	await context.close();
 });
@@ -480,7 +480,7 @@ for (const { path, cta, signIn } of [
 test("las tarjetas se reparten en rejilla, no en una columna", async ({
 	page,
 }) => {
-	// Si `wa-grid` no tuviera estilos, los seis artículos quedarían apilados y
+	// Si `wa-grid` no tuviera estilos, los cuatro artículos quedarían apilados y
 	// todos compartirían el mismo `x`.
 	await page.goto("/");
 
@@ -488,9 +488,63 @@ test("las tarjetas se reparten en rejilla, no en una columna", async ({
 		.locator(".feature-card")
 		.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().x));
 
-	expect(xs.length).toBe(6);
+	expect(xs.length).toBe(4);
 	expect(new Set(xs).size).toBeGreaterThan(1);
 });
+
+const BENEFITS = [
+	{
+		path: "/",
+		h2: "What you can do with planu",
+		h3s: [
+			"Private until you say so",
+			"Viewer or editor, you choose",
+			"From a poster or a text to an event",
+			"To your calendar",
+		],
+	},
+	{
+		path: "/es/",
+		h2: "Qué puedes hacer con planu",
+		h3s: [
+			"Privado hasta que tú digas",
+			"Lector o editor, tú eliges",
+			"De un cartel o un texto al evento",
+			"A tu calendario",
+		],
+	},
+];
+
+for (const { path, h2, h3s } of BENEFITS) {
+	test(`${path} muestra cuatro beneficios, en orden y sin frases retiradas`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		// El h2 de la sección y, debajo, un h3 por tarjeta en el orden de la spec.
+		const section = page.locator(".features");
+		await expect(section.getByRole("heading", { level: 2 })).toHaveText(h2);
+		await expect(section.getByRole("heading", { level: 3 })).toHaveText(h3s);
+
+		// Frases que la spec retira: una promesa de velocidad, de "sin teclear" y
+		// una lista de aplicaciones de calendario que la app no comprueba.
+		const text = (await section.innerText()).toLowerCase();
+		for (const banned of [
+			"in seconds",
+			"en segundos",
+			"no typing",
+			"no hace falta escribir",
+			"apple calendar",
+			"outlook",
+			"free",
+			"gratis",
+			"ads",
+			"anuncios",
+		]) {
+			expect(text).not.toMatch(new RegExp(`\\b${banned}\\b`));
+		}
+	});
+}
 
 test("robots.txt no bloquea la landing y apunta al sitemap", async ({
 	request,
