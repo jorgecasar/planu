@@ -31,7 +31,12 @@ const whereMock = vi.fn((field: string, op: string, value: unknown) => ({
 }));
 const fromDateMock = vi.fn((date: Date) => ({ toDate: () => date }));
 const getDocMock = vi.fn(async () => ({ data: () => ({ userId: "owner-1" }) }));
-const batch = { update: vi.fn(), set: vi.fn(), commit: vi.fn() };
+const batch = {
+	update: vi.fn(),
+	set: vi.fn(),
+	delete: vi.fn(),
+	commit: vi.fn(),
+};
 
 vi.mock("firebase/firestore", () => ({
 	addDoc: addDocMock,
@@ -169,10 +174,88 @@ describe("FirebaseEventRepository", () => {
 		expect(written).not.toHaveProperty("roles");
 	});
 
-	test("delete() borra el documento del evento", async () => {
-		await repository.delete("event-1");
+	describe("delete()", () => {
+		const rows = (count: number, prefix: string) => ({
+			docs: Array.from({ length: count }, (_, i) => ({
+				ref: { path: `${prefix}/${i}` },
+			})),
+		});
 
-		expect(deleteDocMock).toHaveBeenCalledWith({ path: "events/event-1" });
+		beforeEach(() => {
+			batch.delete.mockClear();
+			batch.commit.mockReset().mockResolvedValue(undefined);
+			getDocsMock.mockReset().mockResolvedValue({ docs: [] });
+		});
+
+		test("borra el documento del evento", async () => {
+			await repository.delete("event-1", "owner-1");
+
+			expect(deleteDocMock).toHaveBeenCalledWith({ path: "events/event-1" });
+		});
+
+		test("lista invitaciones y ofertas por invitedBy y eventId, después de borrar el evento", async () => {
+			await repository.delete("event-1", "owner-1");
+
+			const sources = queryMock.mock.calls.map(([source]) => source);
+			expect(sources).toEqual([
+				{ path: "eventInvites" },
+				{ path: "eventInvitesByEmail" },
+			]);
+			for (const [, ...clauses] of queryMock.mock.calls) {
+				expect(clauses).toEqual([
+					{ field: "invitedBy", op: "==", value: "owner-1" },
+					{ field: "eventId", op: "==", value: "event-1" },
+				]);
+			}
+			expect(deleteDocMock.mock.invocationCallOrder[0]).toBeLessThan(
+				getDocsMock.mock.invocationCallOrder[0] ?? 0,
+			);
+		});
+
+		test("borra lo encontrado en lotes de 450, nunca en el lote del evento", async () => {
+			getDocsMock
+				.mockResolvedValueOnce(rows(451, "eventInvites"))
+				.mockResolvedValueOnce(rows(0, "eventInvitesByEmail"));
+			const sizes: number[] = [];
+			batch.commit.mockImplementation(async () => {
+				sizes.push(
+					batch.delete.mock.calls.length - sizes.reduce((a, b) => a + b, 0),
+				);
+			});
+
+			await repository.delete("event-1", "owner-1");
+
+			expect(sizes).toEqual([450, 1]);
+			expect(batch.delete).toHaveBeenCalledTimes(451);
+		});
+
+		test("sin nada que limpiar no abre ningún lote", async () => {
+			await repository.delete("event-1", "owner-1");
+
+			expect(batch.commit).not.toHaveBeenCalled();
+		});
+
+		test("si la limpieza falla, se registra y la promesa no se rechaza", async () => {
+			const failure = new Error("denied");
+			getDocsMock.mockRejectedValue(failure);
+			const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			await expect(
+				repository.delete("event-1", "owner-1"),
+			).resolves.toBeUndefined();
+
+			expect(logged).toHaveBeenCalledWith(expect.any(String), failure);
+			logged.mockRestore();
+		});
+
+		test("si falla el borrado del evento, se propaga y no se limpia nada", async () => {
+			deleteDocMock.mockRejectedValue(new Error("denied"));
+
+			await expect(repository.delete("event-1", "owner-1")).rejects.toThrow(
+				"denied",
+			);
+			expect(getDocsMock).not.toHaveBeenCalled();
+		});
 	});
 
 	test("leave() saca sólo el uid indicado y deja una lápida en el mismo lote", async () => {

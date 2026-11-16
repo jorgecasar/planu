@@ -489,7 +489,7 @@ export class PlanuEventCard extends LitElement {
 		this.deleting = true;
 		this.error = "";
 		try {
-			await this.eventRepository.delete(this.event.id);
+			await this.eventRepository.delete(this.event.id, this.#uid);
 			this.confirming = false;
 		} catch {
 			// Without this catch the promise was rejected unhandled: the dialog
