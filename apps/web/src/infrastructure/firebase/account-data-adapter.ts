@@ -26,13 +26,13 @@ import {
 	INVITES_COLLECTION,
 	inviteId,
 	inviteTombstone,
-} from "../../sharing/invitations.js";
+} from "../firestore-schema/invitations.js";
 import {
 	DIRECTORY_COLLECTION,
 	emailHash,
 	PENDING_INVITES_BY_EMAIL_COLLECTION,
 	PROFILES_COLLECTION,
-} from "../../sharing/user-directory.js";
+} from "../firestore-schema/user-directory.js";
 
 // One query per field: the read rule matches list queries against their
 // constraints, and only `inviteeUid ==` or `invitedBy ==` pass.

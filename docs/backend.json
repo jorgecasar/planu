@@ -121,7 +121,7 @@
         }
       },
       "required": ["eventId", "eventTitle", "inviteeUid", "invitedBy", "role"],
-      "$comment": "Document id is `{eventId}_{inviteeUid}` (see inviteId() in apps/web/src/sharing/invitations.ts), so one event can hold at most one pending invitation per person, and the accept rule can look it up without a query."
+      "$comment": "Document id is `{eventId}_{inviteeUid}` (see inviteId() in apps/web/src/infrastructure/firestore-schema/invitations.ts), so one event can hold at most one pending invitation per person, and the accept rule can look it up without a query."
     },
     "DirectoryEntry": {
       "$schema": "http://json-schema.org/draft-07/schema",
@@ -139,7 +139,7 @@
         }
       },
       "required": ["uid"],
-      "$comment": "Document id is the lowercase hex SHA-256 of the user's trimmed, lowercased, verified email — see emailHash() in apps/web/src/sharing/user-directory.ts. The collection cannot be listed (allow list: if false); only a get by exact hash is allowed."
+      "$comment": "Document id is the lowercase hex SHA-256 of the user's trimmed, lowercased, verified email — see emailHash() in apps/web/src/infrastructure/firestore-schema/user-directory.ts. The collection cannot be listed (allow list: if false); only a get by exact hash is allowed."
     },
     "PendingInviteByEmail": {
       "$schema": "http://json-schema.org/draft-07/schema",

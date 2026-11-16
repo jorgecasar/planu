@@ -1,7 +1,7 @@
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { emailHash } from "../../sharing/user-directory.js";
+import { emailHash } from "../firestore-schema/user-directory.js";
 
 // Same pattern as `sharing-adapter.test.ts`: the SDK is mocked, so each call
 // is checked by the path and constraints it receives, without an emulator.

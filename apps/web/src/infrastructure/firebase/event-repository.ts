@@ -24,8 +24,8 @@ import {
 	INVITES_COLLECTION,
 	inviteId,
 	inviteTombstone,
-} from "../../sharing/invitations.js";
-import { PENDING_INVITES_BY_EMAIL_COLLECTION } from "../../sharing/user-directory.js";
+} from "../firestore-schema/invitations.js";
+import { PENDING_INVITES_BY_EMAIL_COLLECTION } from "../firestore-schema/user-directory.js";
 
 /** Firestore caps a batch at 500 writes; stay well under it. */
 const DELETE_BATCH_SIZE = 450;
