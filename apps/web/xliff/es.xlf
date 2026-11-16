@@ -1138,10 +1138,6 @@
   <source>I invited you to “<x id="0" equiv-text="${title}"/>” as <x id="1" equiv-text="${roleText(input.role)}"/>.</source>
         <target>Te he invitado a «<x id="0" equiv-text="${title}"/>» como <x id="1" equiv-text="${roleText(input.role)}"/>.</target>
 </trans-unit>
-<trans-unit id="sa8e1c98e99fd0f33">
-  <source>Sign in with this email address to see it and accept:</source>
-        <target>Entra con esta dirección de correo para verlo y aceptar:</target>
-</trans-unit>
 <trans-unit id="s35426f8487387d4c">
   <source>Send by email</source>
         <target>Enviar por correo</target>
@@ -1173,6 +1169,10 @@
 <trans-unit id="s07f6734a33930674">
   <source>With your email or Google. The rest is up to you.</source>
         <target>Con tu correo o con Google. Lo demás lo decides tú.</target>
+</trans-unit>
+<trans-unit id="s1d35f200384bb484">
+  <source>If you already have an account, sign in with this email address to see it:</source>
+        <target>Si ya tienes cuenta, entra con esta dirección de correo para verlo:</target>
 </trans-unit>
 </body>
 </file>
