@@ -546,6 +546,68 @@ for (const { path, h2, h3s } of BENEFITS) {
 	});
 }
 
+const STEPS = [
+	{
+		path: "/",
+		stepsH2: "How to start",
+		steps: [
+			"Create your account",
+			"Add your first event",
+			"Share it or take it with you",
+		],
+	},
+	{
+		path: "/es/",
+		stepsH2: "Cómo empezar",
+		steps: [
+			"Crea tu cuenta",
+			"Añade tu primer evento",
+			"Compártelo o llévatelo contigo",
+		],
+	},
+];
+
+for (const { path, stepsH2, steps } of STEPS) {
+	test(`${path} tiene «${stepsH2}» tras los beneficios, con tres pasos`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		// Orden de las secciones y de sus encabezados: h1 → h2 → h3.
+		const classes = await page
+			.locator("main > section")
+			.evaluateAll((els) => els.map((el) => el.classList[0]));
+		expect(classes).toEqual(["hero", "features", "steps"]);
+
+		const stepsSection = page.locator(".steps");
+		await expect(stepsSection.getByRole("heading", { level: 2 })).toHaveText(
+			stepsH2,
+		);
+		await expect(stepsSection.getByRole("heading", { level: 3 })).toHaveText(
+			steps,
+		);
+		await expect(stepsSection.locator("ol > li")).toHaveCount(3);
+
+		// Nada que la spec retira ni que la app no cumpla: ni «gratis», ni
+		// invitar a quien no tiene cuenta.
+		const text = (await stepsSection.innerText()).toLowerCase();
+		for (const banned of [
+			"free",
+			"gratis",
+			"ads",
+			"anuncios",
+			"in seconds",
+			"en segundos",
+			"without an account",
+			"sin cuenta",
+			"registration link",
+			"enlace de registro",
+		]) {
+			expect(text).not.toMatch(new RegExp(`\\b${banned}\\b`));
+		}
+	});
+}
+
 test("robots.txt no bloquea la landing y apunta al sitemap", async ({
 	request,
 }) => {

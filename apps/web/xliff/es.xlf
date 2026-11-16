@@ -1166,6 +1166,30 @@
   <source>Download an event, or your filtered agenda, as an .ics file. A single event can also go to Google Calendar in one click.</source>
         <target>Descarga un evento, o tu agenda filtrada, como archivo .ics. Un evento suelto también puede ir a Google Calendar con un clic.</target>
 </trans-unit>
+<trans-unit id="s66fbbdea930fd506">
+  <source>How to start</source>
+        <target>Cómo empezar</target>
+</trans-unit>
+<trans-unit id="s96fce55b23c12771">
+  <source>With your email or Google. If you use email, confirm it from the message we send you.</source>
+        <target>Con tu correo o con Google. Si usas correo, confírmalo desde el mensaje que te enviamos.</target>
+</trans-unit>
+<trans-unit id="scbc41b88ab4bf791">
+  <source>Add your first event</source>
+        <target>Añade tu primer evento</target>
+</trans-unit>
+<trans-unit id="sa794e3cda5258531">
+  <source>Write it yourself or, if your browser supports it, let the AI read a poster or a text for you. Give it a title, a place, dates with or without a time, up to 10 tags and an image.</source>
+        <target>Escríbelo tú o, si tu navegador lo permite, deja que la IA lea un cartel o un texto por ti. Ponle título, lugar, fechas con o sin hora, hasta 10 etiquetas y una imagen.</target>
+</trans-unit>
+<trans-unit id="s006d1be62af32fb5">
+  <source>Share it or take it with you</source>
+        <target>Compártelo o llévatelo contigo</target>
+</trans-unit>
+<trans-unit id="s692de8fc13d1751f">
+  <source>Invite people who have a planu account as viewers or editors, or download it to your calendar.</source>
+        <target>Invita como lector o editor a quien ya tenga cuenta en planu, o descárgalo a tu calendario.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
