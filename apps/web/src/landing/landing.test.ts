@@ -9,13 +9,13 @@ function mount(template: ReturnType<typeof hero>): HTMLElement {
 }
 
 describe("landing hero and header", () => {
-	it("has exactly one primary action, to the sign-in page", () => {
+	it("has exactly one primary action, to the sign-up tab", () => {
 		const host = mount(hero());
 		const primary = host.querySelectorAll("a.wa-button.wa-brand");
 
 		expect(primary).toHaveLength(1);
 		expect(primary[0]?.textContent?.trim()).toBe("Create your account");
-		expect(primary[0]?.getAttribute("href")).toBe("/app/login");
+		expect(primary[0]?.getAttribute("href")).toBe("/app/login?mode=signup");
 	});
 
 	it("does not offer the retired 'Start planning' action", () => {

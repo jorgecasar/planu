@@ -88,6 +88,33 @@ test("sin aviso, la región viva está vacía", async () => {
 	el.remove();
 });
 
+// --- Deep link to the sign-up tab (GH-271) -----------------------------------
+
+function activeTab(el: PlanuLoginView): string | null {
+	return (
+		el.shadowRoot?.querySelector("wa-tab-group")?.getAttribute("active") ?? null
+	);
+}
+
+test("?mode=signup opens the sign-up tab", async () => {
+	window.history.replaceState({}, "", "/?mode=signup");
+	const el = await mount();
+	window.history.replaceState({}, "", "/");
+
+	expect(activeTab(el)).toBe("signup");
+	el.remove();
+});
+
+test("an unknown mode, or none, leaves the sign-in tab", async () => {
+	for (const search of ["?mode=admin", "?mode=", "?invite=e1", ""]) {
+		window.history.replaceState({}, "", `/${search}`);
+		const el = await mount();
+		expect(activeTab(el)).toBe("signin");
+		el.remove();
+	}
+	window.history.replaceState({}, "", "/");
+});
+
 // --- Errors next to the field that caused them (GH-190) ----------------------
 
 type Field = HTMLElement & { hint: string; updateComplete: Promise<unknown> };

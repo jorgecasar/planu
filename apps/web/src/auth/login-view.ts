@@ -33,6 +33,13 @@ const NOTICE_DELAY_MS = 250;
 
 type FormName = "signin" | "signup";
 
+/** Only `?mode=signup` changes the tab; anything else keeps "signin". */
+function tabFromSearch(search: string): FormName {
+	return new URLSearchParams(search).get("mode") === "signup"
+		? "signup"
+		: "signin";
+}
+
 /**
  * Sign in and sign up. The redirect on entry does not happen here: the shell
  * observes the session change and redirects.
@@ -91,9 +98,11 @@ export class PlanuLoginView extends LitElement {
 	@state() private notice: LoginNotice | undefined;
 
 	#noticeTimer: ReturnType<typeof setTimeout> | undefined;
+	#initialTab: FormName = "signin";
 
 	override connectedCallback(): void {
 		super.connectedCallback();
+		this.#initialTab = tabFromSearch(window.location.search);
 		// A live region announces what changes inside it, not what it held
 		// when it appeared. Filled in the same task it's inserted, VoiceOver
 		// may say nothing, so the notice waits for the region to settle.
@@ -126,11 +135,11 @@ export class PlanuLoginView extends LitElement {
 						: null
 				}
 
-				<wa-tab-group>
+				<wa-tab-group active=${this.#initialTab}>
 					<wa-tab panel="signin">${msg("Sign in")}</wa-tab>
 					<wa-tab panel="signup">${msg("Create account")}</wa-tab>
 
-					<wa-tab-panel name="signin" active>
+					<wa-tab-panel name="signin" ?active=${this.#initialTab === "signin"}>
 						<form @submit=${this.#onSignIn} @input=${this.#onInput}>
 							<wa-input
 								name="email"
@@ -155,7 +164,7 @@ export class PlanuLoginView extends LitElement {
 						</form>
 					</wa-tab-panel>
 
-					<wa-tab-panel name="signup">
+					<wa-tab-panel name="signup" ?active=${this.#initialTab === "signup"}>
 						<form @submit=${this.#onSignUp} @input=${this.#onInput}>
 							<wa-input
 								name="email"
