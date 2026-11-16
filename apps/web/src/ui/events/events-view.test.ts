@@ -1,6 +1,6 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
-import "../../styles/theme-planu.css";
-import "../../styles/fonts.css";
+import "../styles/theme-planu.css";
+import "../styles/fonts.css";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { initLocale } from "../../i18n/localization.js";
 import "./events-view.js";

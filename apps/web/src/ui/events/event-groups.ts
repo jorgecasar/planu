@@ -9,7 +9,7 @@ import {
 	type EventGroups,
 	shouldRevealPast,
 } from "../../domain/sort-events.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 const EMPTY: EventGroups<StoredEvent> = { upcoming: [], undated: [], past: [] };
 

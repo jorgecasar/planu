@@ -3,7 +3,7 @@ import "@awesome.me/webawesome/dist/components/button/button.js";
 import { msg } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 
 /**
  * What's shown when the user has no events yet (T33).

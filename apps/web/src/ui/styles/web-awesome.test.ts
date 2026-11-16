@@ -6,17 +6,17 @@ import "./fonts.css";
 import type { CSSResult, LitElement } from "lit";
 import { afterEach, expect, test } from "vitest";
 import "../app-shell.js";
-import type { SessionUser } from "../application/ports/session.js";
-import { PROFILE_PATH } from "../ui/auth/guard.js";
-import "../ui/auth/login-view.js";
-import "../ui/calendar/agenda-view.js";
-import "../ui/calendar/calendar-view.js";
-import "../ui/events/event-card.js";
-import "../ui/events/event-editor.js";
-import "../ui/events/event-groups.js";
-import type { StoredEvent } from "../domain/event.js";
-import "../ui/profile/profile-view.js";
-import "../ui/sharing/share-dialog.js";
+import type { SessionUser } from "../../application/ports/session.js";
+import { PROFILE_PATH } from "../auth/guard.js";
+import "../auth/login-view.js";
+import "../calendar/agenda-view.js";
+import "../calendar/calendar-view.js";
+import "../events/event-card.js";
+import "../events/event-editor.js";
+import "../events/event-groups.js";
+import type { StoredEvent } from "../../domain/event.js";
+import "../profile/profile-view.js";
+import "../sharing/share-dialog.js";
 import { webAwesomeStyles } from "./web-awesome.js";
 
 // index.html puts the theme class on <html>; the test page has none.
@@ -163,10 +163,10 @@ test("Belleza loads for the card's own title", async () => {
 // rule without anyone remembering to list it here.
 const rawLoaders = import.meta.glob(
 	[
-		"../**/*.ts",
-		"!../**/*.test.ts",
-		"!../generated/**",
-		"!../infrastructure/**",
+		"../../**/*.ts",
+		"!../../**/*.test.ts",
+		"!../../generated/**",
+		"!../../infrastructure/**",
 	],
 	{ query: "?raw", import: "default" },
 ) as Record<string, () => Promise<string>>;
@@ -181,10 +181,10 @@ const sources = Object.fromEntries(
 	),
 ) as Record<string, string>;
 const loaders = import.meta.glob([
-	"../**/*.ts",
-	"!../**/*.test.ts",
-	"!../generated/**",
-	"!../infrastructure/**",
+	"../../**/*.ts",
+	"!../../**/*.test.ts",
+	"!../../generated/**",
+	"!../../infrastructure/**",
 ]) as Record<string, () => Promise<unknown>>;
 const COMPONENTS = Object.entries(sources).flatMap(([path, source]) => {
 	const tag = source.match(/@customElement\("(planu-[a-z-]+)"\)/)?.[1];
@@ -277,7 +277,7 @@ test("every element in a root is border-box, the wa-* hosts included", async () 
 	const shell = document.createElement("div");
 	const shadow = shell.attachShadow({ mode: "open" });
 	const { PlanuFirebaseProvider } = await import(
-		"../infrastructure/firebase/firebase-provider.js"
+		"../../infrastructure/firebase/firebase-provider.js"
 	);
 	shadow.adoptedStyleSheets = [
 		(PlanuFirebaseProvider.styles as CSSResult).styleSheet as CSSStyleSheet,

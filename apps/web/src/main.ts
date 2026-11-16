@@ -1,6 +1,6 @@
 import "@awesome.me/webawesome/dist/styles/webawesome.css";
-import "./styles/theme-planu.css";
-import "./styles/fonts.css";
+import "./ui/styles/theme-planu.css";
+import "./ui/styles/fonts.css";
 
 import { ContextRoot } from "@lit/context";
 import { captureStartupErrors } from "./domain/startup-buffer.js";
@@ -43,7 +43,7 @@ new ContextRoot().attach(document.body);
 
 const [{ initializeFirebase }] = await Promise.all([
 	import("./infrastructure/firebase/firebase-provider.js"),
-	import("./app-shell.js"),
+	import("./ui/app-shell.js"),
 ]);
 
 // With the application already up: observability must not compete for the

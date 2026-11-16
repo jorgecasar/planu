@@ -39,7 +39,7 @@ import {
 	type PlanuEvent,
 	type StoredEvent,
 } from "../../domain/event.js";
-import { webAwesomeStyles } from "../../styles/web-awesome.js";
+import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import { CoverField, coverFieldStyles } from "./cover-field.js";
 import { TagField, tagFieldStyles } from "./tag-field.js";
