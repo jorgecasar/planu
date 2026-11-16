@@ -430,7 +430,7 @@ for (const { path, cta, signIn } of [
 		const primarias = page.locator("a.wa-button.wa-brand");
 		await expect(primarias).toHaveCount(1);
 		await expect(primarias).toHaveText(cta);
-		await expect(primarias).toHaveAttribute("href", "/app/login");
+		await expect(primarias).toHaveAttribute("href", "/app/login?mode=signup");
 
 		const entrar = page.locator("header a.wa-button");
 		await expect(entrar).toHaveText(signIn);

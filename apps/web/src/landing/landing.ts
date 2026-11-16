@@ -117,15 +117,14 @@ export function header(): TemplateResult {
 }
 
 export function hero(): TemplateResult {
-	// The CTA goes to /app/login, which opens the "Sign in" tab: the deep link
-	// to the sign-up tab is a later slice (spec section 14, slice 6).
+	// The CTA deep-links to the sign-up tab of the login view (GH-271).
 	return html`
 		<section class="hero wa-stack wa-gap-l">
 			<div class="wa-stack wa-gap-m">
 				<h1 class="wa-heading-3xl">${msg("Plan your events. Share them only with the people you choose.")}</h1>
 				<p class="wa-font-size-l wa-color-text-quiet">${msg("Dinners, get-togethers, group plans: keep each one with its place, dates, tags and image. It's yours alone until you invite someone as a viewer or an editor.")}</p>
 				<div class="wa-cluster wa-gap-s wa-justify-content-center">
-					<a href="/app/login" class="wa-button wa-brand wa-size-l">${msg("Create your account")}</a>
+					<a href="/app/login?mode=signup" class="wa-button wa-brand wa-size-l">${msg("Create your account")}</a>
 				</div>
 				<p class="wa-font-size-s wa-color-text-quiet">${msg("With your email or Google. The rest is up to you.")}</p>
 			</div>
