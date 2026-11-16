@@ -255,7 +255,13 @@ Se enumera para que la lista de checkpoints esté completa.
 - [x] Tras T35: la frontera es comprobable por comando y no ha cambiado ni una
       línea de comportamiento — `npm run test:arch` → **0**, 7 aserciones
 - [ ] Tras T36: persona delante, por el acceso con Google, que no tiene e2e
-- [ ] Tras T39: suite completa y `grep -rl \'from "firebase/\' src/ui/` vacío
+- [x] Tras T39: suite completa y ~~`grep -rl \'from "firebase/\' src/ui/` vacío~~
+      (sustituido por `apps/web/arch/layers.test.ts`, que vigila la frontera por
+      nombre) — `npm run test:arch` → **0**, 58 aserciones, rotas a propósito
+      y vueltas a **0**; `typecheck`, `lint:lit`, `npm test`, `build` y
+      `build:landing` → **0**; `lint` → **0** (con `rtk bypass`, 243 ficheros);
+      `test:e2e` en el CI de #345 (`e2e` pass), no en local. Detalle en T39 de
+      `todo.md`. Queda sin marcar la línea de T36 (persona delante).
 
 ### Checkpoint G — final
 

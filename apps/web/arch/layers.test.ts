@@ -11,11 +11,12 @@ import { describe, expect, test } from "vitest";
  *   domain          imports only `domain/` (and `zod`, `@lit/localize`)
  *   application     imports only `domain/` and `application/`
  *   infrastructure  imports no interface folder
- *   interface       imports `infrastructure/` only from `main.ts`
+ *   ui              imports only `domain/`, `application/`, `ui/`, `i18n/`
+ *                   and `generated/`; never `infrastructure/`
  *
- * The interface is "everything else" for now: the folders that are neither a
- * layer nor shared plumbing (`generated/`, `i18n/`). GH-314 narrows it to
- * `ui/`. Sources only, never `*.test.ts`. Runs in Node: it only reads files.
+ * And the root of `src/` holds nothing but those folders, `main.ts` and
+ * `vite-env.d.ts`, so a feature folder cannot come back beside the layers.
+ * Sources only, never `*.test.ts`. Runs in Node: it only reads files.
  */
 
 // `fileURLToPath` and not `import.meta.dirname`, which requires Node ≥20.11
@@ -23,6 +24,8 @@ import { describe, expect, test } from "vitest";
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
 const LAYERS = ["domain", "application", "infrastructure"];
 const SHARED = ["generated", "i18n"];
+/** What may sit at the root of `src/`: the layers, `ui/`, shared plumbing, two files. */
+const ROOT_ENTRIES = [...LAYERS, "ui", ...SHARED, "main.ts", "vite-env.d.ts"];
 /** Zod for the pure validation schemas, `@lit/localize` for rule messages. */
 const DOMAIN_PACKAGES = ["zod", "@lit/localize"];
 
@@ -81,7 +84,7 @@ const broken = (rule: string, bad: (e: Edge) => boolean) =>
 
 describe("the layer rules hold over the sources", () => {
 	test("every layer has files, or the checks below prove nothing", () => {
-		for (const layer of LAYERS)
+		for (const layer of [...LAYERS, "ui"])
 			expect(
 				EDGES.filter((e) => e.from === layer).length,
 				`no imports under src/${layer}/`,
@@ -127,6 +130,29 @@ describe("the layer rules hold over the sources", () => {
 				(e) =>
 					e.from === "infrastructure" &&
 					![...LAYERS, ...SHARED, "package"].includes(e.to),
+			),
+		).toEqual([]);
+	});
+
+	test("ui imports only domain, application, ui, i18n and generated", () => {
+		expect(
+			broken(
+				"ui/ may only import domain/, application/, ui/, i18n/ and generated/",
+				(e) =>
+					e.from === "ui" &&
+					!["domain", "application", "ui", ...SHARED, "package"].includes(e.to),
+			),
+		).toEqual([]);
+	});
+
+	test("the root of src holds only the layers, ui, shared folders and two files", () => {
+		const extra = readdirSync(SRC).filter(
+			(entry) => !ROOT_ENTRIES.includes(entry),
+		);
+		expect(
+			extra.map(
+				(entry) =>
+					`src/${entry}: only ${ROOT_ENTRIES.join(", ")} may sit at the root of src/`,
 			),
 		).toEqual([]);
 	});
