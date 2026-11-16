@@ -25,6 +25,7 @@
 		"typecheck": "npm run typecheck --workspace @planu/web",
 		"emulators": "node scripts/emulators.js",
 		"seed": "node scripts/seed-emulator.js",
+		"seed:landing": "node scripts/seed-landing.js",
 		"localize:extract": "npm run localize:extract --workspace @planu/web",
 		"localize:build": "npm run localize:build --workspace @planu/web",
 		"test:rules": "npm run test:rules --workspace @planu/web",
