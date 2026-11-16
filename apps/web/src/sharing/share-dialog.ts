@@ -20,8 +20,8 @@ import {
 	type SharingPort,
 	sharingContext,
 } from "../application/ports/sharing.js";
+import type { EventRole, StoredEvent } from "../domain/event.js";
 import { buildInvitationMessage } from "../domain/invitation-message.js";
-import type { EventRole, StoredEvent } from "../lib/types.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { AccessList, type Person } from "./access-list.js";
 import { accessRowStyles, renderOwner, renderPerson } from "./access-rows.js";

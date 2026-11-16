@@ -1,9 +1,9 @@
+import type { PlanuEvent } from "../domain/event.js";
 import {
 	type GroupOptions,
 	groupOf,
 	sortEvents,
 } from "../domain/sort-events.js";
-import type { PlanuEvent } from "../lib/types.js";
 import { dayKey, safeLocale } from "./month-grid.js";
 
 /** A day in the agenda: the date, how it's written, and what's on it that day. */

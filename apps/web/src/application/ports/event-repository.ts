@@ -1,4 +1,4 @@
-import type { PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../domain/event.js";
 
 /** What `create()` resolves with. */
 export interface CreatedEvent {

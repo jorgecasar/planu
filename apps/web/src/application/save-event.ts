@@ -1,4 +1,4 @@
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "../domain/event.js";
 import type { AnalyticsPort } from "./ports/analytics.js";
 import type { EventRepositoryPort } from "./ports/event-repository.js";
 

@@ -1,5 +1,5 @@
 import { createContext } from "@lit/context";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import type { EventRepositoryPort } from "./ports/event-repository.js";
 import type { ImageStorePort } from "./ports/image-store.js";
 import type { SessionPort, SessionUser } from "./ports/session.js";

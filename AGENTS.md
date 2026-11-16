@@ -22,7 +22,7 @@ del prototipo, sólo su identidad visual (paleta, tipografías) se revisó y se
 decidió adoptar, en el [ADR 0008](docs/adr/0008-identidad-visual.md) — el resto
 del documento sigue sin revisar para esta reescritura. El modelo de datos real
 vive en [`docs/backend.json`](docs/backend.json), que ya no describe el
-prototipo: se mantiene al día con `apps/web/src/lib/types.ts` y
+prototipo: se mantiene al día con `apps/web/src/domain/event.ts` y
 `firestore.rules`.
 
 ## Stack

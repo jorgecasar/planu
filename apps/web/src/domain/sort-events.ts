@@ -1,5 +1,5 @@
 import { msg } from "@lit/localize";
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "./event.js";
 
 /** The three criteria the listing can be sorted by. */
 export type SortField = "startDate" | "title" | "createdAt";

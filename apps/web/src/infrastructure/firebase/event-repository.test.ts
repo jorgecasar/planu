@@ -1,6 +1,6 @@
 import type { Firestore } from "firebase/firestore";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../domain/event.js";
 
 // Same pattern as `analytics-adapter.test.ts`: mock the SDK functions this
 // adapter calls, so `toContent()`'s field mapping and `create()`/`update()`'s

@@ -1,4 +1,4 @@
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "./event.js";
 
 export interface DateRange {
 	from?: Date | null | undefined;

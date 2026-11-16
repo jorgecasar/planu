@@ -7,7 +7,7 @@ import type {
 	PublicProfile,
 	SharingPort,
 } from "../application/ports/sharing.js";
-import type { EventRole, StoredEvent } from "../lib/types.js";
+import type { EventRole, StoredEvent } from "../domain/event.js";
 
 /** One row of the access list: a member, or an offer nobody has taken yet. */
 export interface Person {

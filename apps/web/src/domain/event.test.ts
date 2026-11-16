@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { MAX_TAGS } from "../domain/tags.js";
-import { eventSchema } from "./types.js";
+import { eventSchema } from "./event.js";
+import { MAX_TAGS } from "./tags.js";
 
 /**
  * The bare minimum the schema requires, without `tags`.

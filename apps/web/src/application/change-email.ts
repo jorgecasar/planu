@@ -1,4 +1,4 @@
-import { changeEmailSchema } from "../auth/schemas.js";
+import { changeEmailSchema } from "../domain/auth-schemas.js";
 import { SessionError } from "../domain/session-error.js";
 import type { SessionPort, SessionUser } from "./ports/session.js";
 

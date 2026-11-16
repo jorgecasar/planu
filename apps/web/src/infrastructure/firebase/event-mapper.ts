@@ -1,5 +1,5 @@
 import { type DocumentData, Timestamp } from "firebase/firestore";
-import { eventSchema, type StoredEvent } from "../../lib/types.js";
+import { eventSchema, type StoredEvent } from "../../domain/event.js";
 
 /**
  * Converts a Firestore document into an event, validating it.

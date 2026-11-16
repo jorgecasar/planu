@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "./event.js";
 import {
 	DEFAULT_SORT,
 	groupEvents,

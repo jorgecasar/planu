@@ -4,8 +4,8 @@ import "../events/event-card.js";
 import { msg, str } from "@lit/localize";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import type { StoredEvent } from "../domain/event.js";
 import { shouldRevealPast } from "../domain/sort-events.js";
-import type { StoredEvent } from "../lib/types.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { type Agenda, type AgendaDay, countEvents } from "./agenda-days.js";
 

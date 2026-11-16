@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import "./event-card.js";
 import type { PlanuEventCard } from "./event-card.js";
 

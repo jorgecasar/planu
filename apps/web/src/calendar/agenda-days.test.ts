@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import { buildAgenda, countEvents } from "./agenda-days.js";
 import { buildMonthGrid, dayKey } from "./month-grid.js";
 

@@ -33,7 +33,7 @@ import {
 	progressMessage,
 	type WorkingOn,
 } from "../domain/ai-progress.js";
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "../domain/event.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import { aiEventGeneratorStyles } from "./ai-event-generator-styles.js";
 import { explainFailure } from "./ai-failure.js";

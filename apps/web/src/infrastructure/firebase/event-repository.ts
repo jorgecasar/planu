@@ -19,7 +19,7 @@ import type {
 	CreatedEvent,
 	EventRepositoryPort,
 } from "../../application/ports/event-repository.js";
-import type { PlanuEvent } from "../../lib/types.js";
+import type { PlanuEvent } from "../../domain/event.js";
 import {
 	INVITES_COLLECTION,
 	inviteId,

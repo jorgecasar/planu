@@ -13,7 +13,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { eventRepositoryContext, userContext } from "../application/context.js";
 import type { EventRepositoryPort } from "../application/ports/event-repository.js";
 import type { SessionUser } from "../application/ports/session.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import {
 	canDelete,
 	canEdit,
