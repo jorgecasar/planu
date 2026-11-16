@@ -126,12 +126,27 @@ export interface SharingPort {
 	/**
 	 * Rewrites an event's membership — adding, removing or re-roling a guest.
 	 * With `removedUid`, also leaves a tombstone (ADR 0015) and withdraws any
-	 * email offer to the address on their record (GH-147).
+	 * email offer to the address on their record (GH-147). Resolves to that
+	 * address, if the record had one: the tombstone keeps none, so this is the
+	 * only chance to hold on to it for `restoreAccessOffer`.
 	 */
 	updateEventMembership(
 		eventId: string,
 		membership: { memberIds: string[]; roles: Record<string, EventRole> },
 		removedUid?: string,
+	): Promise<string | undefined>;
+
+	/**
+	 * Offers the event again to someone the owner just removed, over their
+	 * tombstone. Only an offer: it writes no `memberIds` and no email offer, and
+	 * the person is back in when they accept. Rejects, writing nothing, unless
+	 * the record is still a tombstone.
+	 */
+	restoreAccessOffer(
+		eventId: string,
+		uid: string,
+		role: EventRole,
+		details: { invitedByName: string; inviteeEmail?: string },
 	): Promise<void>;
 
 	/** Publishes or refreshes the current user's directory entry. */
