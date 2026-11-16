@@ -702,58 +702,6 @@
   <source>Screenshot of planu showing event cards with title, date, location and cover image</source>
         <target>Captura de planu mostrando tarjetas de eventos con título, fecha, ubicación e imagen de portada</target>
   </trans-unit>
-<trans-unit id="s060297aed1f61104">
-  <source>Why planu?</source>
-        <target>¿Por qué planu?</target>
-  </trans-unit>
-<trans-unit id="s2b007dfb2c580793">
-  <source>Three things we do differently:</source>
-        <target>Tres cosas que hacemos diferente:</target>
-  </trans-unit>
-<trans-unit id="s705bcc6d46cf8634">
-  <source>Private by default</source>
-        <target>Privado por defecto</target>
-  </trans-unit>
-<trans-unit id="se94303bde777815d">
-  <source>Your events are yours. Nobody else sees them unless you explicitly invite them — and you choose their role: viewer or editor.</source>
-        <target>Tus eventos son tuyos. Nadie más los ve a menos que los invites explícitamente — y tú eliges su rol: espectador o editor.</target>
-  </trans-unit>
-<trans-unit id="sac22317700f6803c">
-  <source>Share with who you choose</source>
-        <target>Comparte con quien tú elijas</target>
-  </trans-unit>
-<trans-unit id="s7acffe2e8548f2ec">
-  <source>Integrates with your calendar</source>
-        <target>Se integra con tu calendario</target>
-  </trans-unit>
-<trans-unit id="s4a0e9a5e2af05a7b">
-  <source>Export any event or your whole filtered list as .ics. Opens in Apple Calendar, Google Calendar, Outlook — wherever you already plan your life.</source>
-        <target>Exporta cualquier evento o tu lista filtrada completa como .ics. Se abre en Apple Calendar, Google Calendar, Outlook — donde ya organizas tu vida.</target>
-  </trans-unit>
-<trans-unit id="sfc541a8beb293b6d">
-  <source>Photo → event in seconds</source>
-        <target>Foto → evento en segundos</target>
-  </trans-unit>
-<trans-unit id="seaad776112c86909">
-  <source>Upload a poster, flyer or screenshot. The AI extracts title, date, location and description. You review, edit if needed, and save.</source>
-        <target>Sube un cartel, folleto o captura. La IA extrae título, fecha, ubicación y descripción. Revisas, editas si hace falta y guardas.</target>
-  </trans-unit>
-<trans-unit id="s234a246de7cedf95">
-  <source>Paste text → event</source>
-        <target>Pega texto → evento</target>
-  </trans-unit>
-<trans-unit id="s9b3ad570015cc16e">
-  <source>Copy an email, a message or an announcement. Paste it and the same AI pulls out the event details. No typing required.</source>
-        <target>Copia un correo, un mensaje o un anuncio. Pégalo y la misma IA saca los detalles del evento. No hace falta escribir.</target>
-  </trans-unit>
-<trans-unit id="s20676330144ca93d">
-  <source>Organize with tags</source>
-        <target>Organiza con etiquetas</target>
-  </trans-unit>
-<trans-unit id="sac8101aced95b968">
-  <source>Add up to 10 tags per event. Filter by multiple tags combined with AND. Colors are stable and derived from the tag name.</source>
-        <target>Añade hasta 10 etiquetas por evento. Filtra por varias etiquetas combinadas con Y. Los colores son estables y derivan del nombre.</target>
-  </trans-unit>
 <trans-unit id="se78c02e9a98a0f47">
   <source>Privacy</source>
         <target>Privacidad</target>
@@ -1102,10 +1050,6 @@
   <source>More actions for “<x id="0" equiv-text="${event.title}"/>”</source>
         <target>Más acciones para «<x id="0" equiv-text="${event.title}"/>»</target>
 </trans-unit>
-<trans-unit id="s3da9fbf2ebc6f62e">
-  <source>Invite by email and choose Viewer or Editor. They get access once they accept the invitation.</source>
-        <target>Invita por email y elige Lector o Editor. Tendrán acceso cuando acepten la invitación.</target>
-</trans-unit>
 <trans-unit id="s8ed00702e89e5d38">
   <source>© 2026 planu. Built with Lit, Web Awesome and Firebase.</source>
         <target>© 2026 planu. Construido con Lit, Web Awesome y Firebase.</target>
@@ -1185,6 +1129,42 @@
 <trans-unit id="sc58fb106cdb19dd3">
   <source>Access removed for <x id="0" equiv-text="${person.name}"/>. They are not notified.</source>
         <target>Se quitó el acceso a <x id="0" equiv-text="${person.name}"/>. No se le avisa.</target>
+</trans-unit>
+<trans-unit id="s605ee697fb58f12b">
+  <source>What you can do with planu</source>
+        <target>Qué puedes hacer con planu</target>
+</trans-unit>
+<trans-unit id="s9de6d1787593713a">
+  <source>Private until you say so</source>
+        <target>Privado hasta que tú digas</target>
+</trans-unit>
+<trans-unit id="s1c7c33b0164f41e8">
+  <source>Your events stay yours alone. Only the people you invite can see them.</source>
+        <target>Tus eventos son solo tuyos. Solo los ve quien tú invites.</target>
+</trans-unit>
+<trans-unit id="s7d6bc5565c84ba91">
+  <source>Viewer or editor, you choose</source>
+        <target>Lector o editor, tú eliges</target>
+</trans-unit>
+<trans-unit id="s5e8b94955f95bb41">
+  <source>Invite someone by email and decide whether they only look or can edit too. They need a planu account and accept the invitation, and you can take their access away whenever you like.</source>
+        <target>Invita por correo y decide si cada persona solo mira o también puede editar. Necesita una cuenta de planu y acepta la invitación, y puedes quitarle el acceso cuando quieras.</target>
+</trans-unit>
+<trans-unit id="sb1a545473055d686">
+  <source>From a poster or a text to an event</source>
+        <target>De un cartel o un texto al evento</target>
+</trans-unit>
+<trans-unit id="s0c9e35f751f21889">
+  <source>Upload a photo of a poster or paste an announcement and planu fills in the event for you. You review it before saving. It works in browsers with built-in AI, like desktop Chrome, and the reading happens on your device.</source>
+        <target>Sube la foto de un cartel o pega un anuncio y planu rellena el evento por ti. Lo revisas antes de guardarlo. Funciona en navegadores con IA integrada, como Chrome de escritorio, y la lectura se hace en tu dispositivo.</target>
+</trans-unit>
+<trans-unit id="sbe63aa873406877f">
+  <source>To your calendar</source>
+        <target>A tu calendario</target>
+</trans-unit>
+<trans-unit id="s0a9d22745b8bd0a6">
+  <source>Download an event, or your filtered agenda, as an .ics file. A single event can also go to Google Calendar in one click.</source>
+        <target>Descarga un evento, o tu agenda filtrada, como archivo .ics. Un evento suelto también puede ir a Google Calendar con un clic.</target>
 </trans-unit>
 </body>
 </file>
