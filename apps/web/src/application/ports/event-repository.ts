@@ -39,8 +39,12 @@ export interface EventRepositoryPort {
 	 * Deletes the event outright. Whether the caller is allowed to — only the
 	 * owner is, see `canDelete()` in `sharing/permissions.ts` and the matching
 	 * `firestore.rules` clause — is a UI/rules concern, not this port's.
+	 *
+	 * Also removes the owner's invitations and email offers for the event,
+	 * found by `ownerUid` because the rules only let the sender list them. That
+	 * cleanup is best effort: if it fails the promise still resolves.
 	 */
-	delete(id: string): Promise<void>;
+	delete(id: string, ownerUid: string): Promise<void>;
 
 	/**
 	 * Removes `uid` from the event's `memberIds` and `roles`, and nothing

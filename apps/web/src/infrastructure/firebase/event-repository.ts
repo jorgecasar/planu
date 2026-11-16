@@ -7,9 +7,12 @@ import {
 	doc,
 	type Firestore,
 	getDoc,
+	getDocs,
+	query,
 	serverTimestamp,
 	setDoc,
 	Timestamp,
+	where,
 	writeBatch,
 } from "firebase/firestore";
 import type {
@@ -22,6 +25,10 @@ import {
 	inviteId,
 	inviteTombstone,
 } from "../../sharing/invitations.js";
+import { PENDING_INVITES_BY_EMAIL_COLLECTION } from "../../sharing/user-directory.js";
+
+/** Firestore caps a batch at 500 writes; stay well under it. */
+const DELETE_BATCH_SIZE = 450;
 
 /**
  * From `PlanuEvent` to what Firestore accepts: dates become `Timestamp`.
@@ -76,8 +83,44 @@ export class FirebaseEventRepository implements EventRepositoryPort {
 		});
 	}
 
-	async delete(id: string): Promise<void> {
+	async delete(id: string, ownerUid: string): Promise<void> {
 		await deleteDoc(doc(this.#firestore, "events", id));
+		// Cleanup runs after the event is gone, never in the same batch: the rules
+		// let the owner delete invitations and offers only once the event no longer
+		// exists. The event is already deleted, so a failure here must not reject
+		// (the card would claim "could not be deleted" and a retry would be
+		// denied); it is logged and the leftovers stay orphaned.
+		for (const name of [
+			INVITES_COLLECTION,
+			PENDING_INVITES_BY_EMAIL_COLLECTION,
+		]) {
+			try {
+				await this.#deleteOwnedBy(name, id, ownerUid);
+			} catch (error) {
+				console.error(
+					`Cleanup of ${name} after deleting event ${id} failed`,
+					error,
+				);
+			}
+		}
+	}
+
+	/** Lists by `invitedBy` + `eventId`, as the rules require, deletes in batches. */
+	async #deleteOwnedBy(name: string, eventId: string, ownerUid: string) {
+		const { docs } = await getDocs(
+			query(
+				collection(this.#firestore, name),
+				where("invitedBy", "==", ownerUid),
+				where("eventId", "==", eventId),
+			),
+		);
+		for (let from = 0; from < docs.length; from += DELETE_BATCH_SIZE) {
+			const batch = writeBatch(this.#firestore);
+			for (const { ref } of docs.slice(from, from + DELETE_BATCH_SIZE)) {
+				batch.delete(ref);
+			}
+			await batch.commit();
+		}
 	}
 
 	async leave(id: string, uid: string): Promise<void> {
