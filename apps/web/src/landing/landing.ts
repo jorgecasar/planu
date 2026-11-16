@@ -96,6 +96,7 @@ export function landingTemplate(): TemplateResult {
 				<main>
 					${hero()}
 					${features()}
+					${steps()}
 				</main>
 				${footer()}
 			</body>
@@ -176,6 +177,45 @@ function features(): TemplateResult {
 						),
 					)}
 				</div>
+			</div>
+		</section>
+	`;
+}
+
+function step(title: string, description: string): TemplateResult {
+	return html`
+		<li>
+			<h3 class="wa-heading-l">${title}</h3>
+			<p class="wa-color-text-quiet">${description}</p>
+		</li>
+	`;
+}
+
+function steps(): TemplateResult {
+	return html`
+		<section class="steps">
+			<div class="wa-stack wa-gap-l">
+				<h2 class="wa-heading-2xl">${msg("How to start")}</h2>
+				<ol class="steps-list wa-stack wa-gap-l">
+					${step(
+						msg("Create your account"),
+						msg(
+							"With your email or Google. If you use email, confirm it from the message we send you.",
+						),
+					)}
+					${step(
+						msg("Add your first event"),
+						msg(
+							"Write it yourself or, if your browser supports it, let the AI read a poster or a text for you. Give it a title, a place, dates with or without a time, up to 10 tags and an image.",
+						),
+					)}
+					${step(
+						msg("Share it or take it with you"),
+						msg(
+							"Invite people who have a planu account as viewers or editors, or download it to your calendar.",
+						),
+					)}
+				</ol>
 			</div>
 		</section>
 	`;

@@ -11,7 +11,45 @@
 	background: var(--wa-color-surface-lowered);
 }
 
-.features > div {
+.steps {
+	padding-block: var(--wa-space-2xl);
+}
+
+.steps h2,
+.steps h3,
+.steps p {
+	margin: 0;
+}
+
+.steps h2 {
+	text-align: center;
+}
+
+.steps-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	counter-reset: step;
+}
+
+.steps-list li {
+	counter-increment: step;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: var(--wa-space-m);
+}
+
+.steps-list li::before {
+	content: counter(step);
+	grid-row: span 2;
+	font-family: var(--wa-font-family-heading);
+	font-size: var(--wa-font-size-2xl);
+	line-height: 1;
+	color: var(--wa-color-brand-fill-loud);
+}
+
+.features > div,
+.steps > div {
 	max-width: 64rem;
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);

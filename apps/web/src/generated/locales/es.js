@@ -7,6 +7,7 @@ import { str } from "@lit/localize";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export const templates = {
+	s006d1be62af32fb5: `Compártelo o llévatelo contigo`,
 	s02253dffcabdc0e2: `Cena con amigos`,
 	s035aa4db63f6908a: str`Correo enviado. Reenviar en ${0} s`,
 	s03aa3cfb08dff960: `Etiquetas`,
@@ -132,6 +133,8 @@ export const templates = {
 	s64ef2a6c2dd1d3d1: `Editar`,
 	s65abba4b12b079a0: `Tu navegador bloqueó la ventana de acceso.`,
 	s66c3646cd8886258: `Ese texto es demasiado largo. Deja sólo la parte que describe el evento.`,
+	s66fbbdea930fd506: `Cómo empezar`,
+	s692de8fc13d1751f: `Invita como lector o editor a quien ya tenga cuenta en planu, o descárgalo a tu calendario.`,
 	s6ab0047939c0771c: `No se pudieron cargar tus eventos. Revisa la conexión y recarga la página.`,
 	s6abb04e95b59ed89: `Guardando la imagen…`,
 	s6b110a1e196bec9e: str`Mostrando ${0}`,
@@ -188,6 +191,7 @@ export const templates = {
 	s94bd24a178924a34: `Sugerir etiquetas con IA`,
 	s95c7d4bfce3a645e: `Todavía no tienes eventos.`,
 	s95fa56d295739056: `Añadir a Google Calendar`,
+	s96fce55b23c12771: `Con tu correo o con Google. Si usas correo, confírmalo desde el mensaje que te enviamos.`,
 	s97a369bad8ac8269: str`Invitación a «${0}» en planu`,
 	s99f110d27e30b289: `Título`,
 	s99f86fd4c980089d: `No se pudo borrar el evento. Inténtalo de nuevo.`,
@@ -204,6 +208,7 @@ export const templates = {
 	sa6ab5184d6315895: `Desde`,
 	sa6b668d62ccb88be: `Etiquetas propuestas por la IA`,
 	sa75b95980cd80e78: `Editor`,
+	sa794e3cda5258531: `Escríbelo tú o, si tu navegador lo permite, deja que la IA lea un cartel o un texto por ti. Ponle título, lugar, fechas con o sin hora, hasta 10 etiquetas y una imagen.`,
 	sa8beb6b1182241ac: `Filtros`,
 	sa9f254a607f8de46: `¿Email equivocado? Cámbialo`,
 	saa5c4feee877ccf0: `planu te permite crear, buscar y filtrar tus propios eventos, y opcionalmente compartir eventos concretos con las personas que invites. Se ofrece tal cual, de forma gratuita, sin garantía de nivel de servicio: no tenemos plan de pago ni contrato de soporte con el que prometer disponibilidad.`,
@@ -239,6 +244,7 @@ export const templates = {
 	sca4fc0f449ba7789: `Un correo, un mensaje o un anuncio. No se guarda nada hasta que lo revises.`,
 	sca7fed2bef53cb99: `Rol`,
 	scb6a9c1a1757adbc: `Tú`,
+	scbc41b88ab4bf791: `Añade tu primer evento`,
 	scc342eb1f2b3826a: `Borrar evento`,
 	scee5c0b3671fd9c0: `Usamos Firebase Analytics (Google Analytics) para contar cinco cosas: que nos visitaste, que te registraste, que creaste tu primer evento, que compartiste un evento y que usaste la IA para crear uno. Nunca enviamos lo que escribiste — ni títulos, ni descripciones, ni ubicaciones, ni fechas, ni nombres. Mira el aviso de cookies más abajo para saber qué significa esto para tu navegador.`,
 	sd09408ac94f07b7b: str`Ver ${0} eventos pasados`,
