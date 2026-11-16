@@ -15,14 +15,31 @@
 	padding-block: var(--wa-space-2xl);
 }
 
+.rules {
+	padding-block: var(--wa-space-2xl);
+	background: var(--wa-color-surface-lowered);
+}
+
 .steps h2,
 .steps h3,
-.steps p {
+.steps p,
+.rules h2,
+.rules dl,
+.rules dt,
+.rules dd,
+.rules p {
 	margin: 0;
 }
 
-.steps h2 {
+.steps h2,
+.rules h2 {
 	text-align: center;
+}
+
+.rule {
+	padding-block: var(--wa-space-s);
+	border-block-end: var(--wa-border-width-s) solid
+		var(--wa-color-surface-border);
 }
 
 .steps-list {
@@ -49,7 +66,8 @@
 }
 
 .features > div,
-.steps > div {
+.steps > div,
+.rules > div {
 	max-width: 64rem;
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);

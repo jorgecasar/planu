@@ -577,7 +577,7 @@ for (const { path, stepsH2, steps } of STEPS) {
 		const classes = await page
 			.locator("main > section")
 			.evaluateAll((els) => els.map((el) => el.classList[0]));
-		expect(classes).toEqual(["hero", "features", "steps"]);
+		expect(classes).toEqual(["hero", "features", "steps", "rules"]);
 
 		const stepsSection = page.locator(".steps");
 		await expect(stepsSection.getByRole("heading", { level: 2 })).toHaveText(
@@ -602,6 +602,57 @@ for (const { path, stepsH2, steps } of STEPS) {
 			"sin cuenta",
 			"registration link",
 			"enlace de registro",
+		]) {
+			expect(text).not.toMatch(new RegExp(`\\b${banned}\\b`));
+		}
+	});
+}
+
+const RULES = [
+	{
+		path: "/",
+		h2: "Your events, your rules",
+		roles: ["You", "Editor", "Viewer"],
+		editor: "Reads and edits the content. Can't invite or delete.",
+		viewer: "Only reads.",
+		note: "Anyone can leave an event that was shared with them, and you can delete your account whenever you want.",
+	},
+	{
+		path: "/es/",
+		h2: "Tus eventos, tus reglas",
+		roles: ["Tú", "Editor", "Lector"],
+		editor: "Lee y edita el contenido. No puede invitar ni borrar.",
+		viewer: "Solo lee.",
+		note: "Cualquiera puede salir de un evento que le hayan compartido, y tú puedes borrar tu cuenta cuando quieras.",
+	},
+];
+
+for (const { path, h2, roles, editor, viewer, note } of RULES) {
+	test(`${path} tiene «${h2}» con la tabla de roles en una lista de definiciones`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const rules = page.locator(".rules");
+		await expect(rules.getByRole("heading", { level: 2 })).toHaveText(h2);
+		await expect(rules.locator("dl > div > dt")).toHaveText(roles);
+		await expect(rules.locator("dl > div > dd")).toHaveCount(3);
+		// El editor no invita ni borra, y su texto no promete subir imágenes:
+		// storage.rules solo deja escribir al dueño. El lector solo lee.
+		await expect(rules.locator("dd").nth(1)).toHaveText(editor);
+		await expect(rules.locator("dd").nth(2)).toHaveText(viewer);
+		await expect(rules.locator("p")).toHaveText(note);
+
+		// Sin tarjetas y sin promesas que la app no cumple (#280).
+		await expect(rules.locator(".feature-card")).toHaveCount(0);
+		const text = (await rules.innerText()).toLowerCase();
+		for (const banned of [
+			"free",
+			"gratis",
+			"image",
+			"imagen",
+			"without an account",
+			"sin cuenta",
 		]) {
 			expect(text).not.toMatch(new RegExp(`\\b${banned}\\b`));
 		}
