@@ -10,14 +10,14 @@ import { consume } from "@lit/context";
 import { msg } from "@lit/localize";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { buildAgenda } from "../calendar/agenda-days.js";
 import { canOffer, checkAvailability } from "../domain/ai-availability.js";
 import type { InferenceSourceName } from "../domain/ai-policy.js";
 import { type ListingState, listingState } from "../domain/listing-state.js";
 import { sampleEventDraft } from "../domain/sample-event.js";
 import { collectTags } from "../domain/tags.js";
-import "../calendar/agenda-view.js";
-import "../calendar/calendar-view.js";
+import { buildAgenda } from "../ui/calendar/agenda-days.js";
+import "../ui/calendar/agenda-view.js";
+import "../ui/calendar/calendar-view.js";
 
 import {
 	type EventsSnapshot,
