@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import type { EventsSnapshot } from "../../application/context.js";
-import type { StoredEvent } from "../../lib/types.js";
+import type { StoredEvent } from "../../domain/event.js";
 import { toStoredEvent } from "./event-mapper.js";
 
 /** Shared across every "nothing to show yet" snapshot, so repeated reads

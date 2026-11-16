@@ -1,5 +1,5 @@
+import type { PlanuEvent } from "../domain/event.js";
 import { type SortPreference, sortEvents } from "../domain/sort-events.js";
-import type { PlanuEvent } from "../lib/types.js";
 
 /**
  * Day of the week using `Date.prototype.getDay()`'s numbering:

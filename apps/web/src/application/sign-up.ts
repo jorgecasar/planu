@@ -1,4 +1,4 @@
-import { signUpSchema } from "../auth/schemas.js";
+import { signUpSchema } from "../domain/auth-schemas.js";
 import type { AnalyticsPort } from "./ports/analytics.js";
 import type { SessionPort } from "./ports/session.js";
 

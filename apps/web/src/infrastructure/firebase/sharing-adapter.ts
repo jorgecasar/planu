@@ -35,7 +35,7 @@ import type {
 	ReceivedInvite,
 	SharingPort,
 } from "../../application/ports/sharing.js";
-import type { EventRole } from "../../lib/types.js";
+import type { EventRole } from "../../domain/event.js";
 import {
 	INVITES_COLLECTION,
 	inviteId,

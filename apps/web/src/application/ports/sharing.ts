@@ -1,5 +1,5 @@
 import { createContext } from "@lit/context";
-import type { EventRole } from "../../lib/types.js";
+import type { EventRole } from "../../domain/event.js";
 import type { SessionUser } from "./session.js";
 
 /**

@@ -11,7 +11,7 @@
  * The minimum needed to export an event.
  *
  * Structural, not `StoredEvent`, on purpose: this way `domain/` does not
- * depend on `lib/types.ts`, which drags in Zod and Firestore's `Timestamp`.
+ * depend on `domain/event.ts`, which drags in Zod and Firestore's `Timestamp`.
  * A `StoredEvent` fits here with no conversion.
  */
 export interface CalendarEvent {

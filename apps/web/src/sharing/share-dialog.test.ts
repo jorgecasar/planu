@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import type { SessionUser } from "../application/ports/session.js";
 import type { DirectoryEntry } from "../application/ports/sharing.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import "./share-dialog.js";
 
 const OWNER = {

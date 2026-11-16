@@ -1,5 +1,5 @@
 import { msg } from "@lit/localize";
-import type { PlanuEvent } from "../lib/types.js";
+import type { PlanuEvent } from "./event.js";
 
 /**
  * A sample event, for whoever clicks "try a sample event" from the empty
@@ -10,7 +10,7 @@ import type { PlanuEvent } from "../lib/types.js";
  * A factory and not a module-level constant: `msg()` is evaluated when
  * called, and a value computed at import time would freeze the language of
  * the first render, same as `eventSchema()` already warns in
- * `lib/types.ts`.
+ * `domain/event.ts`.
  *
  * `now` comes in as a parameter and isn't read with `new Date()` inside:
  * it's an input, not an implementation detail, so the result can be

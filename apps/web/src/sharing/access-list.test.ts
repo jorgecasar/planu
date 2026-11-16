@@ -4,7 +4,7 @@ import type {
 	PublicProfile,
 	SharingPort,
 } from "../application/ports/sharing.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import { AccessList, toPeople } from "./access-list.js";
 
 const EVENT = {

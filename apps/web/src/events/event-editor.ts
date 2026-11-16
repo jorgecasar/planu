@@ -38,7 +38,7 @@ import {
 	eventSchema,
 	type PlanuEvent,
 	type StoredEvent,
-} from "../lib/types.js";
+} from "../domain/event.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import type { GeneratedDraft } from "./ai-event-generator.js";
 import { CoverField, coverFieldStyles } from "./cover-field.js";

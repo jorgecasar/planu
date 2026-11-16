@@ -7,7 +7,7 @@ import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "@awesome.me/webawesome/dist/styles/themes/default.css";
 import axe from "axe-core";
 import { expect, test } from "vitest";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import "./calendar-view.js";
 import type { PlanuCalendarView } from "./calendar-view.js";
 

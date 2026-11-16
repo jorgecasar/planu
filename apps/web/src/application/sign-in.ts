@@ -1,4 +1,4 @@
-import { credentialsSchema } from "../auth/schemas.js";
+import { credentialsSchema } from "../domain/auth-schemas.js";
 import type { SessionPort } from "./ports/session.js";
 
 /**

@@ -14,7 +14,7 @@ import "../calendar/calendar-view.js";
 import "../events/event-card.js";
 import "../events/event-editor.js";
 import "../events/event-groups.js";
-import type { StoredEvent } from "../lib/types.js";
+import type { StoredEvent } from "../domain/event.js";
 import "../profile/profile-view.js";
 import "../sharing/share-dialog.js";
 import { webAwesomeStyles } from "./web-awesome.js";

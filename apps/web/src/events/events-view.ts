@@ -25,13 +25,13 @@ import {
 	eventsInterestContext,
 	userContext,
 } from "../application/context.js";
+import type { PlanuEvent, StoredEvent } from "../domain/event.js";
 import {
 	type DateRange,
 	filterEvents,
 	isNarrowed,
 	type OwnershipFilter,
 } from "../domain/filter-events.js";
-
 import {
 	groupEvents,
 	parseSortPreference,
@@ -40,15 +40,12 @@ import {
 	serializeSortPreference,
 	sortOptions,
 } from "../domain/sort-events.js";
-
 import {
 	parseViewMode,
 	type ViewMode,
 	viewOptions,
 } from "../domain/view-mode.js";
 import { getLocale } from "../i18n/localization.js";
-
-import type { PlanuEvent, StoredEvent } from "../lib/types.js";
 
 import {
 	readSortPreference,

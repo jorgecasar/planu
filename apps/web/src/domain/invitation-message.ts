@@ -8,7 +8,7 @@
  */
 
 import { msg, str } from "@lit/localize";
-import type { EventRole } from "../lib/types.js";
+import type { EventRole } from "./event.js";
 
 export interface InvitationMessageInput {
 	/** Title of the event the person was invited to. */

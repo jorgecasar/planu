@@ -1,5 +1,5 @@
 {
-  "$comment": "Modelo de datos real de Firestore, en el mismo formato de JSON Schema que traía el fichero original del prototipo (julio 2025), pero con contenido verificado contra apps/web/src/lib/types.ts, apps/web/src/sharing/*.ts y firestore.rules a fecha 2026-08-22. El fichero original estaba obsoleto: describía sólo la colección `events` de la fase 1, con formas que las reglas vigentes ya no aceptan (lectura pública, sin `memberIds`).",
+  "$comment": "Modelo de datos real de Firestore, en el mismo formato de JSON Schema que traía el fichero original del prototipo (julio 2025), pero con contenido verificado contra apps/web/src/domain/event.ts, apps/web/src/sharing/*.ts y firestore.rules a fecha 2026-08-22. El fichero original estaba obsoleto: describía sólo la colección `events` de la fase 1, con formas que las reglas vigentes ya no aceptan (lectura pública, sin `memberIds`).",
   "entities": {
     "Event": {
       "$schema": "http://json-schema.org/draft-07/schema",

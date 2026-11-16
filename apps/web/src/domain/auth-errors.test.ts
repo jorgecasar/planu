@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { credentialsSchema, signUpSchema } from "../auth/schemas.js";
 import { authErrorField, authErrorMessage } from "./auth-errors.js";
+import { credentialsSchema, signUpSchema } from "./auth-schemas.js";
 import { SessionError } from "./session-error.js";
 
 // The collapse of "nonexistent user", "wrong password" and "invalid
