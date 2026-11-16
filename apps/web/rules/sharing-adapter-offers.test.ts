@@ -1,11 +1,22 @@
 import { readFileSync } from "node:fs";
 import {
+	assertFails,
 	initializeTestEnvironment,
 	type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, type Firestore, getDoc, setDoc } from "firebase/firestore";
+import {
+	arrayUnion,
+	collection,
+	doc,
+	type Firestore,
+	getDoc,
+	getDocs,
+	setDoc,
+	updateDoc,
+} from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
+import type { ReceivedInvite } from "../src/application/ports/sharing.js";
 import { createAccountDataAdapter } from "../src/infrastructure/firebase/account-data-adapter.js";
 import { FirebaseEventRepository } from "../src/infrastructure/firebase/event-repository.js";
 import { createSharingAdapter } from "../src/infrastructure/firebase/sharing-adapter.js";
@@ -105,6 +116,73 @@ test("removing a guest with no email offer to spend goes through", async () => {
 	);
 	await ownersAdapter().inviteToEvent(AN_INVITE);
 	expect(await stored(INVITE)).toMatchObject({ status: "pending" });
+});
+
+// GH-189 S6: "Volver a invitar" over a tombstone, with the real rules.
+test("an editor removed and re-invited comes back only by accepting, with the role they had", async () => {
+	await env.withSecurityRulesDisabled(async (ctx) => {
+		const db = ctx.firestore();
+		const joined = { memberIds: [OWNER, GUEST], roles: { [GUEST]: "editor" } };
+		await setDoc(doc(db, EVENT), joined, { merge: true });
+		await setDoc(doc(db, INVITE), {
+			...AN_INVITE,
+			role: "editor",
+			status: "accepted",
+		});
+	});
+	const owner = ownersAdapter();
+
+	const inviteeEmail = await owner.updateEventMembership(
+		"an-event",
+		{ memberIds: [OWNER], roles: {} },
+		GUEST,
+	);
+	await owner.restoreAccessOffer("an-event", GUEST, "editor", {
+		invitedByName: "Ana",
+		...(inviteeEmail ? { inviteeEmail } : {}),
+	});
+
+	expect(inviteeEmail).toBe("guest@example.com");
+	expect(await stored(INVITE)).toMatchObject({
+		status: "pending",
+		role: "editor",
+		inviteeEmail: "guest@example.com",
+	});
+	// Not a member yet, and no offer by email was left behind.
+	expect(await stored(EVENT)).toMatchObject({ memberIds: [OWNER] });
+	await env.withSecurityRulesDisabled(async (ctx) => {
+		const offers = await getDocs(
+			collection(ctx.firestore(), "eventInvitesByEmail"),
+		);
+		expect(offers.size).toBe(0);
+	});
+	// The owner cannot let them in on their own: only accepting does.
+	const asOwner = env
+		.authenticatedContext(OWNER, { email_verified: true })
+		.firestore();
+	await assertFails(
+		updateDoc(doc(asOwner, EVENT), { memberIds: arrayUnion(GUEST) }),
+	);
+
+	const asGuest = env
+		.authenticatedContext(GUEST, { email_verified: true })
+		.firestore() as unknown as Firestore;
+	const [received] = await new Promise<ReceivedInvite[]>((resolve) => {
+		const stop = createSharingAdapter(asGuest).watchReceivedInvites(
+			GUEST,
+			(invites) => {
+				stop();
+				resolve(invites);
+			},
+		);
+	});
+	if (!received) throw new Error("the guest received no invitation");
+	await createSharingAdapter(asGuest).acceptInvite(received);
+
+	expect(await stored(EVENT)).toMatchObject({
+		memberIds: [OWNER, GUEST],
+		roles: { [GUEST]: "editor" },
+	});
 });
 
 test.each(["event repository", "account deletion"])(

@@ -21,8 +21,17 @@ const batchDeleteMock = vi.fn();
 const commitMock = vi.fn();
 const onSnapshotMock = vi.fn();
 const getDocsMock = vi.fn();
+// What a transaction reads and writes goes through these, not through `getDoc`
+// and `setDoc`: that is how the tests tell the two apart.
+const txGetMock = vi.fn();
+const txSetMock = vi.fn();
+const runTransactionMock = vi.fn(
+	async (_db: unknown, update: (tx: unknown) => Promise<unknown>) =>
+		update({ get: txGetMock, set: txSetMock }),
+);
 
 vi.mock("firebase/firestore", () => ({
+	runTransaction: runTransactionMock,
 	doc: docMock,
 	setDoc: setDocMock,
 	deleteDoc: deleteDocMock,
@@ -442,6 +451,108 @@ describe("updateEventMembership()", () => {
 		expect(batchSetMock).not.toHaveBeenCalled();
 		expect(commitMock).toHaveBeenCalledTimes(4);
 	});
+
+	test("hands back the address it read off the record, so a re-offer can reuse it", async () => {
+		getDocsMock.mockResolvedValue({ docs: [] });
+		reads({ inviteeEmail: "Guest@Example.com", invitedBy: "owner-uid" });
+		expect(await adapter.updateEventMembership("e1", MEMBERSHIP, "guest")).toBe(
+			"Guest@Example.com",
+		);
+
+		reads({ invitedBy: "owner-uid" });
+		expect(
+			await adapter.updateEventMembership("e1", MEMBERSHIP, "guest"),
+		).toBeUndefined();
+		expect(
+			await adapter.updateEventMembership("e1", MEMBERSHIP),
+		).toBeUndefined();
+	});
+});
+
+describe("restoreAccessOffer()", () => {
+	const adapter = createSharingAdapter(FAKE_FIRESTORE);
+	const DETAILS = { invitedByName: "Ana", inviteeEmail: "guest@example.com" };
+
+	beforeEach(() => {
+		getDocMock.mockReset();
+		setDocMock.mockReset().mockResolvedValue(undefined);
+		txGetMock.mockReset();
+		txSetMock.mockReset();
+		runTransactionMock.mockClear();
+		batchSetMock.mockReset();
+		batchUpdateMock.mockReset();
+		batchDeleteMock.mockReset();
+		commitMock.mockReset().mockResolvedValue(undefined);
+	});
+
+	const reads = (status: string | undefined) =>
+		txGetMock.mockImplementation(async (ref: { path: string }) => ({
+			data: () =>
+				ref.path.startsWith("events/")
+					? { userId: "owner-uid", title: "Concert" }
+					: status && { status },
+		}));
+
+	test("turns the tombstone back into a pending offer with the role it was given", async () => {
+		reads("removed");
+
+		await adapter.restoreAccessOffer("e1", "guest", "editor", DETAILS);
+
+		expect(txSetMock).toHaveBeenCalledExactlyOnceWith(
+			{ path: "eventInvites/e1_guest" },
+			{
+				eventId: "e1",
+				eventTitle: "Concert",
+				inviteeUid: "guest",
+				inviteeEmail: "guest@example.com",
+				invitedBy: "owner-uid",
+				invitedByName: "Ana",
+				role: "editor",
+				status: "pending",
+				createdAt: "SERVER_TIME",
+				decidedAt: null,
+			},
+		);
+		// An offer, never a membership and never an offer by email.
+		expect(batchUpdateMock).not.toHaveBeenCalled();
+		expect(batchSetMock).not.toHaveBeenCalled();
+	});
+
+	test("leaves out an address it was never given", async () => {
+		reads("removed");
+
+		await adapter.restoreAccessOffer("e1", "guest", "viewer", {
+			invitedByName: "Ana",
+		});
+
+		expect(txSetMock.mock.calls[0]?.[1]).not.toHaveProperty("inviteeEmail");
+	});
+
+	test("reads and writes in one transaction, never around it", async () => {
+		reads("removed");
+
+		await adapter.restoreAccessOffer("e1", "guest", "viewer", DETAILS);
+
+		// A check followed by a plain write could overwrite a decision made in
+		// between (`ownerReoffers()` accepts overwriting accepted records).
+		expect(runTransactionMock).toHaveBeenCalledTimes(1);
+		expect(txGetMock).toHaveBeenCalledTimes(2);
+		expect(getDocMock).not.toHaveBeenCalled();
+		expect(setDocMock).not.toHaveBeenCalled();
+	});
+
+	test.each(["pending", "accepted", undefined])(
+		"writes nothing when the record is %s, not a tombstone",
+		async (status) => {
+			reads(status);
+
+			await expect(
+				adapter.restoreAccessOffer("e1", "guest", "viewer", DETAILS),
+			).rejects.toThrow();
+			expect(txSetMock).not.toHaveBeenCalled();
+			expect(setDocMock).not.toHaveBeenCalled();
+		},
+	);
 });
 
 describe("watchReceivedInvites()", () => {

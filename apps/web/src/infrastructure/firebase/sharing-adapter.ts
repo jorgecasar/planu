@@ -18,6 +18,7 @@ import {
 	getDocs,
 	onSnapshot,
 	query,
+	runTransaction,
 	serverTimestamp,
 	setDoc,
 	updateDoc,
@@ -303,9 +304,10 @@ export function createSharingAdapter(
 			eventId: string,
 			membership: { memberIds: string[]; roles: Record<string, EventRole> },
 			removedUid?: string,
-		): Promise<void> {
+		): Promise<string | undefined> {
 			const batch = writeBatch(firestore);
 			batch.update(doc(firestore, "events", eventId), membership);
+			let knownEmail: string | undefined;
 
 			if (removedUid) {
 				// The tombstone is what keeps them out (ADR 0015). Spending the
@@ -337,12 +339,55 @@ export function createSharingAdapter(
 					inviteeEmail &&
 					typeof invitedBy === "string"
 				) {
+					knownEmail = inviteeEmail;
 					const offer = await emailOfferTo(eventId, invitedBy, inviteeEmail);
 					if (offer) batch.delete(offer);
 				}
 			}
 
 			await batch.commit();
+			return knownEmail;
+		},
+
+		async restoreAccessOffer(
+			eventId: string,
+			uid: string,
+			role: EventRole,
+			details: { invitedByName: string; inviteeEmail?: string },
+		): Promise<void> {
+			const ref = doc(firestore, INVITES_COLLECTION, inviteId(eventId, uid));
+			// Read and write in one transaction. `ownerReoffers()` accepts an
+			// overwrite of accepted and declined records, so a check followed by a
+			// plain write could erase a newer decision made from another tab, or
+			// recreate a tombstone that was just deleted. A transaction retries
+			// when what it read has changed, and the check then runs again.
+			await runTransaction(firestore, async (transaction) => {
+				const [record, event] = await Promise.all([
+					transaction.get(ref),
+					transaction.get(doc(firestore, "events", eventId)),
+				]);
+				// Only over a tombstone: anything else is someone else's change
+				// since the removal.
+				if (record.data()?.["status"] !== "removed") {
+					throw new Error("There is no removal to offer again.");
+				}
+				// The shape `inviteToEvent` writes over a decided invitation, which
+				// `ownerReoffers()` accepts: a whole document with a fresh `createdAt`.
+				transaction.set(ref, {
+					eventId,
+					eventTitle: String(event.data()?.["title"] ?? ""),
+					inviteeUid: uid,
+					...(details.inviteeEmail
+						? { inviteeEmail: details.inviteeEmail }
+						: {}),
+					invitedBy: String(event.data()?.["userId"] ?? ""),
+					invitedByName: details.invitedByName,
+					role,
+					status: "pending",
+					createdAt: serverTimestamp(),
+					decidedAt: null,
+				});
+			});
 		},
 
 		/**
