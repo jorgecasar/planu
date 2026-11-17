@@ -1,0 +1,3 @@
+rag:
+  exclude:
+    - apps/web/src/generated/**
