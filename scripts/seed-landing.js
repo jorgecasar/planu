@@ -18,14 +18,62 @@ const FIRESTORE =
 const EMAIL = process.argv[2] ?? "landing.demo@example.com";
 const PASSWORD = "secret123";
 
-/** [title, location, days from today, hour, cover, tags] */
+/** [title, location, days from today, hour, cover, tags, description] */
 const EVENTS = [
-	["Sunday picnic", "Parque del Oeste", 3, 12, "picnic", ["family"]],
-	["Jazz in the courtyard", "Patio de la Villa", 6, 21, "concert", ["music"]],
-	["Weekend in the mountains", "Sierra Norte", 12, 9, "trip", ["trip"]],
-	["Dinner with the neighbours", "Casa de Marta", 16, 20, "dinner", ["family"]],
-	["Neighbourhood five-a-side", "Polideportivo", 21, 18, "match", ["sport"]],
-	["Flea market", "Plaza Mayor", 27, 10, "market", ["weekend"]],
+	[
+		"Sunday picnic",
+		"Parque del Oeste",
+		3,
+		12,
+		"picnic",
+		["family"],
+		"Blankets, lemonade and a long afternoon.",
+	],
+	[
+		"Jazz in the courtyard",
+		"Patio de la Villa",
+		6,
+		21,
+		"concert",
+		["music"],
+		"A quartet under the lights. Doors at nine.",
+	],
+	[
+		"Weekend in the mountains",
+		"Sierra Norte",
+		12,
+		9,
+		"trip",
+		["trip"],
+		"Two days of walking and one big dinner.",
+	],
+	[
+		"Dinner with the neighbours",
+		"Casa de Marta",
+		16,
+		20,
+		"dinner",
+		["family"],
+		"Everyone brings a dish to share.",
+	],
+	[
+		"Neighbourhood five-a-side",
+		"Polideportivo",
+		21,
+		18,
+		"match",
+		["sport"],
+		"Teams are drawn at the door.",
+	],
+	[
+		"Flea market",
+		"Plaza Mayor",
+		27,
+		10,
+		"market",
+		["weekend"],
+		"Come early for the best stalls.",
+	],
 ];
 
 const at = (days, hour) => {
@@ -81,14 +129,14 @@ for (const row of previous.filter((r) => r.document)) {
 	});
 }
 
-for (const [title, location, days, hour, cover, tags] of EVENTS) {
+for (const [title, location, days, hour, cover, tags, description] of EVENTS) {
 	await json(`${FIRESTORE}/events`, {
 		method: "POST",
 		headers,
 		body: JSON.stringify({
 			fields: {
 				title: text(title),
-				description: text("Invented for the landing screenshots."),
+				description: text(description),
 				location: text(location),
 				imageUrl: text(coverUrl(cover)),
 				userId: text(uid),
