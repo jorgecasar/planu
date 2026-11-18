@@ -780,6 +780,41 @@ for (const [path, lang] of [
 		expect((await response.body()).length).toBeLessThan(60 * 1024);
 	});
 }
+test("el movimiento solo se aplica sin «reducir movimiento», y nunca oculta nada", async ({
+	page,
+}) => {
+	const motion = () =>
+		page.evaluate(() => {
+			const text = document.querySelector(".hero > div");
+			const image = document.querySelector(".hero-figure img");
+			const button = document.querySelector("a.wa-button.wa-brand");
+			if (!text || !image || !button) throw new Error("hero not found");
+			return {
+				textAnimation: getComputedStyle(text).animationName,
+				imageAnimation: getComputedStyle(image).animationName,
+				textOpacity: getComputedStyle(text).opacity,
+				// Web Awesome ya anima el color del botón: lo nuestro es `transform`.
+				buttonTransform:
+					getComputedStyle(button).transitionProperty.includes("transform"),
+			};
+		});
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/");
+	expect(await motion()).toEqual({
+		textAnimation: "hero-rise",
+		// La imagen del hero es el LCP: no se anima.
+		imageAnimation: "none",
+		textOpacity: "1",
+		buttonTransform: true,
+	});
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	expect(await motion()).toEqual({
+		textAnimation: "none",
+		imageAnimation: "none",
+		textOpacity: "1",
+		buttonTransform: false,
+	});
+});
 test("el hero en español usa la captura en español, de 1200×675 y bajo 60 KB", async ({
 	page,
 	request,
