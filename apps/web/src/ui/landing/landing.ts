@@ -98,6 +98,7 @@ export function landingTemplate(): TemplateResult {
 					${features()}
 					${steps()}
 					${rules()}
+					${closing()}
 				</main>
 				${footer()}
 			</body>
@@ -312,6 +313,18 @@ function featureCard(
 	`;
 }
 
+/** The second and last call to action, with the way in for who already has an account. */
+function closing(): TemplateResult {
+	return html`
+		<section class="closing wa-stack wa-gap-m">
+			<h2 class="wa-heading-2xl">${msg("Start with your first event")}</h2>
+			<div class="wa-cluster wa-justify-content-center">
+				<a href="/app/login?mode=signup" class="wa-button wa-brand wa-size-l">${msg("Create your account")}</a>
+			</div>
+			<p class="wa-font-size-s wa-color-text-quiet">${msg("Already have an account?")} <a href="/app/login">${msg("Sign in")}</a></p>
+		</section>
+	`;
+}
 function footer(): TemplateResult {
 	// El aviso de cookies vive en el pie de toda página de la landing, no sólo
 	// en privacy.html: ADR 0009 hace que Firebase Analytics corra en la
