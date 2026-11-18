@@ -493,3 +493,108 @@ test("the role of a pending invitation can still be changed", async ({
 
 	await guestPage.context().close();
 });
+
+/** Axe on a page, failing with the violations listed rather than a count. */
+async function expectNoViolations(page: Page): Promise<void> {
+	expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+}
+
+test("removing a guest and inviting them again gives the same role back once they accept (GH-321)", async ({
+	page,
+	browser,
+}) => {
+	const owner = newEmail();
+	const guest = newEmail();
+	const title_ = newTitle("Evento");
+	await createVerifiedAccount(page, owner);
+	await createVerifiedAccount(page, guest);
+	const guestPage = await openSecondSession(browser, guest);
+	await signIn(page, owner);
+	await createEvent(page, title_);
+	await cardAction(page, "Share");
+	await page.getByLabel("Invite by email").fill(guest);
+	await page.getByRole("button", { name: "Invite", exact: true }).click();
+	await expect(page.getByText("Invitation sent.")).toBeVisible();
+	await acceptInvitation(guestPage);
+	await promoteToEditor(page, title_);
+	await guestPage.reload();
+	await expect(guestPage.getByText("Shared: you can edit")).toBeVisible();
+
+	// The owner removes them, after confirming.
+	await page.reload();
+	await cardAction(page, "Share");
+	await page.getByRole("button", { name: /Access for/ }).click();
+	const remove = page.getByRole("menuitem", { name: "Remove access" });
+	await remove.click();
+	// The menu fades out, and axe measures colours on whatever is painted.
+	await expect(remove).toBeHidden();
+	await expect(page.getByText(/Remove .* from this event\?/)).toBeVisible();
+	await expectNoViolations(page);
+	await page.getByRole("button", { name: "Remove", exact: true }).click();
+	await expect(page.getByText(/Access removed for/)).toBeVisible();
+	await expectNoViolations(page);
+
+	// Nothing of the event reaches the guest any more.
+	await guestPage.reload();
+	await expect(
+		guestPage.getByRole("heading", { name: title_, exact: true }),
+	).toHaveCount(0);
+
+	// Inviting again is an offer, not a restored membership: it waits for them.
+	await page.getByRole("button", { name: "Invite again" }).click();
+	await expect(page.getByText("Invitation sent again.")).toBeVisible();
+	await expectNoViolations(page);
+	await expect(
+		guestPage.getByRole("heading", { name: title_, exact: true }),
+	).toHaveCount(0);
+	await acceptInvitation(guestPage);
+	await expect(
+		guestPage.getByRole("heading", { name: title_, exact: true }),
+	).toBeVisible();
+	await expect(guestPage.getByText("Shared: you can edit")).toBeVisible();
+
+	await guestPage.context().close();
+});
+
+test("cancelling an invitation can be undone, and the guest still has to accept (GH-321)", async ({
+	page,
+	browser,
+}) => {
+	const owner = newEmail();
+	const guest = newEmail();
+	const title_ = newTitle("Evento");
+	await createVerifiedAccount(page, owner);
+	await createVerifiedAccount(page, guest);
+	const guestPage = await openSecondSession(browser, guest);
+	await signIn(page, owner);
+	await createEvent(page, title_);
+	await cardAction(page, "Share");
+	await page.getByLabel("Invite by email").fill(guest);
+	await page.getByRole("button", { name: "Invite", exact: true }).click();
+	await expect(page.getByText("Pending", { exact: true })).toBeVisible();
+	await page.getByRole("button", { name: /Access for/ }).click();
+	await page.getByRole("menuitemcheckbox", { name: "Editor" }).click();
+
+	// No confirmation: choosing it writes, and the notice names who.
+	await page.getByRole("button", { name: /Access for/ }).click();
+	await page.getByRole("menuitem", { name: "Cancel invitation" }).click();
+	await expect(
+		page.getByText(/The invitation to .* was cancelled\./),
+	).toBeVisible();
+	await expect(page.getByText("Pending", { exact: true })).toHaveCount(0);
+	await expectNoViolations(page);
+	await guestPage.reload();
+	await expect(guestPage.getByRole("button", { name: "Accept" })).toHaveCount(
+		0,
+	);
+
+	// Undo brings the invitation back with the role it had, still unanswered.
+	await page.getByRole("button", { name: "Undo" }).click();
+	await expect(page.getByText("Invitation restored.")).toBeVisible();
+	await expect(page.getByText("Pending", { exact: true })).toBeVisible();
+	await expectNoViolations(page);
+	await acceptInvitation(guestPage);
+	await expect(guestPage.getByText("Shared: you can edit")).toBeVisible();
+
+	await guestPage.context().close();
+});

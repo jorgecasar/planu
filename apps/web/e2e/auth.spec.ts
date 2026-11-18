@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { API_KEY, AUTH_EMULATOR } from "./verified-account.js";
 
 /** Correo único por ejecución: el emulador conserva los usuarios entre tests. */
 const newEmail = () =>
@@ -123,4 +124,46 @@ test("la aplicación autenticada no tiene violaciones de accesibilidad", async (
 
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
+});
+test("confirmar el correo con el enlace y pulsar «I have verified it» abre los eventos (GH-321)", async ({
+	page,
+}) => {
+	const email = newEmail();
+	await page.goto("/app/login");
+	await page.getByRole("tab", { name: "Create account" }).click();
+	const panel = page
+		.getByRole("tabpanel")
+		.filter({ hasText: "Confirm password" });
+	await panel.getByLabel("Email").fill(email);
+	await panel.getByLabel("Password", { exact: true }).fill("secret123");
+	await panel.getByLabel("Confirm password").fill("secret123");
+	await panel.getByRole("button", { name: "Create account" }).click();
+	await expectLandsOnProfileUnverified(page);
+	// Sin verificar, los eventos no son para esta cuenta.
+	await page.goto("/app");
+	await expectLandsOnProfileUnverified(page);
+
+	// El emulador guarda el correo que enviaría: el enlace es este código.
+	const inbox = await page.request.get(
+		"http://127.0.0.1:9099/emulator/v1/projects/planu-app/oobCodes",
+	);
+	const { oobCodes } = (await inbox.json()) as {
+		oobCodes: { email: string; oobCode: string; requestType: string }[];
+	};
+	const code = oobCodes
+		.filter(
+			(entry) => entry.email === email && entry.requestType === "VERIFY_EMAIL",
+		)
+		.at(-1);
+	expect(code, `no verification code for ${email}`).toBeDefined();
+	const applied = await page.request.post(
+		`${AUTH_EMULATOR}/accounts:update?key=${API_KEY}`,
+		{ data: { oobCode: code?.oobCode } },
+	);
+	expect(applied.ok()).toBe(true);
+
+	await page.getByRole("button", { name: "I have verified it" }).click();
+	await expect(page.getByText(/Confirm your email/)).toHaveCount(0);
+	await page.goto("/app");
+	await expect(page.getByRole("button", { name: "New event" })).toBeVisible();
 });
