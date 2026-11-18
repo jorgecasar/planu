@@ -1258,6 +1258,18 @@
   <source>Already have an account?</source>
         <target>¿Ya tienes cuenta?</target>
 </trans-unit>
+<trans-unit id="s8f4be9f086eb530f">
+  <source>Undo</source>
+        <target>Deshacer</target>
+</trans-unit>
+<trans-unit id="s1436e3ba294ab326">
+  <source>The invitation to <x id="0" equiv-text="${person.name || person.email}"/> was cancelled.</source>
+        <target>Se canceló la invitación a <x id="0" equiv-text="${person.name || person.email}"/>.</target>
+</trans-unit>
+<trans-unit id="s625a788da7f3e626">
+  <source>Invitation restored.</source>
+        <target>Invitación restaurada.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
