@@ -273,6 +273,8 @@ npm run dev         # servidor de desarrollo en http://localhost:3000
 npm run build       # typecheck + build de producción a apps/web/dist
 npm run build:landing  # landing prerrenderizada + app, a dist/ (lo que se publica)
 npm test            # tests unitarios (Vitest en Chromium real)
+npm run test:coverage  # lo mismo, y escribe apps/web/coverage/lcov.info para Sonar
+node scripts/check-coverage-fresh.js  # 0 si el lcov es más nuevo que src/, 1 si no
 npm run test:e2e    # tests e2e con Playwright y axe, contra `npm run dev`
 npm run test:e2e:landing  # e2e de la landing, contra dist/ (exige build:landing)
 npm run lint        # Biome: formato y lint
@@ -284,6 +286,18 @@ npm run emulators   # emuladores de Firebase (auth, firestore, storage)
 
 `npm test` y los dos `test:e2e*` necesitan el navegador de Playwright:
 `npx playwright install chromium`.
+
+**Cobertura para Sonar.** El quality gate lee `apps/web/coverage/lcov.info`
+(`sonar.javascript.lcov.reportPaths`). Orden: `npm run test:coverage`, luego
+`node scripts/check-coverage-fresh.js` y, con 0, `kj scan`. Un lcov más viejo
+que `src/` da un gate calculado sobre código que ya no existe, y por eso la guarda
+sale con 1 y dice qué ejecutar; ignora `src/generated/`, que no se mide. El lcov
+no se commitea (`coverage/` está en `.gitignore`). Si Sonar sigue en 0 %, mira dos
+cosas: que las líneas `SF:` empiecen por `apps/web/src/` (se cuentan con
+`grep -c '^SF:apps/web/src/' apps/web/coverage/lcov.info`; salieron 98 el
+2026-11-18) y el aviso de rutas sin resolver que imprime el scanner. El
+`sonarqube.coverage` de kj, que lo haría solo, está apagado en la configuración
+global y no se toca desde aquí.
 
 **La landing no existe en `npm run dev`.** La genera `build:landing` con
 `@lit-labs/ssr` y sale a `dist/`, así que sus e2e tienen configuración propia
