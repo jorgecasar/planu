@@ -1250,6 +1250,14 @@
   <source>/assets/landing/hero-mobile-en.webp</source>
         <target>/assets/landing/hero-mobile-es.webp</target>
 </trans-unit>
+<trans-unit id="s0492a9deb411cb86">
+  <source>Start with your first event</source>
+        <target>Empieza con tu primer evento</target>
+</trans-unit>
+<trans-unit id="s205b3e04ad286caa">
+  <source>Already have an account?</source>
+        <target>¿Ya tienes cuenta?</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

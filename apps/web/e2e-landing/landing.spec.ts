@@ -61,7 +61,7 @@ test("la raíz es la landing, no la aplicación", async ({ page }) => {
 
 	await expect(page).toHaveURL(/\/$/);
 	await expect(
-		page.getByRole("link", { name: "Create your account" }),
+		page.getByRole("link", { name: "Create your account" }).first(),
 	).toBeVisible();
 });
 
@@ -112,7 +112,7 @@ test("la landing se ve con JavaScript desactivado", async ({ browser }) => {
 
 	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 	await expect(
-		page.getByRole("link", { name: "Create your account" }),
+		page.getByRole("link", { name: "Create your account" }).first(),
 	).toBeVisible();
 	// Los cuatro iconos son SVG en línea, no `<wa-icon>`: un custom element no se
 	// definiría nunca aquí y las tarjetas saldrían sin icono.
@@ -382,16 +382,19 @@ test("los botones de llamada a la acción se pintan como botones", async ({
 	await page.goto("/");
 
 	const estilo = (name: string) =>
-		page.getByRole("link", { name }).evaluate((el) => {
-			const c = getComputedStyle(el);
-			return {
-				display: c.display,
-				background: c.backgroundColor,
-				border: c.borderTopColor,
-				decoration: c.textDecorationLine,
-				size: c.fontSize,
-			};
-		});
+		page
+			.getByRole("link", { name })
+			.first()
+			.evaluate((el) => {
+				const c = getComputedStyle(el);
+				return {
+					display: c.display,
+					background: c.backgroundColor,
+					border: c.borderTopColor,
+					decoration: c.textDecorationLine,
+					size: c.fontSize,
+				};
+			});
 	const marca = await page.evaluate(() => {
 		const probe = document.createElement("span");
 		probe.style.color = "var(--wa-color-brand-fill-loud)";
@@ -422,15 +425,25 @@ for (const { path, cta, signIn } of [
 	{ path: "/en/", cta: "Create your account", signIn: "Sign in" },
 	{ path: "/es/", cta: "Crea tu cuenta", signIn: "Entrar" },
 ]) {
-	test(`${path} tiene una sola acción primaria y «${signIn}» no compite`, async ({
+	test(`${path} tiene una sola acción primaria, en el hero y en el cierre, y «${signIn}» no compite`, async ({
 		page,
 	}) => {
 		await page.goto(path);
 
 		const primarias = page.locator("a.wa-button.wa-brand");
-		await expect(primarias).toHaveCount(1);
-		await expect(primarias).toHaveText(cta);
-		await expect(primarias).toHaveAttribute("href", "/app/login?mode=signup");
+		// El mismo destino y la misma etiqueta dos veces: hero y cierre.
+		await expect(primarias).toHaveCount(2);
+		for (const primaria of await primarias.all()) {
+			await expect(primaria).toHaveText(cta);
+			await expect(primaria).toHaveAttribute("href", "/app/login?mode=signup");
+		}
+		await expect(page.locator(".hero a.wa-button.wa-brand")).toHaveCount(1);
+		await expect(page.locator(".closing a.wa-button.wa-brand")).toHaveCount(1);
+		// «Entrar» en el cierre es un enlace de texto, no un segundo botón.
+		const enCierre = page.locator(".closing p a");
+		await expect(enCierre).toHaveText(signIn);
+		await expect(enCierre).toHaveAttribute("href", "/app/login");
+		await expect(enCierre).not.toHaveClass(/wa-button/);
 
 		const entrar = page.locator("header a.wa-button");
 		await expect(entrar).toHaveText(signIn);
@@ -456,7 +469,7 @@ for (const { path, cta, signIn } of [
 
 			for (const locator of [
 				page.getByRole("heading", { level: 1 }),
-				page.locator("a.wa-button.wa-brand"),
+				page.locator(".hero a.wa-button.wa-brand"),
 			]) {
 				const box = await locator.boundingBox();
 				expect(box).not.toBeNull();
@@ -465,6 +478,23 @@ for (const { path, cta, signIn } of [
 		});
 	}
 
+	test(`${path} cierra con su título y los enlaces del pie miden al menos 44 px`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(path);
+		await expect(page.locator(".closing h2")).toHaveText(
+			path === "/es/"
+				? "Empieza con tu primer evento"
+				: "Start with your first event",
+		);
+		const links = page.locator("footer a");
+		expect(await links.count()).toBeGreaterThanOrEqual(3);
+		for (const link of await links.all()) {
+			const box = await link.boundingBox();
+			expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+		}
+	});
 	test(`${path} no hace scroll horizontal a 320 px`, async ({ page }) => {
 		await page.setViewportSize({ width: 320, height: 700 });
 		await page.goto(path);
@@ -577,7 +607,7 @@ for (const { path, stepsH2, steps } of STEPS) {
 		const classes = await page
 			.locator("main > section")
 			.evaluateAll((els) => els.map((el) => el.classList[0]));
-		expect(classes).toEqual(["hero", "features", "steps", "rules"]);
+		expect(classes).toEqual(["hero", "features", "steps", "rules", "closing"]);
 
 		const stepsSection = page.locator(".steps");
 		await expect(stepsSection.getByRole("heading", { level: 2 })).toHaveText(
