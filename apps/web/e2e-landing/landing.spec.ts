@@ -690,6 +690,35 @@ test("sitemap.xml lista sólo las URLs de la landing, con hreflang", async ({
 	expect(body).toContain('hreflang="x-default"');
 });
 
+for (const [path, lang] of [
+	["/", "en"],
+	["/es/", "es"],
+] as const) {
+	test(`las capturas de compartir y exportar (${lang}) existen, con sus medidas y bajo 60 KB`, async ({
+		page,
+		request,
+	}) => {
+		await page.goto(path);
+		const shots = page.locator(".feature-card img.feature-shot");
+		await expect(shots).toHaveCount(2);
+		const expected = [
+			[`/assets/landing/share-${lang}.webp`, 544, 600],
+			[`/assets/landing/export-${lang}.webp`, 1200, 420],
+		] as const;
+		for (const [index, [src, width, height]] of expected.entries()) {
+			const shot = shots.nth(index);
+			await expect(shot).toHaveAttribute("src", src);
+			await expect(shot).toHaveAttribute("width", String(width));
+			await expect(shot).toHaveAttribute("height", String(height));
+			// Debajo del pliegue: no compite con el LCP del hero.
+			await expect(shot).toHaveAttribute("loading", "lazy");
+			expect((await shot.getAttribute("alt"))?.length).toBeGreaterThan(20);
+			const response = await request.get(src);
+			expect(response.status()).toBe(200);
+			expect((await response.body()).length).toBeLessThan(60 * 1024);
+		}
+	});
+}
 test("el hero en español usa la captura en español, de 1200×675 y bajo 60 KB", async ({
 	page,
 	request,

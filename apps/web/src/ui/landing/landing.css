@@ -109,6 +109,16 @@
 	margin: 0;
 }
 
+/* The width and height attributes give the browser the ratio, so the gap is
+   reserved before the capture arrives; `height: auto` keeps it when the card
+   is narrower than the image. */
+.feature-shot {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--wa-border-radius-m);
+	border: var(--wa-border-width-s) solid var(--wa-color-surface-border);
+}
+
 footer {
 	padding-block: var(--wa-space-xl);
 	text-align: center;
