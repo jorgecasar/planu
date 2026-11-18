@@ -8,6 +8,8 @@ export const LANGUAGES = ["en", "es"];
 
 /** One account per language: the emulator keeps them between runs. */
 export const emailOf = (lang) => `landing.demo.${lang}@example.com`;
+/** The person the share dialog shows as already invited (invented). */
+export const guestEmailOf = (lang) => `marta.guest.${lang}@example.com`;
 export const PASSWORD = "secret123";
 
 /** days from today, hour, cover (see `landing-covers.js`), then the text per language. */
