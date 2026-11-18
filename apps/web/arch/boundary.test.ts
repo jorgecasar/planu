@@ -244,8 +244,15 @@ const importaFirebase = (fichero: string): boolean =>
  *
  * #300 folds `collection-controller.ts` and its test into
  * `events-controller.ts`, its only consumer, from 22 to 20. No new file.
+ *
+ * #244 adds `firebase-provider.test.ts`, from 20 to 21. The provider is the
+ * composition root: it builds the app, the Auth service and the contexts every
+ * view reads, and had no test (19 % covered, 74 of 74 lines in the lcov). Its
+ * test has to import it, and it lives beside it: a test elsewhere would reach
+ * into `infrastructure/`, which `layers.test.ts` forbids for `ui/`. Raised on
+ * the owner's decision of 2026-11-18, not by an entry added to the list.
  */
-const TOPE_ACOPLADOS = 20;
+const TOPE_ACOPLADOS = 21;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
