@@ -1,12 +1,13 @@
 /**
- * Captures the landing hero screenshot of the app, once per language (#271, R4).
+ * Captures the landing screenshots of the app, per language (#271, R4): the
+ * hero list, the export menu open and a phone crop of the hero.
  *
  * Needs `npm run emulators`, `npm run seed:landing` and `npm run dev` running.
  * For each language it signs in as that language's demo account (the form is
  * always read in English), keeps the session with its IndexedDB, reopens the
  * app in the language to capture, answers every cover request with the
  * synthetic SVG of `landing-covers.js` instead of the network, and writes
- * `apps/web/public/assets/landing/hero-<lang>.webp`.
+ * `apps/web/public/assets/landing/{hero,export,hero-mobile}-<lang>.webp`.
  *
  * Chromium cannot encode webp from `screenshot`, so the PNG goes through a
  * canvas in the page: no image dependency is added. Each file must stay under
@@ -20,6 +21,7 @@ import { emailOf, PASSWORD } from "./landing-demo.js";
 const BASE = process.env.CAPTURE_BASE ?? "http://localhost:3000";
 const OUT = "apps/web/public/assets/landing";
 const SIZE = { width: 1200, height: 675 };
+const PHONE = { width: 390, height: 640 };
 const MAX_BYTES = 60 * 1024;
 const LANGUAGES = [
 	["en", "en-US"],
@@ -52,11 +54,11 @@ async function signIn(email) {
 	return state;
 }
 
-/** The list of the seeded account, as a webp under the size limit. */
-async function capture(state, [lang, locale]) {
+/** Opens the list of a signed-in session, with covers and fonts painted. */
+async function openList(state, locale, viewport) {
 	const context = await browser.newContext({
 		locale,
-		viewport: SIZE,
+		viewport,
 		storageState: state,
 	});
 	await withCovers(context);
@@ -74,7 +76,12 @@ async function capture(state, [lang, locale]) {
 	for (const cover of await covers.all()) {
 		await cover.evaluate((img) => img.decode());
 	}
-	const png = await page.screenshot({ type: "png" });
+	return { context, page };
+}
+
+/** Writes the screenshot as a webp and fails if it is over the size limit. */
+async function save(page, name, clip) {
+	const png = await page.screenshot({ type: "png", clip });
 	const webp = await page.evaluate(async (b64) => {
 		const bitmap = await createImageBitmap(
 			await (await fetch(`data:image/png;base64,${b64}`)).blob(),
@@ -87,17 +94,47 @@ async function capture(state, [lang, locale]) {
 		});
 		return [...new Uint8Array(await blob.arrayBuffer())];
 	}, png.toString("base64"));
-	await context.close();
 	const bytes = Buffer.from(webp);
 	if (bytes.length > MAX_BYTES) {
-		throw new Error(
-			`hero-${lang}.webp is ${bytes.length} bytes, over ${MAX_BYTES}`,
-		);
+		throw new Error(`${name}.webp is ${bytes.length} bytes, over ${MAX_BYTES}`);
 	}
-	writeFileSync(`${OUT}/hero-${lang}.webp`, bytes);
-	console.log(
-		`hero-${lang}.webp ${bytes.length} bytes, ${SIZE.width}x${SIZE.height}`,
+	writeFileSync(`${OUT}/${name}.webp`, bytes);
+	console.log(`${name}.webp ${bytes.length} bytes`);
+}
+
+/** The hero list, the export menu open and the phone crop of the hero. */
+async function capture(state, [lang, locale]) {
+	const desktop = await openList(state, locale, SIZE);
+	await save(desktop.page, `hero-${lang}`);
+	// The menu hangs below its trigger: a crop that holds both, and the cards
+	// behind it for context.
+	await desktop.page
+		.getByRole("button", { name: /^(Export calendar|Exportar el calendario)$/ })
+		.click();
+	await desktop.page.getByRole("menu").waitFor();
+	// The menu fades in with the Web Animations API; a shot taken mid-fade
+	// shows the item half transparent.
+	await desktop.page.evaluate(() =>
+		Promise.all(document.getAnimations().map((a) => a.finished)),
 	);
+	// The item is painted a beat after the animation reports done.
+	await desktop.page.waitForTimeout(600);
+	await save(desktop.page, `export-${lang}`, {
+		x: 0,
+		y: 90,
+		width: SIZE.width,
+		height: 420,
+	});
+	await desktop.context.close();
+	const phone = await openList(state, locale, PHONE);
+	// Cropped above the fixed "New event" button, which would sit on the card.
+	await save(phone.page, `hero-mobile-${lang}`, {
+		x: 0,
+		y: 0,
+		width: PHONE.width,
+		height: PHONE.height - 90,
+	});
+	await phone.context.close();
 }
 
 try {
