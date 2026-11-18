@@ -1230,6 +1230,22 @@
   <source>The planu event list with sample events: cover image, date and place on each card</source>
         <target>La lista de eventos de planu con eventos de ejemplo: imagen de portada, fecha y lugar en cada tarjeta</target>
 </trans-unit>
+<trans-unit id="s9da1c26232ea8233">
+  <source>/assets/landing/share-en.webp</source>
+        <target>/assets/landing/share-es.webp</target>
+</trans-unit>
+<trans-unit id="s048b0b1343f0dddf">
+  <source>The planu share dialog for an event: the owner, and a guest invited as a viewer</source>
+        <target>El diálogo de compartir de planu para un evento: la persona propietaria y un invitado como lector</target>
+</trans-unit>
+<trans-unit id="s99b0dbf041d97f22">
+  <source>/assets/landing/export-en.webp</source>
+        <target>/assets/landing/export-es.webp</target>
+</trans-unit>
+<trans-unit id="s047639120dc5608f">
+  <source>The planu event list with the Export calendar menu open, offering to download an .ics file</source>
+        <target>La lista de eventos de planu con el menú «Exportar el calendario» abierto, que ofrece descargar un fichero .ics</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

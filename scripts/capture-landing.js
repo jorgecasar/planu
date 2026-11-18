@@ -22,6 +22,7 @@ const BASE = process.env.CAPTURE_BASE ?? "http://localhost:3000";
 const OUT = "apps/web/public/assets/landing";
 const SIZE = { width: 1200, height: 675 };
 const PHONE = { width: 390, height: 640 };
+const SHARE = { width: 544, height: 600 };
 const MAX_BYTES = 60 * 1024;
 const LANGUAGES = [
 	["en", "en-US"],
@@ -176,11 +177,12 @@ async function capture(state, [lang, locale]) {
 	);
 	const box = await share.page.getByRole("dialog").boundingBox();
 	if (!box) throw new Error("the share dialog has no box");
+	// A fixed size, centred on the dialog: its height changes with the language
+	// and the page declares one width and height for both.
 	await save(share.page, `share-${lang}`, {
-		x: Math.max(0, box.x - 24),
-		y: Math.max(0, box.y - 24),
-		width: Math.min(SIZE.width, box.width + 48),
-		height: Math.min(SIZE.height, box.height + 48),
+		x: Math.max(0, box.x + box.width / 2 - SHARE.width / 2),
+		y: Math.max(0, box.y + box.height / 2 - SHARE.height / 2),
+		...SHARE,
 	});
 	await share.context.close();
 	const phone = await openList(state, locale, PHONE);

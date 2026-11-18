@@ -1,5 +1,5 @@
 import { msg } from "@lit/localize";
-import { html, type TemplateResult } from "lit";
+import { html, nothing, type TemplateResult } from "lit";
 import { cookiesNotice } from "./legal.js";
 
 /**
@@ -161,6 +161,14 @@ function features(): TemplateResult {
 						msg(
 							"Invite someone by email and decide whether they only look or can edit too. They need a planu account and accept the invitation, and you can take their access away whenever you like.",
 						),
+						{
+							src: msg("/assets/landing/share-en.webp"),
+							alt: msg(
+								"The planu share dialog for an event: the owner, and a guest invited as a viewer",
+							),
+							width: 544,
+							height: 600,
+						},
 					)}
 					${featureCard(
 						"image",
@@ -175,6 +183,14 @@ function features(): TemplateResult {
 						msg(
 							"Download an event, or your filtered agenda, as an .ics file. A single event can also go to Google Calendar in one click.",
 						),
+						{
+							src: msg("/assets/landing/export-en.webp"),
+							alt: msg(
+								"The planu event list with the Export calendar menu open, offering to download an .ics file",
+							),
+							width: 1200,
+							height: 420,
+						},
 					)}
 				</div>
 			</div>
@@ -255,16 +271,37 @@ function rules(): TemplateResult {
 	`;
 }
 
+/** A capture of the app under a benefit: below the fold, so it loads lazily. */
+interface Shot {
+	src: string;
+	alt: string;
+	width: number;
+	height: number;
+}
 function featureCard(
 	iconName: string,
 	title: string,
 	description: string,
+	shot?: Shot,
 ): TemplateResult {
 	return html`
 		<article class="feature-card wa-stack wa-gap-s">
 			${icon(iconName)}
 			<h3 class="wa-heading-l">${title}</h3>
 			<p class="wa-color-text-quiet">${description}</p>
+			${
+				shot
+					? html`<img
+						class="feature-shot"
+						src=${shot.src}
+						alt=${shot.alt}
+						width=${shot.width}
+						height=${shot.height}
+						loading="lazy"
+						decoding="async"
+					/>`
+					: nothing
+			}
 		</article>
 	`;
 }
