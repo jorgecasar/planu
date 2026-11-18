@@ -158,6 +158,35 @@ footer a:hover {
 	padding-inline: var(--wa-space-xl);
 }
 
+/*
+ * Motion only for who has not asked for less. The text block rises a few
+ * pixels as the page paints; it never starts transparent and the hero image
+ * is not animated, so nothing is hidden and the LCP is the same as without it.
+ * With `prefers-reduced-motion: reduce` none of this applies.
+ */
+@media (prefers-reduced-motion: no-preference) {
+	@keyframes hero-rise {
+		from {
+			transform: translateY(12px);
+		}
+		to {
+			transform: none;
+		}
+	}
+
+	.hero > div {
+		animation: hero-rise 0.5s ease-out both;
+	}
+
+	a.wa-button {
+		transition: transform 0.12s ease-out;
+	}
+
+	a.wa-button:active {
+		transform: scale(0.97);
+	}
+}
+
 .site-header {
 	padding: var(--wa-space-s) var(--wa-space-xl);
 }
