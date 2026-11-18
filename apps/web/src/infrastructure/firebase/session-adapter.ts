@@ -63,7 +63,7 @@ export function toSessionUser(user: User): SessionUser {
 const CODIGOS: Record<string, SessionErrorCode> = {
 	"auth/invalid-credential": "invalid-credential",
 	"auth/user-not-found": "invalid-credential",
-	"auth/wrong-password": "invalid-credential",
+	"auth/wrong-password": "invalid-credential", // NOSONAR S2068: a Firebase error code, not a credential
 	"auth/invalid-email": "invalid-email",
 	// What `verifyBeforeUpdateEmail()` raises for a malformed target address:
 	// to the person it is the same mistake as at sign-up.
