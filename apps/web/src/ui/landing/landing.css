@@ -182,6 +182,13 @@ footer a:hover {
 	border-radius: var(--wa-border-radius-l);
 	box-shadow: var(--wa-shadow-l);
 }
+/* The same breakpoint as the `<source media>` of the hero: on a phone the
+   browser takes the narrow crop, and a ratio of 1200 / 675 would stretch it. */
+@media (max-width: 600px) {
+	.hero-figure img {
+		aspect-ratio: 390 / 550;
+	}
+}
 
 /* Páginas legales (T30): privacidad, términos. */
 .legal-page {
