@@ -16,7 +16,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import { coverNameOf, coverSvg } from "./landing-covers.js";
-import { emailOf, PASSWORD } from "./landing-demo.js";
+import { emailOf, guestEmailOf, PASSWORD } from "./landing-demo.js";
 
 const BASE = process.env.CAPTURE_BASE ?? "http://localhost:3000";
 const OUT = "apps/web/public/assets/landing";
@@ -49,6 +49,9 @@ async function signIn(email) {
 	await page.getByLabel("Password", { exact: true }).first().fill(PASSWORD);
 	await page.getByRole("button", { name: "Sign in" }).click();
 	await page.waitForURL(`${BASE}/app`);
+	// Signing in publishes the user to the directory in the background; leaving
+	// at once left the guest unfindable by email.
+	await page.waitForTimeout(3000);
 	const state = await context.storageState({ indexedDB: true });
 	await context.close();
 	return state;
@@ -102,6 +105,45 @@ async function save(page, name, clip) {
 	console.log(`${name}.webp ${bytes.length} bytes`);
 }
 
+/**
+ * Invites the demo guest to the owner's first event and has them accept, so the
+ * share dialog has a real row. Done in English, whatever the language being
+ * captured: the form is only read here, not shown. Needs a fresh seed: a guest
+ * who is already in the event makes the invitation fail.
+ */
+async function inviteGuest(ownerState, lang) {
+	const guestState = await signIn(guestEmailOf(lang));
+	const owner = await openList(ownerState, "en-US", SIZE);
+	await openShare(owner.page);
+	await owner.page.getByLabel("Invite by email").fill(guestEmailOf(lang));
+	await owner.page.getByRole("button", { name: "Invite", exact: true }).click();
+	await owner.page.getByText("Invitation sent.").waitFor();
+	await owner.context.close();
+	// No list to wait for yet: the invitation is what the guest sees first.
+	const context = await browser.newContext({
+		locale: "en-US",
+		viewport: SIZE,
+		storageState: guestState,
+	});
+	await withCovers(context);
+	const page = await context.newPage();
+	await page.goto(`${BASE}/app`);
+	await page.getByRole("button", { name: "Accept" }).click();
+	await page.locator("planu-event-card").first().waitFor();
+	await context.close();
+}
+
+/** Opens the share dialog of the first card, in any language. */
+async function openShare(page) {
+	await page
+		.locator("planu-event-card")
+		.first()
+		.locator('wa-button[slot="trigger"]')
+		.click();
+	await page.locator('wa-dropdown-item[value="share"]').first().click();
+	await page.getByRole("dialog").waitFor();
+}
+
 /** The hero list, the export menu open and the phone crop of the hero. */
 async function capture(state, [lang, locale]) {
 	const desktop = await openList(state, locale, SIZE);
@@ -126,6 +168,21 @@ async function capture(state, [lang, locale]) {
 		height: 420,
 	});
 	await desktop.context.close();
+	const share = await openList(state, locale, SIZE);
+	await openShare(share.page);
+	await share.page.waitForTimeout(600);
+	await share.page.evaluate(() =>
+		Promise.all(document.getAnimations().map((a) => a.finished)),
+	);
+	const box = await share.page.getByRole("dialog").boundingBox();
+	if (!box) throw new Error("the share dialog has no box");
+	await save(share.page, `share-${lang}`, {
+		x: Math.max(0, box.x - 24),
+		y: Math.max(0, box.y - 24),
+		width: Math.min(SIZE.width, box.width + 48),
+		height: Math.min(SIZE.height, box.height + 48),
+	});
+	await share.context.close();
 	const phone = await openList(state, locale, PHONE);
 	// Cropped above the fixed "New event" button, which would sit on the card.
 	await save(phone.page, `hero-mobile-${lang}`, {
@@ -140,7 +197,9 @@ async function capture(state, [lang, locale]) {
 try {
 	mkdirSync(OUT, { recursive: true });
 	for (const language of LANGUAGES) {
-		await capture(await signIn(emailOf(language[0])), language);
+		const state = await signIn(emailOf(language[0]));
+		await inviteGuest(state, language[0]);
+		await capture(state, language);
 	}
 } finally {
 	await browser.close();

@@ -12,7 +12,13 @@
  * dates are relative to today so the list always shows what is coming.
  */
 import { COVER_NAMES, coverUrl } from "./landing-covers.js";
-import { EVENTS, emailOf, LANGUAGES, PASSWORD } from "./landing-demo.js";
+import {
+	EVENTS,
+	emailOf,
+	guestEmailOf,
+	LANGUAGES,
+	PASSWORD,
+} from "./landing-demo.js";
 import { openVerifiedSession } from "./seed-session.js";
 
 const FIRESTORE =
@@ -98,4 +104,11 @@ async function seed(lang) {
 	console.log(`${EVENTS.length} events for ${email}`);
 }
 
-for (const lang of LANGUAGES) await seed(lang);
+for (const lang of LANGUAGES) {
+	await seed(lang);
+	// The guest the share dialog will show; the capture script invites them.
+	await openVerifiedSession({
+		email: guestEmailOf(lang),
+		password: PASSWORD,
+	});
+}
