@@ -8,7 +8,7 @@
 		"build": "tsc --noEmit && vite build",
 		"preview": "vite preview",
 		"test": "TZ=America/Santiago vitest run",
-		"test:coverage": "TZ=America/Santiago vitest run --coverage",
+		"test:coverage": "TZ=America/Santiago vitest run --coverage && vitest run --config vitest.arch.config.ts --coverage",
 		"test:watch": "TZ=America/Santiago vitest",
 		"test:e2e": "playwright test",
 		"test:e2e:landing": "playwright test --config playwright.landing.config.ts",
