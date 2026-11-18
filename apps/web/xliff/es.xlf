@@ -698,10 +698,6 @@
   <source>Suggest tags with AI</source>
         <target>Sugerir etiquetas con IA</target>
 </trans-unit>
-<trans-unit id="s61042097e512fd52">
-  <source>Screenshot of planu showing event cards with title, date, location and cover image</source>
-        <target>Captura de planu mostrando tarjetas de eventos con título, fecha, ubicación e imagen de portada</target>
-  </trans-unit>
 <trans-unit id="se78c02e9a98a0f47">
   <source>Privacy</source>
         <target>Privacidad</target>
@@ -1225,6 +1221,14 @@
 <trans-unit id="s1b3f5e3f0d796ecd">
   <source>Withdraw offer</source>
   <target>Retirar oferta</target>
+</trans-unit>
+<trans-unit id="s2191a1709a7f5584">
+  <source>/assets/landing/hero-en.webp</source>
+        <target>/assets/landing/hero-es.webp</target>
+</trans-unit>
+<trans-unit id="s2e5a5ada1a114707">
+  <source>The planu event list with sample events: cover image, date and place on each card</source>
+        <target>La lista de eventos de planu con eventos de ejemplo: imagen de portada, fecha y lugar en cada tarjeta</target>
 </trans-unit>
 </body>
 </file>

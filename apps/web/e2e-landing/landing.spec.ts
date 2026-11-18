@@ -690,6 +690,18 @@ test("sitemap.xml lista sólo las URLs de la landing, con hreflang", async ({
 	expect(body).toContain('hreflang="x-default"');
 });
 
+test("el hero en español usa la captura en español, de 1200×675 y bajo 60 KB", async ({
+	page,
+	request,
+}) => {
+	await page.goto("/es/");
+	const img = page.locator("figure.hero-figure img");
+	await expect(img).toHaveAttribute("src", "/assets/landing/hero-es.webp");
+	await expect(img).toHaveAttribute("alt", /lista de eventos de planu/);
+	const response = await request.get("/assets/landing/hero-es.webp");
+	expect(response.status()).toBe(200);
+	expect((await response.body()).length).toBeLessThan(60 * 1024);
+});
 test("la imagen del hero existe, con las medidas que declara y sin recorte inesperado", async ({
 	page,
 	request,
@@ -709,11 +721,14 @@ test("la imagen del hero existe, con las medidas que declara y sin recorte inesp
 	expect(ancho).toBe(1200);
 	expect(alto).toBe(675);
 
-	const response = await request.get("/assets/landing/hero.webp");
+	// La captura es la de este idioma, y se pide sin diferir: es el LCP.
+	const src = await img.getAttribute("src");
+	expect(src).toBe("/assets/landing/hero-en.webp");
+	await expect(img).not.toHaveAttribute("loading", "lazy");
+	const response = await request.get(src ?? "");
 	expect(response.status()).toBe(200);
-	// No es el peso exacto —cambia con cada regeneración— sino que sigue
-	// siendo una imagen comprimida y no, por ejemplo, el PNG sin comprimir de
-	// 2 MB que generó la herramienta antes de redimensionar.
+	// No es el peso exacto —cambia con cada regeneración— sino el tope de la
+	// especificación: 60 KB por captura.
 	const bytes = (await response.body()).length;
-	expect(bytes).toBeLessThan(200 * 1024);
+	expect(bytes).toBeLessThan(60 * 1024);
 });

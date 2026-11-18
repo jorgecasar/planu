@@ -130,8 +130,8 @@ export function hero(): TemplateResult {
 			</div>
 			<figure class="hero-figure">
 				<img
-					src="/assets/landing/hero.webp"
-					alt="${msg("Screenshot of planu showing event cards with title, date, location and cover image")}"
+					src="${msg("/assets/landing/hero-en.webp")}"
+					alt="${msg("The planu event list with sample events: cover image, date and place on each card")}"
 					width="1200"
 					height="675"
 				/>
