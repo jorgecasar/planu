@@ -32,6 +32,7 @@ function fakeSharing(found: () => Promise<DirectoryEntry | null>) {
 		listPendingInvites: vi.fn().mockResolvedValue([]),
 		listEmailOffers: vi.fn().mockResolvedValue([]),
 		revokeEmailOffer: vi.fn().mockResolvedValue(undefined),
+		revokeInvite: vi.fn().mockResolvedValue(undefined),
 		inviteToEvent: vi.fn().mockResolvedValue(undefined),
 		offerInviteByEmail: vi.fn().mockResolvedValue(undefined),
 		updateEventMembership: vi.fn().mockResolvedValue(undefined),
@@ -378,6 +379,127 @@ test("lists the email offers and withdraws one, then reloads (GH-192)", async ()
 		expect(el.shadowRoot?.querySelector("[data-action=withdraw-offer]")).toBe(
 			null,
 		),
+	);
+});
+
+/** Opens the dialog with one pending invitation to Bea (an Editor) and cancels it. */
+async function cancelInvitation(sharing = fakeSharing(async () => null)) {
+	sharing.findProfiles.mockResolvedValue(
+		new Map([["bea-uid", { displayName: "Bea", photoURL: "" }]]),
+	);
+	sharing.listPendingInvites
+		.mockResolvedValueOnce([
+			{
+				id: "inv-1",
+				eventId: "event-1",
+				inviteeUid: "bea-uid",
+				inviteeEmail: "bea@example.com",
+				role: "editor",
+			},
+		])
+		.mockResolvedValue([]);
+	const el = document.createElement("planu-share-dialog");
+	Object.assign(el, { user: OWNER, sharing, event: EVENT, open: true });
+	document.body.append(el);
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.querySelector("wa-dropdown")).not.toBeNull(),
+	);
+	const live = el.shadowRoot?.querySelector("[role=status].live");
+	// Focus on the row's menu, not the heading it opens on, or the focus test passes alone.
+	const trigger = el.shadowRoot?.querySelector<HTMLElement>(
+		"wa-dropdown [slot=trigger]",
+	);
+	trigger?.focus();
+	expect(el.shadowRoot?.activeElement).toBe(trigger);
+	el.shadowRoot
+		?.querySelector("wa-dropdown")
+		?.dispatchEvent(
+			new CustomEvent("wa-select", { detail: { item: { value: "remove" } } }),
+		);
+	return { el, sharing, live };
+}
+
+test("cancelling an invitation writes at once and announces who, with «Undo» (GH-321)", async () => {
+	const { el, sharing, live } = await cancelInvitation();
+	expect(live?.textContent?.trim()).toBe("");
+	await vi.waitFor(() =>
+		expect(sharing.revokeInvite).toHaveBeenCalledWith("inv-1"),
+	);
+	expect(el.shadowRoot?.querySelector(".confirm")).toBeNull();
+	await vi.waitFor(() =>
+		expect(live?.textContent?.trim()).toBe(
+			"The invitation to Bea was cancelled.",
+		),
+	);
+	expect(el.shadowRoot?.querySelector("[role=status].live")).toBe(live);
+	expect(
+		el.shadowRoot?.querySelector("[data-action=undo-cancel]"),
+	).not.toBeNull();
+});
+
+const undoButton = (el: HTMLElement) =>
+	vi.waitFor(() => {
+		const found = el.shadowRoot?.querySelector<HTMLElement>(
+			"[data-action=undo-cancel]",
+		);
+		if (!found) throw new Error("No undo yet");
+		return found;
+	});
+
+test("«Undo» recreates the invitation with the same role and invitee (GH-321)", async () => {
+	const { el, sharing } = await cancelInvitation();
+	(await undoButton(el)).click();
+
+	await vi.waitFor(() =>
+		expect(sharing.inviteToEvent).toHaveBeenCalledTimes(1),
+	);
+	expect(sharing.inviteToEvent).toHaveBeenCalledWith({
+		eventId: "event-1",
+		eventTitle: "Concert",
+		inviteeEmail: "bea@example.com",
+		invitedBy: "owner-uid",
+		invitedByName: "Ana",
+		role: "editor",
+		inviteeUid: "bea-uid",
+	});
+	await vi.waitFor(() =>
+		expect(
+			el.shadowRoot?.querySelector("[role=status].live")?.textContent?.trim(),
+		).toBe("Invitation restored."),
+	);
+	expect(el.shadowRoot?.querySelector("[data-action=undo-cancel]")).toBeNull();
+});
+
+test("«Undo» does not call the port when the event is full (GH-321)", async () => {
+	const { el, sharing } = await cancelInvitation();
+	const undo = await undoButton(el);
+	el.event = {
+		...EVENT,
+		memberIds: [OWNER.uid, ...Array.from({ length: 20 }, (_, i) => `g${i}`)],
+	};
+	await el.updateComplete;
+	undo.click();
+
+	await vi.waitFor(() => expect(el.shadowRoot?.innerHTML).toContain("alert"));
+	expect(el.shadowRoot?.textContent).toContain(
+		"This event has reached its limit of guests.",
+	);
+	expect(sharing.inviteToEvent).not.toHaveBeenCalled();
+});
+
+test("a failed cancellation announces nothing and offers no «Undo» (GH-321)", async () => {
+	const sharing = fakeSharing(async () => null);
+	sharing.revokeInvite.mockRejectedValue(new Error("denied"));
+	const { el, live } = await cancelInvitation(sharing);
+	await vi.waitFor(() => expect(el.shadowRoot?.innerHTML).toContain("alert"));
+	expect(live?.textContent?.trim()).toBe("");
+	expect(el.shadowRoot?.querySelector("[data-action=undo-cancel]")).toBeNull();
+});
+
+test("once the cancelled row is gone, focus moves to the list heading (GH-321)", async () => {
+	const { el } = await cancelInvitation();
+	await vi.waitFor(() =>
+		expect(el.shadowRoot?.activeElement?.tagName).toBe("H3"),
 	);
 });
 

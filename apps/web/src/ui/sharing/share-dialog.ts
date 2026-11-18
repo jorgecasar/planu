@@ -133,6 +133,11 @@ export class PlanuShareDialog extends LitElement {
 		| { uid: string; role: EventRole; email: string | undefined }
 		| undefined;
 
+	/** What «Undo» needs about the invitation just cancelled. */
+	@state() private undoCancel:
+		| { uid: string; email: string; role: EventRole }
+		| undefined;
+
 	/** The member whose "Remove access" is waiting for its answer. */
 	@state() private confirmingKey: string | undefined;
 
@@ -174,6 +179,7 @@ export class PlanuShareDialog extends LitElement {
 		if (changed.has("open")) {
 			this.announcement = "";
 			this.reinvite = undefined;
+			this.undoCancel = undefined;
 		}
 	}
 
@@ -233,6 +239,20 @@ export class PlanuShareDialog extends LitElement {
 								@click=${this.#reinviteRemoved}
 							>
 								${msg("Invite again")}
+							</wa-button>`
+						: nothing
+				}
+				${
+					this.undoCancel
+						? html`<wa-button
+								class="live"
+								data-action="undo-cancel"
+								size="s"
+								appearance="outlined"
+								?disabled=${this.busy}
+								@click=${this.#undoCancelInvite}
+							>
+								${msg("Undo")}
 							</wa-button>`
 						: nothing
 				}
@@ -596,16 +616,61 @@ export class PlanuShareDialog extends LitElement {
 
 		this.error = "";
 		this.notice = "";
+		this.announcement = "";
+		this.undoCancel = undefined;
 		this.busy = true;
+		this.#focusAfterRemoval = {
+			key: person.key,
+			index: this.#access.people.findIndex((p) => p.key === person.key),
+		};
 		try {
 			await sharing.revokeInvite(person.key);
+			this.announcement = msg(
+				str`The invitation to ${person.name || person.email} was cancelled.`,
+			);
+			this.undoCancel = {
+				uid: person.uid,
+				email: person.email,
+				role: person.role,
+			};
 		} catch {
+			this.#focusAfterRemoval = undefined;
 			this.error = msg("The change could not be saved. Please try again.");
 		} finally {
 			this.busy = false;
 			await this.#access.load().catch(() => {});
 		}
 	}
+
+	readonly #undoCancelInvite = async (): Promise<void> => {
+		const { sharing, event, user, undoCancel } = this;
+		if (!sharing || !event || !user || !undoCancel || this.busy) return;
+
+		this.error = "";
+		if (this.#atCapacity()) {
+			this.error = msg("This event has reached its limit of guests.");
+			return;
+		}
+		this.busy = true;
+		try {
+			await sharing.inviteToEvent({
+				eventId: event.id,
+				eventTitle: event.title,
+				inviteeEmail: undoCancel.email,
+				invitedBy: user.uid,
+				invitedByName: user.displayName ?? "",
+				role: undoCancel.role,
+				inviteeUid: undoCancel.uid,
+			});
+			this.undoCancel = undefined;
+			this.announcement = msg("Invitation restored.");
+		} catch {
+			this.error = msg("The invitation could not be saved. Please try again.");
+		} finally {
+			this.busy = false;
+			await this.#access.load().catch(() => {});
+		}
+	};
 
 	async #withdrawOffer(id: string): Promise<void> {
 		const { sharing } = this;
@@ -635,6 +700,7 @@ export class PlanuShareDialog extends LitElement {
 		this.notice = "";
 		this.announcement = "";
 		this.reinvite = undefined;
+		this.undoCancel = undefined;
 		this.busy = true;
 		try {
 			const email = await sharing.updateEventMembership(
