@@ -269,3 +269,157 @@ test("elegir «Borrar» en el menú pide confirmación", async () => {
 	expect(dialog?.open).toBe(true);
 	el.remove();
 });
+
+// ── Leaving and deleting: the write and what the card says about it ─────────
+
+interface Calls {
+	leave: unknown[][];
+	delete: unknown[][];
+}
+
+/** A repository that records the calls and fails on demand. */
+function withRepository(
+	el: PlanuEventCard,
+	failWith?: Error,
+): { calls: Calls } {
+	const calls: Calls = { leave: [], delete: [] };
+	const write =
+		(kind: keyof Calls) =>
+		async (...args: unknown[]) => {
+			calls[kind].push(args);
+			if (failWith) throw failWith;
+		};
+	(el as unknown as { eventRepository: unknown }).eventRepository = {
+		leave: write("leave"),
+		delete: write("delete"),
+	};
+	return { calls };
+}
+
+const dialogOf = (el: PlanuEventCard, label: string) =>
+	el.shadowRoot?.querySelector<HTMLElement & { open: boolean }>(
+		`wa-dialog[label="${label}"]`,
+	);
+
+/** Resolves when the dialog reports it finished the given transition. */
+const after = (dialog: Element | null | undefined, event: string) =>
+	new Promise<void>((resolve) =>
+		dialog?.addEventListener(event, () => resolve(), { once: true }),
+	);
+
+/** Opens a dialog from the menu and waits until it is fully open. */
+async function openDialog(
+	el: PlanuEventCard,
+	item: string,
+	label: string,
+): Promise<void> {
+	const shown = after(dialogOf(el, label), "wa-after-show");
+	await pick(el, item);
+	await shown;
+}
+
+/**
+ * Presses the footer button of a dialog by its text. `closes` is whether the
+ * press should end with the dialog shut: its `open` only goes false once the
+ * hide animation ends, so that case waits for `wa-after-hide`, and the others
+ * wait for nothing.
+ */
+async function press(
+	el: PlanuEventCard,
+	label: string,
+	text: string,
+	closes: boolean,
+): Promise<void> {
+	const dialog = dialogOf(el, label);
+	const hidden = closes ? after(dialog, "wa-after-hide") : Promise.resolve();
+	const button = [...(dialog?.querySelectorAll("wa-button") ?? [])].find(
+		(b) => b.textContent?.trim() === text,
+	);
+	button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await hidden;
+	// The write settles, then the state it set renders.
+	await new Promise((resolve) => setTimeout(resolve));
+	await el.updateComplete;
+}
+
+const guest = () => event({ memberIds: ["u1", "u2"], roles: { u2: "editor" } });
+
+test("salir de un evento ajeno quita al invitado y cierra el diálogo", async () => {
+	const el = await mount(guest(), "u2");
+	const { calls } = withRepository(el);
+
+	await openDialog(el, "leave", "Leave event");
+	expect(dialogOf(el, "Leave event")?.open).toBe(true);
+	await press(el, "Leave event", "Leave", true);
+
+	expect(calls.leave).toEqual([["e1", "u2"]]);
+	expect(dialogOf(el, "Leave event")?.open).toBe(false);
+	expect(el.shadowRoot?.querySelector("wa-callout")).toBeNull();
+	el.remove();
+});
+
+test("cancelar la salida no escribe nada", async () => {
+	const el = await mount(guest(), "u2");
+	const { calls } = withRepository(el);
+
+	await openDialog(el, "leave", "Leave event");
+	await press(el, "Leave event", "Cancel", true);
+
+	expect(calls.leave).toEqual([]);
+	expect(dialogOf(el, "Leave event")?.open).toBe(false);
+	el.remove();
+});
+
+test("si salir falla, la tarjeta lo dice y cierra el diálogo", async () => {
+	const el = await mount(guest(), "u2");
+	withRepository(el, new Error("denied"));
+
+	await openDialog(el, "leave", "Leave event");
+	await press(el, "Leave event", "Leave", true);
+
+	expect(el.shadowRoot?.querySelector("wa-callout")?.textContent?.trim()).toBe(
+		"You could not be removed from this event.",
+	);
+	expect(dialogOf(el, "Leave event")?.open).toBe(false);
+	el.remove();
+});
+
+test("confirmar el borrado lo escribe una vez y cierra el diálogo", async () => {
+	const el = await mount(event());
+	const { calls } = withRepository(el);
+
+	await openDialog(el, "delete", "Delete event");
+	await press(el, "Delete event", "Delete", true);
+
+	expect(calls.delete).toEqual([["e1", "u1"]]);
+	expect(dialogOf(el, "Delete event")?.open).toBe(false);
+	el.remove();
+});
+
+test("cancelar el borrado no escribe nada", async () => {
+	const el = await mount(event());
+	const { calls } = withRepository(el);
+
+	await openDialog(el, "delete", "Delete event");
+	await press(el, "Delete event", "Cancel", true);
+
+	expect(calls.delete).toEqual([]);
+	expect(dialogOf(el, "Delete event")?.open).toBe(false);
+	el.remove();
+});
+
+test("si borrar falla, el diálogo sigue abierto con el motivo", async () => {
+	const el = await mount(event());
+	withRepository(el, new Error("denied"));
+
+	await openDialog(el, "delete", "Delete event");
+	await press(el, "Delete event", "Delete", false);
+
+	expect(dialogOf(el, "Delete event")?.open).toBe(true);
+	expect(
+		dialogOf(el, "Delete event")
+			?.querySelector("wa-callout")
+			?.textContent?.trim(),
+	).toBe("The event could not be deleted. Please try again.");
+	el.remove();
+});
