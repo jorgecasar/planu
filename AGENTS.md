@@ -273,7 +273,7 @@ npm run dev         # servidor de desarrollo en http://localhost:3000
 npm run build       # typecheck + build de producción a apps/web/dist
 npm run build:landing  # landing prerrenderizada + app, a dist/ (lo que se publica)
 npm test            # tests unitarios (Vitest en Chromium real)
-npm run test:coverage  # lo mismo, y escribe apps/web/coverage/lcov.info para Sonar
+npm run test:coverage  # lo mismo, y escribe los lcov para Sonar (app y arch)
 node scripts/check-coverage-fresh.js  # 0 si el lcov es más nuevo que src/, 1 si no
 npm run test:e2e    # tests e2e con Playwright y axe, contra `npm run dev`
 npm run test:e2e:landing  # e2e de la landing, contra dist/ (exige build:landing)
@@ -287,8 +287,16 @@ npm run emulators   # emuladores de Firebase (auth, firestore, storage)
 `npm test` y los dos `test:e2e*` necesitan el navegador de Playwright:
 `npx playwright install chromium`.
 
-**Cobertura para Sonar.** El quality gate lee `apps/web/coverage/lcov.info`
-(`sonar.javascript.lcov.reportPaths`). Orden: `npm run test:coverage`, luego
+**Cobertura para Sonar.** El quality gate lee dos informes
+(`sonar.javascript.lcov.reportPaths`): `apps/web/coverage/lcov.info`, de la
+aplicación, y `apps/web/coverage/arch/lcov.info`, que sólo mide
+`scripts/check-coverage-fresh.js` porque es el único script con test. El resto
+de `scripts/` —capturas, semillas, emuladores— necesita navegador, emuladores o
+servicios externos y no cuenta para la cobertura (`sonar.coverage.exclusions`;
+siguen analizándose). Un script nuevo con test se mide añadiéndolo al `include`
+de `vitest.arch.config.ts`; sin test, a esa exclusión, y es decisión de
+revisión: 158 líneas de cuatro scripts nuevos bastaron para poner `new_coverage`
+en 70 % con la aplicación al 95 %. Orden: `npm run test:coverage`, luego
 `node scripts/check-coverage-fresh.js` y, con 0, `kj scan`. Un lcov más viejo
 que `src/` da un gate calculado sobre código que ya no existe, y por eso la guarda
 sale con 1 y dice qué ejecutar; ignora `src/generated/`, que no se mide. El lcov
