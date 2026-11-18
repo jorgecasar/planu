@@ -2,6 +2,7 @@ import "@awesome.me/webawesome/dist/styles/webawesome.css";
 import "../styles/theme-planu.css";
 import "../styles/fonts.css";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { sortOptions } from "../../domain/sort-events.js";
 import { initLocale } from "../../i18n/localization.js";
 import "./events-view.js";
 import { widestLabel } from "./events-view.js";
@@ -296,6 +297,56 @@ test("cerrar el editor deja de editar", async () => {
 	expect(view.editorOpen).toBe(false);
 	expect(view.editing).toBeUndefined();
 	await dispose(view);
+});
+
+test("cambiar la vista pinta el calendario o la agenda y la recuerda", async () => {
+	localStorage.removeItem("planu.events.view");
+	const view = await mountView("ready", [stored("a")]);
+	const group = view.shadowRoot?.querySelector(
+		"wa-radio-group",
+	) as HTMLElement & { value: string };
+	const choose = async (value: string) => {
+		group.value = value;
+		group.dispatchEvent(new Event("change"));
+		await view.updateComplete;
+	};
+
+	expect(view.shadowRoot?.querySelector("planu-event-groups")).not.toBeNull();
+
+	await choose("calendar");
+	expect(view.shadowRoot?.querySelector("planu-calendar-view")).not.toBeNull();
+	expect(localStorage.getItem("planu.events.view")).toBe("calendar");
+
+	await choose("agenda");
+	expect(view.shadowRoot?.querySelector("planu-agenda-view")).not.toBeNull();
+	expect(localStorage.getItem("planu.events.view")).toBe("agenda");
+
+	// A value nobody offers falls back to the default instead of breaking.
+	await choose("nonsense");
+	expect(view.shadowRoot?.querySelector("planu-event-groups")).not.toBeNull();
+	view.remove();
+	localStorage.removeItem("planu.events.view");
+});
+
+test("cambiar el orden lo guarda, y repetir el mismo no escribe", async () => {
+	localStorage.removeItem("planu.events.sort");
+	const view = await mountView("ready", [stored("a")]);
+	const select = view.shadowRoot?.querySelector("wa-select") as HTMLElement & {
+		value: string;
+	};
+	const other = sortOptions().find((option) => option.value !== select.value);
+	expect(other).toBeDefined();
+
+	select.value = other?.value ?? "";
+	select.dispatchEvent(new Event("change"));
+	await view.updateComplete;
+	expect(localStorage.getItem("planu.events.sort")).toBe(other?.value);
+
+	localStorage.removeItem("planu.events.sort");
+	select.dispatchEvent(new Event("change"));
+	await view.updateComplete;
+	expect(localStorage.getItem("planu.events.sort")).toBeNull();
+	view.remove();
 });
 
 test("aiAvailable is not written once the element is disconnected", async () => {
