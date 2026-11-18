@@ -121,6 +121,183 @@ test("aiAvailable stays false while pending and when unavailable", async () => {
 	probe.remove();
 });
 
+// ── What the list shows, and what the toolbar and the editor do ──────────────
+
+type ViewProbe = HTMLElement & {
+	updateComplete: Promise<unknown>;
+	eventsSnapshot: unknown;
+	user: unknown;
+	editorOpen: boolean;
+	editing: unknown;
+	draft: unknown;
+	draftIsSample: boolean;
+};
+
+const stored = (id: string, overrides: Record<string, unknown> = {}) => ({
+	id,
+	title: `Evento ${id}`,
+	description: "",
+	location: "",
+	startDate: null,
+	endDate: null,
+	imageUrl: "",
+	userId: "u1",
+	memberIds: ["u1"],
+	roles: {},
+	allDay: true,
+	tags: [],
+	createdAt: null,
+	...overrides,
+});
+
+async function mountView(
+	status: "loading" | "ready" | "error" | undefined,
+	events: ReturnType<typeof stored>[] = [],
+): Promise<ViewProbe> {
+	const view = document.createElement(
+		"planu-events-view",
+	) as unknown as ViewProbe;
+	view.eventsSnapshot = status ? { status, events } : undefined;
+	view.user = { uid: "u1" };
+	document.body.append(view);
+	await view.updateComplete;
+	return view;
+}
+
+/** What `planu-event-filters` reports when the person narrows the list. */
+async function filter(
+	view: ViewProbe,
+	change: { searchTerm?: string; ownership?: string; tags?: string[] },
+): Promise<void> {
+	view.shadowRoot?.querySelector("planu-event-filters")?.dispatchEvent(
+		new CustomEvent("planu-filters-change", {
+			detail: { searchTerm: "", ownership: "all", tags: [], ...change },
+		}),
+	);
+	await view.updateComplete;
+}
+
+/**
+ * Removes the view once the editor's dialog has finished updating: a dialog
+ * asked to open and detached in the same turn rejects `showModal()` with
+ * nobody listening, and Vitest reports it as an unhandled error.
+ */
+async function dispose(view: ViewProbe): Promise<void> {
+	const editor = view.shadowRoot?.querySelector("planu-event-editor") as
+		| (HTMLElement & { updateComplete: Promise<unknown> })
+		| null;
+	await editor?.updateComplete;
+	const dialog = editor?.shadowRoot?.querySelector("wa-dialog") as
+		| (HTMLElement & { updateComplete: Promise<unknown> })
+		| null
+		| undefined;
+	await dialog?.updateComplete;
+	view.remove();
+}
+
+const emptyMessage = (view: ViewProbe) =>
+	view.shadowRoot?.querySelector(".empty p")?.textContent?.trim();
+
+test("sin conexión con los datos, la vista avisa con una alerta", async () => {
+	const view = await mountView("error");
+	const alert = view.shadowRoot?.querySelector('wa-callout[role="alert"]');
+	expect(alert?.textContent?.trim()).toBe(
+		"No se pudieron cargar tus eventos. Revisa la conexión y recarga la página.",
+	);
+	view.remove();
+});
+
+test("mientras cargan los eventos se pintan seis esqueletos, no una lista vacía", async () => {
+	for (const status of ["loading", undefined] as const) {
+		const view = await mountView(status);
+		expect(view.shadowRoot?.querySelectorAll("wa-skeleton")).toHaveLength(6);
+		expect(view.shadowRoot?.querySelector(".empty")).toBeNull();
+		view.remove();
+	}
+});
+
+test("cada filtro que vacía la lista dice su propio motivo", async () => {
+	const view = await mountView("ready", [stored("a")]);
+
+	await filter(view, { ownership: "shared" });
+	expect(emptyMessage(view)).toBe(
+		"Todavía nadie ha compartido un evento contigo.",
+	);
+
+	await filter(view, { ownership: "mine", searchTerm: "zzz" });
+	expect(emptyMessage(view)).toBe(
+		"Ningún evento coincide con la búsqueda, las etiquetas o el filtro de fechas.",
+	);
+
+	view.eventsSnapshot = {
+		status: "ready",
+		events: [stored("b", { userId: "u2", memberIds: ["u1", "u2"] })],
+	};
+	await filter(view, { ownership: "mine" });
+	expect(emptyMessage(view)).toBe("Todavía no has creado ningún evento.");
+	view.remove();
+});
+
+test("sin ningún evento se ofrece crear uno, y «probar un ejemplo» abre el editor con él", async () => {
+	const view = await mountView("ready");
+	const empty = view.shadowRoot?.querySelector("planu-empty-state");
+	expect(empty).not.toBeNull();
+	expect(view.editorOpen).toBe(false);
+
+	empty?.dispatchEvent(new CustomEvent("planu-try-sample"));
+	await view.updateComplete;
+	expect(view.editorOpen).toBe(true);
+	expect(view.draftIsSample).toBe(true);
+	expect(view.draft).toBeDefined();
+	await dispose(view);
+});
+
+test("«Nuevo evento» abre el editor vacío y borra el borrador de antes", async () => {
+	const view = await mountView("ready");
+	view.shadowRoot
+		?.querySelector("planu-empty-state")
+		?.dispatchEvent(new CustomEvent("planu-try-sample"));
+	await view.updateComplete;
+	expect(view.draftIsSample).toBe(true);
+
+	view.shadowRoot?.querySelector<HTMLElement>("wa-button.new")?.click();
+	await view.updateComplete;
+
+	expect(view.editorOpen).toBe(true);
+	expect(view.draft).toBeUndefined();
+	expect(view.draftIsSample).toBe(false);
+	expect(view.editing).toBeUndefined();
+	await dispose(view);
+});
+
+test("editar desde una tarjeta o elegir un evento sin fecha abre el editor con ese evento", async () => {
+	const event = stored("a");
+	for (const type of ["planu-edit-event", "planu-event-picked"]) {
+		const view = await mountView("ready", [event]);
+		view.dispatchEvent(new CustomEvent(type, { detail: event }));
+		await view.updateComplete;
+		expect(view.editorOpen).toBe(true);
+		expect(view.editing).toBe(event);
+		await dispose(view);
+	}
+});
+
+test("cerrar el editor deja de editar", async () => {
+	const event = stored("a");
+	const view = await mountView("ready", [event]);
+	view.dispatchEvent(new CustomEvent("planu-edit-event", { detail: event }));
+	await view.updateComplete;
+
+	view.shadowRoot
+		?.querySelector("planu-event-editor")
+		?.dispatchEvent(new CustomEvent("planu-editor-close"));
+	await view.updateComplete;
+
+	expect(view.editorOpen).toBe(false);
+	expect(view.editing).toBeUndefined();
+	await dispose(view);
+});
+
 test("aiAvailable is not written once the element is disconnected", async () => {
 	let release: (value: string) => void = () => undefined;
 	const pending = new Promise<string>((resolve) => {
