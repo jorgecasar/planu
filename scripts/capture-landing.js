@@ -2,8 +2,9 @@
  * Captures the landing hero screenshot of the app, once per language (#271, R4).
  *
  * Needs `npm run emulators`, `npm run seed:landing` and `npm run dev` running.
- * It signs in as the seeded account in English, keeps the session (with its
- * IndexedDB) and replays it for Spanish, answers every cover request with the
+ * For each language it signs in as that language's demo account (the form is
+ * always read in English), keeps the session with its IndexedDB, reopens the
+ * app in the language to capture, answers every cover request with the
  * synthetic SVG of `landing-covers.js` instead of the network, and writes
  * `apps/web/public/assets/landing/hero-<lang>.webp`.
  *
@@ -14,11 +15,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import { coverNameOf, coverSvg } from "./landing-covers.js";
+import { emailOf, PASSWORD } from "./landing-demo.js";
 
 const BASE = process.env.CAPTURE_BASE ?? "http://localhost:3000";
 const OUT = "apps/web/public/assets/landing";
-const EMAIL = process.env.CAPTURE_EMAIL ?? "landing.demo@example.com";
-const PASSWORD = "secret123";
 const SIZE = { width: 1200, height: 675 };
 const MAX_BYTES = 60 * 1024;
 const LANGUAGES = [
@@ -36,14 +36,14 @@ const withCovers = async (context) => {
 	});
 };
 
-/** Signs in as the seeded account in English and returns the saved session. */
-async function signIn() {
+/** Signs in with the English form and returns the saved session. */
+async function signIn(email) {
 	const context = await browser.newContext({ locale: "en-US", viewport: SIZE });
 	await withCovers(context);
 	const page = await context.newPage();
 	await page.goto(`${BASE}/app/login`);
 	// Both tab panels carry the labels; the sign-in one comes first.
-	await page.getByLabel("Email").first().fill(EMAIL);
+	await page.getByLabel("Email").first().fill(email);
 	await page.getByLabel("Password", { exact: true }).first().fill(PASSWORD);
 	await page.getByRole("button", { name: "Sign in" }).click();
 	await page.waitForURL(`${BASE}/app`);
@@ -102,8 +102,9 @@ async function capture(state, [lang, locale]) {
 
 try {
 	mkdirSync(OUT, { recursive: true });
-	const state = await signIn();
-	for (const language of LANGUAGES) await capture(state, language);
+	for (const language of LANGUAGES) {
+		await capture(await signIn(emailOf(language[0])), language);
+	}
 } finally {
 	await browser.close();
 }
