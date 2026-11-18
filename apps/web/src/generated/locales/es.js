@@ -131,6 +131,7 @@ export const templates = {
 	s604c6f4bd1e9aaee: `Tu cuenta se ha borrado.`,
 	s605ee697fb58f12b: `Qué puedes hacer con planu`,
 	s60f37ccab7bbf7ce: `Esta cuenta está deshabilitada.`,
+	s614d14bdcd4e5519: `/assets/landing/hero-mobile-es.webp`,
 	s629234359812440e: `Lees, editas, invitas, quitas el acceso y borras el evento.`,
 	s62931b2a50168976: `Mes anterior`,
 	s62a5a9ab05e49cf1: `Compartido: puedes editar`,

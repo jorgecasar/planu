@@ -719,6 +719,37 @@ for (const [path, lang] of [
 		}
 	});
 }
+for (const [path, lang] of [
+	["/", "en"],
+	["/es/", "es"],
+] as const) {
+	test(`en 390 px el hero (${lang}) carga el recorte móvil, con su proporción y bajo 60 KB`, async ({
+		page,
+		request,
+	}) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(path);
+		const img = page.locator("figure.hero-figure img");
+		await expect(img).toBeVisible();
+		const mobile = `/assets/landing/hero-mobile-${lang}.webp`;
+		await expect
+			.poll(() => img.evaluate((el: HTMLImageElement) => el.currentSrc))
+			.toContain(mobile);
+		const [natural, box] = await img.evaluate((el: HTMLImageElement) => {
+			const rect = el.getBoundingClientRect();
+			return [
+				[el.naturalWidth, el.naturalHeight],
+				[rect.width, rect.height],
+			];
+		});
+		expect(natural).toEqual([390, 550]);
+		// Sin estirar: la caja tiene la proporción del recorte, no la del escritorio.
+		expect((box?.[0] ?? 0) / (box?.[1] ?? 1)).toBeCloseTo(390 / 550, 1);
+		const response = await request.get(mobile);
+		expect(response.status()).toBe(200);
+		expect((await response.body()).length).toBeLessThan(60 * 1024);
+	});
+}
 test("el hero en español usa la captura en español, de 1200×675 y bajo 60 KB", async ({
 	page,
 	request,

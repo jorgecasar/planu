@@ -129,12 +129,18 @@ export function hero(): TemplateResult {
 				<p class="wa-font-size-s wa-color-text-quiet">${msg("With your email or Google. The rest is up to you.")}</p>
 			</div>
 			<figure class="hero-figure">
-				<img
-					src="${msg("/assets/landing/hero-en.webp")}"
-					alt="${msg("The planu event list with sample events: cover image, date and place on each card")}"
-					width="1200"
-					height="675"
-				/>
+				<picture>
+					<source
+						media="(max-width: 600px)"
+						srcset="${msg("/assets/landing/hero-mobile-en.webp")}"
+					/>
+					<img
+						src="${msg("/assets/landing/hero-en.webp")}"
+						alt="${msg("The planu event list with sample events: cover image, date and place on each card")}"
+						width="1200"
+						height="675"
+					/>
+				</picture>
 			</figure>
 		</section>
 	`;

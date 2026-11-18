@@ -1246,6 +1246,10 @@
   <source>The planu event list with the Export calendar menu open, offering to download an .ics file</source>
         <target>La lista de eventos de planu con el menú «Exportar el calendario» abierto, que ofrece descargar un fichero .ics</target>
 </trans-unit>
+<trans-unit id="s614d14bdcd4e5519">
+  <source>/assets/landing/hero-mobile-en.webp</source>
+        <target>/assets/landing/hero-mobile-es.webp</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
