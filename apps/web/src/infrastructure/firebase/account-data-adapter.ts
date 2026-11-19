@@ -195,25 +195,40 @@ export function createAccountDataAdapter(
 					where("inviteeUid", "==", uid),
 				),
 			);
-			// A tombstone (ADR 0015) is left alone: the invitee may delete it only
-			// once its event is gone, which this account can no longer check, and
-			// a refused delete failed the whole deletion before it reached the
-			// Auth account. What stays names a dead uid and no email. A refusal
-			// is re-read too: the query can still return a record this account's
-			// leave has just turned into a tombstone.
+			// A tombstone (ADR 0015) is deleted like any other invitation: the rules
+			// let the invitee do it once its event is gone. While the event still
+			// exists they refuse, and a refused delete used to fail the whole
+			// deletion before it reached the Auth account, so exactly that case is
+			// tolerated: a `permission-denied` on a document that, read again, is
+			// still a tombstone. What stays names a dead uid and no email. Any other
+			// error is a real failure and propagates, as it does for every other
+			// invitation.
 			const isTombstone = (data: { status?: unknown } | undefined) =>
 				data?.status === "removed";
-			await Promise.all(
-				snapshot.docs.map(async (d) => {
-					if (isTombstone(d.data())) return;
-					try {
-						await deleteDoc(d.ref);
-					} catch (error) {
-						const now = await getDoc(d.ref).catch(() => null);
-						if (!isTombstone(now?.data())) throw error;
+			const deleteTolerating = async (d: (typeof snapshot.docs)[number]) => {
+				try {
+					await deleteDoc(d.ref);
+				} catch (error) {
+					if (
+						!(error instanceof FirebaseError) ||
+						error.code !== "permission-denied"
+					) {
+						throw error;
 					}
-				}),
-			);
+					const now = await getDoc(d.ref).catch(() => null);
+					if (!isTombstone(now?.data())) throw error;
+				}
+			};
+			// One at a time, never alongside another write. Suspected, not proven:
+			// the SDK pipelines writes on one stream and, when the rules refuse one
+			// (a tombstone whose event exists), may blame the oldest unacknowledged
+			// write instead. Unrelated deletes then failed intermittently and
+			// aborted the deletion before the Auth account; run alone, they did
+			// not. `deleteAccount` keeps this call apart from the other deletes
+			// for the same reason.
+			for (const invitation of snapshot.docs) {
+				await deleteTolerating(invitation);
+			}
 		},
 
 		async deleteSentInvitations(uid: string): Promise<void> {

@@ -1,3 +1,4 @@
+import { FirebaseError } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import type { FirebaseStorage } from "firebase/storage";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -163,9 +164,10 @@ describe("directorio e invitaciones", () => {
 		expect(deleteDoc.mock.calls).toEqual([[{ path: "eventInvites/i1" }]]);
 	});
 
-	// A refused delete failed the whole deletion before it reached the Auth
-	// account (the T32 e2e), so a tombstone is not even tried.
-	test("una lápida no se intenta borrar, y el resto sí", async () => {
+	// A tombstone is tried like any other record (its event may be gone, and
+	// the rules then allow it), but a refusal is tolerated only when the
+	// record is still a tombstone: the event exists, so the rules deny it.
+	test("una lápida se intenta borrar igual que el resto", async () => {
 		answers.set("eventInvites|inviteeUid == ana", [
 			snap("eventInvites/gone", { status: "removed" }),
 			snap("eventInvites/i1", { status: "accepted" }),
@@ -173,7 +175,64 @@ describe("directorio e invitaciones", () => {
 
 		await adapter.deleteReceivedInvitations("ana");
 
-		expect(deleteDoc.mock.calls).toEqual([[{ path: "eventInvites/i1" }]]);
+		expect(deleteDoc.mock.calls).toEqual([
+			[{ path: "eventInvites/gone" }],
+			[{ path: "eventInvites/i1" }],
+		]);
+	});
+
+	// Never two deletes in flight: a refusal may be blamed on a write that was
+	// in flight beside it (suspected SDK behaviour, see the adapter).
+	test("las invitaciones recibidas se borran de una en una", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/t1", { status: "removed" }),
+			snap("eventInvites/i1", { status: "accepted" }),
+			snap("eventInvites/t2", { status: "removed" }),
+		]);
+		let inFlight = 0;
+		let mostInFlight = 0;
+		deleteDoc.mockImplementation(async () => {
+			inFlight += 1;
+			mostInFlight = Math.max(mostInFlight, inFlight);
+			await Promise.resolve();
+			inFlight -= 1;
+		});
+
+		await adapter.deleteReceivedInvitations("ana");
+
+		expect(deleteDoc).toHaveBeenCalledTimes(3);
+		expect(mostInFlight).toBe(1);
+	});
+
+	test("una lápida denegada se tolera y el resto se sigue borrando", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/live", { status: "removed" }),
+			snap("eventInvites/i1", { status: "accepted" }),
+		]);
+		current.set("eventInvites/live", { status: "removed" });
+		deleteDoc.mockImplementation(async (ref) => {
+			if (ref.path === "eventInvites/live") {
+				throw new FirebaseError("permission-denied", "denied");
+			}
+		});
+
+		await adapter.deleteReceivedInvitations("ana");
+
+		expect(deleteDoc).toHaveBeenCalledWith({ path: "eventInvites/i1" });
+	});
+
+	test("una lápida que falla por otro motivo propaga el error", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/live", { status: "removed" }),
+		]);
+		current.set("eventInvites/live", { status: "removed" });
+		deleteDoc.mockRejectedValueOnce(
+			new FirebaseError("unavailable", "offline"),
+		);
+
+		await expect(adapter.deleteReceivedInvitations("ana")).rejects.toThrow(
+			"offline",
+		);
 	});
 
 	test("tampoco si la consulta la vio aceptada y ya es una lápida", async () => {
@@ -181,7 +240,9 @@ describe("directorio e invitaciones", () => {
 			snap("eventInvites/i1", { status: "accepted" }),
 		]);
 		current.set("eventInvites/i1", { status: "removed" });
-		deleteDoc.mockRejectedValueOnce(new Error("permission-denied"));
+		deleteDoc.mockRejectedValueOnce(
+			new FirebaseError("permission-denied", "denied"),
+		);
 
 		await adapter.deleteReceivedInvitations("ana");
 
