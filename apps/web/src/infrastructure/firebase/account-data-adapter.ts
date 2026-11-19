@@ -205,22 +205,30 @@ export function createAccountDataAdapter(
 			// invitation.
 			const isTombstone = (data: { status?: unknown } | undefined) =>
 				data?.status === "removed";
-			await Promise.all(
-				snapshot.docs.map(async (d) => {
-					try {
-						await deleteDoc(d.ref);
-					} catch (error) {
-						if (
-							!(error instanceof FirebaseError) ||
-							error.code !== "permission-denied"
-						) {
-							throw error;
-						}
-						const now = await getDoc(d.ref).catch(() => null);
-						if (!isTombstone(now?.data())) throw error;
+			const deleteTolerating = async (d: (typeof snapshot.docs)[number]) => {
+				try {
+					await deleteDoc(d.ref);
+				} catch (error) {
+					if (
+						!(error instanceof FirebaseError) ||
+						error.code !== "permission-denied"
+					) {
+						throw error;
 					}
-				}),
-			);
+					const now = await getDoc(d.ref).catch(() => null);
+					if (!isTombstone(now?.data())) throw error;
+				}
+			};
+			// One at a time, never alongside another write. Suspected, not proven:
+			// the SDK pipelines writes on one stream and, when the rules refuse one
+			// (a tombstone whose event exists), may blame the oldest unacknowledged
+			// write instead. Unrelated deletes then failed intermittently and
+			// aborted the deletion before the Auth account; run alone, they did
+			// not. `deleteAccount` keeps this call apart from the other deletes
+			// for the same reason.
+			for (const invitation of snapshot.docs) {
+				await deleteTolerating(invitation);
+			}
 		},
 
 		async deleteSentInvitations(uid: string): Promise<void> {

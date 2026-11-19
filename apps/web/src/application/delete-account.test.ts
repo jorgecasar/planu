@@ -387,7 +387,31 @@ test("verificada, borra las invitaciones recibidas y enviadas antes de la cuenta
 
 	expect(account.deleteReceivedInvitations).toHaveBeenCalledWith("u1");
 	expect(account.deleteSentInvitations).toHaveBeenCalledWith("u1");
-	expect(order).toEqual(["received", "sent", "auth"]);
+	// Received go last: see the test below.
+	expect(order).toEqual(["sent", "received", "auth"]);
+});
+
+// The rules refuse a received tombstone whose event still exists (ADR 0015),
+// and a refusal must not land beside other writes: see the Firebase adapter.
+test("las invitaciones recibidas se piden cuando el resto de borrados ya terminó", async () => {
+	const session = fakeSession();
+	const account = fakeAccount([]);
+	let finishSent: () => void = () => {};
+	vi.mocked(account.deleteSentInvitations).mockReturnValue(
+		new Promise<void>((resolve) => {
+			finishSent = resolve;
+		}),
+	);
+
+	const deletion = deleteAccount(session, account, USER);
+	await vi.waitFor(() =>
+		expect(account.deleteSentInvitations).toHaveBeenCalledWith("u1"),
+	);
+	expect(account.deleteReceivedInvitations).not.toHaveBeenCalled();
+
+	finishSent();
+	await deletion;
+	expect(account.deleteReceivedInvitations).toHaveBeenCalledWith("u1");
 });
 
 test.each(["deleteReceivedInvitations", "deleteSentInvitations"] as const)(

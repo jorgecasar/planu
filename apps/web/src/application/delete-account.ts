@@ -78,12 +78,10 @@ export async function deleteAccount(
 	// After the per-event deletions, not instead of them: those remove the
 	// images events point to, this catches anything left in the folder.
 	// A failure here leaves the Auth account in place for a retry.
-	// Invitations can go in any order relative to events. A received tombstone
-	// whose event still exists stays (ADR 0015); the adapter tolerates that so
-	// the Auth account is still reached. Sent ones need a verified token.
+	// Invitations can go in any order relative to events. Sent ones need a
+	// verified token.
 	onProgress?.({ phase: "deleting-directory" });
 	await Promise.all([
-		account.deleteReceivedInvitations(current.uid),
 		...(verified ? [account.deleteSentInvitations(current.uid)] : []),
 		account.deleteAllEventImages(current.uid),
 		account.deleteDirectoryEntries(
@@ -91,6 +89,11 @@ export async function deleteAccount(
 			verified ? current.email : null,
 		),
 	]);
+
+	// Last and on its own: the rules refuse a received tombstone whose event
+	// still exists (ADR 0015), and a refusal must not land beside other writes.
+	// Why: see `deleteReceivedInvitations` in the Firebase adapter.
+	await account.deleteReceivedInvitations(current.uid);
 
 	// The one step that can demand reauthentication: Firestore and Storage
 	// don't, `deleteUser()` does. Left to propagate unwrapped — a

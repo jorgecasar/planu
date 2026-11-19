@@ -181,6 +181,29 @@ describe("directorio e invitaciones", () => {
 		]);
 	});
 
+	// Never two deletes in flight: a refusal may be blamed on a write that was
+	// in flight beside it (suspected SDK behaviour, see the adapter).
+	test("las invitaciones recibidas se borran de una en una", async () => {
+		answers.set("eventInvites|inviteeUid == ana", [
+			snap("eventInvites/t1", { status: "removed" }),
+			snap("eventInvites/i1", { status: "accepted" }),
+			snap("eventInvites/t2", { status: "removed" }),
+		]);
+		let inFlight = 0;
+		let mostInFlight = 0;
+		deleteDoc.mockImplementation(async () => {
+			inFlight += 1;
+			mostInFlight = Math.max(mostInFlight, inFlight);
+			await Promise.resolve();
+			inFlight -= 1;
+		});
+
+		await adapter.deleteReceivedInvitations("ana");
+
+		expect(deleteDoc).toHaveBeenCalledTimes(3);
+		expect(mostInFlight).toBe(1);
+	});
+
 	test("una lápida denegada se tolera y el resto se sigue borrando", async () => {
 		answers.set("eventInvites|inviteeUid == ana", [
 			snap("eventInvites/live", { status: "removed" }),
