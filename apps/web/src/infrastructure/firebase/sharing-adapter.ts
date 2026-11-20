@@ -218,16 +218,19 @@ export function createSharingAdapter(
 		},
 
 		async offerInviteByEmail(offer: InviteOffer): Promise<void> {
+			const hash = await emailHash(offer.inviteeEmail);
 			const ref = doc(
 				firestore,
 				PENDING_INVITES_BY_EMAIL_COLLECTION,
-				`${offer.eventId}_${await emailHash(offer.inviteeEmail)}`,
+				`${offer.eventId}_${hash}`,
 			);
 			const write = () =>
 				setDoc(ref, {
 					eventId: offer.eventId,
 					eventTitle: offer.eventTitle,
 					inviteeEmail: offer.inviteeEmail.trim().toLowerCase(),
+					// What the invitee lists by when signing up (GH-280).
+					emailHash: hash,
 					invitedBy: offer.invitedBy,
 					invitedByName: offer.invitedByName,
 					role: offer.role,

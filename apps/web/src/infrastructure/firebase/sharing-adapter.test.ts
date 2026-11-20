@@ -216,7 +216,7 @@ describe("offerInviteByEmail()", () => {
 		return `eventInvitesByEmail/e1_${await emailHash("newcomer@example.com")}`;
 	}
 
-	test("writes the offer at its deterministic id, with a normalised email", async () => {
+	test("writes the offer at its deterministic id, with a normalised email and its hash", async () => {
 		setDocMock.mockResolvedValue(undefined);
 
 		await adapter.offerInviteByEmail(OFFER);
@@ -226,6 +226,7 @@ describe("offerInviteByEmail()", () => {
 			{
 				...OFFER,
 				inviteeEmail: "newcomer@example.com",
+				emailHash: await directory.emailHash("newcomer@example.com"),
 				createdAt: "SERVER_TIME",
 			},
 		);
