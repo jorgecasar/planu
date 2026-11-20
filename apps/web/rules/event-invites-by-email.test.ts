@@ -20,7 +20,14 @@ import {
 	where,
 	writeBatch,
 } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from "vitest";
 
 const OWNER = "owner";
 const STRANGER = "stranger";
@@ -71,7 +78,11 @@ beforeEach(async () => {
 		const db = ctx.firestore();
 		await setDoc(doc(db, "events/an-event"), { userId: OWNER });
 		await setDoc(doc(db, "events/theirs"), { userId: STRANGER });
-		await setDoc(doc(db, SEEDED), anOffer({ inviteeEmail: SEEDED_EMAIL }));
+		const seeded = {
+			inviteeEmail: SEEDED_EMAIL,
+			emailHash: hash(SEEDED_EMAIL),
+		};
+		await setDoc(doc(db, SEEDED), anOffer(seeded));
 	});
 });
 
@@ -213,6 +224,45 @@ describe("the invitee's side of an offer", () => {
 			where("inviteeEmail", "==", SEEDED_EMAIL),
 		);
 		await assertFails(getDocs(mine));
+	});
+
+	// GH-280: the offers waiting for an address are found by a query on the
+	// hash of that address, which the rule forces to be the caller's own.
+	const byHash = (db: ReturnType<typeof as>, emailHash: string) =>
+		getDocs(
+			query(
+				collection(db, "eventInvitesByEmail"),
+				where("emailHash", "==", emailHash),
+			),
+		);
+
+	test("lists the offers waiting for their own address, by its hash", async () => {
+		const found = await assertSucceeds(byHash(holder(), hash(SEEDED_EMAIL)));
+		expect(found.docs.map((d) => d.id)).toEqual([SEEDED.split("/")[1]]);
+	});
+
+	test("a list with no offers for their own hash is empty, not an error", async () => {
+		const none = await assertSucceeds(byHash(holder(EMAIL), hash(EMAIL)));
+		expect(none.empty).toBe(true);
+	});
+
+	test("never lists by someone else's hash, unfiltered, unverified or with no email", async () => {
+		await assertFails(byHash(holder(EMAIL), hash(SEEDED_EMAIL)));
+		await assertFails(byHash(holder(SEEDED_EMAIL, false), hash(SEEDED_EMAIL)));
+		await assertFails(getDocs(collection(holder(), "eventInvitesByEmail")));
+		const noEmail = env
+			.authenticatedContext(INVITEE, { email_verified: true })
+			.firestore();
+		await assertFails(byHash(noEmail, hash(SEEDED_EMAIL)));
+	});
+});
+
+describe("the hash stored on an offer", () => {
+	test("the owner stores the hash of the address, and only that", async () => {
+		await assertSucceeds(offer(as(OWNER), { emailHash: hash(EMAIL) }));
+		await assertFails(
+			offer(as(OWNER), { emailHash: hash("someone@example.com") }),
+		);
 	});
 });
 

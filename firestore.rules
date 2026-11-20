@@ -567,13 +567,18 @@ service cloud.firestore {
       function isValidOffer(d) {
         return d.keys().hasOnly(['eventId', 'eventTitle', 'inviteeEmail',
                                  'invitedBy', 'invitedByName', 'role',
-                                 'createdAt'])
+                                 'createdAt', 'emailHash'])
             && d.eventId is string && d.eventId.size() <= 128
             && d.eventTitle is string && d.eventTitle.size() <= 200
             && d.inviteeEmail is string && d.inviteeEmail.size() <= 320
             && (!('invitedByName' in d)
                 || (d.invitedByName is string && d.invitedByName.size() <= 200))
             && d.role in ['viewer', 'editor']
+            // The hash the invitee queries by (GH-280). Optional while the
+            // client does not write it yet; when present it must be the hash
+            // of the stored address, so an offer cannot be filed under
+            // someone else's hash.
+            && (!('emailHash' in d) || d.emailHash == emailHash(d.inviteeEmail))
             && inviteId == d.eventId + '_' + emailHash(d.inviteeEmail);
       }
 
@@ -596,13 +601,24 @@ service cloud.firestore {
             && inviteId.matches('.+_' + emailHash(request.auth.token.email));
       }
 
-      // The invitee gets ids they already know. A list passes only if it
-      // filters on the caller's own `invitedBy`, which account deletion needs;
-      // granting the invitee a list filtered on their own address is ADR
-      // 0012's open option (a), not decided here.
+      // Offers whose stored hash is the caller's own, so a list has to filter
+      // on it: a query that does not is rejected, because the rule reads
+      // `resource.data.emailHash` and the query cannot prove it. An offer
+      // without the field never matches. Verified address only, like `get`.
+      function isOwnHash() {
+        return request.auth != null
+            && isVerified()
+            && request.auth.token.email is string
+            && resource.data.emailHash == emailHash(request.auth.token.email);
+      }
+
+      // The invitee gets ids they already know, and lists the offers waiting
+      // for their own address through `isOwnHash` (GH-280, ADR 0012's option
+      // (a)). The sender lists with a filter on their own `invitedBy`, which
+      // account deletion needs.
       allow get: if (resource == null && isOwnMissingId())
                  || (resource != null && (isSender() || isInvitee()));
-      allow list: if isSender();
+      allow list: if isSender() || isOwnHash();
 
       // An offer to someone already in the event is never spent by joining,
       // and the owner cannot spend it on removal: members' addresses are not
