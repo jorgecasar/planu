@@ -1,0 +1,16 @@
+{
+  "signers": [
+    {
+      "type": "webauthn",
+      "credentialId": "7DAqkaLoc1yKn4yjU7vD7w",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjG06CJm/TKToGOUrl/1KdFxMIMtGd2w+AYbDeG7sk7kkFZmpmPSeTjYzKjTFEyYTa59M97IEnPudviZvdfIymg==",
+      "alg": -7,
+      "label": "Jorge Pixel 11 Pro",
+      "enrolledAt": "2026-11-15T19:32:48.473Z"
+    }
+  ],
+  "recovery": {
+    "fingerprint": "3e834757abf7dbe34523334c0775eae9a10634e1fb7eec2bc07d2e9e3eadbcb1",
+    "issuedAt": "2026-11-15T19:32:48.473Z"
+  }
+}
