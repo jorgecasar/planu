@@ -87,8 +87,14 @@ jobs:
           VMSTAT_PID=$!
           npx firebase emulators:exec --project planu-app \
             --only auth,firestore,storage \
-            "npm test && npm run test:rules"
+            "npm run test:coverage && npm run test:rules"
           kill "$VMSTAT_PID" 2>/dev/null || true
+
+      # Sonar corre en local (kj scan), no en CI: aquí sólo se comprueba que los
+      # lcov que lee existen y son más nuevos que `src/`, para que una rama que
+      # rompa la cobertura (o el script que la mide) falle antes de llegar allí.
+      - name: Informes de cobertura frescos
+        run: node scripts/check-coverage-fresh.js
 
       - name: CPU/RAM del runner si algo falla
         if: failure()
