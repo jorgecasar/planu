@@ -157,7 +157,11 @@
         "invitedBy": { "type": "string", "description": "The event owner's uid." },
         "invitedByName": { "type": "string", "maxLength": 200 },
         "role": { "type": "string", "enum": ["viewer", "editor"] },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Server time." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server time." },
+        "emailHash": {
+          "type": "string",
+          "description": "Optional. sha256 of the lowercased inviteeEmail, the value the invitee lists by (GH-280). When present the rules require it to match."
+        }
       },
       "required": ["eventId", "eventTitle", "inviteeEmail", "invitedBy", "role", "createdAt"],
       "$comment": "Document id is `{eventId}_{sha256(lowercased email)}`, the same hash userDirectory uses."
@@ -205,7 +209,7 @@
       {
         "path": "/eventInvitesByEmail/{inviteId}",
         "definition": {
-          "description": "Offers to an email with no account. Created by the event's verified owner; read and deleted by that sender or by whoever holds the address verified, who may also read a missing id ending in their own hash; never listable except the sender's own `invitedBy ==` query. Claimed by deleting it in the same batch that creates the matching eventInvites document.",
+          "description": "Offers to an email with no account. Created by the event's verified owner; read and deleted by that sender or by whoever holds the address verified, who may also read a missing id ending in their own hash; listable only by the sender's own `invitedBy ==` query or by the holder's `emailHash ==` query on their own verified address. Claimed by deleting it in the same batch that creates the matching eventInvites document.",
           "entityName": "PendingInviteByEmail",
           "schema": { "$ref": "#/entities/PendingInviteByEmail" }
         }
