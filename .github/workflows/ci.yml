@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Mínimo por defecto: cada job amplía sólo lo que necesita (deploy añade
+# id-token para el OIDC).
+permissions:
+  contents: read
+
 # Una ejecución por rama: si llegan varios push seguidos, sólo importa el último.
 # El despliegue tiene su propio grupo más abajo, porque ahí cancelar sí duele.
 concurrency:
@@ -33,9 +38,9 @@ jobs:
       VITE_AI_CLOUD_FALLBACK: "false"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
@@ -43,7 +48,7 @@ jobs:
       # Los emuladores de Firestore y Storage corren sobre la JVM. 21 como
       # mínimo: firebase-tools 15 rechaza cualquier versión anterior y aborta
       # con «no longer supports Java version before 21».
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: 21
@@ -98,7 +103,7 @@ jobs:
 
       - name: CPU/RAM del runner si algo falla
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: vmstat-log
           path: vmstat.log
@@ -125,12 +130,12 @@ jobs:
       VITE_AI_CLOUD_FALLBACK: "false"
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: 21
@@ -147,7 +152,7 @@ jobs:
 
       - name: Trazas de Playwright si algo falla
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-traces
           path: apps/web/test-results/
@@ -185,8 +190,8 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
@@ -196,7 +201,7 @@ jobs:
       # devuelve credenciales que caducan con el job. No hay ninguna clave en
       # los secretos del repositorio. El proveedor sólo acepta tokens cuyo
       # `repository` sea jorgecasar/planu, así que no vale el de otro repo.
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           project_id: planu-app
           workload_identity_provider: projects/854295039681/locations/global/workloadIdentityPools/github/providers/planu
