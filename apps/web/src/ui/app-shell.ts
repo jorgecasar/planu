@@ -189,8 +189,13 @@ export class PlanuApp extends LitElement {
 		this.#cancelSessionCheckTimeout = undefined;
 	}
 
-	/** Last session seen, to detect when it stops being unknown. */
-	#seenUser: SessionUser | null | undefined;
+	/**
+	 * Last session seen, by account, to detect when it stops being unknown.
+	 * By uid and not by object: the auth listener can report the same account
+	 * again, and re-resolving the route for that would swap the view for the
+	 * spinner and close whatever the person has open (GH-373).
+	 */
+	#seenUid: string | null | undefined;
 
 	override willUpdate(): void {
 		this.#watchSessionCheck();
@@ -209,8 +214,9 @@ export class PlanuApp extends LitElement {
 		// a session. Once it's known, it has to be re-evaluated: nobody is
 		// navigating, so the router would not do it on its own. This is the case
 		// of reloading the page while already signed in, the most common of all.
-		if (this.user !== this.#seenUser) {
-			this.#seenUser = this.user;
+		const uid = this.user === undefined ? undefined : (this.user?.uid ?? null);
+		if (uid !== this.#seenUid) {
+			this.#seenUid = uid;
 			if (this.user) void this.#resolveRoute(window.location.pathname);
 		}
 	}

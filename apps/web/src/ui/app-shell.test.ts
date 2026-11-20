@@ -257,6 +257,22 @@ test("atrás, o un cambio de cuenta, durante el borrado no desmonta el perfil", 
 	el.remove();
 });
 
+test("la misma cuenta con un objeto de sesión nuevo no desmonta la vista abierta (GH-373)", async () => {
+	// The auth listener can report the same account again (a token refresh, a
+	// verification re-read). Re-resolving the route for that swaps the view for
+	// the spinner and back, which closes whatever the person had open.
+	const { el } = await onProfileWithGuard();
+	const view = el.shadowRoot?.querySelector("planu-profile-view");
+
+	resolveSessionTo(el, { ...someone });
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	await el.updateComplete;
+
+	expect(view?.isConnected).toBe(true);
+	expect(el.shadowRoot?.querySelector("planu-profile-view")).toBe(view);
+	el.remove();
+});
+
 test("si el borrado falla porque se cerró la sesión, el acceso pide repetirlo", async () => {
 	const { el, guard } = await onProfileWithGuard();
 	guard.begin();
