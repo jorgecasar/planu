@@ -1,13 +1,15 @@
 # 0019 · Cancelar una invitación nacida de una lápida: ¿se restaura o se borra?
 
-- **Fecha:** 2026-11-20 · **Estado:** propuesta, pendiente de decisión del responsable del producto
+- **Fecha:** 2026-11-20 · **Estado:** aceptada el 2026-11-20, opción A; decide el responsable del producto
 - **Complementa a:** [0015](0015-lapida-al-salir-de-un-evento.md), que no se reescribe · **Issue:** GH-192
 
 ## Decisión
 
-Pendiente. Recomendación del autor: **opción A**, aceptar (c) y (c′) como
-residuales de gravedad baja, y vigilarlos con la acción de retirar ofertas por
-email que ya existe en el diálogo de compartir (#335).
+El 2026-11-20 el responsable del producto elige la **opción A**: se aceptan
+(c) y (c′) como residuales de gravedad baja, sin cambiar `firestore.rules`, y se
+vigilan con la acción de retirar ofertas por email que ya existe en el diálogo
+de compartir (#335). Se revisan antes del lanzamiento, que es cuando habrá
+usuarios reales.
 
 ## Contexto
 
