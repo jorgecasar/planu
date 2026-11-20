@@ -1,7 +1,17 @@
 # 0018 · Barrida en servidor al borrar la cuenta: ¿se reabre «sin Cloud Functions»?
 
-- **Fecha:** 2026-11-15 · **Estado:** propuesta; la decide el responsable del producto
-- **Supersede parcialmente (si se elige A o B):** [0007](0007-client-side-user-directory.md), sólo la línea «no hay Cloud Functions, y el plan Blaze queda fuera de alcance». El 0007 no se reescribe. · **Afecta también a:** [0012](0012-invitaciones-pendientes-por-email.md), que repite esa restricción · **Issue:** GH-315 (T1 de GH-154)
+- **Fecha:** 2026-11-15 · **Estado:** aceptada el 2026-11-16, opción A; decide el responsable del producto (ver «Decisión»)
+- **Supersede parcialmente:** [0007](0007-client-side-user-directory.md), sólo la línea «no hay Cloud Functions, y el plan Blaze queda fuera de alcance». El 0007 no se reescribe. · **Afecta también a:** [0012](0012-invitaciones-pendientes-por-email.md), que repite esa restricción · **Issue:** GH-315 (T1 de GH-154)
+
+## Decisión
+
+El 2026-11-16 el responsable del producto, Jorge del Casar, elige la **opción A**:
+función propia con el disparador de borrado de Auth, y por tanto el paso de
+`planu-app` a Blaze, sólo para esta barrida. Las preguntas 3 (quién abre la PR
+de `ci.yml`) y 5 (qué se hace con las lápidas) **siguen abiertas**: hay que
+resolverlas antes de T5 y de T4 respectivamente. Los precios de Blaze y la
+disponibilidad general de `onUserDeleted` siguen sin verificarse (ver más
+abajo); T2 debe comprobarlos antes de escribir código.
 
 ## Contexto
 
