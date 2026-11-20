@@ -319,6 +319,49 @@ export function createSharingAdapter(
 			await batch.commit();
 		},
 
+		async claimPendingOffers(user: SessionUser): Promise<number> {
+			if (!user.email || !user.emailVerified) return 0;
+
+			const offers = await getDocs(
+				query(
+					collection(firestore, PENDING_INVITES_BY_EMAIL_COLLECTION),
+					where("emailHash", "==", await emailHash(user.email)),
+				),
+			);
+
+			// One batch per offer: the rules refuse the claim when the id is taken
+			// (a tombstone, an earlier invitation), and that must not sink the rest.
+			let claimed = 0;
+			for (const offer of offers.docs) {
+				const data = offer.data();
+				const eventId = String(data["eventId"] ?? "");
+				const batch = writeBatch(firestore);
+				batch.delete(offer.ref);
+				batch.set(
+					doc(firestore, INVITES_COLLECTION, inviteId(eventId, user.uid)),
+					{
+						eventId,
+						eventTitle: data["eventTitle"],
+						inviteeUid: user.uid,
+						inviteeEmail: data["inviteeEmail"],
+						invitedBy: data["invitedBy"],
+						invitedByName: data["invitedByName"] ?? "",
+						role: data["role"],
+						status: "pending",
+						createdAt: serverTimestamp(),
+						decidedAt: null,
+					},
+				);
+				try {
+					await batch.commit();
+					claimed++;
+				} catch (error) {
+					record("claimPendingOffers", outcomeOf(error), error);
+				}
+			}
+			return claimed;
+		},
+
 		async declineInvite(id: string): Promise<void> {
 			await updateDoc(doc(firestore, INVITES_COLLECTION, id), {
 				status: "declined",

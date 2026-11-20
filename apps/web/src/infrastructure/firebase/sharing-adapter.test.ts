@@ -623,3 +623,115 @@ describe("watchReceivedInvites()", () => {
 		]);
 	});
 });
+
+describe("claimPendingOffers()", () => {
+	const USER: SessionUser = {
+		uid: "ana-uid",
+		email: "Ana@Example.com",
+		displayName: "Ana",
+		photoURL: null,
+		emailVerified: true,
+		provider: "password",
+	};
+	const recordMock = vi.fn();
+	const adapter = createSharingAdapter(FAKE_FIRESTORE, recordMock);
+
+	/** An offer as the invitee's query returns it. */
+	const offerRow = (eventId: string, extra: Record<string, unknown> = {}) => ({
+		id: `${eventId}_hash`,
+		ref: { path: `eventInvitesByEmail/${eventId}_hash` },
+		data: () => ({
+			eventId,
+			eventTitle: `Title ${eventId}`,
+			inviteeEmail: "ana@example.com",
+			invitedBy: "owner-uid",
+			invitedByName: "Owner",
+			role: "editor",
+			...extra,
+		}),
+	});
+
+	beforeEach(() => {
+		batchSetMock.mockReset();
+		batchDeleteMock.mockReset();
+		commitMock.mockReset().mockResolvedValue(undefined);
+		getDocsMock.mockReset();
+		recordMock.mockClear();
+	});
+
+	test("does nothing without a verified email", async () => {
+		const unverified = { ...USER, emailVerified: false };
+		await expect(adapter.claimPendingOffers(unverified)).resolves.toBe(0);
+		await expect(
+			adapter.claimPendingOffers({ ...USER, email: null }),
+		).resolves.toBe(0);
+		expect(getDocsMock).not.toHaveBeenCalled();
+	});
+
+	test("lists the offers by the hash of the caller's own address", async () => {
+		getDocsMock.mockResolvedValue({ docs: [] });
+
+		await expect(adapter.claimPendingOffers(USER)).resolves.toBe(0);
+
+		expect(getDocsMock).toHaveBeenCalledExactlyOnceWith({
+			from: { path: "eventInvitesByEmail" },
+			clauses: [
+				["emailHash", "==", await directory.emailHash("ana@example.com")],
+			],
+		});
+	});
+
+	test("turns each offer into a pending invitation, in its own batch", async () => {
+		getDocsMock.mockResolvedValue({ docs: [offerRow("e1"), offerRow("e2")] });
+
+		await expect(adapter.claimPendingOffers(USER)).resolves.toBe(2);
+
+		expect(commitMock).toHaveBeenCalledTimes(2);
+		expect(batchDeleteMock).toHaveBeenNthCalledWith(1, {
+			path: "eventInvitesByEmail/e1_hash",
+		});
+		expect(batchSetMock).toHaveBeenNthCalledWith(
+			1,
+			{ path: "eventInvites/e1_ana-uid" },
+			{
+				eventId: "e1",
+				eventTitle: "Title e1",
+				inviteeUid: "ana-uid",
+				inviteeEmail: "ana@example.com",
+				invitedBy: "owner-uid",
+				invitedByName: "Owner",
+				role: "editor",
+				status: "pending",
+				createdAt: "SERVER_TIME",
+				decidedAt: null,
+			},
+		);
+		expect(batchSetMock).toHaveBeenNthCalledWith(
+			2,
+			{ path: "eventInvites/e2_ana-uid" },
+			expect.objectContaining({ eventId: "e2" }),
+		);
+	});
+
+	test("an offer that fails neither blocks the others nor throws, and is recorded", async () => {
+		getDocsMock.mockResolvedValue({
+			docs: [offerRow("e1"), offerRow("e2"), offerRow("e3")],
+		});
+		const denied = Object.assign(new Error("denied"), {
+			code: "permission-denied",
+		});
+		commitMock
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(denied)
+			.mockResolvedValueOnce(undefined);
+
+		await expect(adapter.claimPendingOffers(USER)).resolves.toBe(2);
+
+		expect(commitMock).toHaveBeenCalledTimes(3);
+		expect(recordMock).toHaveBeenCalledExactlyOnceWith(
+			"claimPendingOffers",
+			"permission-denied",
+			denied,
+		);
+	});
+});
