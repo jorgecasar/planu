@@ -136,6 +136,14 @@ export interface SharingPort {
 	 * the rules refuse a join that leaves one behind (GH-147).
 	 */
 	acceptInvite(invite: ReceivedInvite, email?: string): Promise<void>;
+	/**
+	 * Turns every email offer waiting for the user's verified address into a
+	 * pending invitation, each in its own batch (GH-280). One that fails (a
+	 * tombstone, a taken id) is recorded and left in place without stopping
+	 * the others. Resolves with how many were claimed; 0 for an unverified or
+	 * email-less user.
+	 */
+	claimPendingOffers(user: SessionUser): Promise<number>;
 
 	/** Declines invitation `id`. The record stays, so it can be reconsidered later. */
 	declineInvite(id: string): Promise<void>;
