@@ -1,6 +1,6 @@
 {
   "kj_version": "5.32.0",
-  "generated_at": "2026-11-20T21:30:15.946Z",
+  "generated_at": "2026-11-20T21:39:13.770Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -26,7 +26,7 @@
     },
     {
       "file": ".github/workflows/ci.yml",
-      "sha256": "398fbd7b7903cf10dfb8916b1218dcfdbe09d780b471e74f476ed6393b2a7665"
+      "sha256": "f796d7a684122977d18c274669d8a5ae85085b7c7c3198b2586d67c2e9db93e3"
     },
     {
       "file": ".github/workflows/kj-no-ai-attribution.yml",
@@ -66,18 +66,18 @@
     }
   ],
   "signature": {
-    "cid": "f03ceb37b4a66e81b2cf5d042cd99f3a",
-    "nonce": "9c6fc5e5e6eb5fbad62dd4a749543666",
+    "cid": "34d1819a8ebd5fcbeeff351632318bee",
+    "nonce": "7de55aa99838728823f4b261e53c39e6",
     "project": "jorgecasar/planu",
-    "filesHash": "d6867dc42a664bd93824c2c6c507e361e534703d67f5fe280fe5eeb117dd46e6",
+    "filesHash": "7e5dcd2ea89de8ba1c5bb878de429a856dacbdf27c58b4b4406ef05a81a6b6ca",
     "v": 2,
     "kjVersion": "5.32.0",
-    "issuedMs": 1795210196925,
-    "expiresMs": 1795210346925,
+    "issuedMs": 1795210737893,
+    "expiresMs": 1795210887893,
     "type": "webauthn",
     "credentialId": "7DAqkaLoc1yKn4yjU7vD7w",
     "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
-    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiOFpoS2ZfRF9keG9vMmNrX2RjenptQzVNRFl5U2JPNjNldTFpd2VieUFGOCIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
-    "signature": "MEUCIQCIeJSeTUAuIsSA4SiJzbRZX9tVRcEuQbagW6NX1xTR3AIgMV933Zff7w5aBxlQqjSLHGc0iQHDy4gvtBYNHbXCjYo"
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiclJBOHpyNU1RQU9NaTU2V20yckV2YWFpb3BjUzBCSHhKd2VZalFhejYwdyIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+    "signature": "MEUCIB2vdYZbtGDWg7gt5DGyIV-XsLlHTAXeVvss4tYZW7xjAiEApIEhse0wsLFHj6jKCMTqdehmyEiI74rZCQ4nMe6ArVY"
   }
 }
