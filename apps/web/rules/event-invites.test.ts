@@ -854,6 +854,28 @@ describe("erasing an invitation", () => {
 		},
 	);
 
+	// A tombstone is an invitation in status `removed` (ADR 0015). The rules
+	// already let the verified inviter erase it (GH-192); what is missing is the
+	// action in the interface, so these pin what the rules allow today.
+	describe("a tombstone (removed)", () => {
+		const TOMBSTONE = { status: "removed", decidedAt: serverTimestamp() };
+
+		test("the verified inviter deletes it", async () => {
+			await seedInvite(TOMBSTONE);
+			await assertSucceeds(deleteDoc(doc(as(OWNER), INVITE)));
+		});
+
+		test("an unverified inviter cannot delete it", async () => {
+			await seedInvite(TOMBSTONE);
+			await assertFails(deleteDoc(doc(as(OWNER, false), INVITE)));
+		});
+
+		test("a third user cannot delete it", async () => {
+			await seedInvite(TOMBSTONE);
+			await assertFails(deleteDoc(doc(as(STRANGER), INVITE)));
+		});
+	});
+
 	test("an invitee cannot delete an invitation addressed to someone else", async () => {
 		const other = `eventInvites/an-event_${STRANGER}`;
 		await env.withSecurityRulesDisabled(async (ctx) => {
