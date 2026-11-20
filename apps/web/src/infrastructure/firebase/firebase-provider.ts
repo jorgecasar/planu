@@ -327,6 +327,8 @@ export class PlanuFirebaseProvider extends LitElement {
 			// never caught the shortcut until this one didn't.
 			const sessionUser = toSessionUser(user);
 			await sharing.publishDirectoryEntry(sessionUser).catch(() => {});
+			// Offers made before this address had an account become invitations (GH-280).
+			await sharing.claimPendingOffers(sessionUser).catch(() => {});
 		} catch {
 			this.dispatchEvent(
 				new CustomEvent("planu-data-services-failed", {

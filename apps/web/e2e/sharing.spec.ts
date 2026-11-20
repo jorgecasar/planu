@@ -192,6 +192,37 @@ test("a viewer guest sees the event but cannot touch it", async ({
 	await guestPage.context().close();
 });
 
+// GH-280: an invitation sent to an address with no account yet waits as an
+// offer, and turns into an invitation the first time that address signs in.
+test("someone invited before they had an account finds the invitation on arrival", async ({
+	page,
+	browser,
+}) => {
+	const owner = newEmail();
+	const guest = newEmail();
+	const title_ = newTitle("Evento");
+	await createVerifiedAccount(page, owner);
+	await signIn(page, owner);
+	await createEvent(page, title_);
+
+	// The guest has no account: the offer is addressed to the email alone.
+	await cardAction(page, "Share");
+	await page.getByLabel("Invite by email").fill(guest);
+	await page.getByRole("button", { name: "Invite", exact: true }).click();
+	await expect(page.getByText("Invitation sent.")).toBeVisible();
+
+	await createVerifiedAccount(page, guest);
+	const guestPage = await openSecondSession(browser, guest);
+
+	await expect(guestPage.getByRole("button", { name: "Accept" })).toBeVisible();
+	await guestPage.getByRole("button", { name: "Accept" }).click();
+	await expect(
+		guestPage.getByRole("heading", { name: title_, exact: true }),
+	).toBeVisible();
+
+	await guestPage.context().close();
+});
+
 test("promoted to editor, can edit but still cannot delete", async ({
 	page,
 	browser,
