@@ -1,4 +1,4 @@
-import { msg } from "@lit/localize";
+import { msg, str } from "@lit/localize";
 import { html, type TemplateResult } from "lit";
 
 /**
@@ -16,6 +16,17 @@ import { html, type TemplateResult } from "lit";
  */
 
 const LOCALE_PREFIX = "__LOCALE_PREFIX__";
+
+// The pages are prerendered, so this is the year of the build. It stays out of
+// the translated string so that it never goes stale in the XLIFF.
+const COPYRIGHT_YEAR = new Date().getFullYear();
+
+/** The footer line shared by the landing and the legal pages. */
+export function copyrightNotice(): string {
+	return msg(
+		str`© ${COPYRIGHT_YEAR} planu. Built with Lit, Web Awesome and Firebase.`,
+	);
+}
 
 function legalHeader(title: string): TemplateResult {
 	// Built outside the template, not `href="${LOCALE_PREFIX}/"`: lit-analyzer's
@@ -48,7 +59,7 @@ function legalFooter(): TemplateResult {
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
 			<p class="wa-font-size-xs wa-color-text-quiet">
-				${msg("© 2026 planu. Built with Lit, Web Awesome and Firebase.")}
+				${copyrightNotice()}
 			</p>
 			${cookiesNotice()}
 		</footer>

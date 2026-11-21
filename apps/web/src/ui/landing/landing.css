@@ -167,7 +167,7 @@ footer a:hover {
 @media (prefers-reduced-motion: no-preference) {
 	@keyframes hero-rise {
 		from {
-			transform: translateY(12px);
+			transform: translateY(var(--wa-space-s));
 		}
 		to {
 			transform: none;
@@ -175,11 +175,12 @@ footer a:hover {
 	}
 
 	.hero > div {
-		animation: hero-rise 0.5s ease-out both;
+		animation: hero-rise var(--wa-transition-slow) var(--wa-transition-easing)
+			both;
 	}
 
 	a.wa-button {
-		transition: transform 0.12s ease-out;
+		transition: transform var(--wa-transition-fast) var(--wa-transition-easing);
 	}
 
 	a.wa-button:active {
