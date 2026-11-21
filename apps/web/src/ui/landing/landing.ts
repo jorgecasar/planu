@@ -1,6 +1,6 @@
 import { msg } from "@lit/localize";
 import { html, nothing, type TemplateResult } from "lit";
-import { cookiesNotice } from "./legal.js";
+import { cookiesNotice, copyrightNotice } from "./legal.js";
 
 /**
  * Iconos en línea, no `<wa-icon>`.
@@ -25,7 +25,6 @@ import { cookiesNotice } from "./legal.js";
  * y `/es` para el resto.
  */
 const LOCALE_PREFIX = "__LOCALE_PREFIX__";
-
 const ICON_PATHS: Record<string, { viewBox: string; path: string }> = {
 	lock: {
 		viewBox: "0 0 448 512",
@@ -343,7 +342,7 @@ function footer(): TemplateResult {
 				<span aria-hidden="true">·</span>
 				<a href="mailto:hello@planu.app">${msg("Contact")}</a>
 			</div>
-			<p class="wa-font-size-xs wa-color-text-quiet">${msg("© 2026 planu. Built with Lit, Web Awesome and Firebase.")}</p>
+			<p class="wa-font-size-xs wa-color-text-quiet">${copyrightNotice()}</p>
 			${cookiesNotice()}
 		</footer>
 	`;
@@ -376,12 +375,6 @@ export function jsonLd(): string {
 		name: "planu",
 		applicationCategory: "ProductivityApplication",
 		operatingSystem: "Web",
-		offers: {
-			"@type": "Offer",
-			price: "0",
-			priceCurrency: "EUR",
-			availability: "https://schema.org/InStock",
-		},
 		description: landingDescription(),
 		url: "https://planu-app.web.app/",
 	};

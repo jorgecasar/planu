@@ -90,9 +90,51 @@ for (const { path, old, current } of SHARING_COPY) {
 		await expect(page.getByText(current)).toHaveCount(1);
 		await expect(page.getByText(old)).toHaveCount(0);
 		await expect(page.getByText("signup link")).toHaveCount(0);
-		await expect(page.getByText("© 2026 planu")).toHaveCount(1);
+		await expect(
+			page.getByText(`© ${new Date().getFullYear()} planu`),
+		).toHaveCount(1);
 	});
 }
+
+test("el JSON-LD no declara precio: D7 retiró «gratis» del copy", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const raw = await page
+		.locator("script[type='application/ld+json']")
+		.innerText();
+	const data = JSON.parse(raw) as Record<string, unknown>;
+	expect(data["@type"]).toBe("SoftwareApplication");
+	expect(data).not.toHaveProperty("offers");
+	expect(raw).not.toContain("price");
+});
+
+test("el movimiento de la landing usa los tokens de transición de Web Awesome", async ({
+	page,
+}) => {
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/");
+	const durations = await page.evaluate(() => {
+		const root = getComputedStyle(document.documentElement);
+		const text = document.querySelector(".hero > div");
+		const button = document.querySelector("a.wa-button.wa-brand");
+		if (!text || !button) throw new Error("hero not found");
+		return {
+			slow: root.getPropertyValue("--wa-transition-slow").trim(),
+			fast: root.getPropertyValue("--wa-transition-fast").trim(),
+			text: getComputedStyle(text).animationDuration,
+			button: getComputedStyle(button).transitionDuration,
+		};
+	});
+	// The token may be written as `300ms` or `.3s`: compare in seconds.
+	const seconds = (value: string) =>
+		Number.parseFloat(value) / (value.endsWith("ms") ? 1000 : 1);
+	expect(seconds(durations.text)).toBe(seconds(durations.slow));
+	// The button also keeps Web Awesome's own transitions: ours is the last.
+	expect(seconds(durations.button.split(", ").at(-1) ?? "")).toBe(
+		seconds(durations.fast),
+	);
+});
 
 test("la landing no carga JavaScript", async ({ page }) => {
 	// El único `<script>` permitido es el JSON-LD. Un bundle aquí rompería el

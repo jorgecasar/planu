@@ -1046,10 +1046,6 @@
   <source>More actions for “<x id="0" equiv-text="${event.title}"/>”</source>
         <target>Más acciones para «<x id="0" equiv-text="${event.title}"/>»</target>
 </trans-unit>
-<trans-unit id="s8ed00702e89e5d38">
-  <source>© 2026 planu. Built with Lit, Web Awesome and Firebase.</source>
-        <target>© 2026 planu. Construido con Lit, Web Awesome y Firebase.</target>
-</trans-unit>
 <trans-unit id="s4d08216177182931">
   <source>Viewer: can see the event. Editor: can also change its details. Neither can invite, remove people or delete the event.</source>
         <target>Lector: puede ver el evento. Editor: también puede cambiar sus datos. Ninguno puede invitar, quitar personas ni borrar el evento.</target>
@@ -1269,6 +1265,10 @@
 <trans-unit id="s625a788da7f3e626">
   <source>Invitation restored.</source>
         <target>Invitación restaurada.</target>
+</trans-unit>
+<trans-unit id="s5f7fdc5768073758">
+  <source>© <x id="0" equiv-text="${COPYRIGHT_YEAR}"/> planu. Built with Lit, Web Awesome and Firebase.</source>
+        <target>© <x id="0" equiv-text="${COPYRIGHT_YEAR}"/> planu. Construido con Lit, Web Awesome y Firebase.</target>
 </trans-unit>
 </body>
 </file>
