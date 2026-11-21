@@ -2,7 +2,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
 	testDir: "./e2e",
-	fullyParallel: true,
+	// One worker, in order. Every test wipes the emulators before it starts
+	// (see e2e/fixtures.ts) so it begins from a known state, and that wipe
+	// would erase the data of a test running in another worker at the same
+	// time. Determinism costs the parallelism; the flakes it replaces cost more.
+	fullyParallel: false,
+	workers: 1,
 	forbidOnly: !!process.env["CI"],
 	// No retries, not even in CI: a test that fails and passes on retry
 	// counts as "flaky" to Playwright, not "failed", and exits 0 — the

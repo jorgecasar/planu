@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 /**
  * El idioma sale del navegador, así que cada caso necesita su propio contexto.

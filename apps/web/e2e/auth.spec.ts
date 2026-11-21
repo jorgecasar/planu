@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { API_KEY, AUTH_EMULATOR } from "./verified-account.js";
 
 /** Correo único por ejecución: el emulador conserva los usuarios entre tests. */

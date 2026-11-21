@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { cardAction, openCardMenu } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";

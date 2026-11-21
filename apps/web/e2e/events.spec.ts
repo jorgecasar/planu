@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { cardAction } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
@@ -316,6 +317,11 @@ test("el campo de etiquetas del editor no tiene violaciones de accesibilidad", a
 	await expect(
 		page.getByRole("button", { name: "Remove tag música" }),
 	).toBeVisible();
+	// Settled, not just visible: the scan must not land while the dialog fades in.
+	await expect(page.locator("wa-dialog[open] .dialog")).toHaveCSS(
+		"opacity",
+		"1",
+	);
 
 	// Acotado al campo de etiquetas, atravesando el shadow DOM. Escanear el
 	// diálogo entero mide además su cromo —título y etiqueta de la portada—,
