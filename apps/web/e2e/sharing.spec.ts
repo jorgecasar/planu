@@ -124,6 +124,16 @@ async function acceptInvitation(guestPage: Page): Promise<void> {
 	await guestPage.getByRole("button", { name: "Accept" }).click();
 }
 
+/**
+ * Picks Editor in the open access menu and waits for the menu to close: the
+ * item fades out, and the next click on the trigger must not land mid-animation.
+ */
+async function chooseEditor(page: Page): Promise<void> {
+	const editor = page.getByRole("menuitemcheckbox", { name: "Editor" });
+	await editor.click();
+	await expect(editor).toBeHidden();
+}
+
 /** A second person, in their own context: separate session and storage. */
 async function openSecondSession(
 	browser: Browser,
@@ -517,7 +527,7 @@ test("the role of a pending invitation can still be changed", async ({
 	// Nobody has decided anything yet, so the offer is still the owner's to
 	// adjust — it used to be frozen the moment it was sent.
 	await page.getByRole("button", { name: /Access for/ }).click();
-	await page.getByRole("menuitemcheckbox", { name: "Editor" }).click();
+	await chooseEditor(page);
 
 	// What the guest accepts is the role as it stands now, not as it was sent.
 	await acceptInvitation(guestPage);
@@ -605,10 +615,15 @@ test("cancelling an invitation can be undone, and the guest still has to accept 
 	await page.getByRole("button", { name: "Invite", exact: true }).click();
 	await expect(page.getByText("Pending", { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: /Access for/ }).click();
-	await page.getByRole("menuitemcheckbox", { name: "Editor" }).click();
+	await chooseEditor(page);
 
-	// No confirmation: choosing it writes, and the notice names who.
+	// No confirmation: choosing it writes, and the notice names who. Reopened
+	// only once the dialog shows the role as saved: cancelling while the change
+	// is still in flight is ignored, and Undo would restore the stale role.
 	await page.getByRole("button", { name: /Access for/ }).click();
+	await expect(
+		page.getByRole("menuitemcheckbox", { name: "Editor" }),
+	).toBeChecked();
 	await page.getByRole("menuitem", { name: "Cancel invitation" }).click();
 	await expect(
 		page.getByText(/The invitation to .* was cancelled\./),
@@ -616,6 +631,10 @@ test("cancelling an invitation can be undone, and the guest still has to accept 
 	await expect(page.getByText("Pending", { exact: true })).toHaveCount(0);
 	await expectNoViolations(page);
 	await guestPage.reload();
+	// Absence only means something once the page has rendered.
+	await expect(
+		guestPage.getByRole("button", { name: "New event" }),
+	).toBeVisible();
 	await expect(guestPage.getByRole("button", { name: "Accept" })).toHaveCount(
 		0,
 	);
