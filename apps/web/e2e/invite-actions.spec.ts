@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { cardAction } from "./tests/card-actions.js";
 import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
 

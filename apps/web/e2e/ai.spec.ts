@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { signUpVerified } from "./verified-account.js";
 
 /** PNG de 1x1 píxel, suficiente para ejercitar la subida. */
@@ -245,6 +246,12 @@ test("el formulario con el bloque de IA visible no tiene violaciones de accesibi
 	await signUp(page);
 	await page.getByRole("button", { name: "New event" }).click();
 	await expect(page.getByLabel("Event image")).toBeVisible();
+	// Visible is not settled: axe measures contrast against the dialog while it
+	// is still fading in and reads a different ratio on every run.
+	await expect(page.locator("wa-dialog[open] .dialog")).toHaveCSS(
+		"opacity",
+		"1",
+	);
 
 	const resultados = await new AxeBuilder({ page })
 		.include([["planu-app", "planu-events-view", "planu-event-editor"]])

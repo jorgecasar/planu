@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 import { signUpVerified } from "./verified-account.js";
 
 const PHONE = { width: 390, height: 844 };

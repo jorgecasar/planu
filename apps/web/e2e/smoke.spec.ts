@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.js";
 
 test("sin sesión, la portada redirige al acceso", async ({ page }) => {
 	await page.goto("/app");
