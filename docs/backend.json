@@ -160,10 +160,10 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Server time." },
         "emailHash": {
           "type": "string",
-          "description": "Optional. sha256 of the lowercased inviteeEmail, the value the invitee lists by (GH-280). When present the rules require it to match."
+          "description": "sha256 of the lowercased inviteeEmail, the value the invitee lists by (GH-280). Required on create and the rules require it to match. Offers stored before it was required may lack it: they stay readable and deletable but cannot be re-created."
         }
       },
-      "required": ["eventId", "eventTitle", "inviteeEmail", "invitedBy", "role", "createdAt"],
+      "required": ["eventId", "eventTitle", "inviteeEmail", "invitedBy", "role", "createdAt", "emailHash"],
       "$comment": "Document id is `{eventId}_{sha256(lowercased email)}`, the same hash userDirectory uses."
     },
     "PublicProfile": {

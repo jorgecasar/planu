@@ -196,7 +196,9 @@ describe("joining by uid spends the email offer to that address", () => {
 // offer can be redeemed there, whatever address the removal could not find.
 describe("a tombstone keeps a removed guest out", () => {
 	const E2 = "guest.new@example.com";
-	const OFFER2 = `eventInvitesByEmail/an-event_${createHash("sha256").update(E2).digest("hex")}`;
+	const sha = (email: string) =>
+		createHash("sha256").update(email).digest("hex");
+	const OFFER2 = `eventInvitesByEmail/an-event_${sha(E2)}`;
 	const TOMBSTONE = () => ({
 		eventId: "an-event",
 		inviteeUid: GUEST,
@@ -213,6 +215,7 @@ describe("a tombstone keeps a removed guest out", () => {
 			setDoc(doc(owner(), path), {
 				...anOffer(),
 				inviteeEmail: email,
+				emailHash: sha(email),
 				createdAt: serverTimestamp(),
 			}),
 		);
@@ -344,6 +347,7 @@ describe("a tombstone keeps a removed guest out", () => {
 				setDoc(doc(owner(), OFFER2), {
 					...anOffer(role),
 					inviteeEmail: E2,
+					emailHash: sha(E2),
 					createdAt: serverTimestamp(),
 				}),
 			);

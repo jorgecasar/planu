@@ -47,6 +47,7 @@ const anOffer = (extra: Record<string, unknown> = {}) =>
 			eventId: "an-event",
 			eventTitle: "Concert",
 			inviteeEmail: EMAIL,
+			emailHash: hash(String(extra["inviteeEmail"] ?? EMAIL)),
 			invitedBy: OWNER,
 			invitedByName: "Ana",
 			role: "viewer",
@@ -263,6 +264,29 @@ describe("the hash stored on an offer", () => {
 		await assertFails(
 			offer(as(OWNER), { emailHash: hash("someone@example.com") }),
 		);
+	});
+
+	test("an offer without the hash is refused", async () => {
+		await assertFails(offer(as(OWNER), { emailHash: undefined }));
+	});
+
+	test("an offer made before the hash was required stays readable and deletable", async () => {
+		const legacy = pathOf("legacy@example.com");
+		await env.withSecurityRulesDisabled((ctx) =>
+			setDoc(
+				doc(ctx.firestore(), legacy),
+				anOffer({ inviteeEmail: "legacy@example.com", emailHash: undefined }),
+			),
+		);
+		await assertSucceeds(getDoc(doc(as(OWNER), legacy)));
+		await assertFails(
+			offer(
+				as(OWNER),
+				{ inviteeEmail: "legacy@example.com", emailHash: undefined },
+				legacy,
+			),
+		);
+		await assertSucceeds(deleteDoc(doc(as(OWNER), legacy)));
 	});
 });
 
