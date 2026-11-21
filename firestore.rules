@@ -563,7 +563,8 @@ service cloud.firestore {
       }
 
       // No hasAll: every field but invitedByName is checked below or in
-      // `allow create`, and a missing one fails that check.
+      // `allow create`, and a missing one fails that check (emailHash
+      // included: `d.emailHash is string` is false when absent).
       function isValidOffer(d) {
         return d.keys().hasOnly(['eventId', 'eventTitle', 'inviteeEmail',
                                  'invitedBy', 'invitedByName', 'role',
@@ -574,11 +575,12 @@ service cloud.firestore {
             && (!('invitedByName' in d)
                 || (d.invitedByName is string && d.invitedByName.size() <= 200))
             && d.role in ['viewer', 'editor']
-            // The hash the invitee queries by (GH-280). Optional while the
-            // client does not write it yet; when present it must be the hash
-            // of the stored address, so an offer cannot be filed under
-            // someone else's hash.
-            && (!('emailHash' in d) || d.emailHash == emailHash(d.inviteeEmail))
+            // The hash the invitee queries by (GH-280). Required, and it must
+            // be the hash of the stored address, so an offer cannot be filed
+            // under someone else's hash. Offers made before it was required
+            // stay readable and deletable, but cannot be re-created.
+            && d.emailHash is string
+            && d.emailHash == emailHash(d.inviteeEmail)
             && inviteId == d.eventId + '_' + emailHash(d.inviteeEmail);
       }
 
