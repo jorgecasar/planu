@@ -168,8 +168,8 @@ Lo vigilan dos cosas, no la buena voluntad:
    en Node, sin emuladores, junto a la calidad estática.
 
 **La métrica de progreso son los ficheros acoplados, no las entradas de la
-lista.** Hoy son **21 ficheros**, todos en `infrastructure/firebase/**`
-—doce fuentes y nueve tests—. GH-108 trasladó ahí los siete de
+lista.** Hoy son **22 ficheros**, todos en `infrastructure/firebase/**`
+—doce fuentes y diez tests—. GH-108 trasladó ahí los siete de
 `src/firebase/`, y la lista perdió una entrada; el recuento bajó de 25 a 24
 porque `context.ts` sólo importaba Firebase para tipar tres contextos que
 nadie consumía, y sin ellos pasó a `application/`. GH-185 quitó la última
@@ -196,7 +196,9 @@ fichero nuevo (26 → 24). GH-100 (#161) lo subió a 25 con
 emulador. GH-300 fundió `collection-controller.ts` y su test en
 `events-controller.ts`, su único consumidor (22 → 20). GH-244 lo subió a 21 con
 `firebase-provider.test.ts`: la raíz de composición no tenía test y el suyo no
-puede vivir fuera de `infrastructure/firebase/`. Nunca por una entrada añadida a la lista para esquivar el
+puede vivir fuera de `infrastructure/firebase/`. HU-429 lo subió a 22 con
+`observability.test.ts`: la puerta que arranca Sentry y Performance sólo tras
+el consentimiento no tenía test. Nunca por una entrada añadida a la lista para esquivar el
 recuento, sólo por ficheros nuevos en el sitio al que pertenecen.
 
 Y el vigilante vigila **la puerta además de la lista**: comprueba que siga

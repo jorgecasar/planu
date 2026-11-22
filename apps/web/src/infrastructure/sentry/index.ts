@@ -94,6 +94,16 @@ export async function startErrorTracking(): Promise<void> {
 	flushStartupErrors({ captureException });
 }
 
+/**
+ * Stops sending: closes the client, so nothing is reported until
+ * `startErrorTracking()` runs again. Called when consent is withdrawn.
+ */
+export async function stopErrorTracking(): Promise<void> {
+	if (!import.meta.env.VITE_SENTRY_DSN) return;
+	const { close } = await import("@sentry/browser");
+	await close();
+}
+
 function codeOf(error: unknown): string {
 	const { code } = Object(error) as { code?: unknown };
 	return code === undefined ? "unknown" : String(code);
