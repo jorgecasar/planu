@@ -5,22 +5,29 @@ import { logger } from "firebase-functions";
 import { onUserDeleted } from "firebase-functions/v2/identity";
 import { logDeletedUser } from "./log-deleted-user.js";
 import { sweepOwnedData } from "./sweep-owned-data.js";
+import { sweepReferences } from "./sweep-references.js";
 
 const app = getApps().length > 0 ? getApp() : initializeApp();
 
 /**
- * Runs when an Auth account is deleted: records the uid and sweeps the events
- * and images that account owned. Memberships, invitations and the profile
- * arrive in the following tasks of GH-154.
+ * Runs when an Auth account is deleted: records the uid, sweeps the events and
+ * images that account owned, then what it left in other people's data (its
+ * membership, invitations and email offers). The profile and the directory
+ * entry arrive in the next task of GH-154.
+ *
+ * `retry` is on: a sweep that throws is run again, and every step is
+ * idempotent, so a failure halfway does not leave data behind for good.
  */
-export const onAccountDeleted = onUserDeleted(async (event) => {
-	const { uid } = event.data;
-	logDeletedUser(uid, (message, data) => {
-		logger.info(message, data);
-	});
-	await sweepOwnedData(uid, {
+export const onAccountDeleted = onUserDeleted(
+	{ retry: true },
+	async (event) => {
+		const { uid } = event.data;
+		logDeletedUser(uid, (message, data) => {
+			logger.info(message, data);
+		});
 		// The database is called `planu`, not `(default)`.
-		firestore: getFirestore(app, "planu"),
-		bucket: getStorage(app).bucket(),
-	});
-});
+		const firestore = getFirestore(app, "planu");
+		await sweepOwnedData(uid, { firestore, bucket: getStorage(app).bucket() });
+		await sweepReferences(uid, { firestore });
+	},
+);
