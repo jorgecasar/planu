@@ -251,8 +251,16 @@ const importaFirebase = (fichero: string): boolean =>
  * test has to import it, and it lives beside it: a test elsewhere would reach
  * into `infrastructure/`, which `layers.test.ts` forbids for `ui/`. Raised on
  * the owner's decision of 2026-11-18, not by an entry added to the list.
+ *
+ * HU-429 adds `observability.test.ts`, from 21 to 22. `observability.ts` now
+ * starts Sentry and Firebase Performance only after consent, and that gate had
+ * no test: sending nothing before consent is the whole point of the change.
+ * The test imports the `FirebaseApp` type that `performanceToggle` takes, and
+ * it lives beside the file under test, for the same reason as the one above.
+ * Raised by a new file in the place where `firebase/*` is meant to live, not
+ * by an entry added to the list.
  */
-const TOPE_ACOPLADOS = 21;
+const TOPE_ACOPLADOS = 22;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
