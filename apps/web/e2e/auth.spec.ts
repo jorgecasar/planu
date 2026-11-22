@@ -102,6 +102,32 @@ test("credenciales incorrectas no revelan si el correo existe", async ({
 	await expect(page.getByRole("alert")).toHaveText("Wrong email or password.");
 });
 
+// The landing's call to action links here (HU-271 R6).
+test("/app/login?mode=signup abre la pestaña «Create account»", async ({
+	page,
+}) => {
+	await page.goto("/app/login?mode=signup");
+
+	await expect(page.locator("wa-tab[panel='signup']")).toHaveAttribute(
+		"active",
+		"",
+	);
+	await expect(
+		page.getByRole("button", { name: "Create account" }),
+	).toBeVisible();
+	await expect(page.getByRole("button", { name: "Sign in" })).toBeHidden();
+});
+
+test("/app/login con otro mode se queda en «Sign in»", async ({ page }) => {
+	await page.goto("/app/login?mode=otro");
+
+	await expect(page.locator("wa-tab[panel='signin']")).toHaveAttribute(
+		"active",
+		"",
+	);
+	await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+});
+
 test("la aplicación autenticada no tiene violaciones de accesibilidad", async ({
 	page,
 }) => {
