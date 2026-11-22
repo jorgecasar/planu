@@ -75,6 +75,13 @@
 			"rules": "storage.rules"
 		}
 	],
+	"functions": [
+		{
+			"source": "apps/functions",
+			"codebase": "default",
+			"predeploy": ["npm run build --workspace @planu/functions"]
+		}
+	],
 	"emulators": {
 		"auth": {
 			"port": 9099
@@ -84,6 +91,9 @@
 		},
 		"storage": {
 			"port": 9199
+		},
+		"functions": {
+			"port": 5001
 		},
 		"hosting": {
 			"port": 5050
