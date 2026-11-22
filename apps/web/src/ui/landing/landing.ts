@@ -134,11 +134,14 @@ export function hero(): TemplateResult {
 						media="(max-width: 600px)"
 						srcset="${msg("/assets/landing/hero-mobile-en.webp")}"
 					/>
+					<!-- @ts-ignore lit-analyzer does not know the standard fetchpriority
+					     attribute yet; it is what makes the browser load the LCP image first. -->
 					<img
 						src="${msg("/assets/landing/hero-en.webp")}"
 						alt="${msg("The planu event list with sample events: cover image, date and place on each card")}"
 						width="1200"
 						height="675"
+						fetchpriority="high"
 					/>
 				</picture>
 			</figure>

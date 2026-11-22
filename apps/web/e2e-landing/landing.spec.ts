@@ -869,6 +869,23 @@ test("el hero en español usa la captura en español, de 1200×675 y bajo 60 KB"
 	expect(response.status()).toBe(200);
 	expect((await response.body()).length).toBeLessThan(60 * 1024);
 });
+// The hero image is the LCP element (Lighthouse names it, HU-414): without the
+// hint the browser ranks it as any other image and discovers its priority late.
+for (const path of ["/", "/en/", "/es/"]) {
+	test(`la imagen del hero (${path}) pide prioridad alta, y es la única`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		await expect(page.locator("figure.hero-figure img")).toHaveAttribute(
+			"fetchpriority",
+			"high",
+		);
+		// Only the LCP image: a second one would cancel the hint.
+		await expect(page.locator("img[fetchpriority='high']")).toHaveCount(1);
+	});
+}
+
 test("la imagen del hero existe, con las medidas que declara y sin recorte inesperado", async ({
 	page,
 	request,
