@@ -1,6 +1,14 @@
 /* Estilos propios de la landing — el build los mete en línea en el HTML. */
 /* Sólo utilidades y tokens de Web Awesome; ningún valor en crudo. */
 
+/* Layout widths the Web Awesome scale does not have. Declared on `body`, not
+   `:root`, so the theme stays the only place that sets global tokens. */
+body {
+	--landing-width-page: 64rem;
+	--landing-width-text: 42rem;
+	--landing-width-card-min: 17rem;
+}
+
 .hero {
 	padding-block: var(--wa-space-xl) var(--wa-space-2xl);
 	text-align: center;
@@ -68,7 +76,7 @@
 .features > div,
 .steps > div,
 .rules > div {
-	max-width: 64rem;
+	max-width: var(--landing-width-page);
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);
 }
@@ -153,7 +161,7 @@ footer a:hover {
 }
 
 .hero > div {
-	max-width: 42rem;
+	max-width: var(--landing-width-text);
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);
 }
@@ -202,7 +210,10 @@ footer a:hover {
 	/* `wa-grid` reparte en columnas iguales; aquí interesa que las tarjetas
 	   fluyan según el ancho disponible. The `min(…, 100%)` keeps a single column
 	   from overflowing viewports narrower than the column minimum (320 px). */
-	grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+	grid-template-columns: repeat(
+			auto-fit,
+			minmax(min(var(--landing-width-card-min), 100%), 1fr)
+		);
 }
 
 /*
@@ -238,7 +249,7 @@ footer a:hover {
 
 /* Páginas legales (T30): privacidad, términos. */
 .legal-page {
-	max-width: 42rem;
+	max-width: var(--landing-width-text);
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);
 	padding-block: var(--wa-space-2xl);
@@ -259,7 +270,7 @@ footer a:hover {
 }
 
 .cookie-notice {
-	max-width: 42rem;
+	max-width: var(--landing-width-text);
 	margin-inline: auto;
 	padding-inline: var(--wa-space-xl);
 	padding-block-start: var(--wa-space-s);
