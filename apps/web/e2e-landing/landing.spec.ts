@@ -147,6 +147,103 @@ test("la landing no carga JavaScript", async ({ page }) => {
 	expect(types).toEqual(["application/ld+json"]);
 });
 
+// The first test above only visits `/`. The Spanish page and every legal page
+// come from other templates, so a script added there would go unnoticed.
+const SITE = "https://planu-app.web.app";
+const LEGAL_PAGES = [
+	"/privacy.html",
+	"/terms.html",
+	"/en/privacy.html",
+	"/en/terms.html",
+	"/es/privacy.html",
+	"/es/terms.html",
+];
+
+for (const path of ["/en/", "/es/"]) {
+	test(`${path} no carga más JavaScript que el JSON-LD`, async ({ page }) => {
+		await page.goto(path);
+
+		const types = await page
+			.locator("script")
+			.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("type")));
+		expect(types).toEqual(["application/ld+json"]);
+	});
+}
+
+for (const path of LEGAL_PAGES) {
+	test(`${path} no carga ningún JavaScript`, async ({ page }) => {
+		await page.goto(path);
+
+		await expect(page.locator("script")).toHaveCount(0);
+	});
+}
+
+for (const path of ["/", "/en/", "/es/"]) {
+	test(`${path} declara a qué URL apunta cada idioma, con x-default en la raíz`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const alternates = await page
+			.locator("link[rel='alternate'][hreflang]")
+			.evaluateAll((nodes) =>
+				Object.fromEntries(
+					nodes.map((node) => [
+						node.getAttribute("hreflang"),
+						node.getAttribute("href"),
+					]),
+				),
+			);
+		// Swapping two of them would still answer 200 on every URL.
+		expect(alternates).toEqual({
+			es: `${SITE}/es/`,
+			en: `${SITE}/en/`,
+			"x-default": `${SITE}/`,
+		});
+	});
+}
+
+for (const [path, description] of [
+	["/", /^Create, search and filter events/],
+	["/en/", /^Create, search and filter events/],
+	["/es/", /^Crea, busca y filtra eventos/],
+] as const) {
+	test(`el JSON-LD de ${path} describe planu en el idioma de la página`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const raw = await page
+			.locator("script[type='application/ld+json']")
+			.innerText();
+		const data = JSON.parse(raw) as Record<string, unknown>;
+		expect(data).toMatchObject({
+			"@context": "https://schema.org",
+			"@type": "SoftwareApplication",
+			name: "planu",
+			applicationCategory: "ProductivityApplication",
+			operatingSystem: "Web",
+		});
+		// The spec does not say whether each language page names itself or the
+		// site root, so only the origin is pinned: a wrong host still fails.
+		expect(String(data["url"]).startsWith(`${SITE}/`)).toBe(true);
+		expect(data["description"]).toMatch(description);
+	});
+}
+
+for (const path of ["/", "/en/", "/es/"]) {
+	test(`el HTML de ${path} pesa 18 KB o menos, con el CSS en línea`, async ({
+		request,
+	}) => {
+		const response = await request.get(path);
+
+		expect(response.status()).toBe(200);
+		// The build only fails above 24 KB (`scripts/build-landing.js`); the
+		// spec asks for 18 KB so the page keeps room for the LCP.
+		expect((await response.body()).length).toBeLessThanOrEqual(18 * 1024);
+	});
+}
+
 test("la landing se ve con JavaScript desactivado", async ({ browser }) => {
 	const context = await browser.newContext({ javaScriptEnabled: false });
 	const page = await context.newPage();
