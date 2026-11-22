@@ -1,6 +1,6 @@
 {
-  "kj_version": "5.32.0",
-  "generated_at": "2026-11-20T21:39:13.770Z",
+  "kj_version": "5.33.0",
+  "generated_at": "2026-11-22T18:25:18.311Z",
   "generation": {
     "profile": "standard",
     "cmds": {
@@ -38,11 +38,11 @@
     },
     {
       "file": ".github/workflows/kj-secrets.yml",
-      "sha256": "ae170d77f4a2009edb93f4365df44a54f396d4ecbf0dfc1ad74cceeedce76895"
+      "sha256": "cd2a48d071646b40dbdf3fec88845cfc11afe519248c6589c72457ca78270dbf"
     },
     {
       "file": ".github/workflows/kj-verdicts.yml",
-      "sha256": "d49c388739051abc61628c32f0e917a14095e1385c188ee1948408bb37c3fc5a"
+      "sha256": "22a7ce81ee5df66413bdc66a5a1e6349f04e76c6d6cc1f9af31cba939a163b79"
     },
     {
       "file": ".karajan/hooks/commit-msg",
@@ -64,20 +64,5 @@
       "file": ".karajan/hooks/prepare-commit-msg",
       "sha256": "e61d46c11e9b7928aa168a1f9a2081203df9a9fa236e41b39ba1fba240ab08ef"
     }
-  ],
-  "signature": {
-    "cid": "34d1819a8ebd5fcbeeff351632318bee",
-    "nonce": "7de55aa99838728823f4b261e53c39e6",
-    "project": "jorgecasar/planu",
-    "filesHash": "7e5dcd2ea89de8ba1c5bb878de429a856dacbdf27c58b4b4406ef05a81a6b6ca",
-    "v": 2,
-    "kjVersion": "5.32.0",
-    "issuedMs": 1795210737893,
-    "expiresMs": 1795210887893,
-    "type": "webauthn",
-    "credentialId": "7DAqkaLoc1yKn4yjU7vD7w",
-    "authenticatorData": "rXNnteqvZsxVFoAzmjFmd-OrJ0TSokRWHcqrVw7x-rQdAAAAAA",
-    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiclJBOHpyNU1RQU9NaTU2V20yckV2YWFpb3BjUzBCSHhKd2VZalFhejYwdyIsIm9yaWdpbiI6Imh0dHBzOi8va2FyYWphbmNvZGUuY29tIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
-    "signature": "MEUCIB2vdYZbtGDWg7gt5DGyIV-XsLlHTAXeVvss4tYZW7xjAiEApIEhse0wsLFHj6jKCMTqdehmyEiI74rZCQ4nMe6ArVY"
-  }
+  ]
 }
