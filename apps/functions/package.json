@@ -11,7 +11,8 @@
 	"scripts": {
 		"build": "tsc --project tsconfig.build.json",
 		"typecheck": "tsc --noEmit",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:emulators": "vitest run --config vitest.emulators.config.ts"
 	},
 	"dependencies": {
 		"firebase-admin": "^13.10.0",
