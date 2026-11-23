@@ -17,6 +17,24 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
 - Los e2e de `apps/web/e2e-landing/landing.spec.ts` fallan si falta, si hay
   más de uno, si es relativo o si apunta a otra página.
 
+## Qué se ha hecho en HU-424 (issue #424)
+
+- Open Graph y Twitter card por página e idioma de la landing (`/`, `/en/`,
+  `/es/`): `og:url` igual al canonical de cada página, `og:locale` del idioma
+  y `og:locale:alternate` de los demás, `og:site_name`, `og:image` absoluta
+  con `og:image:width`/`height` (1200 x 630) y `og:image:alt` traducido, y
+  `twitter:title`, `twitter:description`, `twitter:image` y
+  `twitter:image:alt`.
+- Todas las URL absolutas de `landing.ts` (imagen y `hreflang`) y de
+  `build-landing.js` salen de `SITE_ORIGIN`; ya no queda el origen escrito a
+  mano. El marcador `<!--CANONICAL_PLACEHOLDER-->` sigue igual: el build
+  rellena `og:url` y `og:locale` en el mismo punto, al escribir cada destino.
+- Las páginas legales siguen `noindex` y no llevan Open Graph ni Twitter: no
+  se quieren compartir ni indexar, así que no tiene sentido anunciarlas.
+- No se ha regenerado `og.png` (HU-425) ni tocado el JSON-LD (HU-426).
+- Los e2e de `landing.spec.ts` fallan si falta alguna etiqueta, si hay más de
+  una, o si URL, idioma o imagen no corresponden a la página.
+
 ## Qué hay y está bien
 
 | Elemento | Estado |
@@ -36,9 +54,8 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
 1. **Páginas legales sin metadatos.** `privacy.html` y `terms.html` no tienen
    `meta description`, ni `hreflang`, ni Open Graph. Tampoco están en el
    sitemap.
-2. **`og:locale` y `og:locale:alternate`** no existen; en `/es/` el idioma
-   sólo se deduce de `lang`.
-3. **`og:image:alt`** y dimensiones de la imagen (`og:image:width/height`).
+2. ~~`og:locale` y `og:locale:alternate`~~ — resuelto en HU-424.
+3. ~~`og:image:alt` y dimensiones de la imagen~~ — resuelto en HU-424.
 4. **`meta name="robots"`** explícito. No es necesario hoy (el valor por
    defecto es indexar), pero conviene en la aplicación bajo `/app`, donde
    `robots.txt` sólo evita el rastreo, no la indexación de una URL enlazada.
@@ -50,15 +67,12 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
 
 ## Qué sobra o está mal
 
-1. **`og:url` fijo a `/`** en todos los idiomas: en `/es/` declara la URL
-   inglesa. Debería ser la misma URL que el canonical de cada página.
+1. ~~`og:url` fijo a `/`~~ — resuelto en HU-424: es la URL de cada página.
 2. **URL duplicada `/` y `/en/`** con el mismo contenido. Es deliberado
    (`x-default` en la raíz), y el canonical autorreferenciado es coherente
    con eso, pero si se quiere un único destino habría que decidir si la raíz
    redirige a `/en/` (eso vive en `firebase.json`; no se toca aquí).
-3. **Origen repetido a mano** en `og:url`, `og:image` y los tres `hreflang`
-   de `landing.ts`: deberían usar `SITE_ORIGIN`. Se deja para una tarjeta
-   siguiente para no mezclar cambios.
+3. ~~Origen repetido a mano~~ — resuelto en HU-424: todo usa `SITE_ORIGIN`.
 4. **Comentario del sitemap** y `robots.txt` en español dentro de ficheros
    públicos: inocuo, pero se sirve tal cual.
 

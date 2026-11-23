@@ -28,6 +28,15 @@ const LOCALE_PREFIX = "__LOCALE_PREFIX__";
 
 /** Public origin of the site; the build also derives each page's canonical URL from it. */
 export const SITE_ORIGIN = "https://planu-app.web.app";
+const HOME_URL = `${SITE_ORIGIN}/`;
+const OG_IMAGE_URL = `${SITE_ORIGIN}/assets/landing/og.png`;
+const OG_IMAGE_WIDTH = "1200";
+const OG_IMAGE_HEIGHT = "630";
+
+/** Alt text of the social card image, shared by Open Graph and Twitter. */
+function ogImageAlt(): string {
+	return msg("planu, the private event planner");
+}
 const ICON_PATHS: Record<string, { viewBox: string; path: string }> = {
 	lock: {
 		viewBox: "0 0 448 512",
@@ -83,13 +92,22 @@ export function landingTemplate(): TemplateResult {
 				<meta property="og:title" content="<!--OG_TITLE_PLACEHOLDER-->" />
 				<meta property="og:description" content="<!--OG_DESC_PLACEHOLDER-->" />
 				<meta property="og:type" content="website" />
-				<meta property="og:url" content="https://planu-app.web.app/" />
-				<meta property="og:image" content="https://planu-app.web.app/assets/landing/og.png" />
+				<meta property="og:site_name" content="planu" />
+					<meta property="og:url" content="<!--OG_URL_PLACEHOLDER-->" />
+					<!--OG_LOCALE_PLACEHOLDER-->
+				<meta property="og:image" content="${OG_IMAGE_URL}" />
+					<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" />
+					<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" />
+					<meta property="og:image:alt" content="${ogImageAlt()}" />
 				<meta name="twitter:card" content="summary_large_image" />
+					<meta name="twitter:title" content="<!--OG_TITLE_PLACEHOLDER-->" />
+					<meta name="twitter:description" content="<!--OG_DESC_PLACEHOLDER-->" />
+					<meta name="twitter:image" content="${OG_IMAGE_URL}" />
+					<meta name="twitter:image:alt" content="${ogImageAlt()}" />
 				<!--CANONICAL_PLACEHOLDER-->
-				<link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
-				<link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
-				<link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
+				<link rel="alternate" hreflang="es" href="${SITE_ORIGIN}/es/" />
+				<link rel="alternate" hreflang="en" href="${SITE_ORIGIN}/en/" />
+				<link rel="alternate" hreflang="x-default" href="${HOME_URL}" />
 				<script type="application/ld+json"><!--JSON_LD_PLACEHOLDER--></script>
 				<link rel="stylesheet" href="__WA_STYLESHEET__" />
 				<style><!--INLINE_CSS_PLACEHOLDER--></style>
