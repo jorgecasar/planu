@@ -259,8 +259,10 @@ const importaFirebase = (fichero: string): boolean =>
  * it lives beside the file under test, for the same reason as the one above.
  * Raised by a new file in the place where `firebase/*` is meant to live, not
  * by an entry added to the list.
+ *
+ * HU-447 adds the `AccountExportPort` adapter and its test, from 22 to 24.
  */
-const TOPE_ACOPLADOS = 22;
+const TOPE_ACOPLADOS = 24;
 
 const TODOS = ficherosBajo(SRC);
 const LISTA = eximen().flatMap((o) => o.includes);
