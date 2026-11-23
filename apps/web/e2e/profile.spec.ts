@@ -114,6 +114,32 @@ test("renombrar desde el perfil actualiza Auth, userProfiles y el directorio", a
 	}
 });
 
+test("descargar mis datos entrega un JSON con el evento propio (HU-448)", async ({
+	page,
+}) => {
+	await signUp(page);
+	await page.getByRole("button", { name: "New event" }).click();
+	await page.getByLabel("Title").fill("Mi evento exportado");
+	await page.getByRole("button", { name: "Save event" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Mi evento exportado" }),
+	).toBeVisible();
+	await page.goto("/app/profile");
+
+	const download = page.waitForEvent("download");
+	await page.getByRole("button", { name: "Download my data" }).click();
+	const file = await download;
+
+	const stream = await file.createReadStream();
+	let text = "";
+	for await (const chunk of stream) text += chunk;
+	const data = JSON.parse(text) as {
+		format: string;
+		events: { data: { title?: string } }[];
+	};
+	expect(data.format).toBe("planu-account-export");
+	expect(data.events.map((e) => e.data.title)).toContain("Mi evento exportado");
+});
 test("el perfil no tiene violaciones de accesibilidad", async ({ page }) => {
 	await signUp(page);
 	await page.goto("/app/profile");

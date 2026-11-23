@@ -1322,6 +1322,14 @@
   <source>Name saved.</source>
   <target>Nombre guardado.</target>
 </trans-unit>
+<trans-unit id="sdc0ecd74db17bcbb">
+  <source>Download my data</source>
+  <target>Descargar mis datos</target>
+</trans-unit>
+<trans-unit id="sea8219eb78faded0">
+  <source>We could not prepare your data. Try again.</source>
+  <target>No hemos podido preparar tus datos. Inténtalo de nuevo.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

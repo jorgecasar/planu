@@ -1,3 +1,4 @@
+import { createContext } from "@lit/context";
 import type { AccountExportSource } from "../../domain/account-export.js";
 
 /**
@@ -10,3 +11,7 @@ import type { AccountExportSource } from "../../domain/account-export.js";
 export interface AccountExportPort {
 	read(uid: string): Promise<AccountExportSource>;
 }
+
+export const accountExportContext = createContext<
+	AccountExportPort | undefined
+>("account-export");
