@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { atEachViewport, axeBuilder } from "../e2e/tests/axe.js";
 
 /**
@@ -105,11 +105,69 @@ test("el JSON-LD no declara precio: D7 retiró «gratis» del copy", async ({
 	const raw = await page
 		.locator("script[type='application/ld+json']")
 		.innerText();
-	const data = JSON.parse(raw) as Record<string, unknown>;
-	expect(data["@type"]).toBe("SoftwareApplication");
-	expect(data).not.toHaveProperty("offers");
+	expect(raw).not.toContain("offers");
 	expect(raw).not.toContain("price");
 });
+
+// One test per JSON-LD field, per page and language: each fails if that field
+// is missing or points at another page.
+type LdNode = Record<string, unknown>;
+for (const [path, lang] of [
+	["/", "en"],
+	["/en/", "en"],
+	["/es/", "es"],
+] as const) {
+	const readLd = async (page: Page) => {
+		const scripts = page.locator("script[type='application/ld+json']");
+		expect(await scripts.count()).toBe(1);
+		const data = JSON.parse(await scripts.innerText()) as {
+			"@graph": LdNode[];
+		};
+		const find = (type: string) => {
+			const node = data["@graph"].find((item) => item["@type"] === type);
+			if (!node) throw new Error(`no ${type} in the JSON-LD`);
+			return node;
+		};
+		return { app: find("SoftwareApplication"), site: find("WebSite") };
+	};
+
+	test(`${path} JSON-LD: @context de schema.org`, async ({ page }) => {
+		await page.goto(path);
+		const raw = JSON.parse(
+			await page.locator("script[type='application/ld+json']").innerText(),
+		) as LdNode;
+		expect(raw["@context"]).toBe("https://schema.org");
+	});
+
+	test(`${path} JSON-LD: inLanguage ${lang} en la aplicación y el sitio`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+		const { app, site } = await readLd(page);
+		expect(app["inLanguage"]).toBe(lang);
+		expect(site["inLanguage"]).toBe(lang);
+	});
+
+	test(`${path} JSON-LD: url propia y absoluta`, async ({ page }) => {
+		await page.goto(path);
+		const { app, site } = await readLd(page);
+		expect(app["url"]).toBe(`${SITE}${path}`);
+		expect(site["url"]).toBe(`${SITE}${path}`);
+	});
+
+	test(`${path} JSON-LD: imagen absoluta`, async ({ page }) => {
+		await page.goto(path);
+		const { app } = await readLd(page);
+		expect(app["image"]).toBe(`${SITE}/assets/landing/og.png`);
+	});
+
+	test(`${path} JSON-LD: WebSite con nombre`, async ({ page }) => {
+		await page.goto(path);
+		const { app, site } = await readLd(page);
+		expect(site["name"]).toBe("planu");
+		expect(app["name"]).toBe("planu");
+	});
+}
 
 test("el movimiento de la landing usa los tokens de transición de Web Awesome", async ({
 	page,
@@ -275,17 +333,15 @@ for (const [path, description] of [
 		const raw = await page
 			.locator("script[type='application/ld+json']")
 			.innerText();
-		const data = JSON.parse(raw) as Record<string, unknown>;
+		const graph = (JSON.parse(raw) as { "@graph": LdNode[] })["@graph"];
+		const data = graph.find(
+			(node) => node["@type"] === "SoftwareApplication",
+		) as LdNode;
 		expect(data).toMatchObject({
-			"@context": "https://schema.org",
-			"@type": "SoftwareApplication",
 			name: "planu",
 			applicationCategory: "ProductivityApplication",
 			operatingSystem: "Web",
 		});
-		// The spec does not say whether each language page names itself or the
-		// site root, so only the origin is pinned: a wrong host still fails.
-		expect(String(data["url"]).startsWith(`${SITE}/`)).toBe(true);
 		expect(data["description"]).toMatch(description);
 	});
 }

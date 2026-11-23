@@ -31,9 +31,28 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
   rellena `og:url` y `og:locale` en el mismo punto, al escribir cada destino.
 - Las páginas legales siguen `noindex` y no llevan Open Graph ni Twitter: no
   se quieren compartir ni indexar, así que no tiene sentido anunciarlas.
-- No se ha regenerado `og.png` (HU-425) ni tocado el JSON-LD (HU-426).
+- No se regeneró `og.png` (HU-425) ni se tocó el JSON-LD (HU-426).
 - Los e2e de `landing.spec.ts` fallan si falta alguna etiqueta, si hay más de
   una, o si URL, idioma o imagen no corresponden a la página.
+
+## Qué se ha hecho en HU-426 (issue #426)
+
+- El JSON-LD de cada página de la landing es un único `<script
+  type="application/ld+json">` con un `@graph` de dos entidades:
+  `SoftwareApplication` y `WebSite`. Ambas llevan `name`, `url` e `inLanguage`.
+- `inLanguage` es el idioma de la página (`en` o `es`), no uno fijo. Antes
+  faltaba y el JSON-LD de `/es/` no decía que estaba en español.
+- `url` es la de la propia página (`/`, `/en/` o `/es/`), absoluta y
+  construida con `SITE_ORIGIN`. Antes todas apuntaban a la raíz. Como `/` y
+  `/en/` comparten idioma, `jsonLd(locale)` deja un marcador que
+  `scripts/build-landing.js` sustituye al escribir cada fichero, igual que el
+  canonical y `og:url`.
+- `SoftwareApplication` lleva `image` absoluta (la misma imagen que
+  `og:image`). Sigue sin `offers` ni precio.
+- Un e2e por campo y por página en `landing.spec.ts` (`@context`,
+  `inLanguage`, `url`, `image`, `name`). Comprobado a propósito: con esos
+  campos rotos en `dist/es/index.html` los cuatro tests fallan.
+- Sin JavaScript: sigue siendo el único `<script>` de la página.
 
 ## Qué hay y está bien
 
@@ -61,8 +80,8 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
    `robots.txt` sólo evita el rastreo, no la indexación de una URL enlazada.
    Eso exigiría cabecera `X-Robots-Tag` en `firebase.json`, que ningún agente
    toca: queda para una decisión humana.
-5. **Datos estructurados más ricos**: `Organization`/`WebSite` y
-   `inLanguage` en el JSON-LD.
+5. ~~Datos estructurados más ricos: `WebSite` e `inLanguage` en el
+   JSON-LD~~ — resuelto en HU-426. `Organization` queda sin hacer.
 6. **`theme-color`** y manifiesto web, útiles para móvil.
 
 ## Qué sobra o está mal
