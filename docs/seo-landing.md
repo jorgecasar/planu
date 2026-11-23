@@ -35,6 +35,23 @@ Estado a 23 de noviembre de 2026, sobre el HTML que genera
 - Los e2e de `landing.spec.ts` fallan si falta alguna etiqueta, si hay más de
   una, o si URL, idioma o imagen no corresponden a la página.
 
+## Qué se ha hecho en HU-425 (issue #425)
+
+- `og.png` (1200 x 630) tiene ya origen: `scripts/generate-og.js` lo renderiza
+  con el Chromium de Playwright a partir de `apps/web/public/logo.svg`, las
+  tipografías autoalojadas (Belleza, Alegreya) y los colores del tema planu.
+  No añade dependencias.
+- Es un marcador de posición construido con la identidad actual: la decisión de
+  marca (HU-428) sigue pendiente y no se ha inventado ningún aspecto nuevo.
+- Para regenerarlo: `npx playwright install chromium` (una vez) y
+  `node scripts/generate-og.js`; después, commitear el PNG resultante.
+- `apps/web/arch/og-image.test.ts` (sin navegador) lee la cabecera IHDR del
+  fichero commiteado (1200 x 630), exige que pese menos de 100 KB y que el
+  script, `landing.ts` y el build apunten a la misma ruta y tamaño. No prueba
+  que el script produzca byte a byte el mismo PNG: depende del navegador.
+- El script no tiene prueba que lo ejecute, así que va en
+  `sonar.coverage.exclusions`.
+
 ## Qué se ha hecho en HU-426 (issue #426)
 
 - El JSON-LD de cada página de la landing es un único `<script
