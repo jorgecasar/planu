@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "./fixtures.js";
 
-const KEY = "planu-analytics-consent";
+const CONSENT_ENTRY = "planu-analytics-consent";
 
 test("a first visit offers the privacy choice and passes axe", async ({
 	page,
@@ -26,7 +26,10 @@ test("refusing stores the decision, hides the banner and keeps it hidden on relo
 	await expect(
 		page.getByRole("region", { name: "Your privacy choices" }),
 	).toHaveCount(0);
-	const stored = await page.evaluate((k) => localStorage.getItem(k), KEY);
+	const stored = await page.evaluate(
+		(name) => localStorage.getItem(name),
+		CONSENT_ENTRY,
+	);
 	expect(stored).toContain("denied");
 
 	await page.reload();
@@ -43,6 +46,9 @@ test("accepting stores «granted» and hides the banner", async ({ page }) => {
 	await expect(
 		page.getByRole("region", { name: "Your privacy choices" }),
 	).toHaveCount(0);
-	const stored = await page.evaluate((k) => localStorage.getItem(k), KEY);
+	const stored = await page.evaluate(
+		(name) => localStorage.getItem(name),
+		CONSENT_ENTRY,
+	);
 	expect(stored).toContain("granted");
 });
