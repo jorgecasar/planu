@@ -25,6 +25,9 @@ import { cookiesNotice, copyrightNotice } from "./legal.js";
  * y `/es` para el resto.
  */
 const LOCALE_PREFIX = "__LOCALE_PREFIX__";
+
+/** Public origin of the site; the build also derives each page's canonical URL from it. */
+export const SITE_ORIGIN = "https://planu-app.web.app";
 const ICON_PATHS: Record<string, { viewBox: string; path: string }> = {
 	lock: {
 		viewBox: "0 0 448 512",
@@ -83,6 +86,7 @@ export function landingTemplate(): TemplateResult {
 				<meta property="og:url" content="https://planu-app.web.app/" />
 				<meta property="og:image" content="https://planu-app.web.app/assets/landing/og.png" />
 				<meta name="twitter:card" content="summary_large_image" />
+				<!--CANONICAL_PLACEHOLDER-->
 				<link rel="alternate" hreflang="es" href="https://planu-app.web.app/es/" />
 				<link rel="alternate" hreflang="en" href="https://planu-app.web.app/en/" />
 				<link rel="alternate" hreflang="x-default" href="https://planu-app.web.app/" />
@@ -379,7 +383,7 @@ export function jsonLd(): string {
 		applicationCategory: "ProductivityApplication",
 		operatingSystem: "Web",
 		description: landingDescription(),
-		url: "https://planu-app.web.app/",
+		url: `${SITE_ORIGIN}/`,
 	};
 	return JSON.stringify(data);
 }

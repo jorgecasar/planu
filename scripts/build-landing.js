@@ -236,8 +236,13 @@ async function buildLanding() {
 	};
 
 	// Import the compiled landing template
-	const { landingTemplate, jsonLd, landingTitle, landingDescription } =
-		await import(resolve(ROOT, "dist/landing.js"));
+	const {
+		landingTemplate,
+		jsonLd,
+		landingTitle,
+		landingDescription,
+		SITE_ORIGIN,
+	} = await import(resolve(ROOT, "dist/landing.js"));
 	const { privacyPage, termsPage } = await import(
 		resolve(ROOT, "dist/legal.js")
 	);
@@ -342,8 +347,17 @@ async function buildLanding() {
 
 		const written = [];
 		for (const target of targets) {
+			// Self-referencing canonical: the page names the URL it is served at, so
+			// `/` and `/en/` each stay indexable rather than one collapsing into the
+			// other, in line with the hreflang pair.
+			const pagePath = `/${relative(DIST, target)}`.replace(/index\.html$/, "");
+			const canonical = `<link rel="canonical" href="${SITE_ORIGIN}${pagePath}" />`;
 			mkdirSync(dirname(target), { recursive: true });
-			writeFileSync(target, html, "utf-8");
+			writeFileSync(
+				target,
+				html.replace("<!--CANONICAL_PLACEHOLDER-->", canonical),
+				"utf-8",
+			);
 			written.push(target);
 			console.log(`  ✓ ${relative(ROOT, target)}`);
 		}
