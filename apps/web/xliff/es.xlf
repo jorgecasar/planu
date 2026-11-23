@@ -742,10 +742,6 @@
   <source>← Back to planu</source>
   <target>← Volver a planu</target>
 </trans-unit>
-<trans-unit id="s3200c378cc8520a1">
-  <source>Last updated: 22 August 2026</source>
-  <target>Última actualización: 22 de agosto de 2026</target>
-</trans-unit>
 <trans-unit id="sab07cf2bfae8483f">
   <source>Privacy Policy</source>
   <target>Política de privacidad</target>
@@ -798,17 +794,9 @@
   <source>Activity we measure</source>
   <target>Actividad que medimos</target>
 </trans-unit>
-<trans-unit id="scee5c0b3671fd9c0">
-  <source>We use Firebase Analytics (Google Analytics) to count five things: that you visited, that you signed up, that you created your first event, that you shared an event, and that you used AI to create one. We never send what you typed — no titles, no descriptions, no locations, no dates, no names. See the cookie notice below for what this means for your browser.</source>
-  <target>Usamos Firebase Analytics (Google Analytics) para contar cinco cosas: que nos visitaste, que te registraste, que creaste tu primer evento, que compartiste un evento y que usaste la IA para crear uno. Nunca enviamos lo que escribiste — ni títulos, ni descripciones, ni ubicaciones, ni fechas, ni nombres. Mira el aviso de cookies más abajo para saber qué significa esto para tu navegador.</target>
-</trans-unit>
 <trans-unit id="sd54ca44bee6f7e4a">
   <source>Error reports</source>
   <target>Informes de errores</target>
-</trans-unit>
-<trans-unit id="s120213d9d475c0d9">
-  <source>If something breaks, a bare error report — no personal data attached by us — can be sent to Sentry, our error-tracking tool, so we can fix it. This is off entirely unless the deployment you are using has it configured.</source>
-  <target>Si algo se rompe, puede enviarse un informe de error escueto —sin datos personales añadidos por nosotros— a Sentry, nuestra herramienta de seguimiento de errores, para poder arreglarlo. Esto está completamente apagado a menos que el despliegue que uses lo tenga configurado.</target>
 </trans-unit>
 <trans-unit id="sbb5b3c434e181ac7">
   <source>What protects this, and what it does not yet</source>
@@ -821,10 +809,6 @@
 <trans-unit id="s2117a76eb21cef94">
   <source>Deleting your data</source>
   <target>Borrar tus datos</target>
-</trans-unit>
-<trans-unit id="s9ada47339b6ed3b0">
-  <source>There is no self-service “delete my account” button yet. Until there is, write to the address below and we will remove your account and everything tied to it by hand.</source>
-  <target>Todavía no hay un botón de autoservicio para «borrar mi cuenta». Hasta que lo haya, escribe a la dirección de abajo y eliminaremos tu cuenta y todo lo asociado a ella a mano.</target>
 </trans-unit>
 <trans-unit id="sfed429a964ba3f98">
   <source>Who to contact</source>
@@ -885,10 +869,6 @@
 <trans-unit id="s5c3514e237d3f8ed">
   <source>This page is an honest description of the product's terms, written by the people who built it — not a lawyer, and not a substitute for one.</source>
   <target>Esta página es una descripción honesta de los términos del producto, escrita por quienes lo construyeron — no un abogado, ni un sustituto de uno.</target>
-</trans-unit>
-<trans-unit id="s0c18a4ec034540d1">
-  <source>planu uses Firebase Analytics (Google Analytics), which stores a small identifier in your browser to recognise repeat visits. It never contains anything you typed — see our </source>
-  <target>planu usa Firebase Analytics (Google Analytics), que guarda un pequeño identificador en tu navegador para reconocer visitas repetidas. Nunca contiene nada de lo que escribiste — mira nuestra</target>
 </trans-unit>
 <trans-unit id="sbc6953a36ced943f">
   <source>privacy policy</source>
@@ -1269,6 +1249,26 @@
 <trans-unit id="s5f7fdc5768073758">
   <source>© <x id="0" equiv-text="${COPYRIGHT_YEAR}"/> planu. Built with Lit, Web Awesome and Firebase.</source>
         <target>© <x id="0" equiv-text="${COPYRIGHT_YEAR}"/> planu. Construido con Lit, Web Awesome y Firebase.</target>
+</trans-unit>
+<trans-unit id="sc7a3a96571e4bde3">
+  <source>Last updated: 23 November 2026</source>
+  <target>Última actualización: 23 de noviembre de 2026</target>
+</trans-unit>
+<trans-unit id="s2c9d624cba660184">
+  <source>Only if you accept, the app uses Firebase Analytics (Google Analytics) to count five things: that you visited, that you signed up, that you created your first event, that you shared an event, and that you used AI to create one. It also uses Firebase Performance to measure how fast pages load. If you refuse, or have not chosen, none of this is sent. We never send what you typed — no titles, no descriptions, no locations, no dates, no names. See the cookie notice below for what this means for your browser.</source>
+  <target>Sólo si aceptas, la aplicación usa Firebase Analytics (Google Analytics) para contar cinco cosas: que nos visitaste, que te registraste, que creaste tu primer evento, que compartiste un evento y que usaste la IA para crear uno. También usa Firebase Performance para medir lo rápido que cargan las páginas. Si rechazas, o aún no has elegido, no se envía nada de esto. Nunca enviamos lo que escribiste — ni títulos, ni descripciones, ni ubicaciones, ni fechas, ni nombres. Mira el aviso de cookies más abajo para saber qué significa esto para tu navegador.</target>
+</trans-unit>
+<trans-unit id="s75208c9a8d47ee6c">
+  <source>If something breaks, a bare error report — no personal data attached by us — can be sent to Sentry, our error-tracking tool, so we can fix it. This happens only after you accept, and only if the deployment you are using has it configured.</source>
+  <target>Si algo se rompe, puede enviarse un informe de error escueto —sin datos personales añadidos por nosotros— a Sentry, nuestra herramienta de seguimiento de errores, para poder arreglarlo. Esto sólo ocurre después de que aceptes, y sólo si el despliegue que usas lo tiene configurado.</target>
+</trans-unit>
+<trans-unit id="s8b9ce57342675e0a">
+  <source>You can delete your account yourself from your profile page. After that, an automatic clean-up removes the events you created and their images, your sharing memberships and invitations, and your profile and directory entry. If anything is left, write to the address below and we will remove it by hand.</source>
+  <target>Puedes borrar tu cuenta tú mismo desde tu página de perfil. Después, una limpieza automática elimina los eventos que creaste y sus imágenes, tus pertenencias e invitaciones de compartición, y tu perfil y tu entrada del directorio. Si queda algo, escribe a la dirección de abajo y lo eliminaremos a mano.</target>
+</trans-unit>
+<trans-unit id="s0e02a5d18075bc31">
+  <source>The planu app keeps your sign-in session and your privacy choice in your browser. Only if you accept, Firebase Analytics (Google Analytics) also stores a small identifier there to recognise repeat visits; until then it stores none. It never contains anything you typed — see our </source>
+  <target>La aplicación de planu guarda en tu navegador tu sesión y tu elección de privacidad. Sólo si aceptas, Firebase Analytics (Google Analytics) guarda además ahí un pequeño identificador para reconocer visitas repetidas; hasta entonces no guarda ninguno. Nunca contiene nada de lo que escribiste — mira nuestra</target>
 </trans-unit>
 <trans-unit id="se73a2a54e168a016">
   <source>Your privacy choices</source>

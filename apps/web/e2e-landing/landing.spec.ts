@@ -337,15 +337,51 @@ test("privacy.html describe el tratamiento real, no un texto genérico", async (
 		page.getByText("cloud AI is switched off", { exact: false }),
 	).toBeVisible();
 	await expect(
-		page.getByText("no self-service", { exact: false }),
+		page.getByText("delete your account yourself", { exact: false }),
 	).toBeVisible();
+});
+
+test("privacy.html no afirma lo que el código ya no hace (HU-431)", async ({
+	page,
+}) => {
+	await page.goto("/privacy.html");
+	const body = page.locator(".wa-prose");
+
+	// Borrado: existe el botón y la limpieza en servidor; el texto antiguo no.
+	await expect(
+		body.getByText("clean-up removes the events", { exact: false }),
+	).toBeVisible();
+	await expect(body.getByText("no self-service", { exact: false })).toHaveCount(
+		0,
+	);
+	// Analítica, rendimiento y errores esperan al consentimiento.
+	await expect(
+		body.getByText("Only if you accept, the app uses Firebase Analytics", {
+			exact: false,
+		}),
+	).toBeVisible();
+	await expect(
+		body.getByText("Firebase Performance", { exact: false }),
+	).toBeVisible();
+	await expect(
+		body.getByText("only after you accept", { exact: false }),
+	).toBeVisible();
+	await expect(
+		body.getByText("off entirely unless", { exact: false }),
+	).toHaveCount(0);
+	// La fecha es la de esta revisión, no la del prototipo.
+	await expect(page.getByText("Last updated: 23 November 2026")).toBeVisible();
+	await expect(page.getByText("22 August 2026", { exact: false })).toHaveCount(
+		0,
+	);
 });
 
 test("el aviso de cookies está en toda página de la landing, no sólo en privacy.html", async ({
 	page,
 }) => {
-	// ADR 0009: Firebase Analytics corre desde la primera visita, así que el
-	// aviso no puede vivir detrás de un enlace que nadie tiene por qué seguir.
+	// El aviso dice que Analytics guarda su identificador sólo tras aceptar
+	// (ADR 0017) y no puede vivir detrás de un enlace que nadie tiene por qué
+	// seguir.
 	for (const path of ["/", "/privacy.html", "/terms.html"]) {
 		await page.goto(path);
 		// El aviso vive en el pie, así que se ancla ahí y no a cualquier mención
@@ -354,7 +390,12 @@ test("el aviso de cookies está en toda página de la landing, no sólo en priva
 		await expect(
 			page
 				.locator(".cookie-notice")
-				.getByText("Firebase Analytics", { exact: false }),
+				.getByText("Only if you accept, Firebase Analytics", { exact: false }),
+		).toBeVisible();
+		await expect(
+			page
+				.locator(".cookie-notice")
+				.getByText("sign-in session", { exact: false }),
 		).toBeVisible();
 	}
 });
