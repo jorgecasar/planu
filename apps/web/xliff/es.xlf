@@ -1310,6 +1310,18 @@
   <source>planu, the private event planner</source>
   <target>planu, el planificador de eventos privado</target>
 </trans-unit>
+<trans-unit id="se724e8e0ccb7f52c">
+  <source>Display name</source>
+  <target>Nombre para mostrar</target>
+</trans-unit>
+<trans-unit id="sa2d9a2a247421c1b">
+  <source>Save name</source>
+  <target>Guardar nombre</target>
+</trans-unit>
+<trans-unit id="s254c112418e216bd">
+  <source>Name saved.</source>
+  <target>Nombre guardado.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

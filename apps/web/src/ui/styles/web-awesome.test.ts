@@ -195,6 +195,7 @@ test("the glob finds the components, light-DOM ones included", () => {
 	expect(COMPONENTS.length).toBeGreaterThanOrEqual(15);
 	expect(COMPONENTS.filter((c) => c.light).map((c) => c.tag)).toEqual([
 		"planu-change-email-form",
+		"planu-display-name-form",
 	]);
 });
 
