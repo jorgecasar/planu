@@ -242,6 +242,7 @@ async function buildLanding() {
 	const {
 		landingTemplate,
 		jsonLd,
+		JSON_LD_URL_MARKER,
 		landingTitle,
 		landingDescription,
 		SITE_ORIGIN,
@@ -372,6 +373,7 @@ async function buildLanding() {
 				html
 					.replace("<!--CANONICAL_PLACEHOLDER-->", canonical)
 					.replace("<!--OG_URL_PLACEHOLDER-->", `${SITE_ORIGIN}${pagePath}`)
+					.replaceAll(JSON_LD_URL_MARKER, `${SITE_ORIGIN}${pagePath}`)
 					.replace("<!--OG_LOCALE_PLACEHOLDER-->", ogLocales),
 				"utf-8",
 			);
@@ -404,7 +406,7 @@ async function buildLanding() {
 					["<!--DESCRIPTION_PLACEHOLDER-->", description],
 					["<!--OG_TITLE_PLACEHOLDER-->", title],
 					["<!--OG_DESC_PLACEHOLDER-->", description],
-					["<!--JSON_LD_PLACEHOLDER-->", jsonLd()],
+					["<!--JSON_LD_PLACEHOLDER-->", jsonLd(locale)],
 				],
 			})),
 		);

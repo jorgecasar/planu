@@ -393,15 +393,32 @@ export function landingDescription(): string {
 	);
 }
 
-export function jsonLd(): string {
+/** Marker the build swaps for each page's own absolute URL, per output file. */
+export const JSON_LD_URL_MARKER = "<!--JSON_LD_URL-->";
+
+/**
+ * Structured data of one language. The page URL is not known here (`/` and
+ * `/en/` share a language), so it carries a marker that the build fills in.
+ */
+export function jsonLd(locale: string): string {
+	const base = {
+		url: JSON_LD_URL_MARKER,
+		name: "planu",
+		inLanguage: locale,
+	};
 	const data = {
 		"@context": "https://schema.org",
-		"@type": "SoftwareApplication",
-		name: "planu",
-		applicationCategory: "ProductivityApplication",
-		operatingSystem: "Web",
-		description: landingDescription(),
-		url: `${SITE_ORIGIN}/`,
+		"@graph": [
+			{
+				"@type": "SoftwareApplication",
+				...base,
+				applicationCategory: "ProductivityApplication",
+				operatingSystem: "Web",
+				description: landingDescription(),
+				image: OG_IMAGE_URL,
+			},
+			{ "@type": "WebSite", ...base },
+		],
 	};
 	return JSON.stringify(data);
 }
