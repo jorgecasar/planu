@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { signUpVerified } from "./verified-account.js";
 
 const PHONE = { width: 390, height: 844 };
@@ -100,7 +100,7 @@ test("en el móvil, el primer evento y «Nuevo evento» se ven sin hacer scroll"
 		buttonBox?.y ?? 0,
 	);
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 

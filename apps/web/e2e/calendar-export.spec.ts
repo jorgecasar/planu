@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { openCardMenu } from "./tests/card-actions.js";
 import { signUpVerified } from "./verified-account.js";
 
@@ -161,7 +161,7 @@ test("el aviso de exportación no tiene violaciones de accesibilidad", async ({
 		page.getByRole("menuitem", { name: "Download .ics file" }),
 	).toBeHidden();
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 

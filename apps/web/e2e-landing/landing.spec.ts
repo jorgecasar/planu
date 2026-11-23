@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { atEachViewport, axeBuilder } from "../e2e/tests/axe.js";
 
 /**
  * Tests de la landing **prerrenderizada**, contra `dist/` y no contra
@@ -48,9 +48,11 @@ for (const { path, lang, heading, title } of LOCALES) {
 		await page.goto(path);
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-		// Sin `withTags`: interesa todo lo que axe sepa ver, contraste incluido.
-		const results = await new AxeBuilder({ page }).analyze();
-		expect(results.violations).toEqual([]);
+		// Pinned WCAG 2.1 A/AA tags (contrast included), desktop and mobile.
+		await atEachViewport(page, async (name) => {
+			const results = await axeBuilder(page).analyze();
+			expect(results.violations, `${path} ${name}`).toEqual([]);
+		});
 	});
 }
 
@@ -407,8 +409,10 @@ test("privacy.html y terms.html no tienen violaciones de accesibilidad", async (
 		await page.goto(path);
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-		const results = await new AxeBuilder({ page }).analyze();
-		expect(results.violations, path).toEqual([]);
+		await atEachViewport(page, async (name) => {
+			const results = await axeBuilder(page).analyze();
+			expect(results.violations, `${path} ${name}`).toEqual([]);
+		});
 	}
 });
 

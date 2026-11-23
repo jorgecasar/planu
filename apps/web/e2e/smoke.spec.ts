@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 
 test("sin sesión, la portada redirige al acceso", async ({ page }) => {
 	await page.goto("/app");
@@ -42,6 +42,6 @@ test("la pantalla de acceso no tiene violaciones de accesibilidad", async ({
 	await page.goto("/app/login");
 	await expect(page.getByRole("heading", { name: "planu" })).toBeVisible();
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
