@@ -203,6 +203,21 @@ for (const path of ["/", "/en/", "/es/"]) {
 	});
 }
 
+// Each page names its own absolute URL as canonical, exactly once. A page that
+// pointed at another language would be dropped from the index in its favour.
+for (const path of ["/", "/en/", "/es/", ...LEGAL_PAGES]) {
+	test(`${path} lleva un único canonical absoluto que apunta a sí misma`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const hrefs = await page
+			.locator("link[rel='canonical']")
+			.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
+		expect(hrefs).toEqual([`${SITE}${path}`]);
+	});
+}
+
 for (const [path, description] of [
 	["/", /^Create, search and filter events/],
 	["/en/", /^Create, search and filter events/],
