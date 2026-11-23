@@ -76,6 +76,7 @@ function legalPageShell(title: string, body: TemplateResult): TemplateResult {
 				<title><!--TITLE_PLACEHOLDER--></title>
 				<meta name="robots" content="noindex" />
 				<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+				<!--CANONICAL_PLACEHOLDER-->
 				<link rel="stylesheet" href="__WA_STYLESHEET__" />
 				<style><!--INLINE_CSS_PLACEHOLDER--></style>
 			</head>
