@@ -22,6 +22,7 @@ import {
 	userContext,
 } from "../../application/context.js";
 import { accountDataContext } from "../../application/ports/account-data.js";
+import { accountExportContext } from "../../application/ports/account-export.js";
 import { aiModelContext } from "../../application/ports/ai-model.js";
 import {
 	analyticsContext,
@@ -30,6 +31,7 @@ import {
 import { sharingContext } from "../../application/ports/sharing.js";
 import { appConsent } from "../../domain/consent.js";
 import { createAccountDataAdapter } from "./account-data-adapter.js";
+import { createAccountExportAdapter } from "./account-export-adapter.js";
 import { createAiModelAdapter } from "./ai-model-adapter.js";
 import { createAnalyticsAdapter } from "./analytics-adapter.js";
 import { DATABASE_ID, EMULATORS, firebaseConfig } from "./config.js";
@@ -182,6 +184,10 @@ export class PlanuFirebaseProvider extends LitElement {
 		context: accountDataContext,
 	});
 
+	readonly #accountExport = new ContextProvider(this, {
+		context: accountExportContext,
+	});
+
 	// `SharingPort`, built once both Firestore is ready — see
 	// `#provideDataServices()`. This is the one place allowed to import
 	// `infrastructure/firebase/sharing-adapter.js`, so components like
@@ -305,6 +311,12 @@ export class PlanuFirebaseProvider extends LitElement {
 			this.#eventRepository.setValue(new FirebaseEventRepository(firestore));
 			this.#imageStore.setValue(new FirebaseImageStore(storage));
 			this.#accountData.setValue(createAccountDataAdapter(firestore, storage));
+			this.#accountExport.setValue(
+				createAccountExportAdapter(
+					firestore,
+					() => this.#core.auth.currentUser?.email ?? null,
+				),
+			);
 			const sharing = createSharingAdapter(firestore, (...write) => {
 				// Lazy, like `main.ts`: a static import adds a chunk to sign-in.
 				void import("../sentry/index.js")

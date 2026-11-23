@@ -34,6 +34,7 @@ import {
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import "./change-email-form.js";
 import "./display-name-form.js";
+import "./export-data-button.js";
 import { ReauthStep } from "./reauth-step.js";
 
 /** Client-side wait between verification emails (spec 189, Q2b). */
@@ -157,6 +158,8 @@ export class PlanuProfileView extends LitElement {
 					.sharing=${this.sharing}
 					@display-name-updated=${this.#onNameUpdated}
 				></planu-display-name-form>
+
+				<planu-export-data-button></planu-export-data-button>
 
 				<div
 					slot="footer"
