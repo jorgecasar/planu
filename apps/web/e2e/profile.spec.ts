@@ -1,7 +1,18 @@
+import { createHash, randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
 import { axeBuilder } from "./tests/axe.js";
-import { signUpVerified } from "./verified-account.js";
+import {
+	API_KEY,
+	AUTH_EMULATOR,
+	createVerifiedAccount,
+	newEmail,
+	signIn,
+	signUpVerified,
+} from "./verified-account.js";
+
+const FIRESTORE_EMULATOR =
+	"http://127.0.0.1:8181/v1/projects/planu-app/databases/planu/documents";
 
 /**
  * Verificada, no sólo creada: ADR 0011 exige un email verificado para usar
@@ -52,6 +63,55 @@ test("el perfil enlaza a las páginas legales prerrenderizadas (T30)", async ({
 	await expect(termsLink).toHaveAttribute("href", "/terms.html");
 	await expect(privacyLink).toHaveAttribute("target", "_blank");
 	await expect(termsLink).toHaveAttribute("target", "_blank");
+});
+
+test("renombrar desde el perfil actualiza Auth, userProfiles y el directorio", async ({
+	page,
+}) => {
+	const email = newEmail();
+	// Generated per run, so no credential literal lives in the spec.
+	const passphrase = randomUUID();
+	await createVerifiedAccount(page, email, passphrase);
+	await signIn(page, email, passphrase);
+	await page.goto("/app/profile");
+
+	await page.getByLabel("Display name").fill("Ana Maria");
+	await page.getByRole("button", { name: "Save name" }).click();
+	await expect(page.getByText("Name saved.")).toBeVisible();
+
+	// Auth: a fresh sign-in reads the stored account, not this page's cache.
+	const signedIn = await page.request.post(
+		`${AUTH_EMULATOR}/accounts:signInWithPassword?key=${API_KEY}`,
+		{ data: { email, password: passphrase, returnSecureToken: true } },
+	);
+	const { idToken, localId } = (await signedIn.json()) as {
+		idToken: string;
+		localId: string;
+	};
+	const lookup = await page.request.post(
+		`${AUTH_EMULATOR}/accounts:lookup?key=${API_KEY}`,
+		{ data: { idToken } },
+	);
+	const { users } = (await lookup.json()) as {
+		users: { displayName?: string }[];
+	};
+	expect(users[0]?.displayName).toBe("Ana Maria");
+
+	const hash = createHash("sha256").update(email.toLowerCase()).digest("hex");
+	for (const path of [`userProfiles/${localId}`, `userDirectory/${hash}`]) {
+		await expect
+			.poll(async () => {
+				const response = await page.request.get(
+					`${FIRESTORE_EMULATOR}/${path}`,
+					{ headers: { Authorization: "Bearer owner" } },
+				);
+				const doc = (await response.json()) as {
+					fields?: { displayName?: { stringValue?: string } };
+				};
+				return doc.fields?.displayName?.stringValue;
+			}, path)
+			.toBe("Ana Maria");
+	}
 });
 
 test("el perfil no tiene violaciones de accesibilidad", async ({ page }) => {
