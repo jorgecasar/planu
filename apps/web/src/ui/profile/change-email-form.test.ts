@@ -63,6 +63,7 @@ test("un error no sobrevive a cancelar y volver a abrir", async () => {
 	const el = await mount({
 		refreshEmailVerification: vi.fn().mockResolvedValue(USER),
 		changeEmail: vi.fn().mockRejectedValue(new Error("network")),
+		updateDisplayName: vi.fn(),
 	});
 	el.querySelector<HTMLElement>(".change-email-open")?.click();
 	await el.updateComplete;

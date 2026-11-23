@@ -1290,6 +1290,14 @@
   <source>Refuse</source>
   <target>Rechazar</target>
 </trans-unit>
+<trans-unit id="s0ffdd74f225700d1">
+  <source>Enter a name.</source>
+  <target>Escribe un nombre.</target>
+</trans-unit>
+<trans-unit id="s6191058392c244a7">
+  <source>The name is too long.</source>
+  <target>El nombre es demasiado largo.</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

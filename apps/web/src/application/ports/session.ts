@@ -95,6 +95,12 @@ export interface SessionPort {
 	 */
 	changeEmail(newEmail: string): Promise<void>;
 
+	/**
+	 * Sets the display name on the Auth account and returns the updated user.
+	 * Rejects with `SessionError` `"unknown"` if there is no session.
+	 */
+	updateDisplayName(displayName: string): Promise<SessionUser>;
+
 	/** Resends the verification email to the currently signed-in account. */
 	sendVerificationEmail(): Promise<void>;
 

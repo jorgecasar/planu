@@ -12,6 +12,7 @@ import {
 	signInWithEmailAndPassword,
 	signInWithPopup,
 	type User,
+	updateProfile,
 	verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import type {
@@ -232,6 +233,18 @@ export class FirebaseSessionAdapter implements SessionPort {
 		} catch (cause) {
 			throw toSessionError(cause);
 		}
+	}
+
+	async updateDisplayName(displayName: string): Promise<SessionUser> {
+		const user = this.#auth.currentUser;
+		if (!user) throw new SessionError("unknown");
+
+		try {
+			await updateProfile(user, { displayName });
+		} catch (cause) {
+			throw toSessionError(cause);
+		}
+		return toSessionUser(user);
 	}
 
 	async signOut(): Promise<void> {

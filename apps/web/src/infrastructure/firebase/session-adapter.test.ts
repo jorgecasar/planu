@@ -3,6 +3,7 @@ import {
 	deleteUser,
 	reload,
 	sendEmailVerification,
+	updateProfile,
 	verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import { expect, test, vi } from "vitest";
@@ -19,6 +20,7 @@ vi.mock("firebase/auth", async (importOriginal) => ({
 	...(await importOriginal<typeof import("firebase/auth")>()),
 	verifyBeforeUpdateEmail: vi.fn(),
 	sendEmailVerification: vi.fn(),
+	updateProfile: vi.fn(),
 	reload: vi.fn(),
 	deleteUser: vi.fn(),
 }));
@@ -253,6 +255,38 @@ test("changeEmail() traduce el fallo del proveedor a SessionError, sin filtrar e
 	expect(error).toBeInstanceOf(SessionError);
 	expect(error.code).toBe("requires-recent-login");
 	expect(error.message).not.toContain("SECRET_TRACE");
+});
+
+test("updateDisplayName() escribe el nombre en Auth y devuelve el usuario ya con él", async () => {
+	const user = {
+		uid: "u1",
+		displayName: "Ana",
+		providerData: [],
+		getIdTokenResult: vi.fn(),
+	};
+	const adapter = new FirebaseSessionAdapter({ currentUser: user } as never);
+	vi.mocked(updateProfile).mockImplementationOnce(async (target, profile) => {
+		(target as { displayName: string }).displayName = String(
+			profile.displayName,
+		);
+	});
+
+	const updated = await adapter.updateDisplayName("Ana Maria");
+
+	expect(updateProfile).toHaveBeenCalledWith(user, {
+		displayName: "Ana Maria",
+	});
+	expect(updated.displayName).toBe("Ana Maria");
+});
+
+test("updateDisplayName() sin sesión rechaza con SessionError y no toca Auth", async () => {
+	const adapter = new FirebaseSessionAdapter({ currentUser: null } as never);
+	vi.mocked(updateProfile).mockClear();
+
+	const error = await adapter.updateDisplayName("Ana").catch((e) => e);
+
+	expect(error).toBeInstanceOf(SessionError);
+	expect(updateProfile).not.toHaveBeenCalled();
 });
 
 test("sendVerificationEmail() traduce el límite del proveedor a SessionError, sin filtrar el mensaje crudo", async () => {
