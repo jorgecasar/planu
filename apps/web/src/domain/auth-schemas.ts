@@ -30,6 +30,16 @@ export const signUpSchema = () =>
  * current address saves a round trip that would only resend the same
  * unclickable link.
  */
+export const displayNameSchema = () =>
+	z.object({
+		// 200 is the cap `firestore.rules` puts on both public copies.
+		displayName: z
+			.string()
+			.trim()
+			.min(1, { message: msg("Enter a name.") })
+			.max(200, { message: msg("The name is too long.") }),
+	});
+
 export const changeEmailSchema = (currentEmail: string | null) =>
 	z.object({
 		email: z

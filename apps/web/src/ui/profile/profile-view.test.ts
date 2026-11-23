@@ -21,6 +21,7 @@ function fakeSession(): SessionPort {
 		reauthenticate: vi.fn().mockResolvedValue(undefined),
 		deleteAccount: vi.fn().mockResolvedValue(undefined),
 		changeEmail: vi.fn().mockResolvedValue(undefined),
+		updateDisplayName: vi.fn(),
 	};
 }
 

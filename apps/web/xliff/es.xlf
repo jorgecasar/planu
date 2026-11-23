@@ -1298,6 +1298,14 @@
   <source>Skip to main content</source>
   <target>Saltar al contenido principal</target>
 </trans-unit>
+<trans-unit id="s0ffdd74f225700d1">
+  <source>Enter a name.</source>
+  <target>Escribe un nombre.</target>
+</trans-unit>
+<trans-unit id="s6191058392c244a7">
+  <source>The name is too long.</source>
+  <target>El nombre es demasiado largo.</target>
+</trans-unit>
 <trans-unit id="s2a89f1ca8b007e97">
   <source>planu, the private event planner</source>
   <target>planu, el planificador de eventos privado</target>
