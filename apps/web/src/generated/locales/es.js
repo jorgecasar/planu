@@ -100,6 +100,7 @@ export const templates = {
 	s42a990504619e987: `Escribir a mano`,
 	s42e8b326fcbd98d0: `Añade los detalles a mano para empezar.`,
 	s452841348c6529c5: `Generar desde el texto`,
+	s457d59d649765619: `Saltar al contenido principal`,
 	s4627a9667a335f23: `Próximos`,
 	s463d35ac0b6745c5: `Esto es un evento de ejemplo. Cambia lo que quieras y guárdalo.`,
 	s46d6587089bd0356: `Mes siguiente`,

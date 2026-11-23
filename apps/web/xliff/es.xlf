@@ -1290,6 +1290,10 @@
   <source>Refuse</source>
   <target>Rechazar</target>
 </trans-unit>
+<trans-unit id="s457d59d649765619">
+  <source>Skip to main content</source>
+  <target>Saltar al contenido principal</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
