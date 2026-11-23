@@ -1270,6 +1270,26 @@
   <source>The planu app keeps your sign-in session and your privacy choice in your browser. Only if you accept, Firebase Analytics (Google Analytics) also stores a small identifier there to recognise repeat visits; until then it stores none. It never contains anything you typed — see our </source>
   <target>La aplicación de planu guarda en tu navegador tu sesión y tu elección de privacidad. Sólo si aceptas, Firebase Analytics (Google Analytics) guarda además ahí un pequeño identificador para reconocer visitas repetidas; hasta entonces no guarda ninguno. Nunca contiene nada de lo que escribiste — mira nuestra</target>
 </trans-unit>
+<trans-unit id="se73a2a54e168a016">
+  <source>Your privacy choices</source>
+  <target>Tus opciones de privacidad</target>
+</trans-unit>
+<trans-unit id="s9aa926dfb7db4840">
+  <source>planu can send error reports and measure how the app is used and how fast it runs, using Sentry and Google Firebase, so that problems can be found and fixed. Nothing is sent unless you accept, and you can change your mind at any time.</source>
+  <target>planu puede enviar informes de errores y medir cómo se usa la aplicación y lo rápido que va, con Sentry y Google Firebase, para poder encontrar y arreglar los problemas. No se envía nada si no aceptas, y puedes cambiar de opinión en cualquier momento.</target>
+</trans-unit>
+<trans-unit id="s3a2a6e1212b2716d">
+  <source>/privacy.html</source>
+  <target>/es/privacy.html</target>
+</trans-unit>
+<trans-unit id="s9fcbd8e2b1e489e4">
+  <source>Read the privacy policy</source>
+  <target>Lee la política de privacidad</target>
+</trans-unit>
+<trans-unit id="s0fceb1d5da7cf2f5">
+  <source>Refuse</source>
+  <target>Rechazar</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

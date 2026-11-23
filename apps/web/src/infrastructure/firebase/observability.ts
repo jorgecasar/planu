@@ -3,15 +3,14 @@
  * live in `../sentry/`; this file adds Firebase Performance, the only part
  * that needs the Firebase app, and starts both after the first paint.
  *
- * Error tracking does not start until the visitor has granted consent, with
- * the same gate Analytics uses (`domain/consent.ts`), and withdrawing consent
- * closes it again. Whether it could instead count as strictly necessary is a
- * legal question for the owner, not a code one. Firebase Performance, which
- * also sends data and keeps an installation id, still starts unconditionally
- * here: gating it is the next card (HU-439).
+ * Neither half starts until the visitor has granted consent, with the same
+ * gate Analytics uses (`domain/consent.ts`), and withdrawing consent switches
+ * both off again. Whether either could instead count as strictly necessary is
+ * a legal question for the owner, not a code one.
  */
 
 import type { FirebaseApp } from "firebase/app";
+import type { FirebasePerformance } from "firebase/performance";
 import {
 	appConsent,
 	type ConsentState,
@@ -55,10 +54,28 @@ export function errorTrackingToggle(): Toggle {
 	return { enable: startErrorTracking, disable: stopErrorTracking };
 }
 
-/** Real-user metrics: this is what the lab cannot measure. */
-async function startPerformanceMonitoring(app: FirebaseApp): Promise<void> {
-	const { getPerformance } = await import("firebase/performance");
-	getPerformance(app);
+/**
+ * Real-user metrics: this is what the lab cannot measure. The SDK is only
+ * loaded on `enable()`, and `disable()` stops collection on the instance that
+ * `enable()` created, if there is one.
+ */
+export function performanceToggle(app: FirebaseApp): Toggle {
+	let performance: FirebasePerformance | undefined;
+	const collect = (on: boolean) => {
+		if (!performance) return;
+		performance.dataCollectionEnabled = on;
+		performance.instrumentationEnabled = on;
+	};
+	return {
+		async enable() {
+			const { getPerformance } = await import("firebase/performance");
+			performance ??= getPerformance(app);
+			collect(true);
+		},
+		async disable() {
+			collect(false);
+		},
+	};
 }
 
 /** Starts observability. Never throws: it must not break the application. */
@@ -70,6 +87,6 @@ export function startObservability(
 
 	afterMainPaint(() => {
 		gateByConsent(consent, errorTrackingToggle());
-		void startPerformanceMonitoring(app).catch(() => {});
+		gateByConsent(consent, performanceToggle(app));
 	});
 }
