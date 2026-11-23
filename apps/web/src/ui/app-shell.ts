@@ -5,6 +5,7 @@ import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "./auth/login-view.js";
+import "./consent/consent-banner.js";
 
 import { consume, provide } from "@lit/context";
 import { msg } from "@lit/localize";
@@ -282,6 +283,7 @@ export class PlanuApp extends LitElement {
 						: this.#router.outlet()
 				}
 			</main>
+			<planu-consent-banner></planu-consent-banner>
 		`;
 	}
 
