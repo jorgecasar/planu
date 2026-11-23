@@ -2,9 +2,12 @@ import type { FirebaseApp } from "firebase/app";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createConsentStore } from "../../domain/consent.js";
 
-// Firebase Performance still starts unconditionally here: it is gated by the
-// next card (HU-439). Mocked so the real SDK never loads in these tests.
-const getPerformanceMock = vi.fn(() => ({}));
+// Mocked so the real SDK never loads in these tests.
+const perfInstance = {
+	dataCollectionEnabled: false,
+	instrumentationEnabled: false,
+};
+const getPerformanceMock = vi.fn(() => perfInstance);
 vi.mock("firebase/performance", () => ({ getPerformance: getPerformanceMock }));
 
 const startErrorTrackingMock = vi.fn(async () => {});
@@ -15,9 +18,12 @@ vi.mock("../sentry/index.js", () => ({
 	stopErrorTracking: stopErrorTrackingMock,
 }));
 
-const { errorTrackingToggle, gateByConsent, startObservability } = await import(
-	"./observability.js"
-);
+const {
+	errorTrackingToggle,
+	gateByConsent,
+	performanceToggle,
+	startObservability,
+} = await import("./observability.js");
 
 const FAKE_APP = {} as FirebaseApp;
 
@@ -155,6 +161,57 @@ describe("startObservability", () => {
 		expect(startErrorTrackingMock).not.toHaveBeenCalled();
 	});
 });
+
+describe("the Performance toggle", () => {
+	beforeEach(() => {
+		getPerformanceMock.mockClear();
+		perfInstance.dataCollectionEnabled = false;
+		perfInstance.instrumentationEnabled = false;
+	});
+
+	test("loads nothing before consent and collects after it", async () => {
+		const consent = consentWith();
+		gateByConsent(consent, performanceToggle(FAKE_APP));
+		await flush();
+		expect(getPerformanceMock).not.toHaveBeenCalled();
+
+		consent.set("granted");
+		await flush();
+
+		expect(getPerformanceMock).toHaveBeenCalledTimes(1);
+		expect(perfInstance.dataCollectionEnabled).toBe(true);
+		expect(perfInstance.instrumentationEnabled).toBe(true);
+	});
+
+	test("stops collecting when consent is withdrawn, and resumes without a second instance", async () => {
+		const consent = consentWith("granted");
+		gateByConsent(consent, performanceToggle(FAKE_APP));
+		await flush();
+
+		consent.set("denied");
+		await flush();
+		expect(perfInstance.dataCollectionEnabled).toBe(false);
+		expect(perfInstance.instrumentationEnabled).toBe(false);
+
+		consent.set("granted");
+		await flush();
+		expect(perfInstance.dataCollectionEnabled).toBe(true);
+		expect(getPerformanceMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("a refusal never loads the SDK", async () => {
+		startObservabilityRefused();
+		await flush();
+
+		expect(getPerformanceMock).not.toHaveBeenCalled();
+	});
+});
+
+function startObservabilityRefused() {
+	vi.stubEnv("DEV", false);
+	startObservability(FAKE_APP, consentWith("denied"));
+	vi.unstubAllEnvs();
+}
 
 describe("the Sentry toggle", () => {
 	beforeEach(() => {
