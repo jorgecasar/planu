@@ -10,9 +10,9 @@ import { html, type TemplateResult } from "lit";
  * El contenido describe el tratamiento **real**, no uno hipotético — el ADR
  * 0009 de analítica es lo que decide si esta página lleva aviso de cookies, y
  * lo lleva porque la elección fue Firebase Analytics, que sí las usa. Nada
- * aquí promete lo que el código todavía no hace: T32 (borrado de cuenta) no
- * está construida, así que esta página no dice que exista un botón para
- * borrarlo todo — dice a quién escribir.
+ * aquí promete lo que el código no hace: el borrado de cuenta (T32) y su
+ * limpieza en servidor existen, y Analytics, Performance y Sentry sólo
+ * arrancan tras el consentimiento (ADR 0017). Texto BORRADOR (HU-438).
  */
 
 const LOCALE_PREFIX = "__LOCALE_PREFIX__";
@@ -41,7 +41,7 @@ function legalHeader(title: string): TemplateResult {
 			<a class="legal-back" href="${backHref}">${msg("← Back to planu")}</a>
 			<h1 class="wa-heading-3xl">${title}</h1>
 			<p class="wa-color-text-quiet wa-font-size-s">
-				${msg("Last updated: 22 August 2026")}
+				${msg("Last updated: 23 November 2026")}
 			</p>
 		</header>
 	`;
@@ -147,14 +147,14 @@ export function privacyPage(): TemplateResult {
 			<h2>${msg("Activity we measure")}</h2>
 			<p>
 				${msg(
-					"We use Firebase Analytics (Google Analytics) to count five things: that you visited, that you signed up, that you created your first event, that you shared an event, and that you used AI to create one. We never send what you typed — no titles, no descriptions, no locations, no dates, no names. See the cookie notice below for what this means for your browser.",
+					"Only if you accept, the app uses Firebase Analytics (Google Analytics) to count five things: that you visited, that you signed up, that you created your first event, that you shared an event, and that you used AI to create one. It also uses Firebase Performance to measure how fast pages load. If you refuse, or have not chosen, none of this is sent. We never send what you typed — no titles, no descriptions, no locations, no dates, no names. See the cookie notice below for what this means for your browser.",
 				)}
 			</p>
 
 			<h2>${msg("Error reports")}</h2>
 			<p>
 				${msg(
-					"If something breaks, a bare error report — no personal data attached by us — can be sent to Sentry, our error-tracking tool, so we can fix it. This is off entirely unless the deployment you are using has it configured.",
+					"If something breaks, a bare error report — no personal data attached by us — can be sent to Sentry, our error-tracking tool, so we can fix it. This happens only after you accept, and only if the deployment you are using has it configured.",
 				)}
 			</p>
 
@@ -168,7 +168,7 @@ export function privacyPage(): TemplateResult {
 			<h2>${msg("Deleting your data")}</h2>
 			<p>
 				${msg(
-					"There is no self-service “delete my account” button yet. Until there is, write to the address below and we will remove your account and everything tied to it by hand.",
+					"You can delete your account yourself from your profile page. After that, an automatic clean-up removes the events you created and their images, your sharing memberships and invitations, and your profile and directory entry. If anything is left, write to the address below and we will remove it by hand.",
 				)}
 			</p>
 
@@ -261,7 +261,7 @@ export function cookiesNotice(): TemplateResult {
 		<section class="wa-stack wa-gap-xs cookie-notice">
 			<p class="wa-font-size-xs wa-color-text-quiet">
 				${msg(
-					"planu uses Firebase Analytics (Google Analytics), which stores a small identifier in your browser to recognise repeat visits. It never contains anything you typed — see our ",
+					"The planu app keeps your sign-in session and your privacy choice in your browser. Only if you accept, Firebase Analytics (Google Analytics) also stores a small identifier there to recognise repeat visits; until then it stores none. It never contains anything you typed — see our ",
 				)}
 				<a href="${LOCALE_PREFIX}/privacy.html">${msg("privacy policy")}</a>.
 			</p>
