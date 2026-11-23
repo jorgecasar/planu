@@ -29,7 +29,8 @@ export const onAccountDeleted = onUserDeleted(
 		// The database is called `planu`, not `(default)`.
 		const firestore = getFirestore(app, "planu");
 		await sweepOwnedData(uid, { firestore, bucket: getStorage(app).bucket() });
-		await sweepReferences(uid, { firestore });
+		// Before the directory sweep: it reads the directory to find old emails.
+		await sweepReferences(uid, { firestore, email: event.data.email });
 		await sweepDirectory(uid, { firestore });
 	},
 );

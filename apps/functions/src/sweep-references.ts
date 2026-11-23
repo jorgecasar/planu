@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
 	FieldPath,
 	FieldValue,
@@ -6,6 +7,8 @@ import {
 
 export interface ReferenceDeps {
 	readonly firestore: Firestore;
+	/** Email of the deleted account, when the deletion event carries one. */
+	readonly email?: string | undefined;
 }
 
 /**
@@ -15,11 +18,12 @@ export interface ReferenceDeps {
  * uid, so a second run on a clean account does nothing.
  *
  * Tombstones (ADR 0015) that name the account are left alone: what to do with
- * them is the owner's decision, still open (GH-154, T4).
+ * them is the owner's decision, still open (#413); HU-433 deliberately does
+ * not remove them.
  */
 export async function sweepReferences(
 	uid: string,
-	{ firestore }: ReferenceDeps,
+	{ firestore, email }: ReferenceDeps,
 ): Promise<void> {
 	// An empty uid would match nothing useful; a slash would change the path.
 	if (uid.length === 0 || uid.includes("/")) {
@@ -29,6 +33,39 @@ export async function sweepReferences(
 	await leaveEventsOfOthers(firestore, uid);
 	await deleteInvitations(firestore, uid);
 	await deleteEmailOffers(firestore, uid);
+	await deleteOffersToEmail(firestore, uid, email);
+}
+
+/**
+ * Deletes the offers other people addressed to this account's email. The
+ * hashes come from the current email and from the directory entries the
+ * account wrote (earlier emails), so this must run before the directory sweep.
+ */
+async function deleteOffersToEmail(
+	firestore: Firestore,
+	uid: string,
+	email: string | undefined,
+): Promise<void> {
+	const hashes = new Set<string>();
+	if (email !== undefined && email.length > 0) {
+		// Same recipe as the rules: sha256 of the lowercased email, in hex.
+		hashes.add(createHash("sha256").update(email.toLowerCase()).digest("hex"));
+	}
+	const entries = await firestore
+		.collection("userDirectory")
+		.where("uid", "==", uid)
+		.get();
+	for (const entry of entries.docs) hashes.add(entry.id);
+
+	await Promise.all(
+		[...hashes].map(async (hash) => {
+			const offers = await firestore
+				.collection("eventInvitesByEmail")
+				.where("emailHash", "==", hash)
+				.get();
+			await Promise.all(offers.docs.map((offer) => offer.ref.delete()));
+		}),
+	);
 }
 
 async function leaveEventsOfOthers(
