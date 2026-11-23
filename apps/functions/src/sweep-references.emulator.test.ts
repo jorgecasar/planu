@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { deleteApp, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -11,6 +12,10 @@ const GONE = "gone-user";
 const OWNER = "owner-user";
 const OTHER = "other-user";
 const COLLECTIONS = ["events", "eventInvites", "eventInvitesByEmail"];
+
+// Same recipe as the rules: sha256 of the lowercased email, in hex.
+const hashOf = (email: string) =>
+	createHash("sha256").update(email.toLowerCase()).digest("hex");
 
 const exists = async (path: string) => (await firestore.doc(path).get()).exists;
 
@@ -87,6 +92,34 @@ describe("sweepReferences", () => {
 
 		expect(await exists("eventInvitesByEmail/mine")).toBe(false);
 		expect(await exists("eventInvitesByEmail/theirs")).toBe(true);
+	});
+
+	it("deletes the email offers addressed to the deleted email", async () => {
+		const mine = hashOf("Gone@Example.com");
+		await firestore
+			.doc(`eventInvitesByEmail/e1_${mine}`)
+			.set({ invitedBy: OWNER, emailHash: mine });
+		await firestore
+			.doc("eventInvitesByEmail/e1_other")
+			.set({ invitedBy: OWNER, emailHash: "other" });
+
+		await sweepReferences(GONE, { firestore, email: "Gone@Example.com" });
+
+		expect(await exists(`eventInvitesByEmail/e1_${mine}`)).toBe(false);
+		expect(await exists("eventInvitesByEmail/e1_other")).toBe(true);
+	});
+
+	it("also deletes offers to an earlier email found in the directory", async () => {
+		const earlier = hashOf("old@example.com");
+		await firestore.doc(`userDirectory/${earlier}`).set({ uid: GONE });
+		await firestore
+			.doc(`eventInvitesByEmail/e2_${earlier}`)
+			.set({ invitedBy: OWNER, emailHash: earlier });
+
+		await sweepReferences(GONE, { firestore });
+
+		expect(await exists(`eventInvitesByEmail/e2_${earlier}`)).toBe(false);
+		await firestore.recursiveDelete(firestore.collection("userDirectory"));
 	});
 
 	it("is idempotent: a second run on a clean account does not fail", async () => {
