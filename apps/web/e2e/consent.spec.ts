@@ -10,8 +10,12 @@ test("a first visit offers the privacy choice and passes axe", async ({
 
 	const region = page.getByRole("region", { name: "Your privacy choices" });
 	await expect(region).toBeVisible();
-	await expect(region.getByRole("button", { name: "Accept" })).toBeVisible();
-	await expect(region.getByRole("button", { name: "Refuse" })).toBeVisible();
+	await expect(
+		region.getByRole("button", { name: "Allow", exact: true }),
+	).toBeVisible();
+	await expect(
+		region.getByRole("button", { name: "Do not allow", exact: true }),
+	).toBeVisible();
 
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations).toEqual([]);
@@ -21,7 +25,7 @@ test("refusing stores the decision, hides the banner and keeps it hidden on relo
 	page,
 }) => {
 	await page.goto("/app/login");
-	await page.getByRole("button", { name: "Refuse" }).click();
+	await page.getByRole("button", { name: "Do not allow", exact: true }).click();
 
 	await expect(
 		page.getByRole("region", { name: "Your privacy choices" }),
@@ -41,7 +45,7 @@ test("refusing stores the decision, hides the banner and keeps it hidden on relo
 
 test("accepting stores «granted» and hides the banner", async ({ page }) => {
 	await page.goto("/app/login");
-	await page.getByRole("button", { name: "Accept" }).click();
+	await page.getByRole("button", { name: "Allow", exact: true }).click();
 
 	await expect(
 		page.getByRole("region", { name: "Your privacy choices" }),

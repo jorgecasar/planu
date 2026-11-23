@@ -58,7 +58,7 @@ test("aceptar guarda «granted» y el banner desaparece", async () => {
 	const consent = consentWith();
 	const el = await mount(consent);
 
-	buttonNamed(el, "Accept").click();
+	buttonNamed(el, "Allow").click();
 	await el.updateComplete;
 
 	expect(consent.get()).toBe("granted");
@@ -69,7 +69,7 @@ test("rechazar guarda «denied» y el banner desaparece", async () => {
 	const consent = consentWith();
 	const el = await mount(consent);
 
-	buttonNamed(el, "Refuse").click();
+	buttonNamed(el, "Do not allow").click();
 	await el.updateComplete;
 
 	expect(consent.get()).toBe("denied");
@@ -79,8 +79,8 @@ test("rechazar guarda «denied» y el banner desaparece", async () => {
 test("aceptar y rechazar pesan lo mismo: mismo aspecto, variante y tamaño", async () => {
 	const el = await mount(consentWith());
 
-	const accept = buttonNamed(el, "Accept");
-	const refuse = buttonNamed(el, "Refuse");
+	const accept = buttonNamed(el, "Allow");
+	const refuse = buttonNamed(el, "Do not allow");
 	for (const attribute of ["variant", "appearance", "size"]) {
 		expect(refuse.getAttribute(attribute)).toBe(accept.getAttribute(attribute));
 	}
