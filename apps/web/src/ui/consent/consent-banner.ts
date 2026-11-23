@@ -83,12 +83,12 @@ export class PlanuConsentBanner extends LitElement {
 					<wa-button
 						appearance="outlined"
 						@click=${() => this.consent.set("denied")}
-						>${msg("Refuse")}</wa-button
+						>${msg("Do not allow")}</wa-button
 					>
 					<wa-button
 						appearance="outlined"
 						@click=${() => this.consent.set("granted")}
-						>${msg("Accept")}</wa-button
+						>${msg("Allow")}</wa-button
 					>
 				</div>
 			</section>

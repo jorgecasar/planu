@@ -5,6 +5,7 @@ import "@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js";
 import "@awesome.me/webawesome/dist/components/dropdown/dropdown.js";
 import "@awesome.me/webawesome/dist/components/spinner/spinner.js";
 import "./auth/login-view.js";
+import "./consent/consent-banner.js";
 
 import { consume, provide } from "@lit/context";
 import { msg } from "@lit/localize";
@@ -74,6 +75,24 @@ export class PlanuApp extends LitElement {
 			flex: 1;
 		}
 
+		main:focus {
+			outline: none;
+		}
+
+		.skip-link {
+			position: absolute;
+			inset-block-start: var(--wa-space-s);
+			inset-inline-start: var(--wa-space-s);
+			z-index: 10;
+			padding: var(--wa-space-s) var(--wa-space-m);
+			background: var(--wa-color-surface-default);
+			transform: translateY(-300%);
+		}
+
+		.skip-link:focus {
+			transform: none;
+		}
+
 		.checking {
 			display: grid;
 			place-items: center;
@@ -106,6 +125,7 @@ export class PlanuApp extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback();
+		this.id ||= "planu-app";
 		this.#unsubscribeDeletion = this.deletion.subscribe(() =>
 			this.requestUpdate(),
 		);
@@ -272,8 +292,13 @@ export class PlanuApp extends LitElement {
 		}
 
 		return html`
+			<nav>
+				<a class="skip-link" href="#planu-app" @click=${this.#onSkipLink}>
+					${msg("Skip to main content")}
+				</a>
+			</nav>
 			${this.user ? this.#renderHeader(this.user) : null}
-			<main>
+			<main tabindex="-1">
 				${
 					this.navigating
 						? html`<div class="checking">
@@ -282,7 +307,18 @@ export class PlanuApp extends LitElement {
 						: this.#router.outlet()
 				}
 			</main>
+			<planu-consent-banner></planu-consent-banner>
 		`;
+	}
+
+	/**
+	 * A fragment link cannot reach an id inside a shadow root, and axe resolves
+	 * it against the document: the link targets this host (see
+	 * `connectedCallback`) and the click moves focus into `main` by hand.
+	 */
+	#onSkipLink(event: Event): void {
+		event.preventDefault();
+		this.renderRoot.querySelector<HTMLElement>("main")?.focus();
 	}
 
 	#renderHeader(user: SessionUser) {
