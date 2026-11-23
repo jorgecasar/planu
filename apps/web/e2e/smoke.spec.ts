@@ -21,6 +21,21 @@ test("el formulario de acceso ofrece entrar, registrarse y Google", async ({
 	).toBeVisible();
 });
 
+test("el primer Tab llega al enlace para saltar al contenido y lo enfoca", async ({
+	page,
+}) => {
+	await page.goto("/app/login");
+	await expect(page.getByRole("heading", { name: "planu" })).toBeVisible();
+
+	await page.keyboard.press("Tab");
+	const skip = page.getByRole("link", { name: "Skip to main content" });
+	await expect(skip).toBeFocused();
+	await expect(skip).toBeInViewport();
+
+	await page.keyboard.press("Enter");
+	await expect(page.locator("main")).toBeFocused();
+});
+
 test("la pantalla de acceso no tiene violaciones de accesibilidad", async ({
 	page,
 }) => {
