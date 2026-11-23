@@ -1306,6 +1306,10 @@
   <source>The name is too long.</source>
   <target>El nombre es demasiado largo.</target>
 </trans-unit>
+<trans-unit id="s2a89f1ca8b007e97">
+  <source>planu, the private event planner</source>
+  <target>planu, el planificador de eventos privado</target>
+</trans-unit>
 </body>
 </file>
 </xliff>

@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { atEachViewport, axeBuilder } from "../e2e/tests/axe.js";
 
 /**
  * Tests de la landing **prerrenderizada**, contra `dist/` y no contra
@@ -48,9 +48,11 @@ for (const { path, lang, heading, title } of LOCALES) {
 		await page.goto(path);
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-		// Sin `withTags`: interesa todo lo que axe sepa ver, contraste incluido.
-		const results = await new AxeBuilder({ page }).analyze();
-		expect(results.violations).toEqual([]);
+		// Pinned WCAG 2.1 A/AA tags (contrast included), desktop and mobile.
+		await atEachViewport(page, async (name) => {
+			const results = await axeBuilder(page).analyze();
+			expect(results.violations, `${path} ${name}`).toEqual([]);
+		});
 	});
 }
 
@@ -215,6 +217,48 @@ for (const path of ["/", "/en/", "/es/", ...LEGAL_PAGES]) {
 			.locator("link[rel='canonical']")
 			.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
 		expect(hrefs).toEqual([`${SITE}${path}`]);
+	});
+}
+
+// Social cards: every tag exactly once, and per page and language rather than
+// fixed to the root. The legal pages are noindex and carry none of them.
+for (const [path, locale, other] of [
+	["/", "en_US", "es_ES"],
+	["/en/", "en_US", "es_ES"],
+	["/es/", "es_ES", "en_US"],
+] as const) {
+	test(`${path} lleva las etiquetas Open Graph y Twitter de su URL e idioma`, async ({
+		page,
+	}) => {
+		await page.goto(path);
+
+		const read = async (selector: string) =>
+			page
+				.locator(selector)
+				.evaluateAll((nodes) =>
+					nodes.map((node) => node.getAttribute("content")),
+				);
+		const og = (name: string) => read(`meta[property='${name}']`);
+		const tw = (name: string) => read(`meta[name='${name}']`);
+
+		expect(await og("og:url")).toEqual([`${SITE}${path}`]);
+		expect(await og("og:locale")).toEqual([locale]);
+		expect(await og("og:locale:alternate")).toEqual([other]);
+		expect(await og("og:site_name")).toEqual(["planu"]);
+		expect(await og("og:image")).toEqual([`${SITE}/assets/landing/og.png`]);
+		expect(await og("og:image:width")).toEqual(["1200"]);
+		expect(await og("og:image:height")).toEqual(["630"]);
+		const [alt] = await og("og:image:alt");
+		expect(alt?.length).toBeGreaterThan(10);
+		expect(await tw("twitter:card")).toEqual(["summary_large_image"]);
+		expect(await tw("twitter:image")).toEqual([
+			`${SITE}/assets/landing/og.png`,
+		]);
+		expect(await tw("twitter:image:alt")).toEqual([alt]);
+		expect(await tw("twitter:title")).toEqual(await og("og:title"));
+		expect(await tw("twitter:description")).toEqual(await og("og:description"));
+		const [title] = await og("og:title");
+		expect(title?.length).toBeGreaterThan(5);
 	});
 }
 
@@ -422,8 +466,10 @@ test("privacy.html y terms.html no tienen violaciones de accesibilidad", async (
 		await page.goto(path);
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-		const results = await new AxeBuilder({ page }).analyze();
-		expect(results.violations, path).toEqual([]);
+		await atEachViewport(page, async (name) => {
+			const results = await axeBuilder(page).analyze();
+			expect(results.violations, `${path} ${name}`).toEqual([]);
+		});
 	}
 });
 

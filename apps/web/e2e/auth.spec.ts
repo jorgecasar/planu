@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { API_KEY, AUTH_EMULATOR } from "./verified-account.js";
 
 /** Correo único por ejecución: el emulador conserva los usuarios entre tests. */
@@ -149,7 +149,7 @@ test("la aplicación autenticada no tiene violaciones de accesibilidad", async (
 		page.getByRole("banner").getByRole("heading", { name: "planu" }),
 	).toBeVisible();
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 test("confirmar el correo con el enlace y pulsar «I have verified it» abre los eventos (GH-321)", async ({

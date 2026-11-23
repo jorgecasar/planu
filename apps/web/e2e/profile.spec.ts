@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { signUpVerified } from "./verified-account.js";
 
 /**
@@ -59,6 +59,6 @@ test("el perfil no tiene violaciones de accesibilidad", async ({ page }) => {
 	await page.goto("/app/profile");
 	await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });

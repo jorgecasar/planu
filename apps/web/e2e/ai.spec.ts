@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { signUpVerified } from "./verified-account.js";
 
 /** PNG de 1x1 píxel, suficiente para ejercitar la subida. */
@@ -253,7 +253,7 @@ test("el formulario con el bloque de IA visible no tiene violaciones de accesibi
 		"1",
 	);
 
-	const resultados = await new AxeBuilder({ page })
+	const resultados = await axeBuilder(page)
 		.include([["planu-app", "planu-events-view", "planu-event-editor"]])
 		.analyze();
 	expect(resultados.violations).toEqual([]);
@@ -273,7 +273,7 @@ test("el formulario sin IA disponible no tiene violaciones de accesibilidad", as
 	await page.getByRole("button", { name: "New event" }).click();
 	await expect(page.getByLabel("Title")).toBeVisible();
 
-	const resultados = await new AxeBuilder({ page })
+	const resultados = await axeBuilder(page)
 		.include([["planu-app", "planu-events-view", "planu-event-editor"]])
 		.analyze();
 	expect(resultados.violations).toEqual([]);

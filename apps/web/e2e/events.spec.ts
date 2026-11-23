@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { cardAction } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
@@ -179,7 +179,7 @@ test("el listado con eventos no tiene violaciones de accesibilidad", async ({
 	await signUp(page);
 	await createEvent(page, "Concierto de verano");
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 
@@ -287,11 +287,11 @@ test("el listado con etiquetas y su filtro no tienen violaciones de accesibilida
 	// casillas del filtro, que es toda la superficie que T18 añade fuera del
 	// diálogo. Dos pasadas desde GH-188: con el cajón cerrado sus casillas no
 	// se pintan, así que se mira también con el cajón abierto.
-	const resultados = await new AxeBuilder({ page }).analyze();
+	const resultados = await axeBuilder(page).analyze();
 	expect(resultados.violations).toEqual([]);
 
 	await openFilters(page);
-	const conCajon = await new AxeBuilder({ page }).analyze();
+	const conCajon = await axeBuilder(page).analyze();
 	expect(conCajon.violations).toEqual([]);
 });
 
@@ -343,7 +343,7 @@ test("el campo de etiquetas del editor no tiene violaciones de accesibilidad", a
 	// reglas aprobadas y 88 inaplicables; anidado, 21 aprobadas—. De ahí la
 	// segunda aserción, que es lo único que separa «no hay violaciones» de «no
 	// se ha mirado».
-	const resultados = await new AxeBuilder({ page })
+	const resultados = await axeBuilder(page)
 		.include([
 			["planu-app", "planu-events-view", "planu-event-editor", ".tags"],
 		])
@@ -643,7 +643,7 @@ test("el estado vacío no tiene violaciones de accesibilidad", async ({
 }) => {
 	await signUp(page);
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 

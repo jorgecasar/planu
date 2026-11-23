@@ -22,7 +22,7 @@
 	.wa-theme-planu .wa-dark,
 	.wa-dark .wa-theme-planu {
 		--wa-color-brand-fill-loud: #5c6bc0;
-		--wa-color-brand-fill-normal: #7986cb;
+		--wa-color-brand-fill-normal: #5968c2;
 		--wa-color-brand-fill-quiet: #283593;
 		--wa-color-brand-on-loud: #ffffff;
 		--wa-color-brand-on-quiet: #e8eaf6;
@@ -42,11 +42,6 @@
 	}
 }
 
-/* Verified contrast (AA >= 4.5:1), measured with axe in e2e, light / dark:
- *   brand-on-loud  / brand-fill-loud   4.52 / 4.58
- *   brand-on-quiet / brand-fill-quiet  7.84 / 6.92
- *   text-normal    / surface-default   12.6 / 11.8
- *   text-quiet     / surface-default   7.21 / 6.84
- *   text-link      / surface-default   4.54 / 4.61
- *   brand-border   / surface-default   3.21 (borders only, not text)
- */
+/* Contrast of the brand pairs above is computed, not quoted, by
+ * ui/styles/theme-contrast.test.ts (4.5:1 for text, 3:1 for UI), light and dark.
+ * Do not copy ratios into this comment: they go stale (the old 4.52 did). */

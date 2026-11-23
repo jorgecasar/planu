@@ -51,6 +51,9 @@ const FONTS_DEST = resolve(DIST, "fonts");
  */
 const HTML_BUDGET_BYTES = 24 * 1024;
 
+/** Open Graph wants language_TERRITORY; one entry per served language. */
+const OG_LOCALES = { en: "en_US", es: "es_ES" };
+
 /**
  * Quita los marcadores de hidratación que emite `@lit-labs/ssr`.
  *
@@ -322,7 +325,8 @@ async function buildLanding() {
 			.replace(/<html lang="[^"]*"/, `<html lang="${locale}"`);
 
 		for (const [placeholder, value] of extraReplacements) {
-			html = html.replace(placeholder, value);
+			// replaceAll: the title and description also feed the Twitter tags.
+			html = html.replaceAll(placeholder, value);
 		}
 
 		// Cada idioma se escribe donde el `hreflang` del propio HTML promete que
@@ -352,10 +356,23 @@ async function buildLanding() {
 			// other, in line with the hreflang pair.
 			const pagePath = `/${relative(DIST, target)}`.replace(/index\.html$/, "");
 			const canonical = `<link rel="canonical" href="${SITE_ORIGIN}${pagePath}" />`;
+			// og:locale of this language plus an alternate for each of the others.
+			const ogLocales = [
+				locale,
+				...allLocales.filter((other) => other !== locale),
+			]
+				.map((code, index) => {
+					const property = index === 0 ? "og:locale" : "og:locale:alternate";
+					return `<meta property="${property}" content="${OG_LOCALES[code]}" />`;
+				})
+				.join("\n\t\t\t\t\t");
 			mkdirSync(dirname(target), { recursive: true });
 			writeFileSync(
 				target,
-				html.replace("<!--CANONICAL_PLACEHOLDER-->", canonical),
+				html
+					.replace("<!--CANONICAL_PLACEHOLDER-->", canonical)
+					.replace("<!--OG_URL_PLACEHOLDER-->", `${SITE_ORIGIN}${pagePath}`)
+					.replace("<!--OG_LOCALE_PLACEHOLDER-->", ogLocales),
 				"utf-8",
 			);
 			written.push(target);

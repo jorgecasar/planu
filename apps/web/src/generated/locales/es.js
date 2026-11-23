@@ -66,6 +66,7 @@ export const templates = {
 	s25bda34028289ced: `Etiquetas sugeridas`,
 	s267daa66fd8f77aa: `Demasiados intentos. Prueba dentro de unos minutos.`,
 	s27865a85802e2413: `Planifica tus eventos. Compártelos solo con quien tú elijas.`,
+	s2a89f1ca8b007e97: `planu, el planificador de eventos privado`,
 	s2afc9a717c161490: `Invitar`,
 	s2c49904474150064: `Etiquetas puestas`,
 	s2c56d3d1a0b36388: str`Te he invitado a «${0}» como ${1}.`,
