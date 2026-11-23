@@ -33,6 +33,7 @@ import {
 } from "../auth/deletion-guard.js";
 import { webAwesomeStyles } from "../styles/web-awesome.js";
 import "./change-email-form.js";
+import "./display-name-form.js";
 import { ReauthStep } from "./reauth-step.js";
 
 /** Client-side wait between verification emails (spec 189, Q2b). */
@@ -149,6 +150,13 @@ export class PlanuProfileView extends LitElement {
 					<dt>${msg("Email")}</dt>
 					<dd>${user.email ?? msg("Not set")}</dd>
 				</dl>
+
+				<planu-display-name-form
+					.user=${user}
+					.session=${this.session}
+					.sharing=${this.sharing}
+					@display-name-updated=${this.#onNameUpdated}
+				></planu-display-name-form>
 
 				<div
 					slot="footer"
@@ -390,6 +398,12 @@ export class PlanuProfileView extends LitElement {
 		} finally {
 			this.checking = false;
 		}
+	}
+
+	/** `@consume` doesn't see a rename: Auth emits no state change for it. */
+	#onNameUpdated(event: CustomEvent<SessionUser>): void {
+		this.user = event.detail;
+		this.requestUpdate();
 	}
 
 	async #onResend(): Promise<void> {
