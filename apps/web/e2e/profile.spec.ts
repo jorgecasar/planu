@@ -46,7 +46,7 @@ test("el perfil enlaza a las páginas legales prerrenderizadas (T30)", async ({
 	await signUp(page);
 	await page.goto("/app/profile");
 
-	const privacyLink = page.getByRole("link", { name: "Privacy" });
+	const privacyLink = page.getByRole("link", { name: "Privacy", exact: true });
 	const termsLink = page.getByRole("link", { name: "Terms" });
 	await expect(privacyLink).toHaveAttribute("href", "/privacy.html");
 	await expect(termsLink).toHaveAttribute("href", "/terms.html");

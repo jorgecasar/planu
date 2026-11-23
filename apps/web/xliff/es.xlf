@@ -1286,9 +1286,13 @@
   <source>Read the privacy policy</source>
   <target>Lee la política de privacidad</target>
 </trans-unit>
-<trans-unit id="s0fceb1d5da7cf2f5">
-  <source>Refuse</source>
-  <target>Rechazar</target>
+<trans-unit id="sd0358ea6169c7de0">
+  <source>Do not allow</source>
+  <target>No permitir</target>
+</trans-unit>
+<trans-unit id="s2ee366cbb0141712">
+  <source>Allow</source>
+  <target>Permitir</target>
 </trans-unit>
 <trans-unit id="s457d59d649765619">
   <source>Skip to main content</source>

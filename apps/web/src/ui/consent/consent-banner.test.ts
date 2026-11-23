@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { type ConsentStore, createConsentStore } from "../../domain/consent.js";
 import type { PlanuConsentBanner } from "./consent-banner.js";
 import "./consent-banner.js";
@@ -58,7 +58,7 @@ test("aceptar guarda «granted» y el banner desaparece", async () => {
 	const consent = consentWith();
 	const el = await mount(consent);
 
-	buttonNamed(el, "Accept").click();
+	buttonNamed(el, "Allow").click();
 	await el.updateComplete;
 
 	expect(consent.get()).toBe("granted");
@@ -69,9 +69,67 @@ test("rechazar guarda «denied» y el banner desaparece", async () => {
 	const consent = consentWith();
 	const el = await mount(consent);
 
-	buttonNamed(el, "Refuse").click();
+	buttonNamed(el, "Do not allow").click();
 	await el.updateComplete;
 
 	expect(consent.get()).toBe("denied");
 	expect(el.shadowRoot?.querySelector("section")).toBeNull();
+});
+
+test("aceptar y rechazar pesan lo mismo: mismo aspecto, variante y tamaño", async () => {
+	const el = await mount(consentWith());
+
+	const accept = buttonNamed(el, "Allow");
+	const refuse = buttonNamed(el, "Do not allow");
+	for (const attribute of ["variant", "appearance", "size"]) {
+		expect(refuse.getAttribute(attribute)).toBe(accept.getAttribute(attribute));
+	}
+	expect(el.shadowRoot?.querySelectorAll("wa-button")).toHaveLength(2);
+});
+
+test("no hay nada marcado de antemano: ni casillas ni opciones", async () => {
+	const el = await mount(consentWith());
+
+	expect(
+		el.shadowRoot?.querySelector(
+			"input, wa-checkbox, wa-radio, wa-switch, [checked]",
+		),
+	).toBeNull();
+});
+
+test("con una decisión ya tomada no se muestra", async () => {
+	for (const decision of ["granted", "denied"] as const) {
+		const el = await mount(consentWith(decision));
+
+		expect(el.shadowRoot?.querySelector("section")).toBeNull();
+	}
+});
+
+test("vuelve a mostrarse si la decisión se borra, para poder cambiarla", async () => {
+	const consent = consentWith("granted");
+	const el = await mount(consent);
+	expect(el.shadowRoot?.querySelector("section")).toBeNull();
+
+	consent.clear();
+	await el.updateComplete;
+
+	expect(el.shadowRoot?.querySelector("section")).not.toBeNull();
+});
+
+test("al desmontarse deja de escuchar el almacén", async () => {
+	const unsubscribe = vi.fn();
+	const consent = consentWith();
+	vi.spyOn(consent, "subscribe").mockReturnValue(unsubscribe);
+	const el = await mount(consent);
+
+	el.remove();
+
+	expect(unsubscribe).toHaveBeenCalledTimes(1);
+});
+
+test("enlaza a la política de privacidad", async () => {
+	const el = await mount(consentWith());
+
+	const link = el.shadowRoot?.querySelector("a");
+	expect(link?.getAttribute("href")).toBe("/privacy.html");
 });
