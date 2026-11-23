@@ -51,6 +51,7 @@ export class PlanuLoginView extends LitElement {
 		css`
 		:host {
 			display: grid;
+			grid-template-columns: minmax(0, 1fr);
 			place-items: center;
 			min-block-size: 100dvh;
 			padding: var(--wa-space-l);
