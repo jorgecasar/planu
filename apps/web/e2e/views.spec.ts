@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { signUpVerified } from "./verified-account.js";
 
@@ -298,7 +298,7 @@ test("las tres vistas no tienen violaciones de accesibilidad", async ({
 		).toBeVisible();
 		await settle(page);
 
-		const results = await new AxeBuilder({ page }).analyze();
+		const results = await axeBuilder(page).analyze();
 		expect(results.violations, `vista ${view}`).toEqual([]);
 		// Sin esto, una vista que no llegara a pintarse daría cero violaciones
 		// sobre cero elementos y el test no distinguiría eso de estar limpia.

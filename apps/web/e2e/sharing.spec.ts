@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Browser, Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
+import { axeBuilder } from "./tests/axe.js";
 import { cardAction, openCardMenu } from "./tests/card-actions.js";
 import { closeFilters, openFilters } from "./tests/filters.js";
 import { createVerifiedAccount, newEmail, signIn } from "./verified-account.js";
@@ -197,7 +197,7 @@ test("a viewer guest sees the event but cannot touch it", async ({
 	await guestPage.keyboard.press("Escape");
 	await expect(guestPage.getByRole("menu")).toBeHidden();
 
-	const results = await new AxeBuilder({ page: guestPage }).analyze();
+	const results = await axeBuilder(guestPage).analyze();
 	expect(results.violations).toEqual([]);
 
 	await guestPage.context().close();
@@ -367,7 +367,7 @@ test("the share dialog has no accessibility violations", async ({ page }) => {
 	await cardAction(page, "Share");
 	await expect(page.getByLabel("Invite by email")).toBeVisible();
 
-	const results = await new AxeBuilder({ page }).analyze();
+	const results = await axeBuilder(page).analyze();
 	expect(results.violations).toEqual([]);
 });
 
@@ -418,7 +418,7 @@ test("the inbox filter separates your own from the shared ones", async ({
 		guestPage.getByRole("heading", { name: ownTitle, exact: true }),
 	).toHaveCount(0);
 
-	const results = await new AxeBuilder({ page: guestPage }).analyze();
+	const results = await axeBuilder(guestPage).analyze();
 	expect(results.violations).toEqual([]);
 
 	await guestPage.context().close();
@@ -461,7 +461,7 @@ test("an invitation changes nothing until it is accepted or declined", async ({
 		page.getByRole("heading", { name: title_, exact: true }),
 	).toBeVisible();
 
-	const results = await new AxeBuilder({ page: guestPage }).analyze();
+	const results = await axeBuilder(guestPage).analyze();
 	expect(results.violations).toEqual([]);
 
 	await guestPage.context().close();
@@ -538,7 +538,7 @@ test("the role of a pending invitation can still be changed", async ({
 
 /** Axe on a page, failing with the violations listed rather than a count. */
 async function expectNoViolations(page: Page): Promise<void> {
-	expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+	expect((await axeBuilder(page).analyze()).violations).toEqual([]);
 }
 
 test("removing a guest and inviting them again gives the same role back once they accept (GH-321)", async ({
